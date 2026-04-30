@@ -52,8 +52,9 @@
   transition: border-color 0.15s, transform 0.15s;
 }
 .session-card:hover {
-  border-color: var(--accent);
+  border-color: var(--gold);
   transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(30, 60, 90, 0.08);
 }
 .session-card h3 {
   margin: 0 0 0.4rem;
@@ -118,7 +119,7 @@
 }
 .progress-fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--gold);
   transition: width 0.25s;
 }
 .progress-text { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
@@ -159,8 +160,8 @@
 .answers-section h3 {
   margin: 0 0 0.75rem;
   padding-bottom: 0.4rem;
-  border-bottom: 2px solid var(--accent);
-  color: var(--accent);
+  border-bottom: 2px solid var(--gold);
+  color: var(--midnight);
   font-size: 1rem;
 }
 

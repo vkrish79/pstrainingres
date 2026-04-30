@@ -18,8 +18,8 @@
 .editor-section-title {
   margin: 0 0 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--accent);
-  color: var(--accent);
+  border-bottom: 2px solid var(--gold);
+  color: var(--midnight);
   font-size: 1.1rem;
 }
 
@@ -52,7 +52,7 @@
   white-space: nowrap;
 }
 .tag-prose { background: #6b7380; }
-.tag-field { background: var(--accent); }
+.tag-field { background: var(--gold); }
 .tag-table { background: #8a5fb8; }
 
 .block-preview {
@@ -128,9 +128,9 @@ button.danger:hover { background: #a83838; }
 }
 .form-input.large { font-size: 1.05rem; padding: 0.6rem 0.85rem; }
 .form-input:focus, .form-textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--gold);
   outline-offset: -1px;
-  border-color: var(--accent);
+  border-color: var(--gold);
 }
 .form-textarea { resize: vertical; min-height: 5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
 

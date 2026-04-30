@@ -22,7 +22,14 @@ export default function LoginPage() {
   return (
     <div className="auth-shell">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h1>pstrainingres</h1>
+        <div className="auth-brand">
+          <div className="auth-brand-mark">PS</div>
+          <div>
+            <div className="auth-brand-title">pstrainingres</div>
+            <div className="auth-brand-sub">Training resources</div>
+          </div>
+        </div>
+        <h1>Sign in</h1>
         <label>Email
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
         </label>

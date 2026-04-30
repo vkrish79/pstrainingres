@@ -12,8 +12,8 @@
 .wb-section h2 {
   margin: 0 0 1rem;
   padding-bottom: 0.6rem;
-  border-bottom: 2px solid var(--accent);
-  color: var(--accent);
+  border-bottom: 2px solid var(--gold);
+  color: var(--midnight);
   font-size: 1.25rem;
 }
 
@@ -45,9 +45,9 @@
   font-family: inherit;
 }
 .wb-input:focus, .wb-textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--gold);
   outline-offset: -1px;
-  border-color: var(--accent);
+  border-color: var(--gold);
 }
 .wb-textarea { resize: vertical; min-height: 4rem; }
 
@@ -83,9 +83,9 @@
   background: #fff;
 }
 .wb-cell-input input:focus, .wb-cell-input textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--gold);
   outline-offset: -1px;
-  border-color: var(--accent);
+  border-color: var(--gold);
 }
 
 .wb-save-indicator {
@@ -95,7 +95,7 @@
   border-radius: 999px;
   background: #eef2f8;
 }
-.wb-save-indicator.saving { color: var(--accent); }
+.wb-save-indicator.saving { color: var(--gold-dark); }
 .wb-save-indicator.saved { color: #2a7a3d; background: #e8f5ec; }
 .wb-save-indicator.error { color: var(--danger); background: #fbecec; }
 
@@ -105,7 +105,7 @@
   position: absolute;
   top: -8px;
   right: 0;
-  background: var(--accent);
+  background: var(--gold);
   color: #fff;
   font-size: 0.7rem;
   font-weight: 700;
