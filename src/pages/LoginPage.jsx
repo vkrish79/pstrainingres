@@ -1,0 +1,37 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext.jsx';
+
+export default function LoginPage() {
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(''); setBusy(true);
+    const { error } = await signIn(email, password);
+    setBusy(false);
+    if (error) setError(error.message);
+    else navigate('/trainer'); // ProtectedRoute will redirect participants/forced-change as needed
+  }
+
+  return (
+    <div className="auth-shell">
+      <form className="auth-card" onSubmit={handleSubmit}>
+        <h1>pstrainingres</h1>
+        <label>Email
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+        </label>
+        <label>Password
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+        </label>
+        {error && <div className="auth-error">{error}</div>}
+        <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+      </form>
+    </div>
+  );
+}
