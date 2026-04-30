@@ -46,9 +46,11 @@ to permit our Supabase egress IPs as a relay source.
    | Password | the service account's app password |
    | Minimum interval | `60s` (default) |
 
-4. Add the redirect URL allow-list under **Authentication → URL Configuration**:
-   - `https://<prod-domain>/reset-password`
-   - `http://localhost:5174/reset-password` (for dev)
+4. Under **Authentication → URL Configuration**:
+   - **Site URL:** `https://pstrainingres.vercel.app`
+   - **Redirect URLs (allow-list):**
+     - `https://pstrainingres.vercel.app/reset-password`
+     - `http://localhost:5174/reset-password` (for local dev)
 5. Send a test reset; confirm the email lands in inbox (not spam) and shows
    the EY From address.
 

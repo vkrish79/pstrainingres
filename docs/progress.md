@@ -9,9 +9,11 @@ and any deferred work.
 > 1. Apply both migrations in Supabase Studio → SQL Editor:
 >    - `supabase/add_answer_notes.sql`
 >    - `supabase/add_session_city_code.sql`
-> 2. Add to **Authentication → URL Configuration → Redirect URLs**:
->    - `http://localhost:5174/reset-password`
->    - `https://<your-prod-domain>/reset-password`
+> 2. In **Authentication → URL Configuration**:
+>    - **Site URL:** `https://pstrainingres.vercel.app`
+>    - **Redirect URLs (allow-list):**
+>      - `https://pstrainingres.vercel.app/reset-password`
+>      - `http://localhost:5174/reset-password` (for local dev)
 > 3. Decide on email delivery before any cohort relies on password reset —
 >    see [`docs/auth-email-setup.md`](./auth-email-setup.md).
 
@@ -272,10 +274,10 @@ exposes `saveNote` (upsert) and `deleteNote`. Subscribes to realtime updates.
 
 In Supabase Studio → **Authentication → URL Configuration**:
 
-- **Site URL:** dev URL (e.g. `http://localhost:5174`) and prod URL.
-- **Redirect URLs (allow-list):** include both
-  - `http://localhost:5174/reset-password`
-  - `https://<prod-domain>/reset-password`
+- **Site URL:** `https://pstrainingres.vercel.app`
+- **Redirect URLs (allow-list):**
+  - `https://pstrainingres.vercel.app/reset-password`
+  - `http://localhost:5174/reset-password` (for local dev)
 
 Without this, the email link will refuse to land on `/reset-password`.
 
