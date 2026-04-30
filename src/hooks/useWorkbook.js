@@ -25,7 +25,7 @@ export function useWorkbook(userId) {
       try {
         const { data: spRows, error: e1 } = await supabase
           .from('session_participants')
-          .select('session_id, sessions ( id, name, workbook_id )')
+          .select('session_id, sessions ( id, name, workbook_id, starts_at, ends_at, city_code )')
           .eq('participant_id', userId)
           .limit(1);
         if (e1) throw e1;

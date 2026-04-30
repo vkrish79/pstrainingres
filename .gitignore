@@ -6,5 +6,6 @@ dist
 .vite
 .DS_Store
 *.log
+.claude
 workbook-source/*
 !workbook-source/.gitkeep

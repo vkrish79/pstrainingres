@@ -5,6 +5,14 @@ import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
+function formatDateRange(start, end) {
+  const fmt = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (start && end) return `${fmt(start)} → ${fmt(end)}`;
+  if (start) return `From ${fmt(start)}`;
+  if (end) return `Until ${fmt(end)}`;
+  return '';
+}
+
 export default function TrainerHomePage() {
   const { profile, session: authSession } = useAuth();
   const { loading: sl, error: se, sessions } = useTrainerSessions(authSession?.user.id);
@@ -26,6 +34,8 @@ export default function TrainerHomePage() {
             <p>Manage workbooks, run sessions, and watch participants progress live.</p>
           </div>
           <div className="page-hero-actions">
+            <Link to="/trainer/workbooks/new" className="ghost-link">+ New workbook</Link>
+            <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>
             <Link to="/trainer/sessions/new">+ New session</Link>
           </div>
         </section>
@@ -83,8 +93,14 @@ export default function TrainerHomePage() {
           <div className="session-grid">
             {sessions.map(s => (
               <Link key={s.id} to={`/trainer/sessions/${s.id}`} className="session-card">
-                <h3>{s.name}</h3>
+                <div className="session-card-head">
+                  <h3>{s.name}</h3>
+                  {s.city_code && <span className="city-tag">{s.city_code}</span>}
+                </div>
                 <p className="session-card-workbook">{s.workbooks?.title}</p>
+                {(s.starts_at || s.ends_at) && (
+                  <p className="session-card-dates">{formatDateRange(s.starts_at, s.ends_at)}</p>
+                )}
                 <p className="session-card-meta">
                   {(s.session_participants || []).length} participant{(s.session_participants || []).length === 1 ? '' : 's'}
                 </p>

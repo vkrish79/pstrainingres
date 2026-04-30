@@ -12,6 +12,9 @@ export default function NewSessionPage() {
   const [workbooks, setWorkbooks] = useState([]);
   const [name, setName] = useState('');
   const [workbookId, setWorkbookId] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
+  const [cityCode, setCityCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,14 +26,32 @@ export default function NewSessionPage() {
     })();
   }, []);
 
+  function validate() {
+    if (cityCode && !/^[A-Z]{3}$/.test(cityCode)) {
+      return 'City code must be three uppercase letters (e.g. AUH).';
+    }
+    if (startsAt && endsAt && endsAt < startsAt) {
+      return 'End date cannot be before start date.';
+    }
+    return null;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
-    setError(''); setBusy(true);
+    setError('');
+    const v = validate();
+    if (v) { setError(v); return; }
+    setBusy(true);
+    const payload = {
+      name: name.trim(),
+      workbook_id: workbookId,
+      trainer_id: authSession.user.id,
+      starts_at: startsAt || null,
+      ends_at: endsAt || null,
+      city_code: cityCode || null,
+    };
     const { data, error: insErr } = await supabase
-      .from('sessions')
-      .insert({ name, workbook_id: workbookId, trainer_id: authSession.user.id })
-      .select()
-      .single();
+      .from('sessions').insert(payload).select().single();
     setBusy(false);
     if (insErr) { setError(insErr.message); return; }
     navigate(`/trainer/sessions/${data.id}`);
@@ -44,7 +65,7 @@ export default function NewSessionPage() {
           <div className="page-hero-text">
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>New session</h1>
-            <p>Pick a workbook and name your cohort. You'll add participants on the next screen.</p>
+            <p>Pick a workbook, name your cohort, and set the dates and location. You'll add participants on the next screen.</p>
           </div>
         </section>
 
@@ -58,6 +79,26 @@ export default function NewSessionPage() {
 
             <label className="form-label">Session name</label>
             <input className="form-input" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. ARDW — Cohort 2026-05" />
+
+            <div className="form-grid">
+              <div>
+                <label className="form-label">From date</label>
+                <input className="form-input" type="date" value={startsAt} onChange={e => setStartsAt(e.target.value)} />
+              </div>
+              <div>
+                <label className="form-label">To date</label>
+                <input className="form-input" type="date" value={endsAt} onChange={e => setEndsAt(e.target.value)} />
+              </div>
+            </div>
+
+            <label className="form-label">City code (3 letters, optional)</label>
+            <input
+              className="form-input city-code-input"
+              value={cityCode}
+              onChange={e => setCityCode(e.target.value.toUpperCase().slice(0, 3))}
+              maxLength={3}
+              placeholder="AUH"
+            />
 
             {error && <p className="error">{error}</p>}
             <div className="form-actions">

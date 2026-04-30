@@ -29,3 +29,41 @@ export function isAnswered(block, value) {
 export function countFillable(blocks) {
   return blocks.filter(isFillableBlock).length;
 }
+
+export function labelOf(block) {
+  if (!block) return '';
+  if (block.block_type === 'field') return block.config?.label || '(unlabeled field)';
+  if (block.block_type === 'table') {
+    return block.config?.caption || `Table (${(block.config?.rows || []).length} rows)`;
+  }
+  if (block.block_type === 'prose') {
+    const text = (block.config?.html || '').replace(/<[^>]+>/g, '').trim();
+    return text.slice(0, 60) || '(empty prose)';
+  }
+  return block.block_type;
+}
+
+// For a table block, enumerate every input cell with a best-effort label
+// (the nearest preceding static cell in the row, falling back to the column
+// header, then a generic "Row R Col C"). Used by aggregate views & CSV export.
+export function inputCellsOf(block) {
+  if (block?.block_type !== 'table') return [];
+  const rows = block.config?.rows || [];
+  const headers = block.config?.headers || [];
+  const out = [];
+  rows.forEach((row, ri) => {
+    let lastStatic = null;
+    row.forEach((cell, ci) => {
+      if (!cell) return;
+      if (cell.kind === 'static') {
+        const t = (cell.text || '').trim();
+        if (t) lastStatic = t;
+      } else if (cell.kind === 'input') {
+        const header = (headers[ci] || '').trim();
+        const label = lastStatic || header || `Row ${ri + 1} Col ${ci + 1}`;
+        out.push({ id: cell.id, input_type: cell.input_type, label });
+      }
+    });
+  });
+  return out;
+}

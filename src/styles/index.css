@@ -323,3 +323,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   border-radius: var(--radius-md);
   border-left: 3px solid var(--danger);
 }
+.auth-meta {
+  margin-top: 0.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.auth-link {
+  color: var(--gold);
+  text-decoration: none;
+  font-weight: 500;
+}
+.auth-link:hover { text-decoration: underline; }

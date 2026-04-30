@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function LoginPage() {
@@ -38,6 +38,9 @@ export default function LoginPage() {
         </label>
         {error && <div className="auth-error">{error}</div>}
         <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <div className="auth-meta">
+          <Link to="/forgot-password" className="auth-link">Forgot password?</Link>
+        </div>
       </form>
     </div>
   );

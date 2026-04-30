@@ -41,9 +41,14 @@ export function AuthProvider({ children }) {
     await loadProfile(session.user.id);
     return {};
   }
+  async function sendPasswordReset(email) {
+    return supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+  }
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut, changePassword }}>
+    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut, changePassword, sendPasswordReset }}>
       {children}
     </AuthContext.Provider>
   );

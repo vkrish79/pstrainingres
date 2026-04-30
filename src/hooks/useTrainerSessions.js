@@ -14,7 +14,7 @@ export function useTrainerSessions(trainerId) {
         const { data, error } = await supabase
           .from('sessions')
           .select(`
-            id, name, created_at,
+            id, name, created_at, starts_at, ends_at, city_code,
             workbooks ( id, title ),
             session_participants ( participant_id )
           `)

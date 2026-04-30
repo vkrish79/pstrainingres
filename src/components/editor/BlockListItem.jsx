@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import BlockForm from './BlockForm.jsx';
 
-export default function BlockListItem({ block, onSave, onDelete, onMoveUp, onMoveDown, isFirst, isLast }) {
+export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, isFirst, isLast }) {
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -19,6 +19,9 @@ export default function BlockListItem({ block, onSave, onDelete, onMoveUp, onMov
           <button className="icon-btn" onClick={onMoveUp} disabled={isFirst} aria-label="Move up">↑</button>
           <button className="icon-btn" onClick={onMoveDown} disabled={isLast} aria-label="Move down">↓</button>
           <button className="ghost" onClick={() => setEditing(e => !e)}>{editing ? 'Cancel' : 'Edit'}</button>
+          {onDuplicate && (
+            <button className="ghost" onClick={() => onDuplicate(block.id)} title="Duplicate this block">Duplicate</button>
+          )}
           {confirmDel ? (
             <>
               <span className="confirm-text">Delete?</span>

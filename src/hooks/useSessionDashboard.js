@@ -22,7 +22,7 @@ export function useSessionDashboard(sessionId) {
         const { data: sess, error: e1 } = await supabase
           .from('sessions')
           .select(`
-            id, name, workbook_id, created_at,
+            id, name, workbook_id, created_at, starts_at, ends_at, city_code,
             workbooks ( id, title, description ),
             session_participants ( participant_id, profiles ( id, full_name ) )
           `)
@@ -59,7 +59,10 @@ export function useSessionDashboard(sessionId) {
         });
 
         if (cancelled) return;
-        setSession({ id: sess.id, name: sess.name });
+        setSession({
+          id: sess.id, name: sess.name,
+          starts_at: sess.starts_at, ends_at: sess.ends_at, city_code: sess.city_code,
+        });
         setWorkbook(wb);
         setSections(secs || []);
         setBlocks(blks || []);
