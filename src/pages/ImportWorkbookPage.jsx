@@ -46,6 +46,7 @@ export default function ImportWorkbookPage() {
         .insert({
           title: titleDraft.trim() || parsed.title,
           description: parsed.description || null,
+          is_template: true,
           created_by: authSession.user.id,
         })
         .select()

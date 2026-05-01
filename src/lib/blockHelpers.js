@@ -34,7 +34,20 @@ export function labelOf(block) {
   if (!block) return '';
   if (block.block_type === 'field') return block.config?.label || '(unlabeled field)';
   if (block.block_type === 'table') {
-    return block.config?.caption || `Table (${(block.config?.rows || []).length} rows)`;
+    const cfg = block.config || {};
+    if (cfg.caption?.trim()) return cfg.caption.trim();
+    for (const row of cfg.rows || []) {
+      for (const cell of row || []) {
+        if (cell?.kind === 'static' && cell.text?.trim()) {
+          const t = cell.text.trim().replace(/\s+/g, ' ');
+          return t.length > 60 ? t.slice(0, 60) + '…' : t;
+        }
+      }
+    }
+    for (const h of cfg.headers || []) {
+      if (h?.trim()) return h.trim();
+    }
+    return `Table (${(cfg.rows || []).length} rows)`;
   }
   if (block.block_type === 'prose') {
     const text = (block.config?.html || '').replace(/<[^>]+>/g, '').trim();

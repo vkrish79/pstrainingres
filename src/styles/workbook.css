@@ -116,3 +116,21 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.15);
   z-index: 1;
 }
+
+/* Trainer practice mode banner */
+.practice-banner {
+  margin: 0.5rem 0 1rem;
+  padding: 0.7rem 1rem;
+  background: #fff8e1;
+  border: 1px solid #f0d97a;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #5c4500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.practice-banner strong { color: #3d2e00; }
+.practice-banner-actions { display: flex; gap: 0.4rem; align-items: center; }

@@ -19,6 +19,13 @@
 //       → becomes a short_text input cell
 //     - Word TOC paragraphs (links to #_Toc...) are skipped
 //     - Bold-cell rows are treated as table headers
+//     - Single-answer MCQ table (spanning question row over 2-cell option rows
+//       where each left cell has one native Word checkbox) → field, choice
+//     - Matrix table (question row + bold header row + option rows where the
+//       last K cells each have one checkbox) → prose question + one
+//       check_group field per option row, options = trailing K column headers
+//     - Pre-section "Document information" / "Revision information" tables
+//       are dropped (Word boilerplate)
 
 export async function parseDocxToWorkbook(file) {
   const { default: mammoth } = await import('mammoth/mammoth.browser.js');
@@ -35,6 +42,7 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
   let description = null;
   const sections = [];
   let current = null;
+  const tocLookup = buildTocLookup(root);
 
   function ensureSection() {
     if (!current) {
@@ -49,10 +57,13 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
     const tag = node.tagName.toLowerCase();
 
     if (tag === 'h1' || tag === 'h2') {
-      const headText = node.textContent.trim();
+      // Word auto-numbered headings (e.g. "Exercise 1") often arrive as an
+      // empty heading element whose only content is anchor `<a id="_Toc...">`
+      // tags. Recover the visible text from the matching TOC entry.
+      const headText = resolveHeadingText(node, tocLookup);
       // If an h1 looks like a section header (e.g. "Exercise 3"), treat it as one.
       if (tag === 'h1' && !title && !SECTION_HEADER_RE.test(headText)) {
-        title = headText;
+        if (headText) title = headText;
         continue;
       }
       if (headText) {
@@ -103,7 +114,15 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
     }
 
     if (tag === 'table') {
-      ensureSection().blocks.push(tableBlockFromHtml(node));
+      // Pre-section "Document information" / "Revision information" tables —
+      // Word boilerplate. Skip them so they don't become an Untitled section.
+      if (!current && isMetadataTable(node)) continue;
+      const sec = ensureSection();
+      const choice = tryChoiceFieldFromTable(node);
+      if (choice) { sec.blocks.push(choice); continue; }
+      const matrix = tryMatrixFieldsFromTable(node);
+      if (matrix) { matrix.forEach(b => sec.blocks.push(b)); continue; }
+      sec.blocks.push(tableBlockFromHtml(node));
       continue;
     }
   }
@@ -138,6 +157,137 @@ function parseFieldMarker(text) {
   };
 }
 
+// Detects the "single-answer MCQ" table shape produced by Word docs that use
+// native checkbox content controls in the first column. Shape:
+//
+//   row 0: one cell (typically colspan=N) containing the question text,
+//          often wrapped in <ol><li>...</li></ol>
+//   rows 1..n: exactly 2 cells. Left cell has exactly one
+//              <input type="checkbox" /> + a short letter label (A, B, C...).
+//              Right cell has the option text and no checkbox.
+//
+// Returns a { block_type: 'field', config: { input_type: 'choice', ... } }
+// block, or null if the table doesn't match the signature.
+function tryChoiceFieldFromTable(tableEl) {
+  const allRows = Array.from(tableEl.querySelectorAll('tr'));
+  if (allRows.length < 2) return null;
+
+  const firstRowCells = Array.from(allRows[0].children);
+  if (firstRowCells.length !== 1) return null;
+
+  const optionRows = allRows.slice(1);
+  if (optionRows.length < 2) return null;
+  if (!optionRows.every(tr => tr.children.length === 2)) return null;
+
+  for (const tr of optionRows) {
+    const [left, right] = Array.from(tr.children);
+    const leftBoxes = left.querySelectorAll('input[type="checkbox"]');
+    const rightBoxes = right.querySelectorAll('input[type="checkbox"]');
+    if (leftBoxes.length !== 1) return null;
+    if (rightBoxes.length !== 0) return null;
+  }
+
+  const label = stripLeadingListNumber(firstRowCells[0].textContent.trim());
+  if (!label) return null;
+
+  const options = optionRows
+    .map(tr => tr.children[1].textContent.trim())
+    .filter(Boolean);
+  if (options.length < 2) return null;
+
+  return {
+    block_type: 'field',
+    config: { label, input_type: 'choice', options },
+  };
+}
+
+function stripLeadingListNumber(text) {
+  return text.replace(/^\s*\d+[.)]\s+/, '').trim();
+}
+
+// Detects the "matrix / multi-column tick" table shape: a question header row,
+// then a header row of column labels, then option rows where the last K cells
+// each contain one checkbox. Emits one prose block (the question) plus one
+// `field` (input_type: check_group) block per option row, with options drawn
+// from the last K column headers. Returns an array of blocks, or null if the
+// table doesn't match.
+function tryMatrixFieldsFromTable(tableEl) {
+  const allRows = Array.from(tableEl.querySelectorAll('tr'));
+  if (allRows.length < 3) return null;
+
+  const r0Cells = Array.from(allRows[0].children);
+  if (r0Cells.length !== 1) return null;
+  const question = stripLeadingListNumber(r0Cells[0].textContent.trim());
+  if (!question) return null;
+
+  const r1Cells = Array.from(allRows[1].children);
+  if (r1Cells.length < 2) return null;
+  for (const c of r1Cells) {
+    if (c.querySelector('input[type="checkbox"]')) return null;
+    const t = c.textContent.trim();
+    if (!t) return null;
+    if (!(c.querySelector('strong, b') || isAllBold(c))) return null;
+  }
+
+  const optionRows = allRows.slice(2);
+  if (!optionRows.length) return null;
+
+  const counts = optionRows.map(tr => tr.querySelectorAll('input[type="checkbox"]').length);
+  const K = counts[0];
+  if (!K || counts.some(n => n !== K)) return null;
+  if (r1Cells.length < K) return null;
+
+  // Verify shape: trailing K cells in each option row each have exactly one
+  // checkbox; preceding label cells have none.
+  for (const tr of optionRows) {
+    const cells = Array.from(tr.children);
+    if (cells.length < K + 1) return null;
+    const checkCells = cells.slice(-K);
+    const labelCells = cells.slice(0, -K);
+    for (const lc of labelCells) {
+      if (lc.querySelectorAll('input[type="checkbox"]').length !== 0) return null;
+    }
+    for (const cc of checkCells) {
+      if (cc.querySelectorAll('input[type="checkbox"]').length !== 1) return null;
+    }
+  }
+
+  const options = r1Cells.slice(-K).map(c => c.textContent.trim());
+  if (options.some(o => !o)) return null;
+
+  const blocks = [prose(`<p><strong>${escapeHtml(question)}</strong></p>`)];
+  for (const tr of optionRows) {
+    const cells = Array.from(tr.children);
+    const labelCells = cells.slice(0, -K);
+    const label = labelCells
+      .map(c => c.textContent.trim())
+      .filter(t => t && !/^[A-Z][.)]?$/.test(t))
+      .join(' — ');
+    if (!label) continue;
+    blocks.push({
+      block_type: 'field',
+      config: { label, input_type: 'check_group', options },
+    });
+  }
+  if (blocks.length < 2) return null;
+  return blocks;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const METADATA_TABLE_RE = /\b(document|revision)\s+information\b/i;
+
+function isMetadataTable(tableEl) {
+  return METADATA_TABLE_RE.test(tableEl.textContent || '');
+}
+
+function parseSpan(attr) {
+  const n = parseInt(attr, 10);
+  return Number.isFinite(n) && n > 1 ? n : 1;
+}
+
 function tableBlockFromHtml(tableEl) {
   const rows = [];
   let headers = null;
@@ -167,11 +317,14 @@ function tableBlockFromHtml(tableEl) {
     const row = cells.map(td => {
       const text = td.textContent.trim();
       const inputType = detectInputType(text);
-      if (inputType) {
-        inputCounter += 1;
-        return { kind: 'input', id: `r${ri}c${inputCounter}`, input_type: inputType };
-      }
-      return { kind: 'static', text };
+      const cell = inputType
+        ? { kind: 'input', id: `r${ri}c${++inputCounter}`, input_type: inputType }
+        : { kind: 'static', text };
+      const colSpan = parseSpan(td.getAttribute('colspan'));
+      const rowSpan = parseSpan(td.getAttribute('rowspan'));
+      if (colSpan > 1) cell.colSpan = colSpan;
+      if (rowSpan > 1) cell.rowSpan = rowSpan;
+      return cell;
     });
     rows.push(row);
   });
@@ -206,6 +359,30 @@ function isTocParagraph(p) {
     if (href.startsWith('#_Toc')) return true;
   }
   return false;
+}
+
+// Word stores auto-numbered headings ("Exercise 1") with no literal text in
+// the heading element — the visible string only lives in the TOC entry. Build
+// a map of #_Toc anchor id → text so we can recover the heading text later.
+function buildTocLookup(root) {
+  const map = new Map();
+  for (const a of root.querySelectorAll('a[href^="#_Toc"]')) {
+    const id = (a.getAttribute('href') || '').slice(1);
+    // TOC entries look like "Exercise 1\t5" — drop the tab + page number.
+    const txt = (a.textContent || '').split('\t')[0].trim();
+    if (id && txt && !map.has(id)) map.set(id, txt);
+  }
+  return map;
+}
+
+function resolveHeadingText(headingEl, tocLookup) {
+  const direct = headingEl.textContent.trim();
+  if (direct) return direct;
+  for (const a of headingEl.querySelectorAll('a[id^="_Toc"]')) {
+    const id = a.getAttribute('id');
+    if (id && tocLookup.has(id)) return tocLookup.get(id);
+  }
+  return '';
 }
 
 const PLACEHOLDER_RE = /^Click or tap (here )?to enter (text|a date)\.?$/i;

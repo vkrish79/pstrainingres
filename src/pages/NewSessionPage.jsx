@@ -20,7 +20,11 @@ export default function NewSessionPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('workbooks').select('id, title').order('updated_at', { ascending: false });
+      const { data } = await supabase
+        .from('workbooks')
+        .select('id, title')
+        .eq('is_template', true)
+        .order('updated_at', { ascending: false });
       setWorkbooks(data || []);
       if (data?.length) setWorkbookId(data[0].id);
     })();
@@ -42,19 +46,21 @@ export default function NewSessionPage() {
     const v = validate();
     if (v) { setError(v); return; }
     setBusy(true);
-    const payload = {
-      name: name.trim(),
-      workbook_id: workbookId,
-      trainer_id: authSession.user.id,
-      starts_at: startsAt || null,
-      ends_at: endsAt || null,
-      city_code: cityCode || null,
-    };
-    const { data, error: insErr } = await supabase
-      .from('sessions').insert(payload).select().single();
+    // RPC clones the chosen template workbook + creates the session pointing
+    // at the clone, atomically. Returns the new session id.
+    const { data: newSessionId, error: rpcErr } = await supabase.rpc(
+      'create_session_with_workbook_clone',
+      {
+        p_template_id: workbookId,
+        p_name: name.trim(),
+        p_starts_at: startsAt || null,
+        p_ends_at: endsAt || null,
+        p_city_code: cityCode || null,
+      }
+    );
     setBusy(false);
-    if (insErr) { setError(insErr.message); return; }
-    navigate(`/trainer/sessions/${data.id}`);
+    if (rpcErr) { setError(rpcErr.message); return; }
+    navigate(`/trainer/sessions/${newSessionId}`);
   }
 
   return (

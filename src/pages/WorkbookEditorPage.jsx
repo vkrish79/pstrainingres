@@ -1,22 +1,96 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWorkbookEditor } from '../hooks/useWorkbookEditor.js';
 import BlockListItem from '../components/editor/BlockListItem.jsx';
+import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/editor.css';
+import '../styles/workbook.css';
 
 export default function WorkbookEditorPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const {
     loading, error, workbook, sections, blocks,
     updateWorkbookTitle, createBlock, updateBlock, deleteBlock, moveBlock,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
+    deleteWorkbook,
   } = useWorkbookEditor(id);
 
   const [titleDraft, setTitleDraft] = useState('');
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
   const [confirmDelSection, setConfirmDelSection] = useState(null);
+  const [confirmDelWorkbook, setConfirmDelWorkbook] = useState(false);
+  const [delErr, setDelErr] = useState('');
+  const [showPreview, setShowPreview] = useState(true);
+  const [activeBlockId, setActiveBlockId] = useState(null);
+  const [pulseBlockId, setPulseBlockId] = useState(null);
+  const [selectedBlockId, setSelectedBlockId] = useState(null);
+  const editorSectionRefs = useRef({});
+  const editorBlockRefs = useRef({});
+  const previewSectionRefs = useRef({});
+  const previewBlockRefs = useRef({});
+  const previewPaneRef = useRef(null);
+  // Suppress observer-driven sync briefly after a click-to-locate, so the
+  // smooth-scroll animation completes without being overridden.
+  const suppressSyncUntilRef = useRef(0);
+
+  function scrollPreviewTo(blockId, { smooth }) {
+    const target = previewBlockRefs.current[blockId];
+    const pane = previewPaneRef.current;
+    if (!target || !pane) return;
+    const offset =
+      target.getBoundingClientRect().top -
+      pane.getBoundingClientRect().top +
+      pane.scrollTop -
+      8;
+    pane.scrollTo({ top: Math.max(0, offset), behavior: smooth ? 'smooth' : 'auto' });
+  }
+
+  function locateBlockInPreview(blockId) {
+    suppressSyncUntilRef.current = Date.now() + 800;
+    setActiveBlockId(blockId);
+    setSelectedBlockId(blockId);
+    scrollPreviewTo(blockId, { smooth: true });
+    setPulseBlockId(blockId);
+    setTimeout(() => setPulseBlockId(p => (p === blockId ? null : p)), 1200);
+  }
+
+  // Block-level scroll sync: the editor block whose top sits highest within
+  // the upper band of the viewport is the "active" block; the preview pane
+  // mirrors its position in real time.
+  useEffect(() => {
+    if (!showPreview) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (Date.now() < suppressSyncUntilRef.current) return;
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .map(e => ({ id: e.target.dataset.blockId, ratio: e.intersectionRatio, top: e.boundingClientRect.top }))
+          .sort((a, b) => a.top - b.top);          // topmost-in-band wins
+        if (visible.length && visible[0].id) {
+          setActiveBlockId(visible[0].id);
+        }
+      },
+      { rootMargin: '-80px 0px -65% 0px', threshold: [0, 0.25, 0.75, 1] }
+    );
+    Object.values(editorBlockRefs.current).forEach(el => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, [blocks, showPreview]);
+
+  // When natural-scroll changes the active block, mirror in the preview pane.
+  // 'auto' (instant) keeps tracking glued to scroll; deliberate clicks use
+  // smooth via locateBlockInPreview.
+  useEffect(() => {
+    if (!activeBlockId) return;
+    if (Date.now() < suppressSyncUntilRef.current) return;
+    scrollPreviewTo(activeBlockId, { smooth: false });
+  }, [activeBlockId]);
+
+  const activeSectionId = activeBlockId
+    ? blocks.find(b => b.id === activeBlockId)?.section_id || null
+    : null;
 
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
@@ -55,17 +129,43 @@ export default function WorkbookEditorPage() {
     setSectionTitleDraft('');
   }
 
+  async function handleDeleteWorkbook() {
+    setDelErr('');
+    const { error: e } = await deleteWorkbook();
+    if (e) { setDelErr(e.message); return; }
+    navigate('/trainer');
+  }
+
+  const isTemplate = workbook?.is_template === true;
+
   return (
     <>
       <TopBar />
-      <main className="page editor">
+      <main className={`page editor ${showPreview ? 'with-preview' : ''}`}>
         <section className="page-hero compact">
           <div className="page-hero-text">
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>Workbook editor</h1>
             <p>Edits broadcast live to enrolled participants. Their answers stay attached to stable block IDs, so renames and reorders don't lose data.</p>
           </div>
+          <div className="page-hero-actions">
+            <button className="ghost" onClick={() => setShowPreview(p => !p)}>
+              {showPreview ? '◧ Hide preview' : '◨ Show preview'}
+            </button>
+            {isTemplate && (
+              confirmDelWorkbook ? (
+                <>
+                  <span className="confirm-text">Delete workbook &amp; all sections/blocks?</span>
+                  <button className="danger" onClick={handleDeleteWorkbook}>Yes</button>
+                  <button className="ghost" onClick={() => { setConfirmDelWorkbook(false); setDelErr(''); }}>No</button>
+                </>
+              ) : (
+                <button className="ghost danger" onClick={() => setConfirmDelWorkbook(true)}>Delete workbook</button>
+              )
+            )}
+          </div>
         </section>
+        {delErr && <p className="error">{delErr}</p>}
 
         <section className="editor-card">
           <label className="form-label">Workbook title</label>
@@ -77,13 +177,20 @@ export default function WorkbookEditorPage() {
           />
         </section>
 
+        <div className={`editor-layout ${showPreview ? 'with-preview' : ''}`}>
+          <div className="editor-pane">
         {sections.map(sec => {
           const sectionBlocks = blocks
             .filter(b => b.section_id === sec.id)
             .sort((a, b) => a.order_index - b.order_index);
           const isEditingTitle = editingSectionId === sec.id;
           return (
-            <section key={sec.id} className="editor-section">
+            <section
+              key={sec.id}
+              className="editor-section"
+              data-section-id={sec.id}
+              ref={el => { editorSectionRefs.current[sec.id] = el; }}
+            >
               <div className="editor-section-head">
                 {isEditingTitle ? (
                   <input
@@ -117,17 +224,23 @@ export default function WorkbookEditorPage() {
               {sectionBlocks.length === 0 && <p className="muted">No blocks yet.</p>}
               <div className="block-list">
                 {sectionBlocks.map((b, i) => (
-                  <BlockListItem
+                  <div
                     key={b.id}
-                    block={b}
-                    isFirst={i === 0}
-                    isLast={i === sectionBlocks.length - 1}
-                    onSave={(blockId, patch) => updateBlock(blockId, patch)}
-                    onDelete={(blockId) => deleteBlock(blockId)}
-                    onDuplicate={(blockId) => duplicateBlock(blockId)}
-                    onMoveUp={() => moveBlock(b.id, 'up')}
-                    onMoveDown={() => moveBlock(b.id, 'down')}
-                  />
+                    data-block-id={b.id}
+                    ref={el => { editorBlockRefs.current[b.id] = el; }}
+                  >
+                    <BlockListItem
+                      block={b}
+                      isFirst={i === 0}
+                      isLast={i === sectionBlocks.length - 1}
+                      onSave={(blockId, patch) => updateBlock(blockId, patch)}
+                      onDelete={(blockId) => deleteBlock(blockId)}
+                      onDuplicate={(blockId) => duplicateBlock(blockId)}
+                      onMoveUp={() => moveBlock(b.id, 'up')}
+                      onMoveDown={() => moveBlock(b.id, 'down')}
+                      onLocate={locateBlockInPreview}
+                    />
+                  </div>
                 ))}
               </div>
               <div className="add-block-row">
@@ -141,6 +254,44 @@ export default function WorkbookEditorPage() {
 
         <div className="add-section-row">
           <button className="ghost" onClick={() => createSection('New section')}>+ Add section</button>
+        </div>
+          </div>
+
+          {showPreview && (
+            <aside className="preview-pane" ref={previewPaneRef}>
+              <div className="preview-pane-head">
+                Participant preview
+                <span className="preview-pane-hint">read-only</span>
+              </div>
+              <div className="preview-pane-body">
+                <h1 className="preview-workbook-title">{title || 'Untitled workbook'}</h1>
+                {sections.length === 0 && <p className="muted">No sections yet.</p>}
+                {sections.map(sec => {
+                  const secBlocks = blocks
+                    .filter(b => b.section_id === sec.id)
+                    .sort((a, b) => a.order_index - b.order_index);
+                  return (
+                    <section
+                      key={sec.id}
+                      className={`wb-section ${activeSectionId === sec.id ? 'active' : ''}`}
+                      ref={el => { previewSectionRefs.current[sec.id] = el; }}
+                    >
+                      <h2>{sec.title}</h2>
+                      {secBlocks.map(b => (
+                        <div
+                          key={b.id}
+                          className={`preview-block-wrap ${selectedBlockId === b.id ? 'selected' : ''} ${pulseBlockId === b.id ? 'pulse' : ''}`}
+                          ref={el => { previewBlockRefs.current[b.id] = el; }}
+                        >
+                          <Block block={b} value={undefined} onChange={() => {}} />
+                        </div>
+                      ))}
+                    </section>
+                  );
+                })}
+              </div>
+            </aside>
+          )}
         </div>
       </main>
     </>

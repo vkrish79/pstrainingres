@@ -19,7 +19,12 @@ export default function NewWorkbookPage() {
     setError(''); setBusy(true);
     const { data: wb, error: wbErr } = await supabase
       .from('workbooks')
-      .insert({ title: title.trim(), description: description.trim() || null, created_by: authSession.user.id })
+      .insert({
+        title: title.trim(),
+        description: description.trim() || null,
+        is_template: true,
+        created_by: authSession.user.id,
+      })
       .select()
       .single();
     if (wbErr) { setError(wbErr.message); setBusy(false); return; }

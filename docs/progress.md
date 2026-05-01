@@ -55,13 +55,21 @@ upload the `.docx`, and the app creates the workbook + sections + blocks.
 - An H1 whose text matches the section pattern (e.g. mammoth promotes one
   custom-styled heading) is treated as a section, not the workbook title.
 - If no h1 exists, a leading bold short paragraph becomes the workbook title.
+- **Single-answer MCQ table** (spanning question row over 2-cell option rows
+  where each left cell has one native Word checkbox) → `field`, `choice`.
+- **Matrix table** (question row + bold header row + option rows where the
+  last K cells each have one checkbox) → prose question + one `check_group`
+  field per option row, options drawn from the trailing K column headers.
+- **Body-cell `colspan` / `rowspan`** are preserved as optional `colSpan` /
+  `rowSpan` props on the cell and applied at render time.
+- Pre-section "Document information" / "Revision information" tables are
+  dropped (Word boilerplate).
 
 **Known limitation:**
 
-- **Colspan / rowspan are not preserved.** Tables with merged cells (e.g. ARDW
-  itinerary tables) come in as ragged rows. The table editor handles ragged
-  rows; rendering is acceptable but not visually faithful. Deferred until
-  needed.
+- **Header-row spans are not preserved.** Body-cell merging works, but a
+  `<th>` with `colspan="2"` still splits into two separate columns because
+  `cfg.headers` is a flat string array. See `docs/docx-importer-next.md` §8.
 
 ### 1.2 In-app editor
 
@@ -180,7 +188,39 @@ exposes `saveNote` (upsert) and `deleteNote`. Subscribes to realtime updates.
 
 ---
 
-## 3. Session metadata
+## 3. Per-session workbook clones
+
+**Goal:** each session owns its own deep copy of the chosen template
+workbook. Edits made from the session dashboard never affect other sessions
+or the template.
+
+**Schema:** `workbooks` gains:
+- `is_template boolean not null default true` — templates show on the trainer
+  home; session-copies (`is_template=false`) are hidden.
+- `template_id uuid references workbooks(id) on delete set null` — each
+  clone records its parent template (cosmetic; not load-bearing).
+
+**RPC:** `create_session_with_workbook_clone(p_template_id, p_name, p_starts_at, p_ends_at, p_city_code) → session id`
+clones the workbook + sections + blocks (preserving order, regenerating ids
+via `gen_random_uuid()`) and inserts the session row in a single transaction.
+Lives in `supabase/add_workbook_templates.sql`.
+
+**UI changes:**
+- `useTrainerWorkbooks` filters to `is_template = true` so session-copies
+  don't show on the trainer home.
+- `NewSessionPage` workbook picker filters to templates and now calls the
+  RPC instead of inserting a session row directly.
+- `ImportWorkbookPage` and `NewWorkbookPage` set `is_template: true` on
+  insert (matches the column default; explicit for clarity).
+- `SessionDashboardPage` hero adds an `✎ Edit workbook` link — the only
+  trainer-visible path to a cloned workbook's editor.
+
+**One-time:** the migration deletes pre-rollout sessions (those still
+pointing at a template workbook). New sessions all go through the RPC.
+
+---
+
+## 4. Session metadata
 
 ### 3.1 Date range and city code
 
@@ -210,7 +250,7 @@ exposes `saveNote` (upsert) and `deleteNote`. Subscribes to realtime updates.
 
 ---
 
-## 4. Participant experience
+## 5. Participant experience
 
 **Code:** `src/pages/ParticipantWorkbookPage.jsx`, `src/hooks/useWorkbook.js`.
 
@@ -234,7 +274,7 @@ exposes `saveNote` (upsert) and `deleteNote`. Subscribes to realtime updates.
 
 ---
 
-## 5. Auth — password reset
+## 6. Auth — password reset
 
 ### 5.1 Forgot password
 
@@ -291,17 +331,21 @@ path: [`docs/auth-email-setup.md`](./auth-email-setup.md).
 
 ---
 
-## 6. Migrations summary
+## 7. Migrations summary
 
 Run idempotently in Supabase Studio → SQL Editor (in this order):
 
 1. `supabase/add_email_to_profiles.sql` (existed before this iteration)
 2. `supabase/add_answer_notes.sql` (new — trainer annotations)
 3. `supabase/add_session_city_code.sql` (new — city code column on sessions)
+4. `supabase/add_workbook_templates.sql` (new — per-session workbook clones,
+   adds `is_template` + `template_id` to `workbooks`, adds the
+   `create_session_with_workbook_clone` RPC, and one-time wipes legacy
+   sessions whose workbook is still a template).
 
 ---
 
-## 7. Files added in this iteration
+## 8. Files added in this iteration
 
 ```
 docs/auth-email-setup.md
@@ -317,6 +361,10 @@ src/pages/NewWorkbookPage.jsx
 src/pages/ResetPasswordPage.jsx
 supabase/add_answer_notes.sql
 supabase/add_session_city_code.sql
+supabase/add_workbook_templates.sql
+docs/docx-importer-next.md
+docs/enhancements-roadmap.md
+docs/hosting-and-limits.md
 ```
 
 Existing files materially modified: `App.jsx`, `AuthContext.jsx`,
@@ -329,7 +377,12 @@ Existing files materially modified: `App.jsx`, `AuthContext.jsx`,
 
 ---
 
-## 8. Backlog (in roughly recommended order)
+## 9. Backlog (in roughly recommended order)
+
+> Forward-looking UX enhancements (live focus / spotlight, model-answer
+> debrief, mobile-responsive fill, ⌘K palette, session PDF) are scoped
+> in `docs/enhancements-roadmap.md`. The list below is the smaller
+> operational/utility backlog.
 
 1. **Edit existing sessions** — change name/dates/city after creation.
 2. **Date-based access enforcement** — read-only after `ends_at`, hidden
@@ -337,11 +390,9 @@ Existing files materially modified: `App.jsx`, `AuthContext.jsx`,
 3. **Multi-session handling** — session picker on participant landing if
    enrolled in more than one session.
 4. **Pick an email delivery option** — see `docs/auth-email-setup.md`.
-5. **Session summary PDF** — printable per-session report (cohort
-   completion %, per-participant breakdown, flagged answers).
-6. **Archive old sessions** — derive from `ends_at < today`; hide from the
+5. **Archive old sessions** — derive from `ends_at < today`; hide from the
    home page until "show archived" toggled.
-7. **Docx import: preserve `colspan` / `rowspan`** — fix ragged imported
-   tables.
-8. **Bundle code-splitting** — main bundle is ~520 kB; lazy-load the editor
+6. **Docx import: preserve header-row `colspan` / `rowspan`** — body-cell
+   merging is done; headers still flatten. See `docs/docx-importer-next.md` §8.
+7. **Bundle code-splitting** — main bundle is ~520 kB; lazy-load the editor
    and dashboard routes.

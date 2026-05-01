@@ -153,6 +153,12 @@ export function useWorkbookEditor(workbookId) {
     return {};
   }, []);
 
+  const deleteWorkbook = useCallback(async () => {
+    const { error: delErr } = await supabase.from('workbooks').delete().eq('id', workbookId);
+    if (delErr) return { error: delErr };
+    return {};
+  }, [workbookId]);
+
   const moveBlock = useCallback(async (blockId, direction) => {
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;
@@ -180,5 +186,6 @@ export function useWorkbookEditor(workbookId) {
     workbook, sections, blocks,
     updateWorkbookTitle, createBlock, updateBlock, deleteBlock, moveBlock,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
+    deleteWorkbook,
   };
 }

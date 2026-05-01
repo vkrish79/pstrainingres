@@ -43,10 +43,13 @@ create table workbooks (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text,
+  is_template boolean not null default true,
+  template_id uuid references workbooks(id) on delete set null,
   created_by uuid not null references profiles(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+create index if not exists workbooks_is_template_idx on workbooks (is_template);
 
 create table sections (
   id uuid primary key default gen_random_uuid(),
@@ -129,6 +132,10 @@ returns boolean language sql stable security definer as $$
   select exists(select 1 from session_participants
                 where session_id = sess and participant_id = auth.uid());
 $$;
+
+-- Note: create_session_with_workbook_clone() lives in
+-- supabase/add_workbook_templates.sql (it depends on the city_code column
+-- added by add_session_city_code.sql, so it must run after that migration).
 
 -- ========== RLS ==========
 

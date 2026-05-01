@@ -9,6 +9,7 @@ import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
 import Block from '../components/blocks/Block.jsx';
 import ExerciseResponses from '../components/dashboard/ExerciseResponses.jsx';
 import NoteRow from '../components/dashboard/NoteRow.jsx';
+import TrainerPracticeView from '../components/dashboard/TrainerPracticeView.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -32,7 +33,7 @@ export default function SessionDashboardPage() {
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { participants: allParticipants } = useParticipants();
 
-  const [view, setView] = useState('participants'); // 'participants' | 'exercise'
+  const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [pickId, setPickId] = useState('');
@@ -105,6 +106,11 @@ export default function SessionDashboardPage() {
             </p>
           </div>
           <div className="page-hero-actions">
+            {workbook?.id && (
+              <Link to={`/trainer/workbooks/${workbook.id}`} className="ghost-link">
+                ✎ Edit workbook
+              </Link>
+            )}
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
             </button>
@@ -114,6 +120,7 @@ export default function SessionDashboardPage() {
         <div className="view-tabs">
           <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>
           <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => setView('exercise')}>By exercise</button>
+          <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>▶ My copy</button>
         </div>
 
         {view === 'participants' && (
@@ -218,6 +225,10 @@ export default function SessionDashboardPage() {
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
           />
+        )}
+
+        {view === 'practice' && (
+          <TrainerPracticeView sessionId={id} trainerId={authSession?.user.id} />
         )}
       </main>
     </>

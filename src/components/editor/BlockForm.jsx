@@ -89,10 +89,14 @@ function TableForm({ block, onSave, onCancel }) {
   }
 
   function setCellKind(ri, ci, kind) {
-    updateCell(ri, ci, cell => kind === 'static'
-      ? { kind: 'static', text: cell.text || '' }
-      : { kind: 'input', id: cell.id || newCellId(), input_type: cell.input_type || 'short_text' }
-    );
+    updateCell(ri, ci, cell => {
+      const spans = {};
+      if (cell.colSpan > 1) spans.colSpan = cell.colSpan;
+      if (cell.rowSpan > 1) spans.rowSpan = cell.rowSpan;
+      return kind === 'static'
+        ? { kind: 'static', text: cell.text || '', ...spans }
+        : { kind: 'input', id: cell.id || newCellId(), input_type: cell.input_type || 'short_text', ...spans };
+    });
   }
 
   function setCellText(ri, ci, text) {

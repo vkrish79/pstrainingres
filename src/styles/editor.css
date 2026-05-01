@@ -298,3 +298,109 @@ button.ghost.compact, button.danger.compact {
 .add-row .form-input { width: auto; min-width: 160px; }
 .row-actions { white-space: nowrap; text-align: right; }
 .row-actions button { font-size: 0.8rem; padding: 0.25rem 0.55rem; }
+
+/* Editor + participant preview split-pane layout */
+.editor.with-preview { max-width: 1500px; }
+.editor-layout { display: block; }
+.editor-layout.with-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.editor-layout .editor-pane { min-width: 0; }
+
+.preview-pane {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.preview-pane-head {
+  position: sticky; top: 0; z-index: 2;
+  background: #f0f0f0;
+  border-bottom: 1px solid #e3e3e3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #555;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.preview-pane-hint {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: #888;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.preview-pane-body {
+  padding: 1rem 1.1rem 1.5rem;
+  pointer-events: none;        /* visually faithful but inert */
+  user-select: text;            /* still allow selecting text */
+}
+.preview-pane-body .wb-section {
+  margin-bottom: 1.25rem;
+  padding: 0.5rem 0.5rem;
+  border-radius: 6px;
+  scroll-margin-top: 3rem;            /* keep title clear of sticky header */
+  transition: background-color 200ms ease;
+}
+.preview-pane-body .wb-section.active {
+  background-color: #fff8e1;
+  outline: 1px solid #f0d97a;
+}
+.preview-block-wrap {
+  border-radius: 6px;
+  scroll-margin-top: 3rem;
+  outline: 2px solid transparent;
+  transition: background-color 200ms ease, outline-color 200ms ease, box-shadow 200ms ease;
+}
+.preview-block-wrap.selected {
+  background-color: #fff3cd;
+  outline: 2px solid #e08a00;
+  box-shadow: 0 2px 8px rgba(224, 138, 0, 0.22);
+  position: relative;
+  z-index: 1;
+}
+.preview-block-wrap.pulse {
+  animation: preview-pulse 1.2s ease-out;
+  position: relative;
+  z-index: 1;                              /* lift above the section bg tint */
+}
+@keyframes preview-pulse {
+  0% {
+    background-color: #ffd24d;
+    outline: 3px solid #e08a00;
+    box-shadow: 0 0 0 0 rgba(224, 138, 0, 0.65);
+  }
+  35% {
+    background-color: #ffe89a;
+    outline: 3px solid #d69400;
+    box-shadow: 0 0 0 14px rgba(224, 138, 0, 0);
+  }
+  100% {
+    background-color: transparent;
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 0 rgba(224, 138, 0, 0);
+  }
+}
+.preview-pane-body .wb-section h2 {
+  font-size: 1.05rem;
+  margin: 0.6rem 0 0.5rem;
+}
+.preview-workbook-title {
+  font-size: 1.2rem;
+  margin: 0 0 0.75rem;
+  color: #222;
+}
+
+@media (max-width: 900px) {
+  .editor-layout.with-preview { grid-template-columns: 1fr; }
+  .preview-pane { position: static; max-height: none; }
+}

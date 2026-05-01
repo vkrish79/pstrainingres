@@ -12,6 +12,7 @@ export function useTrainerWorkbooks(trainerId) {
       const { data } = await supabase
         .from('workbooks')
         .select('id, title, description, updated_at')
+        .eq('is_template', true)
         .order('updated_at', { ascending: false });
       if (!cancelled) {
         setWorkbooks(data || []);

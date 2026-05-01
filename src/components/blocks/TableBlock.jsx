@@ -19,7 +19,12 @@ export default function TableBlock({ block, value, onChange, readOnly = false })
           {(cfg.rows || []).map((row, ri) => (
             <tr key={ri}>
               {row.map((cell, ci) => (
-                <td key={ci} className={cell.kind === 'input' ? 'wb-cell-input' : 'wb-cell-static'}>
+                <td
+                  key={ci}
+                  className={cell.kind === 'input' ? 'wb-cell-input' : 'wb-cell-static'}
+                  colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
+                  rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
+                >
                   {cell.kind === 'static' ? (
                     cell.text
                   ) : readOnly ? (

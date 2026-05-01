@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import BlockForm from './BlockForm.jsx';
 
-export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, isFirst, isLast }) {
+export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast }) {
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -13,8 +13,22 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
   return (
     <div className="block-row">
       <div className="block-row-head">
-        <span className={`block-type-tag tag-${block.block_type}`}>{block.block_type}</span>
-        <span className="block-preview">{previewOf(block)}</span>
+        <span
+          className={`block-type-tag tag-${block.block_type}`}
+          onClick={() => onLocate?.(block.id)}
+          title="Scroll preview to this block"
+          style={{ cursor: 'pointer' }}
+        >
+          {block.block_type}
+        </span>
+        <span
+          className="block-preview"
+          onClick={() => onLocate?.(block.id)}
+          title="Scroll preview to this block"
+          style={{ cursor: 'pointer' }}
+        >
+          {previewOf(block)}
+        </span>
         <div className="block-actions">
           <button className="icon-btn" onClick={onMoveUp} disabled={isFirst} aria-label="Move up">↑</button>
           <button className="icon-btn" onClick={onMoveDown} disabled={isLast} aria-label="Move down">↓</button>
@@ -51,8 +65,31 @@ function previewOf(block) {
     return text.length > 70 ? text.slice(0, 70) + '…' : (text || '(empty)');
   }
   if (block.block_type === 'field') return block.config?.label || '(no label)';
-  if (block.block_type === 'table') {
-    return block.config?.caption || `Table (${(block.config?.rows || []).length} rows)`;
-  }
+  if (block.block_type === 'table') return tableLabel(block);
   return '';
+}
+
+function tableLabel(block) {
+  const cfg = block.config || {};
+  const rowCount = (cfg.rows || []).length;
+  if (cfg.caption?.trim()) return `${cfg.caption.trim()} · ${rowCount} rows`;
+
+  // First non-empty static cell anywhere in the table — usually the
+  // most identifying piece of text (a question, a row label, a section).
+  for (const row of cfg.rows || []) {
+    for (const cell of row || []) {
+      if (cell?.kind === 'static' && cell.text?.trim()) {
+        const t = cell.text.trim().replace(/\s+/g, ' ');
+        const truncated = t.length > 60 ? t.slice(0, 60) + '…' : t;
+        return `${truncated} · ${rowCount} rows`;
+      }
+    }
+  }
+
+  // Else the first non-empty header cell.
+  for (const h of cfg.headers || []) {
+    if (h?.trim()) return `${h.trim()} · ${rowCount} rows`;
+  }
+
+  return `Table · ${rowCount} rows`;
 }
