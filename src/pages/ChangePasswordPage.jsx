@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { homePathForRole } from '../lib/roles.js';
 
 export default function ChangePasswordPage() {
   const { profile, changePassword } = useAuth();
@@ -19,7 +20,7 @@ export default function ChangePasswordPage() {
     const { error } = await changePassword(pw);
     setBusy(false);
     if (error) return setError(error.message);
-    navigate(profile?.role === 'trainer' ? '/trainer' : '/workbook', { replace: true });
+    navigate(homePathForRole(profile?.role), { replace: true });
   }
 
   return (

@@ -1,10 +1,11 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { isTrainerTier, homePathForRole } from '../lib/roles.js';
 
 export default function TopBar() {
   const { profile, signOut } = useAuth();
-  const isTrainer = profile?.role === 'trainer';
-  const homePath = isTrainer ? '/trainer' : '/workbook';
+  const isTrainer = isTrainerTier(profile?.role);
+  const homePath = homePathForRole(profile?.role);
   return (
     <header className="topbar">
       <div className="topbar-inner">

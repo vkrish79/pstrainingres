@@ -1,6 +1,11 @@
 // Supabase Edge Function: create-participant
-// Verifies caller is a trainer, then creates an auth user + profile row.
-// Body: { email, full_name?, temp_password }
+// Verifies caller is a trainer-tier role, then creates an auth user + profile row.
+// Body: { email, full_name?, temp_password, vendor_id? }
+//
+// Vendor scoping:
+//   - super_admin / super_trainer: may pass vendor_id explicitly (or null).
+//   - vendor_manager / vendor_trainer: vendor_id is forced to the caller's
+//     own vendor, regardless of what the body contains.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -36,14 +41,25 @@ Deno.serve(async (req: Request) => {
   if (ue || !user) return jsonRes(401, { error: 'Invalid token' });
 
   const { data: caller, error: pe } = await userClient
-    .from('profiles').select('role').eq('id', user.id).single();
-  if (pe || caller?.role !== 'trainer') return jsonRes(403, { error: 'Not a trainer' });
+    .from('profiles').select('role, vendor_id').eq('id', user.id).single();
+  // 'trainer' kept as a transitional alias until add_vendors_and_roles.sql
+  // is applied — current profiles still have that value. Remove after.
+  const TRAINER_TIER = ['super_admin', 'super_trainer', 'vendor_manager', 'vendor_trainer', 'trainer'];
+  if (pe || !caller || !TRAINER_TIER.includes(caller.role)) {
+    return jsonRes(403, { error: 'Not a trainer' });
+  }
 
-  let body: { email?: string; full_name?: string; temp_password?: string };
+  let body: { email?: string; full_name?: string; temp_password?: string; vendor_id?: string | null };
   try { body = await req.json(); } catch { return jsonRes(400, { error: 'Invalid JSON body' }); }
-  const { email, full_name, temp_password } = body;
+  const { email, full_name, temp_password, vendor_id: bodyVendorId } = body;
   if (!email || !temp_password) return jsonRes(400, { error: 'email and temp_password are required' });
   if (temp_password.length < 8) return jsonRes(400, { error: 'temp_password must be at least 8 characters' });
+
+  // Vendor scoping: super-tier may pick; vendor-tier is pinned to their own.
+  const SUPER_TIER = ['super_admin', 'super_trainer'];
+  const participantVendorId = SUPER_TIER.includes(caller.role)
+    ? (bodyVendorId ?? null)
+    : caller.vendor_id;
 
   // Admin client
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
@@ -59,6 +75,7 @@ Deno.serve(async (req: Request) => {
     full_name: full_name || email,
     email,
     role: 'participant',
+    vendor_id: participantVendorId,
     must_change_password: true,
   });
   if (ie) {

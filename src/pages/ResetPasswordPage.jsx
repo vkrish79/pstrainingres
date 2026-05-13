@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { homePathForRole } from '../lib/roles.js';
 
 // Landing page for the password-reset email link. The Supabase client
 // detects the recovery token in the URL on load and creates a session,
@@ -50,8 +51,7 @@ export default function ResetPasswordPage() {
     setDone(true);
     // Send them straight in — they're authenticated.
     setTimeout(() => {
-      const home = profile?.role === 'trainer' ? '/trainer' : '/workbook';
-      navigate(home, { replace: true });
+      navigate(homePathForRole(profile?.role), { replace: true });
     }, 1200);
   }
 
