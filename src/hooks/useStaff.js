@@ -59,6 +59,30 @@ export function useStaff() {
     return { data: true };
   }, [refresh]);
 
+  const resetStaffPassword = useCallback(async (id, temp_password) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { error: new Error('Not authenticated') };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-staff-password`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ user_id: id, temp_password }),
+    });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      return { error: new Error(msg) };
+    }
+    const data = await res.json();
+    await refresh();
+    return { data };
+  }, [refresh]);
+
   const deleteStaff = useCallback(async (id) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return { error: new Error('Not authenticated') };
@@ -82,5 +106,5 @@ export function useStaff() {
     return { data: true };
   }, [refresh]);
 
-  return { loading, error, staff, createStaff, updateStaffVendor, deleteStaff, refresh };
+  return { loading, error, staff, createStaff, updateStaffVendor, resetStaffPassword, deleteStaff, refresh };
 }

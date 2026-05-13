@@ -19,7 +19,7 @@ function roleLabel(role) {
 }
 
 export default function StaffAdminPage() {
-  const { loading, error, staff, createStaff, updateStaffVendor, deleteStaff } = useStaff();
+  const { loading, error, staff, createStaff, updateStaffVendor, resetStaffPassword, deleteStaff } = useStaff();
   const { vendors, loading: vendorsLoading } = useVendors();
 
   const [email, setEmail] = useState('');
@@ -36,6 +36,7 @@ export default function StaffAdminPage() {
   const [editingId, setEditingId] = useState(null);
   const [editingVendorId, setEditingVendorId] = useState('');
   const [rowError, setRowError] = useState('');
+  const [lastReset, setLastReset] = useState(null);
 
   const filtered = useMemo(() => {
     if (filterVendorId === 'all') return staff;
@@ -81,6 +82,17 @@ export default function StaffAdminPage() {
     const { error: err } = await updateStaffVendor(id, editingVendorId);
     if (err) { setRowError(err.message); return; }
     cancelEdit();
+  }
+
+  async function handleResetPassword(s) {
+    setRowError('');
+    setLastReset(null);
+    const who = s.full_name || s.email;
+    if (!window.confirm(`Reset password for ${who} (${s.email})?\n\nTheir current password will stop working. You'll get a new temp password to share with them.`)) return;
+    const newPassword = generateTempPassword();
+    const { data, error: err } = await resetStaffPassword(s.id, newPassword);
+    if (err) { setRowError(err.message); return; }
+    setLastReset({ email: data.email, full_name: data.full_name, temp_password: newPassword });
   }
 
   async function handleDelete(s) {
@@ -257,6 +269,7 @@ export default function StaffAdminPage() {
                       ) : (
                         <>
                           <button type="button" className="ghost" onClick={() => startEdit(s)}>Edit</button>
+                          <button type="button" className="ghost" onClick={() => handleResetPassword(s)} style={{ marginLeft: '0.5rem' }}>Reset PW</button>
                           <button type="button" className="ghost" onClick={() => handleDelete(s)} style={{ marginLeft: '0.5rem' }}>Delete</button>
                         </>
                       )}
@@ -267,6 +280,16 @@ export default function StaffAdminPage() {
             </table>
           )}
           {rowError && <p className="error" style={{ marginTop: '0.75rem' }}>{rowError}</p>}
+          {lastReset && (
+            <div className="created-card" style={{ marginTop: '0.75rem' }}>
+              <strong>Password reset.</strong> Share these new credentials with <em>{lastReset.full_name}</em>:
+              <div className="credentials">
+                <span>{lastReset.email}</span>
+                <span className="mono">{lastReset.temp_password}</span>
+              </div>
+              <button type="button" className="ghost" onClick={() => setLastReset(null)} style={{ marginTop: '0.5rem' }}>Dismiss</button>
+            </div>
+          )}
         </section>
       </main>
     </>
