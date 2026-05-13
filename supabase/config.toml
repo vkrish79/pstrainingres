@@ -1,0 +1,14 @@
+# Supabase project configuration.
+# Used by the Supabase GitHub integration to deploy edge functions
+# (and, in the future, migrations under supabase/migrations/) on push to main.
+
+project_id = "ncgnufkzuziqrargehnz"
+
+[functions.create-participant]
+verify_jwt = true
+
+[functions.create-staff]
+verify_jwt = true
+
+[functions.delete-staff]
+verify_jwt = true
