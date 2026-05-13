@@ -1,11 +1,12 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { isTrainerTier, homePathForRole } from '../lib/roles.js';
+import { isTrainerTier, homePathForRole, roleLabel } from '../lib/roles.js';
 
 export default function TopBar() {
   const { profile, signOut } = useAuth();
   const isTrainer = isTrainerTier(profile?.role);
   const homePath = homePathForRole(profile?.role);
+  const chipLabel = roleLabel(profile?.role);
   return (
     <header className="topbar">
       <div className="topbar-inner">
@@ -26,6 +27,9 @@ export default function TopBar() {
           <span className="topbar-user">
             <span className="topbar-user-avatar">{(profile?.full_name || '?').charAt(0).toUpperCase()}</span>
             <span className="topbar-user-name">{profile?.full_name}</span>
+            {chipLabel && (
+              <span className={`topbar-role-chip role-${profile?.role}`}>{chipLabel}</span>
+            )}
           </span>
           <button className="topbar-signout" onClick={signOut}>Sign out</button>
         </nav>

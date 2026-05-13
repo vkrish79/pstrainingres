@@ -108,8 +108,44 @@ input, select, textarea { font-family: inherit; }
   font-weight: 700; font-size: 0.8rem;
 }
 .topbar-user-name { font-weight: 500; }
+
+.topbar-role-chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.topbar-role-chip.role-super_admin {
+  background: var(--gold);
+  color: #fff;
+  border-color: var(--gold-dark);
+}
+.topbar-role-chip.role-super_trainer {
+  background: var(--midnight);
+  color: #fff;
+  border-color: var(--midnight);
+}
+.topbar-role-chip.role-vendor_manager {
+  background: var(--qasr);
+  color: var(--midnight);
+  border-color: var(--qasr);
+}
+.topbar-role-chip.role-vendor_trainer,
+.topbar-role-chip.role-trainer {
+  background: var(--card);
+  color: var(--midnight);
+  border-color: var(--border);
+}
+
 @media (max-width: 640px) {
   .topbar-user-name, .topbar-brand-sub { display: none; }
+  .topbar-role-chip { font-size: 0.65rem; padding: 0.15rem 0.4rem; }
 }
 
 .topbar-signout {

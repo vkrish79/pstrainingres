@@ -47,3 +47,15 @@ export function isVendorManagerOrAbove(role) {
 export function homePathForRole(role) {
   return isTrainerTier(role) ? '/trainer' : '/workbook';
 }
+
+const ROLE_LABELS = {
+  [ROLES.SUPER_ADMIN]: 'Super Admin',
+  [ROLES.SUPER_TRAINER]: 'Super Trainer',
+  [ROLES.VENDOR_MANAGER]: 'Vendor Manager',
+  [ROLES.VENDOR_TRAINER]: 'Trainer',
+  trainer: 'Trainer', // transitional alias
+};
+
+export function roleLabel(role) {
+  return ROLE_LABELS[role] || null;
+}
