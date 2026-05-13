@@ -10,6 +10,7 @@ import NewWorkbookPage from './pages/NewWorkbookPage.jsx';
 import SessionDashboardPage from './pages/SessionDashboardPage.jsx';
 import NewSessionPage from './pages/NewSessionPage.jsx';
 import PeoplePage from './pages/PeoplePage.jsx';
+import VendorsAdminPage from './pages/VendorsAdminPage.jsx';
 import ParticipantWorkbookPage from './pages/ParticipantWorkbookPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
@@ -42,6 +43,9 @@ export default function App() {
       } />
       <Route path="/trainer/people" element={
         <ProtectedRoute role="trainer"><PeoplePage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/vendors" element={
+        <ProtectedRoute role="super"><VendorsAdminPage /></ProtectedRoute>
       } />
       <Route path="/workbook" element={
         <ProtectedRoute role="participant"><ParticipantWorkbookPage /></ProtectedRoute>

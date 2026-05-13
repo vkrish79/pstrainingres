@@ -1,7 +1,128 @@
 # Vendor + trainer role model — planning doc
 
-**Status:** decisions confirmed (2026-05-13). Ready to write migration once
-the user provides super-trainer emails and the initial vendor seed list.
+**Status:** Phase A in progress (2026-05-13). Migration applied to Supabase
+and deployed to prod. Vendors admin page built locally, awaiting localhost
+smoke test before commit. Next session resumes here.
+
+## Build progress (2026-05-13)
+
+### ✅ Done and deployed to prod
+
+Two commits on `main`:
+
+- **`4e44ef7`** — vendor + 5-tier role model
+  - `supabase/add_vendors_and_roles.sql` migration (applied manually in
+    Supabase SQL editor)
+  - `src/lib/roles.js` central tier helpers
+  - `TopBar`, `ProtectedRoute`, `ChangePasswordPage`, `ResetPasswordPage`
+    updated to use the helper (no more `role === 'trainer'` string checks)
+  - `supabase/functions/create-participant/index.ts` updated to accept all
+    four trainer-tier roles and stamp `vendor_id` on the new participant
+  - This doc with the full role-tier spec and decisions
+- **`bd2744a`** — TopBar role chip (gold = super_admin, midnight = super_trainer,
+  qasr = vendor_manager, outline = vendor_trainer; no chip for participant)
+
+### ✅ Done manually in Supabase (not in source)
+
+- Auth users created via Supabase Dashboard for the two super trainers
+  whose accounts didn't exist yet:
+  - `MFeroz@etihad.ae` (Feroz)
+  - `MRMarleen@etihad.ae` (Riznie Marleen)
+- Their `profiles` rows inserted with `role='super_trainer'` via SQL editor.
+- Final state: four super-tier accounts exist —
+  - `vbalasubramanian@etihad.ae` → `super_admin`
+  - `EnsioM@etihad.ae` → `super_trainer`
+  - `MFeroz@etihad.ae` → `super_trainer`
+  - `MRMarleen@etihad.ae` → `super_trainer`
+
+### 🟡 Built locally, NOT YET committed or pushed
+
+The Vendors admin page (Phase A). Files in the working tree:
+
+- `src/hooks/useVendors.js` — fetch + create + rename + delete, includes
+  per-vendor trainer and session counts
+- `src/pages/VendorsAdminPage.jsx` — list table + inline add form +
+  inline rename + delete (blocked when vendor has trainers or sessions)
+- `src/components/ProtectedRoute.jsx` — extended to accept `role="super"`
+- `src/components/TopBar.jsx` — "Vendors" nav link visible only to
+  super-tier users
+- `src/App.jsx` — new route `/trainer/vendors` gated to super-tier
+
+Vite dev server is running at `http://localhost:5174/` with HMR clean.
+**To resume:** open it in the browser as `vbalasubramanian@etihad.ae`
+and run the smoke test below, then commit + push.
+
+### Vendors page smoke test (run on resume)
+
+1. Log in as `vbalasubramanian@etihad.ae`. TopBar should show
+   **Home | Vendors | People** + gold "SUPER ADMIN" chip.
+2. Click **Vendors** → lands on `/trainer/vendors`, empty table.
+3. Add a vendor: code `ETIHAD`, name `Etihad Airways`. Should appear in
+   the table with `0` trainers and `0` sessions.
+4. Try a bad code (`etihad` or `ETI HAD`) — must be rejected with
+   "Use 2–12 chars, A–Z / 0–9 / _ only."
+5. Try the same code twice — must show "A vendor with code ETIHAD already exists."
+6. Click **Edit** → rename to `Etihad` → **Save** — row updates inline.
+7. Click **Delete** on an empty vendor → confirm → vendor removed.
+8. (Optional) Log in as Ensio — should also see the **Vendors** link
+   and have access (super_trainer).
+9. (Optional) Log in as a participant — should NOT see the link;
+   visiting `/trainer/vendors` directly should redirect to `/workbook`.
+
+If anything fails, share the error and I'll fix before committing.
+
+### Decisions locked for Phase A (so they don't need to be re-debated)
+
+- **Code is immutable after creation.** Only Name is editable.
+- **Hard delete, blocked when in use.** When the vendor has any trainers
+  (`profiles.vendor_id`) or sessions (`sessions.vendor_id`) referencing it,
+  the Delete action shows a message telling the user to reassign or
+  remove those first. No soft-delete column.
+- **Access:** super-tier only (super_admin + super_trainer). Vendor
+  managers and trainers cannot reach this page even though their RLS
+  lets them read the vendors table (for vendor pickers elsewhere).
+- **List columns:** Code · Name · # Trainers (managers + trainers in
+  that vendor) · # Sessions · Created · Actions.
+- **Form layout:** inline add form at the top of the page, matches
+  People page pattern.
+
+### 🔲 Pending — Phase B (next up after Phase A is in prod)
+
+**Goal:** super trainers can add vendor managers and vendor trainers.
+
+- New edge function `supabase/functions/create-staff/index.ts` (mirrors
+  `create-participant` but: accepts `role` in `{vendor_manager, vendor_trainer}`,
+  requires `vendor_id`, gated to super-tier callers only). Service-role
+  insert of auth user + profile row.
+- New page `src/pages/StaffAdminPage.jsx` at `/trainer/staff`:
+  - List vendor_managers and vendor_trainers; filter by vendor; show
+    name, email, vendor, role, must_change_password status, created date.
+  - "+ Add staff member" form: Vendor (dropdown), Role (radio:
+    Vendor manager / Vendor trainer), Email, Full name, Temp password.
+  - Edit: reassign vendor (vendor dropdown). Delete: remove **both** the
+    `profiles` row and the `auth.users` row (via service-role
+    `auth.admin.deleteUser()` in the edge function), so the email is
+    freed up and can be re-invited fresh. Decided 2026-05-13.
+- Nav: new "Staff" link in TopBar, super-tier only. Slots between
+  "Vendors" and "People".
+- ProtectedRoute already supports `role="super"`, so no changes there.
+
+### 🔲 Pending — Phase C (after Phase B)
+
+Wire the existing pages to actually use the new tiers:
+
+- **TrainerHomePage** — branch by tier. Super tier sees vendor cards;
+  vendor managers see their vendor's sessions list; vendor trainers see
+  only their own sessions. Today everyone sees the same thing.
+- **NewSessionPage** — for vendor trainers, `vendor_id` is auto-set from
+  their profile (no picker). For vendor managers, picker shows only
+  vendor_trainers from their vendor (since managers can't deliver
+  themselves). For super tier, picker shows everyone.
+- **PeoplePage** — for vendor-tier callers, scope the participant list
+  to their vendor only. Add a vendor picker for super-tier.
+- **WorkbookEditorPage** — gate template structural edits on
+  `is_super_trainer_or_above()` (today every trainer-tier user can edit
+  templates; that's wrong per the new model).
 
 ## Confirmed decisions
 

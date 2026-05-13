@@ -1,10 +1,11 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { isTrainerTier, homePathForRole, roleLabel } from '../lib/roles.js';
+import { isTrainerTier, isSuperTrainerOrAbove, homePathForRole, roleLabel } from '../lib/roles.js';
 
 export default function TopBar() {
   const { profile, signOut } = useAuth();
   const isTrainer = isTrainerTier(profile?.role);
+  const isSuper = isSuperTrainerOrAbove(profile?.role);
   const homePath = homePathForRole(profile?.role);
   const chipLabel = roleLabel(profile?.role);
   return (
@@ -21,6 +22,9 @@ export default function TopBar() {
           {isTrainer && (
             <>
               <NavLink to="/trainer" end className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Home</NavLink>
+              {isSuper && (
+                <NavLink to="/trainer/vendors" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Vendors</NavLink>
+              )}
               <NavLink to="/trainer/people" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>People</NavLink>
             </>
           )}
