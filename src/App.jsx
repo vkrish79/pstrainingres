@@ -11,6 +11,7 @@ import SessionDashboardPage from './pages/SessionDashboardPage.jsx';
 import NewSessionPage from './pages/NewSessionPage.jsx';
 import PeoplePage from './pages/PeoplePage.jsx';
 import VendorsAdminPage from './pages/VendorsAdminPage.jsx';
+import StaffAdminPage from './pages/StaffAdminPage.jsx';
 import ParticipantWorkbookPage from './pages/ParticipantWorkbookPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
@@ -46,6 +47,9 @@ export default function App() {
       } />
       <Route path="/trainer/vendors" element={
         <ProtectedRoute role="super"><VendorsAdminPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/staff" element={
+        <ProtectedRoute role="super"><StaffAdminPage /></ProtectedRoute>
       } />
       <Route path="/workbook" element={
         <ProtectedRoute role="participant"><ParticipantWorkbookPage /></ProtectedRoute>

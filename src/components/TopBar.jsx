@@ -23,7 +23,10 @@ export default function TopBar() {
             <>
               <NavLink to="/trainer" end className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Home</NavLink>
               {isSuper && (
-                <NavLink to="/trainer/vendors" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Vendors</NavLink>
+                <>
+                  <NavLink to="/trainer/vendors" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Vendors</NavLink>
+                  <NavLink to="/trainer/staff" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Staff</NavLink>
+                </>
               )}
               <NavLink to="/trainer/people" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>People</NavLink>
             </>
