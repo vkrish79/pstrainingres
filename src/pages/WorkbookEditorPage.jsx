@@ -4,12 +4,16 @@ import { useWorkbookEditor } from '../hooks/useWorkbookEditor.js';
 import BlockListItem from '../components/editor/BlockListItem.jsx';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import '../styles/editor.css';
 import '../styles/workbook.css';
+import '../styles/dashboard.css';
 
 export default function WorkbookEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const {
     loading, error, workbook, sections, blocks,
     updateWorkbookTitle, createBlock, updateBlock, deleteBlock, moveBlock,
@@ -18,6 +22,7 @@ export default function WorkbookEditorPage() {
   } = useWorkbookEditor(id);
 
   const [titleDraft, setTitleDraft] = useState('');
+  const [readOnlySectionId, setReadOnlySectionId] = useState('__all__');
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
   const [confirmDelSection, setConfirmDelSection] = useState(null);
@@ -137,6 +142,90 @@ export default function WorkbookEditorPage() {
   }
 
   const isTemplate = workbook?.is_template === true;
+  // Templates are shared across sessions, so only super-tier may restructure
+  // them. Session clones (is_template=false) stay editable for any trainer
+  // who can reach the session.
+  const canEdit = !isTemplate || isSuperTrainerOrAbove(profile?.role);
+
+  if (!canEdit) {
+    const ALL = '__all__';
+    const visibleSections = readOnlySectionId === ALL
+      ? sections
+      : sections.filter(s => s.id === readOnlySectionId);
+    return (
+      <>
+        <TopBar />
+        <main className="page workbook">
+          <section className="page-hero compact">
+            <div className="page-hero-text">
+              <Link to="/trainer" className="back-link">&larr; Back</Link>
+              <h1>{title || 'Untitled workbook'}</h1>
+            </div>
+          </section>
+
+          <div className="exresp-layout">
+            <div className="exresp-mobile-nav">
+              <select
+                className="form-input"
+                value={readOnlySectionId}
+                onChange={e => setReadOnlySectionId(e.target.value)}
+              >
+                <option value={ALL}>All exercises</option>
+                {sections.map(s => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+            </div>
+
+            <aside className="exresp-sidebar">
+              <div className="exresp-sidebar-head">Exercises</div>
+              <ul className="exresp-sidebar-list">
+                <li>
+                  <button
+                    className={`exresp-sidebar-item ${readOnlySectionId === ALL ? 'active' : ''}`}
+                    onClick={() => setReadOnlySectionId(ALL)}
+                  >
+                    <div className="exresp-sidebar-row">
+                      <span className="exresp-sidebar-title">All exercises</span>
+                    </div>
+                  </button>
+                </li>
+                {sections.map(s => (
+                  <li key={s.id}>
+                    <button
+                      className={`exresp-sidebar-item ${readOnlySectionId === s.id ? 'active' : ''}`}
+                      onClick={() => setReadOnlySectionId(s.id)}
+                    >
+                      <div className="exresp-sidebar-row">
+                        <span className="exresp-sidebar-title">{s.title}</span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+
+            <div className="exresp-main">
+              {visibleSections.length === 0 && <p className="muted">No sections yet.</p>}
+              {visibleSections.map(sec => {
+                const secBlocks = blocks
+                  .filter(b => b.section_id === sec.id)
+                  .sort((a, b) => a.order_index - b.order_index);
+                return (
+                  <section key={sec.id} className="wb-section">
+                    <h2>{sec.title}</h2>
+                    {secBlocks.map(b => (
+                      <Block key={b.id} block={b} value={undefined} onChange={() => {}} />
+                    ))}
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   return (
     <>

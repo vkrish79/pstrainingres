@@ -331,68 +331,275 @@ path: [`docs/auth-email-setup.md`](./auth-email-setup.md).
 
 ---
 
-## 7. Migrations summary
+## 7. Roles, vendors, and admin pages (v2)
 
-Run idempotently in Supabase Studio → SQL Editor (in this order):
+The five-tier role model and the two admin pages that act on it. Full
+specification + decisions live in
+[`docs/vendor-trainer-model.md`](./vendor-trainer-model.md). This is the
+shipped-summary view.
 
-1. `supabase/add_email_to_profiles.sql` (existed before this iteration)
-2. `supabase/add_answer_notes.sql` (new — trainer annotations)
-3. `supabase/add_session_city_code.sql` (new — city code column on sessions)
-4. `supabase/add_workbook_templates.sql` (new — per-session workbook clones,
-   adds `is_template` + `template_id` to `workbooks`, adds the
-   `create_session_with_workbook_clone` RPC, and one-time wipes legacy
-   sessions whose workbook is still a template).
+### 7.1 Role tiers
+
+`profiles.role` now takes one of: `super_admin`, `super_trainer`,
+`vendor_manager`, `vendor_trainer`, `participant` (commit `4e44ef7`).
+Helpers in `src/lib/roles.js` (`isSuperTrainerOrAbove`,
+`isVendorTrainerOrAbove`, etc.) — never compare role strings inline.
+TopBar shows a colored tier chip beside the user's name (`bd2744a`).
+
+### 7.2 Vendors
+
+New `vendors` table (migration `supabase/add_vendors_and_roles.sql`).
+Every non-super profile and every session belongs to a vendor.
+
+**Vendors admin page** at `/trainer/vendors` (commit `11fae8c`,
+super-tier only): list / inline-add / rename / delete. Delete is
+blocked if the vendor has any trainers or sessions.
+Files: `src/hooks/useVendors.js`, `src/pages/VendorsAdminPage.jsx`.
+
+### 7.3 Staff admin
+
+**Staff admin page** at `/trainer/staff` (commits `1290b51`, `acf56e5`,
+super-tier only): list vendor managers + vendor trainers, filterable by
+vendor; add staff (with auto-generated temp password regenerated per
+row); reassign a staff member to another vendor; reset temp password;
+hard-delete (drops both `profiles` row and `auth.users` row so the
+email can be re-invited fresh).
+
+Edge functions: `supabase/functions/create-staff`, `delete-staff`,
+`reset-staff-password` — all super-tier gated.
+
+### 7.4 What's NOT yet wired (Phase C — see vendor-trainer-model.md)
+
+The 5-tier model is enforced at the DB layer by RLS, but several pages
+still render as if every trainer-tier user were super_admin. Phase C
+fixes this page by page. **C1 shipped — see §11.1 below.** Remaining:
+C2 (PeoplePage vendor scoping), C3 (NewSessionPage tier-aware pickers),
+C4 (TrainerHomePage full tier branching — partially done as part of C1).
 
 ---
 
-## 8. Files added in this iteration
+## 8. Session-first participant enrolment + per-session usernames (v2)
 
-```
-docs/auth-email-setup.md
-docs/progress.md                                     ← this file
-src/components/dashboard/ExerciseResponses.jsx
-src/components/dashboard/NoteRow.jsx
-src/hooks/useSessionNotes.js
-src/lib/docxImport.js
-src/lib/sessionExport.js
-src/pages/ForgotPasswordPage.jsx
-src/pages/ImportWorkbookPage.jsx
-src/pages/NewWorkbookPage.jsx
-src/pages/ResetPasswordPage.jsx
-supabase/add_answer_notes.sql
-supabase/add_session_city_code.sql
-supabase/add_workbook_templates.sql
-docs/docx-importer-next.md
-docs/enhancements-roadmap.md
-docs/hosting-and-limits.md
-```
+Shipped on 2026-05-18 (commits `226f2f3`, `59e72b2`, `fee8f90`).
+Replaces the old "create accounts on People page, then enrol via
+dropdown" flow with "create a session, add participants directly inside
+it." See [[session-first-enrolment]] memory + `vendor-trainer-model.md`
+for full decision history.
 
-Existing files materially modified: `App.jsx`, `AuthContext.jsx`,
-`useSessionDashboard.js`, `useTrainerSessions.js`, `useWorkbook.js`,
-`useWorkbookEditor.js`, `blockHelpers.js`, `LoginPage.jsx`,
-`NewSessionPage.jsx`, `ParticipantWorkbookPage.jsx`,
-`SessionDashboardPage.jsx`, `TrainerHomePage.jsx`, `WorkbookEditorPage.jsx`,
-`BlockForm.jsx`, `BlockListItem.jsx`, plus styles in
-`dashboard.css`, `editor.css`, `index.css`.
+### 8.1 The identity model
+
+Participants are identified by a **username**, unique *per session*
+(not global). Supabase Auth requires an email-format identifier, so the
+server synthesizes one when needed:
+
+- Plain username (e.g. `jane.doe`) →
+  `jane.doe@{join_code.lowercase}.pstrainingres.local`
+- If the trainer types a value containing `@` → used as a real email
+  (D9 escape hatch; those participants log in via `/login`, not `/join`).
+
+Two "john"s in two parallel sessions are independent auth accounts.
+
+### 8.2 Session join codes
+
+`sessions.join_code` — 6 chars from
+`ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no confusable 0/O/1/I). Generated
+by `gen_join_code()` SQL function used as the column default, so new
+sessions get one automatically. Backfilled for existing rows. Migration:
+`supabase/migrations/20260518000000_session_join_code.sql` (idempotent
+— pre-applying it manually via SQL Editor doesn't break the integration
+re-run on push).
+
+### 8.3 Public `/join/:code` page
+
+`src/pages/JoinSessionLoginPage.jsx`, route `/join/:code`. Public (like
+`/login`). On mount, calls
+`get_session_by_join_code(p_code)` — a SECURITY DEFINER RPC that
+exposes only `id, name, starts_at, ends_at, join_code` to anon
+(migration `20260518000001_get_session_by_join_code.sql`). Renders
+session header + username/password form. On success, redirects to
+`/workbook`. Case-insensitive on the URL `:code` segment.
+
+### 8.4 Add participants from inside a session
+
+`SessionDashboardPage` → **+ Add** opens
+`src/components/dashboard/AddSessionParticipants.jsx`:
+
+- **Add one** mode: username + optional full name. Server generates a
+  10-char temp password and returns it in the results row.
+- **Upload CSV** mode: `participants_template.csv` is `username,
+  full_name`. No `temp_password` column — server always generates and
+  returns one per row in the results table for the trainer to share.
+- Backed by `supabase/functions/add-session-participants/`. Auth: super
+  tier OR vendor_manager of the session's vendor OR the session's
+  trainer. Refuses cross-vendor email reuse on the real-email path.
+
+### 8.5 Per-row password reset
+
+Each participant row now has a **Reset pwd** action next to Remove.
+Click → confirm → server generates a new temp password, sets
+`must_change_password=true`, and the new password renders inline with a
+Copy button for the trainer to share. Backed by
+`supabase/functions/reset-participant-password/`. Auth: super tier OR
+the session's trainer.
+
+### 8.6 Other touch-ups in the same push
+
+- **`SessionDashboardPage` hero**: third line shows
+  `Join URL: https://…/join/<CODE>` with a Copy button.
+- **People page** (`src/pages/PeoplePage.jsx`): becomes a read-only
+  roster — the inline add form was removed (all enrolment now happens
+  inside a session).
+- **`vercel.json`** at repo root: catch-all rewrite to `/index.html`.
+  Without it, direct hits to `/join/:code` (or any deep link in
+  incognito) returned Vercel's edge 404. See [[vercel-spa-rewrite]].
 
 ---
 
-## 9. Backlog (in roughly recommended order)
+## 9. Deploy infrastructure (v2)
 
-> Forward-looking UX enhancements (live focus / spotlight, model-answer
-> debrief, mobile-responsive fill, ⌘K palette, session PDF) are scoped
-> in `docs/enhancements-roadmap.md`. The list below is the smaller
-> operational/utility backlog.
+### 9.1 Supabase ↔ GitHub integration
 
-1. **Edit existing sessions** — change name/dates/city after creation.
-2. **Date-based access enforcement** — read-only after `ends_at`, hidden
-   before `starts_at`, etc.
-3. **Multi-session handling** — session picker on participant landing if
-   enrolled in more than one session.
-4. **Pick an email delivery option** — see `docs/auth-email-setup.md`.
-5. **Archive old sessions** — derive from `ends_at < today`; hide from the
-   home page until "show archived" toggled.
-6. **Docx import: preserve header-row `colspan` / `rowspan`** — body-cell
-   merging is done; headers still flatten. See `docs/docx-importer-next.md` §8.
-7. **Bundle code-splitting** — main bundle is ~520 kB; lazy-load the editor
-   and dashboard routes.
+Both **edge functions** AND **migrations** auto-deploy on push to
+`main`. `supabase/config.toml` registers `project_id` and one
+`[functions.<name>]` block per function. Migrations live under
+`supabase/migrations/` with timestamped filenames; the integration
+tracks applied versions in `supabase_migrations.schema_migrations`. See
+[[supabase-deploy-via-github]].
+
+**Rule: every migration must be idempotent.** The integration's
+migration tracker is invisible to anything we apply manually via SQL
+Editor (commonly done for localhost smoke testing), so on push the
+integration re-runs the file. Use `add column if not exists`,
+`create or replace function`, and wrap `add constraint` in a
+`pg_constraint` lookup. A failure here halts the whole pipeline,
+including the edge-function deploy. See [[supabase-idempotent-migrations]].
+
+### 9.2 Vercel SPA rewrite
+
+`vercel.json` at repo root rewrites all paths to `/index.html` so
+React Router can handle deep links. Vercel still serves static assets
+(`/assets/*`, favicon) before applying the rewrite. Don't remove or
+narrow this without a replacement — see [[vercel-spa-rewrite]].
+
+---
+
+## 10. Migrations summary
+
+**v1 + v2 migrations** in `supabase/` (applied by hand in the SQL Editor
+in this order, before the GitHub-integration migration directory existed):
+
+1. `supabase/add_email_to_profiles.sql`
+2. `supabase/add_answer_notes.sql` — trainer annotations
+3. `supabase/add_session_city_code.sql` — city code column on sessions
+4. `supabase/add_workbook_templates.sql` — per-session workbook clones,
+   `create_session_with_workbook_clone` RPC, one-time wipe of legacy
+   sessions still pointing at template workbooks.
+5. `supabase/add_vendors_and_roles.sql` — vendors table + 5-tier role
+   enum + RLS helpers (`is_super_trainer_or_above()`,
+   `trainer_vendor_id()`, etc.).
+
+**v2.1 migrations** under `supabase/migrations/` (auto-applied by the
+Supabase ↔ GitHub integration on push to `main`; tracked in
+`supabase_migrations.schema_migrations`):
+
+6. `20260518000000_session_join_code.sql` — `sessions.join_code`
+   column, `gen_join_code()` generator, backfill, unique constraint.
+   Idempotent.
+7. `20260518000001_get_session_by_join_code.sql` — SECURITY DEFINER
+   RPC for anon lookup of `id, name, starts_at, ends_at, join_code` by
+   join code (used by `/join/:code`).
+
+Going forward, every new migration should land under
+`supabase/migrations/` with a timestamped filename and be **idempotent**
+(see [[supabase-idempotent-migrations]]).
+
+---
+
+## 11. Next steps
+
+The full Phase C plan + Phase A/B/session-first decision history lives in
+[`docs/vendor-trainer-model.md`](./vendor-trainer-model.md). Below is the
+current operational + UX backlog, ordered by recommended priority.
+
+### 11.1 Phase C — tier-aware UI
+
+The 5-tier role model is enforced at the DB layer by RLS. Phase C makes
+the UI match, page by page.
+
+#### C1 — WorkbookEditorPage + TrainerHome partial gating *(shipped 2026-05-18)*
+
+`WorkbookEditorPage.jsx`: computes
+`canEdit = !isTemplate || isSuperTrainerOrAbove(profile?.role)`.
+
+- When `canEdit` is false (vendor-tier viewing a template), the page
+  short-circuits to a clean **read-only viewer** — TopBar + hero with
+  just the workbook title + Back link + an Exercises sidebar (same
+  styling as ParticipantWorkbookPage) + main pane rendering each
+  selected section's blocks via `<Block>`. No editor pane, no preview
+  toggle, no form inputs, no action buttons.
+- When `canEdit` is true, the original editor renders unchanged.
+- Defense-in-depth: gating is UI-only; RLS (`workbooks_template_super_all`,
+  `blocks_write`, `sections_write` in `add_vendors_and_roles.sql`) is
+  the actual guard. Direct URL to a template as vendor-tier lands on
+  the read-only view; any write attempt would 401 server-side.
+
+`TrainerHomePage.jsx`: hides `+ New workbook` and `↑ Import .docx`
+unless `isSuperTrainerOrAbove(role)`. `+ New session` stays for all
+trainer tiers. Also dropped the "Manage workbooks…" hero subtitle (it
+implied capabilities vendor tiers don't have).
+
+`BlockListItem.jsx`: accepts a `canEdit` prop (defaults to true) that
+hides the per-block action toolbar. Not exercised by `WorkbookEditorPage`
+anymore (the early-return handles it), but kept as a defensive default
+for any future caller.
+
+`src/styles/dashboard.css`: bumped specificity of the
+`.exresp-sidebar-item:hover` / `.active` rules using the doubled-class
+trick (`.exresp-sidebar-item.exresp-sidebar-item:hover`) so they win
+against the global `button:hover:not(:disabled)` (which has higher
+specificity than a single class). Without this, the navy global hover
+won and dark sidebar text became unreadable — fixes the same issue on
+the participant workbook sidebar too.
+
+#### Remaining Phase C work
+
+- **C2 — PeoplePage:** filter the read-only roster to
+  `vendor_id = trainer_vendor_id()` for vendor-tier callers; add a
+  vendor filter for super-tier.
+- **C3 — NewSessionPage:** auto-set `vendor_id` from caller's profile
+  for `vendor_trainer`; for `vendor_manager`, pin to their vendor with
+  a trainer picker filtered to their vendor; for super, show both
+  pickers unfiltered.
+- **C4 — TrainerHomePage (rest):** full tier branching — super sees
+  vendor cards grid + full workbook library; vendor manager sees their
+  vendor's sessions + read-only library; vendor trainer sees their own
+  sessions + read-only library. (C1 already removed authoring actions
+  for vendor tiers; the per-tier session/workbook scoping is still TODO.)
+
+Per-step approach: build → smoke test on localhost → commit → push.
+Avoids landing a multi-page diff and discovering one broke downstream.
+
+### 11.2 Operational backlog
+
+1. **Edit existing sessions** — change name/dates/city/trainer after
+   creation. Today only the create flow exists.
+2. **Date-based access enforcement** — read-only after `ends_at`,
+   hidden before `starts_at`.
+3. **Multi-session handling** — session picker on participant landing
+   if enrolled in more than one session. Today `useWorkbook` does
+   `.limit(1)` and silently picks one.
+4. **Archive old sessions** — derive from `ends_at < today`; hide from
+   the home page until "show archived" toggled.
+5. **Pick an email delivery option** for staff/super password reset
+   flows — see `docs/auth-email-setup.md`. (Participants use temp
+   passwords and `/join/:code`, so this is now staff-only.)
+6. **Docx import: preserve header-row `colspan` / `rowspan`** — body
+   merging is done; headers still flatten. See
+   `docs/docx-importer-next.md` §8.
+7. **Bundle code-splitting** — main bundle is ~520 kB; lazy-load the
+   editor and dashboard routes.
+
+### 11.3 Forward-looking UX
+
+Live focus / spotlight, model-answer debrief, mobile-responsive fill,
+⌘K palette, session PDF — scoped in `docs/enhancements-roadmap.md`.

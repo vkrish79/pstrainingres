@@ -292,10 +292,17 @@
   font: inherit;
   color: inherit;
 }
-.exresp-sidebar-item:hover { background: #f6f8fb; }
-.exresp-sidebar-item.active {
+/* Doubled class beats the global `button:hover:not(:disabled)` (which has
+   higher specificity than a single class) — otherwise the navy button hover
+   wins and the dark text becomes unreadable. */
+.exresp-sidebar-item.exresp-sidebar-item:hover {
+  background: #f6f8fb;
+  color: var(--text);
+}
+.exresp-sidebar-item.exresp-sidebar-item.active {
   background: #f6f8fb;
   border-left-color: var(--gold);
+  color: var(--text);
 }
 .exresp-sidebar-row {
   display: flex;

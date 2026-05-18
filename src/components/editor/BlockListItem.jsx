@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import BlockForm from './BlockForm.jsx';
 
-export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast }) {
+export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast, canEdit = true }) {
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -29,25 +29,27 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
         >
           {previewOf(block)}
         </span>
-        <div className="block-actions">
-          <button className="icon-btn" onClick={onMoveUp} disabled={isFirst} aria-label="Move up">↑</button>
-          <button className="icon-btn" onClick={onMoveDown} disabled={isLast} aria-label="Move down">↓</button>
-          <button className="ghost" onClick={() => setEditing(e => !e)}>{editing ? 'Cancel' : 'Edit'}</button>
-          {onDuplicate && (
-            <button className="ghost" onClick={() => onDuplicate(block.id)} title="Duplicate this block">Duplicate</button>
-          )}
-          {confirmDel ? (
-            <>
-              <span className="confirm-text">Delete?</span>
-              <button className="danger" onClick={() => onDelete(block.id)}>Yes</button>
-              <button className="ghost" onClick={() => setConfirmDel(false)}>No</button>
-            </>
-          ) : (
-            <button className="ghost danger" onClick={() => setConfirmDel(true)}>Delete</button>
-          )}
-        </div>
+        {canEdit && (
+          <div className="block-actions">
+            <button className="icon-btn" onClick={onMoveUp} disabled={isFirst} aria-label="Move up">↑</button>
+            <button className="icon-btn" onClick={onMoveDown} disabled={isLast} aria-label="Move down">↓</button>
+            <button className="ghost" onClick={() => setEditing(e => !e)}>{editing ? 'Cancel' : 'Edit'}</button>
+            {onDuplicate && (
+              <button className="ghost" onClick={() => onDuplicate(block.id)} title="Duplicate this block">Duplicate</button>
+            )}
+            {confirmDel ? (
+              <>
+                <span className="confirm-text">Delete?</span>
+                <button className="danger" onClick={() => onDelete(block.id)}>Yes</button>
+                <button className="ghost" onClick={() => setConfirmDel(false)}>No</button>
+              </>
+            ) : (
+              <button className="ghost danger" onClick={() => setConfirmDel(true)}>Delete</button>
+            )}
+          </div>
+        )}
       </div>
-      {editing && (
+      {canEdit && editing && (
         <BlockForm
           block={block}
           onSave={handleSave}

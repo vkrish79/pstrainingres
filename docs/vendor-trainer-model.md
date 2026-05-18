@@ -1,14 +1,16 @@
 # Vendor + trainer role model — planning doc
 
-**Status:** Phase A and Phase B shipped to prod (2026-05-13). Vendors admin
-+ staff admin (create, reassign vendor, reset password, hard delete) are
-live. Supabase ↔ GitHub integration is now wired so edge functions and
-future migrations auto-deploy on push to `main`.
+**Status:** Phases A, B, and the mid-stream session-first enrolment are
+shipped to prod (last update 2026-05-18). Vendors admin + staff admin
+(create, reassign vendor, reset password, hard delete) + session-first
+participant enrolment + per-participant password reset + `/join/:code`
+public login are live. Supabase ↔ GitHub integration deploys both edge
+functions and migrations on push to `main` (verified by the join_code
+migration on 2026-05-18). Vercel SPA rewrites configured so deep links
+resolve.
 
-**Mid-stream change before Phase C:** session-first enrolment + username
-identity model. Half-built in the working tree as of end-of-day 2026-05-13,
-**not yet committed.** Resumes tomorrow with the Path 2 (session-scoped
-join codes) decision below. After this lands, Phase C resumes from C1.
+**Next:** Phase C — wire existing pages to enforce tier-aware UI. Start
+at C1 (WorkbookEditorPage gating).
 
 ## Build progress (2026-05-13)
 
@@ -93,14 +95,48 @@ If anything fails, share the error and I'll fix before committing.
 - **Form layout:** inline add form at the top of the page, matches
   People page pattern.
 
-### 🟡 In progress — Session-first enrolment + username identity (resumes 2026-05-14)
+### ✅ Session-first enrolment + username identity — shipped (commits `226f2f3`, `59e72b2`, `fee8f90` on 2026-05-18)
 
 **Goal:** trainer creates a session, then adds participants directly inside
 that session — by direct entry or by uploading a CSV template. No more
 "go to People page → create account → come back to session → pick from
 dropdown" workflow.
 
-#### Decisions locked (2026-05-13)
+**What landed:**
+
+- `supabase/migrations/20260518000000_session_join_code.sql` — adds
+  `sessions.join_code` (6 chars from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`),
+  `gen_join_code()` generator, default + unique constraint, backfill.
+  **Idempotent** (per [[supabase-idempotent-migrations]] memory — the
+  GitHub-integration deploy fails on `add column` if the column was
+  pre-applied via SQL editor for localhost smoke testing).
+- `supabase/migrations/20260518000001_get_session_by_join_code.sql` —
+  SECURITY DEFINER RPC that exposes only `id, name, starts_at, ends_at,
+  join_code` to anon, so `/join/:code` can render the session header
+  before the participant signs in.
+- `supabase/functions/add-session-participants/index.ts` — reworked to
+  accept `{ username, full_name }` rows. Synthesizes
+  `${username}@${join_code}.pstrainingres.local` per session; treats
+  `@`-containing input as a real email (D9 escape hatch). Server always
+  generates the temp password (D8); no client input.
+- `supabase/functions/reset-participant-password/index.ts` — new. Server
+  generates a fresh temp password, sets `must_change_password=true`.
+  Auth gate: super-tier OR `sessions.trainer_id === caller.id`.
+- `src/lib/csv.js` — CSV template/parser simplified to `username,
+  full_name` (dropped `email` and `temp_password`).
+- `src/components/dashboard/AddSessionParticipants.jsx` — two-mode
+  Add panel (Add one / Upload CSV). Results table shows generated temp
+  passwords.
+- `src/pages/JoinSessionLoginPage.jsx` + route `/join/:code` — public
+  login page. RPC lookup, session header, username/password form.
+- `src/pages/SessionDashboardPage.jsx` — hero surfaces join URL with
+  Copy; per-row "Reset pwd" action showing the new temp password inline.
+- `src/pages/PeoplePage.jsx` — read-only roster (Add form removed).
+- `vercel.json` — SPA catch-all rewrite so `/join/:code` and other deep
+  links resolve from cold opens (Vercel returned a 404 from the edge
+  before this).
+
+**Decisions locked (2026-05-13)**
 
 - **D6 — Workflow is session-first.** Participants are added in the context
   of a session, not on the People page. People page becomes a read-only
@@ -130,144 +166,26 @@ dropdown" workflow.
   session-scoped login form (username + password). Trainers and super
   continue to use `/login` with their real email — that path is unchanged.
 
-#### Path 2 implementation plan (build order)
+#### Operational lessons captured during the 2026-05-18 push
 
-1. **Migration `supabase/migrations/<ts>_session_join_code.sql`** — adds
-   `sessions.join_code text unique not null default <generated>`. Use a
-   small SQL function `gen_join_code()` that picks 6 chars from
-   `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no confusing 0/O, 1/I). Backfill
-   existing sessions with unique codes in the same migration. This is
-   the first migration to ride the Supabase ↔ GitHub integration —
-   verify it auto-applies on push.
-2. **Update `create_session_with_workbook_clone` RPC** (or its caller) to
-   generate the join_code at session creation. Simplest: column default
-   does it; no RPC change needed.
-3. **Edge function `supabase/functions/add-session-participants/index.ts`**
-   — already drafted in the working tree, needs reworking:
-   - Accept `username` (not `email`) in body rows.
-   - Build synthetic auth email: if username contains `@`, use as-is;
-     else `${username}@${join_code}.${SENTINEL_DOMAIN}` where SENTINEL_DOMAIN
-     is `pstrainingres.local`. This namespaces the email per session, so
-     `john` in session ABCDEF and `john` in session GHJKLM are independent
-     auth accounts with emails `john@abcdef.pstrainingres.local` and
-     `john@ghjklm.pstrainingres.local`.
-   - On duplicate-in-session: return `already_enrolled`.
-   - On "username exists for this session's join_code but in a different
-     session" → can't happen by construction (join_code is unique to session).
-   - On "username already in another vendor": same vendor isolation rule
-     still applies — synthesize the email, look up by it, error if the
-     existing profile's vendor differs from the session's vendor.
-4. **CSV helpers `src/lib/csv.js`** — drop `temp_password` column from
-   template + parser; rename `email` → `username`. Already drafted in
-   working tree; needs the rename.
-5. **`AddSessionParticipants.jsx`** — rename Email field to Username;
-   drop "temp password" input from the direct-entry form (server always
-   generates). Results table shows the requested username + assigned
-   temp password.
-6. **New route `/join/:code`** — `src/pages/JoinSessionLoginPage.jsx`:
-   - Look up session by `join_code`. If not found, show "Session not found"
-     and a link to `/login`.
-   - Show session name + cohort dates as the page header.
-   - Username + Password fields. On submit, construct synthetic email
-     `${username}@${join_code}.pstrainingres.local` and call
-     `supabase.auth.signInWithPassword`.
-   - On success, redirect to `/workbook`.
-7. **`SessionDashboardPage.jsx`** — show the join code + share link
-   prominently in the session header so trainer can copy/paste it to
-   participants. Format: "Join URL: <https://pstrainingres.vercel.app/join/ABCDEF>".
-8. **`PeoplePage.jsx`** — remove the "Add a participant" form. Already
-   drafted in the working tree as a read-only roster.
-9. **Login form `LoginPage.jsx`** — no change. Trainers/super still log
-   in via email + password. Only participants use `/join/:code`.
-
-#### What's already in the working tree (uncommitted)
-
-Files modified or created on 2026-05-13, NOT committed because the
-identity model changed (D11/D12) and the code needs reworking before
-push:
-
-- `src/lib/csv.js` — CSV helpers. **Currently uses `email` + `temp_password`
-  columns; needs rename to `username` and drop `temp_password`.**
-- `supabase/functions/add-session-participants/index.ts` — edge function.
-  **Currently uses single global sentinel `@pstrainingres.local`; needs
-  changing to per-session `@{join_code}.pstrainingres.local`.**
-- `supabase/config.toml` — added entry for the new function.
-- `src/hooks/useSessionDashboard.js` — replaced `addParticipant(id)` with
-  `addSessionParticipants(rows)` calling the edge function. ✅ Keep as-is.
-- `src/components/dashboard/AddSessionParticipants.jsx` — new component
-  with two modes. **Currently uses "Email" label and exposes temp password;
-  needs rename to "Username" and drop temp password input.**
-- `src/pages/SessionDashboardPage.jsx` — replaced dropdown picker with
-  the new component. ✅ Keep, plus add join-code/share-URL display.
-- `src/pages/PeoplePage.jsx` — stripped the add form. ✅ Keep as-is.
-
-#### Migration sketch for `sessions.join_code`
-
-```sql
--- supabase/migrations/<ts>_session_join_code.sql
-
-create or replace function gen_join_code()
-returns text language plpgsql as $$
-declare
-  alphabet text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  code text;
-  ok boolean := false;
-begin
-  while not ok loop
-    code := '';
-    for i in 1..6 loop
-      code := code || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
-    end loop;
-    -- check uniqueness
-    perform 1 from sessions where join_code = code;
-    if not found then ok := true; end if;
-  end loop;
-  return code;
-end;
-$$;
-
-alter table sessions
-  add column join_code text;
-
--- backfill existing rows one at a time so each gets a unique code
-do $$
-declare r record;
-begin
-  for r in select id from sessions where join_code is null loop
-    update sessions set join_code = gen_join_code() where id = r.id;
-  end loop;
-end;
-$$;
-
-alter table sessions
-  alter column join_code set not null,
-  alter column join_code set default gen_join_code(),
-  add constraint sessions_join_code_unique unique (join_code);
-```
-
-(Defer: case-insensitivity at the SQL layer — handle in the app by
-upper-casing the URL param before query.)
-
-#### Resume checklist (2026-05-14)
-
-1. Read this section + the working-tree status above.
-2. Decide if anything in D6–D12 needs a second look before building (e.g.
-   should the trainer be able to *override* the auto-generated temp
-   password from the direct-entry form? See D8 — currently no.).
-3. Build in the order listed under "Path 2 implementation plan."
-4. Use the migration as the first test of the Supabase ↔ GitHub
-   integration's migrations leg.
-5. Smoke test against prod: create a session as a vendor_trainer, copy
-   the join URL, open it in an incognito window, log in with the
-   username you just created. Two parallel sessions, both with a "john"
-   — confirm they're independent auth accounts (different `auth.users.id`
-   in Supabase Dashboard).
-6. Commit + push as a single feature commit ("Session-first enrolment +
-   per-session usernames"). Then resume Phase C from C1.
+- **Always write migrations idempotently.** The first push failed because
+  the join_code migration was manually pre-applied via SQL Editor for
+  localhost smoke testing, but the integration's migration tracker
+  (`supabase_migrations.schema_migrations`) only sees migrations *it*
+  applied. Fix landed in `59e72b2`. See [[supabase-idempotent-migrations]].
+- **Vercel SPA rewrite was missing.** First open of `/join/:code` in
+  incognito hit Vercel's edge 404 because there was no `vercel.json`
+  catch-all to `/index.html`. Fix in `fee8f90`. See
+  [[vercel-spa-rewrite]].
+- **Auto-applied migrations leg verified.** Both migrations under
+  `supabase/migrations/` deployed cleanly via the GitHub integration
+  after the idempotency fix — first time this leg of the integration
+  has been exercised. Going forward, drop new migrations into the same
+  directory with timestamped filenames; no Dashboard SQL required.
 
 ---
 
-### 🔲 Pending — Phase C (after session-first enrolment lands)
+### 🔲 Pending — Phase C (next up)
 
 Wire the existing pages to actually use the new tiers. Today RLS allows
 vendor isolation, but the UI pages still load and render as if every

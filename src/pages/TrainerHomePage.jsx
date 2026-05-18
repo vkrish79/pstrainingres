@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
+import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
@@ -19,6 +20,7 @@ export default function TrainerHomePage() {
   const { loading: wl, workbooks } = useTrainerWorkbooks(authSession?.user.id);
 
   const firstName = (profile?.full_name || '').split(' ')[0] || 'there';
+  const canAuthorWorkbooks = isSuperTrainerOrAbove(profile?.role);
   const totalParticipants = sessions.reduce(
     (sum, s) => sum + (s.session_participants?.length || 0),
     0
@@ -31,11 +33,14 @@ export default function TrainerHomePage() {
         <section className="page-hero">
           <div className="page-hero-text">
             <h1>Welcome back, {firstName}</h1>
-            <p>Manage workbooks, run sessions, and watch participants progress live.</p>
           </div>
           <div className="page-hero-actions">
-            <Link to="/trainer/workbooks/new" className="ghost-link">+ New workbook</Link>
-            <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>
+            {canAuthorWorkbooks && (
+              <>
+                <Link to="/trainer/workbooks/new" className="ghost-link">+ New workbook</Link>
+                <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>
+              </>
+            )}
             <Link to="/trainer/sessions/new">+ New session</Link>
           </div>
         </section>
