@@ -3,6 +3,8 @@
 -- Each session gets a short opaque code used in /join/:code URLs and in
 -- the synthetic auth email namespace (username@{join_code}.pstrainingres.local).
 -- See docs/vendor-trainer-model.md "Session-first enrolment + username identity".
+--
+-- Idempotent: safe to re-run if any step was applied manually beforehand.
 
 create or replace function gen_join_code()
 returns text
@@ -27,7 +29,7 @@ end;
 $$;
 
 alter table sessions
-  add column join_code text;
+  add column if not exists join_code text;
 
 do $$
 declare r record;
@@ -39,6 +41,17 @@ end;
 $$;
 
 alter table sessions
-  alter column join_code set not null,
-  alter column join_code set default gen_join_code(),
-  add constraint sessions_join_code_unique unique (join_code);
+  alter column join_code set default gen_join_code();
+
+alter table sessions
+  alter column join_code set not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'sessions_join_code_unique'
+  ) then
+    alter table sessions add constraint sessions_join_code_unique unique (join_code);
+  end if;
+end;
+$$;
