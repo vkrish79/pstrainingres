@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
+import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
+import '../styles/print.css';
 
 const ALL_KEY = '__all__';
 
@@ -13,6 +15,7 @@ export default function ParticipantWorkbookPage() {
   const { session: authSession } = useAuth();
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
+  const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
 
@@ -87,6 +90,14 @@ export default function ParticipantWorkbookPage() {
                 {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed' : 'All changes saved'}
               </span>
             )}
+            <button
+              type="button"
+              className="ghost no-print"
+              onClick={() => window.print()}
+              title="Open the print dialog. Choose 'Save as PDF' to download."
+            >
+              ↓ Print / Download PDF
+            </button>
           </div>
         </section>
 
@@ -144,20 +155,49 @@ export default function ParticipantWorkbookPage() {
           </aside>
 
           <div className="exresp-main">
-            {visibleSections.map(sec => (
-              <section key={sec.id} className="wb-section">
-                <h2>{sec.title}</h2>
-                {blocks.filter(b => b.section_id === sec.id).map(b => (
-                  <Block
-                    key={b.id}
-                    block={b}
-                    value={answers[b.id]}
-                    onChange={v => saveAnswer(b.id, v)}
-                    recentlyUpdated={!!recentlyUpdated[b.id]}
-                  />
-                ))}
-              </section>
-            ))}
+            {/* Print-only header shown at the top of the PDF so trainers / the
+                participant know whose answers they're looking at. */}
+            <div className="print-only print-header">
+              <h1>{workbook.title}</h1>
+              <p>
+                {session?.name}
+                {session?.city_code && ` · ${session.city_code}`}
+                {(session?.starts_at || session?.ends_at) && ` · ${formatDateRange(session.starts_at, session.ends_at)}`}
+              </p>
+            </div>
+            {visibleSections.map(sec => {
+              const noteText = sectionNotes[sec.id]?.note || '';
+              return (
+                <section key={sec.id} className="wb-section">
+                  <h2>{sec.title}</h2>
+                  {blocks.filter(b => b.section_id === sec.id).map(b => (
+                    <Block
+                      key={b.id}
+                      block={b}
+                      value={answers[b.id]}
+                      onChange={v => saveAnswer(b.id, v)}
+                      recentlyUpdated={!!recentlyUpdated[b.id]}
+                    />
+                  ))}
+                  <div className="participant-note-row">
+                    <label className="participant-note-label">My notes for this exercise</label>
+                    <textarea
+                      className="participant-note-input"
+                      placeholder="Jot down anything you want to remember…"
+                      value={noteText}
+                      onChange={e => saveNote(sec.id, e.target.value)}
+                      rows={3}
+                    />
+                    {/* Print-friendly rendering: textareas don't print their
+                        value cleanly across browsers, so we also emit the note
+                        as plain text that only shows in print. */}
+                    {noteText && (
+                      <div className="print-only participant-note-print">{noteText}</div>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         </div>
       </main>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
+import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
@@ -31,6 +32,7 @@ export default function SessionDashboardPage() {
   } = useSessionDashboard(id);
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
+  const { notes: participantNotes } = useSessionParticipantNotes(id);
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
@@ -95,7 +97,7 @@ export default function SessionDashboardPage() {
   }
 
   function handleExport() {
-    const csv = buildAnswersCsv({ session, sections, blocks, participants, answers, notes });
+    const csv = buildAnswersCsv({ session, sections, blocks, participants, answers, notes, participantNotes });
     const safe = (session?.name || 'session').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
     downloadCsv(`${safe}_answers_${stamp}.csv`, csv);
@@ -256,25 +258,34 @@ export default function SessionDashboardPage() {
                   <button className="icon-btn" onClick={() => setSelectedParticipantId(null)} aria-label="Close">×</button>
                 </header>
                 <div className="answers-pane-body">
-                  {sections.map(sec => (
-                    <section key={sec.id} className="wb-section answers-section">
-                      <h3>{sec.title}</h3>
-                      {blocks.filter(b => b.section_id === sec.id).map(b => (
-                        <div key={b.id} className="answers-block">
-                          <Block block={b} value={selectedAnswers[b.id]?.value} onChange={() => {}} readOnly />
-                          {(b.block_type === 'field' || b.block_type === 'table') && (
-                            <NoteRow
-                              note={selectedNotes[b.id]}
-                              participantId={selected.id}
-                              blockId={b.id}
-                              onSaveNote={saveNote}
-                              onDeleteNote={deleteNote}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </section>
-                  ))}
+                  {sections.map(sec => {
+                    const pNote = participantNotes[selected.id]?.[sec.id]?.note;
+                    return (
+                      <section key={sec.id} className="wb-section answers-section">
+                        <h3>{sec.title}</h3>
+                        {pNote && (
+                          <div className="participant-note-readonly">
+                            <span className="participant-note-readonly-label">Participant note</span>
+                            <div className="participant-note-readonly-text">{pNote}</div>
+                          </div>
+                        )}
+                        {blocks.filter(b => b.section_id === sec.id).map(b => (
+                          <div key={b.id} className="answers-block">
+                            <Block block={b} value={selectedAnswers[b.id]?.value} onChange={() => {}} readOnly />
+                            {(b.block_type === 'field' || b.block_type === 'table') && (
+                              <NoteRow
+                                note={selectedNotes[b.id]}
+                                participantId={selected.id}
+                                blockId={b.id}
+                                onSaveNote={saveNote}
+                                onDeleteNote={deleteNote}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </section>
+                    );
+                  })}
                 </div>
               </aside>
             )}
@@ -288,6 +299,7 @@ export default function SessionDashboardPage() {
             participants={participants}
             answers={answers}
             notes={notes}
+            participantNotes={participantNotes}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
           />

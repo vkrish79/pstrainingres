@@ -13,7 +13,7 @@ const AUTO_COLLAPSE_THRESHOLD = 8;
 
 export default function ExerciseResponses({
   sections, blocks, participants, answers,
-  notes = {}, onSaveNote, onDeleteNote,
+  notes = {}, participantNotes = {}, onSaveNote, onDeleteNote,
 }) {
   const sectionsWithFillable = useMemo(() => {
     return sections
@@ -194,6 +194,7 @@ export default function ExerciseResponses({
               blocks={fillableInSection}
               answersForP={answers[s.participant.id] || {}}
               notesForP={notes[s.participant.id] || {}}
+              sectionNote={participantNotes[s.participant.id]?.[selectedSection.id]?.note || ''}
               expanded={isExpanded(s.participant.id)}
               onToggle={() => toggleTile(s.participant.id)}
               onSaveNote={onSaveNote}
@@ -206,7 +207,7 @@ export default function ExerciseResponses({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, expanded, onToggle, onSaveNote, onDeleteNote }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, expanded, onToggle, onSaveNote, onDeleteNote }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
@@ -228,6 +229,12 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, expanded, onTog
       </button>
       {expanded && (
         <div className="exresp-tile-body">
+          {sectionNote && (
+            <div className="participant-note-readonly">
+              <span className="participant-note-readonly-label">Participant note</span>
+              <div className="participant-note-readonly-text">{sectionNote}</div>
+            </div>
+          )}
           {blocks.map(b => (
             <BlockAnswer
               key={b.id}

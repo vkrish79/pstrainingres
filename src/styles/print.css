@@ -1,0 +1,97 @@
+/* Printed view of the participant workbook. Triggered by window.print()
+   from the "Print / Download PDF" button. Strips chrome, expands the
+   layout to full width, and shows the workbook + answers + the
+   participant's own notes — never trainer notes (deliberate scope). */
+
+/* `print-only` and `no-print` are the two helper classes used across the
+   participant page to switch elements between screen and print views. */
+.print-only { display: none; }
+
+@media print {
+  /* Hide app chrome and any interactive control that doesn't belong on paper. */
+  .topbar,
+  .no-print,
+  .exresp-sidebar,
+  .exresp-mobile-nav,
+  .page-hero-actions,
+  .wb-save-indicator {
+    display: none !important;
+  }
+
+  /* Switch the helper class behaviour. */
+  .print-only { display: block !important; }
+
+  /* Expand layout to the whole printable area; drop card padding/shadows. */
+  body, .page, .page.workbook {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .page { padding: 0 !important; max-width: none !important; }
+  .exresp-layout {
+    display: block !important;
+    grid-template-columns: none !important;
+  }
+  .exresp-main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .wb-section {
+    page-break-inside: avoid;
+    margin-bottom: 1.25rem;
+  }
+
+  /* Print header (only shown on print, hidden on screen). */
+  .print-header { margin-bottom: 1rem; border-bottom: 1px solid #999; padding-bottom: 0.5rem; }
+  .print-header h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
+  .print-header p { margin: 0; color: #555; font-size: 0.9rem; }
+
+  /* The participant-note input doesn't print its value reliably; the JSX
+     also emits a .participant-note-print div with the raw text. Hide the
+     textarea on paper to avoid an empty box, show the plain-text twin. */
+  .participant-note-input { display: none !important; }
+  .participant-note-row { border-top: 1px dashed #bbb; padding-top: 0.5rem; margin-top: 0.5rem; }
+  .participant-note-label {
+    display: block; font-size: 0.8rem; color: #555;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;
+  }
+  .participant-note-print {
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    color: #000;
+  }
+
+  /* Force background colours from the design system to print (off by default
+     in most browsers; users can toggle "Background graphics" in the dialog,
+     but city-tag / pills look fine in mono too — leave default behaviour). */
+}
+
+/* On-screen note row styling. */
+.participant-note-row {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #fafbfd;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.participant-note-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+.participant-note-input {
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  resize: vertical;
+  min-height: 60px;
+}
+.participant-note-input:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}

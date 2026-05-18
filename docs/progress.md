@@ -268,9 +268,59 @@ pointing at a template workbook). New sessions all go through the RPC.
   the workbook of sessions they're enrolled in. They cannot query or write
   outside their own session.
 - **Multi-session participants**: `useWorkbook` does `.limit(1)` on enrolled
-  sessions — picks the first one returned. If a participant ever joins a
-  second session, they'd be stuck on whichever loaded first. Deferred:
-  add a session picker for multi-enrollment.
+  sessions. Not a real concern under the plain-username identity policy
+  (each session's synthesized email is a distinct auth account — one
+  account is enrolled in exactly one session by design).
+
+### 5.6 Per-section notes (participant-authored)
+
+**Schema:** `participant_notes` table (migration
+`supabase/migrations/20260518000002_participant_notes.sql`):
+
+```
+id, session_id, participant_id, section_id, note, created_at, updated_at,
+unique (session_id, participant_id, section_id)
+```
+
+**RLS:** participant can read/write their own notes only. Trainers who can
+see the session (super, vendor_manager of `sessions.vendor_id`, or
+`sessions.trainer_id`) get read-only access. Mirrors the `answers_read`
+pattern. Added to `supabase_realtime` so trainers see edits live.
+
+**Hook:** `src/hooks/useParticipantNotes.js` — loads notes for the
+current participant + session, exposes `saveNote(sectionId, text)` with
+600 ms debounce + optimistic local update.
+
+**UI (participant):** under each section heading on
+`ParticipantWorkbookPage` there's a small "My notes for this exercise"
+textarea. Saves on keystroke (debounced).
+
+**UI (trainer):** read-only render at the top of each section in the
+Participants tab answers-pane and inside each `ExerciseResponses` tile
+body. Driven by `useSessionParticipantNotes(sessionId)` (realtime).
+
+**CSV export:** `buildAnswersCsv` gained a `participant_note` column.
+Notes attach to every answer row in their section; orphan notes
+(participant left a note but didn't answer anything in that section)
+get their own synthetic row so nothing is silently dropped.
+
+### 5.7 Print / Download PDF
+
+`Print / Download PDF` button in the participant hero calls
+`window.print()`. `src/styles/print.css` hides app chrome
+(TopBar, sidebar, save indicator, the print button itself), expands
+the layout to full width, and emits a print-only header with workbook
+title + session name + city + date range.
+
+Participant notes are rendered as plain text in print (the on-screen
+`<textarea>` doesn't print its value reliably across browsers, so a
+twin `.participant-note-print` div is shown only when printing).
+
+Trainer notes/flags are deliberately excluded from the participant's
+download.
+
+To save as PDF: open the print dialog, pick "Save as PDF" as the
+destination. No new dependencies.
 
 ---
 
@@ -533,6 +583,10 @@ Supabase ↔ GitHub integration on push to `main`; tracked in
 7. `20260518000001_get_session_by_join_code.sql` — SECURITY DEFINER
    RPC for anon lookup of `id, name, starts_at, ends_at, join_code` by
    join code (used by `/join/:code`).
+8. `20260518000002_participant_notes.sql` — `participant_notes` table
+   for per-section notes written by participants. RLS: self-only writes,
+   trainers in the session get read access. Added to `supabase_realtime`.
+   Idempotent.
 
 Going forward, every new migration should land under
 `supabase/migrations/` with a timestamped filename and be **idempotent**
@@ -586,16 +640,32 @@ specificity than a single class). Without this, the navy global hover
 won and dark sidebar text became unreadable — fixes the same issue on
 the participant workbook sidebar too.
 
+#### C3 — NewSessionPage tier-aware pickers *(shipped 2026-05-18)*
+
+`NewSessionPage.jsx` now branches on `profile.role`:
+
+- **vendor_trainer**: no extra pickers. Submits with `p_trainer_id =
+  null`; the RPC defaults it to the caller.
+- **vendor_manager**: a Trainer dropdown listing themselves + their
+  team's vendor_trainers (RLS already scopes `useStaff` for them).
+- **super_admin / super_trainer**: a "I'll deliver this session
+  myself" checkbox defaulting **on**. When on, no pickers — session is
+  assigned to the super (vendor_id resolves to whatever they have,
+  usually null). When off, Vendor + Trainer dropdowns appear, both
+  required. Trainer dropdown is disabled until Vendor is picked and
+  then filters to that vendor's staff.
+
+Form validation: trainer required for vendor_manager and for super
+when not self-delivering; vendor required only when super is in
+assign mode. RPC re-validates on the server side
+(`vendor_trainer` can't pick anyone but themselves, etc.).
+
 #### Remaining Phase C work
 
 - **C2 — dropped.** Plan was to vendor-scope the People page roster.
   Instead the page was removed entirely on 2026-05-18 (see §8.6) since
   participant management is per-session-only and a generic cross-vendor
   roster has no role-appropriate reader.
-- **C3 — NewSessionPage:** auto-set `vendor_id` from caller's profile
-  for `vendor_trainer`; for `vendor_manager`, pin to their vendor with
-  a trainer picker filtered to their vendor; for super, show both
-  pickers unfiltered.
 - **C4 — TrainerHomePage (rest):** full tier branching — super sees
   vendor cards grid + full workbook library; vendor manager sees their
   vendor's sessions + read-only library; vendor trainer sees their own

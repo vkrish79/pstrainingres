@@ -537,3 +537,27 @@
 }
 .exresp-note-actions { display: flex; gap: 0.4rem; }
 .exresp-note-actions button { font-size: 0.8rem; padding: 0.3rem 0.7rem; }
+
+/* Read-only display of a participant's own section note in the trainer
+   dashboard (Participants answers-pane + ExerciseResponses tile body). */
+.participant-note-readonly {
+  background: #f0f4fa;
+  border-left: 3px solid #5680c5;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem;
+  border-radius: 0 4px 4px 0;
+}
+.participant-note-readonly-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #5680c5;
+  margin-bottom: 0.2rem;
+}
+.participant-note-readonly-text {
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  color: var(--text);
+}
