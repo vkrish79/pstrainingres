@@ -128,7 +128,6 @@ function VendorManagerHome({ userId }) {
           {sessions.map(s => <SessionCard key={s.id} session={s} showTrainer />)}
         </div>
       )}
-
       <WorkbookLibrary loading={wl} workbooks={workbooks} />
     </>
   );
@@ -163,7 +162,6 @@ function VendorTrainerHome({ userId }) {
           {sessions.map(s => <SessionCard key={s.id} session={s} />)}
         </div>
       )}
-
       <WorkbookLibrary loading={wl} workbooks={workbooks} />
     </>
   );

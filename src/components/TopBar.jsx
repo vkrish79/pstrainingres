@@ -28,6 +28,7 @@ export default function TopBar() {
                   <NavLink to="/trainer/staff" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Staff</NavLink>
                 </>
               )}
+              <NavLink to="/trainer/archive" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Closed sessions</NavLink>
             </>
           )}
           <span className="topbar-user">

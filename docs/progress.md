@@ -201,9 +201,28 @@ be permanently deleted; a JSON summary is saved." No un-close.
   snapshot) and **Print / Download PDF** (human archive, browser print
   dialog; print CSS expands all cards).
 
-**Home / SessionCard** gain a `Closed` pill on closed sessions; card
-opacity drops to 0.7 (returns to 1 on hover). Closed sessions remain
-in the same lists as live ones — no separate "Archived" page.
+**Home page filters closed sessions out** of every live grid (own /
+vendor / drill-in). `useTrainerSessions` gained an `includeClosed`
+param defaulting to `'live'` — every existing live view inherits the
+filter for free.
+
+**Archive page** `src/pages/ClosedSessionsPage.jsx` at
+`/trainer/archive`, reachable via a new **Closed sessions** entry in
+the TopBar (trainer-tier). RLS scopes the list automatically:
+vendor_trainer sees own; vendor_manager sees their vendor; super sees
+all. The archive uses a **table layout** (denser than cards for 50+
+rows), with:
+
+- Search by session name / vendor / trainer
+- Year filter (auto-populated from `closed_at`)
+- Vendor filter (super-tier only)
+- Sortable columns (Session, Dates, Closed)
+- Year separator rows when not filtered to one year
+- Click a row → opens the session URL, which mounts `ClosedSessionView`
+  via the `closed_at` check in `SessionDashboardPage`
+
+The Closed pill / faded card styling on `SessionCard` is retained as
+defensive defaults but shouldn't appear in normal live views anymore.
 
 **Participant impact:** `JoinSessionLoginPage` checks `session.closed_at`
 and renders "This session has ended" with the close date instead of the

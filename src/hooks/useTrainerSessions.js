@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
-// Loads sessions for the trainer home or a vendor drill-in.
+// Loads sessions for the trainer home, vendor drill-in, or archive.
 //   scope='own'    -> where trainer_id = userId (vendor_trainer + super's "my sessions" strip)
 //   scope='vendor' -> where vendor_id  = vendorId (vendor drill-in page)
 //   scope='all'    -> no explicit filter; RLS scopes naturally (vendor_manager
 //                     gets their vendor; super gets everything).
-export function useTrainerSessions(userId, scope = 'own', vendorId = null) {
+//   includeClosed:
+//     'live'   -> closed_at is null (default; the active-work views)
+//     'closed' -> closed_at is not null (the archive page)
+//     'all'    -> no filter on closed_at
+export function useTrainerSessions(userId, scope = 'own', vendorId = null, includeClosed = 'live') {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [error, setError] = useState(null);
@@ -22,12 +26,15 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null) {
           .select(`
             id, name, created_at, starts_at, ends_at, city_code, trainer_id, vendor_id, closed_at,
             workbooks ( id, title ),
+            vendors ( id, code, name ),
             session_participants ( participant_id ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name )
           `)
           .order('created_at', { ascending: false });
         if (scope === 'own') q = q.eq('trainer_id', userId);
         else if (scope === 'vendor') q = q.eq('vendor_id', vendorId);
+        if (includeClosed === 'live') q = q.is('closed_at', null);
+        else if (includeClosed === 'closed') q = q.not('closed_at', 'is', null);
         const { data, error } = await q;
         if (error) throw error;
         if (cancelled) return;
@@ -38,7 +45,7 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null) {
       }
     })();
     return () => { cancelled = true; };
-  }, [userId, scope, vendorId]);
+  }, [userId, scope, vendorId, includeClosed]);
 
   return { loading, error, sessions };
 }
