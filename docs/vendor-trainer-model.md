@@ -1,8 +1,14 @@
 # Vendor + trainer role model — planning doc
 
-**Status:** Phase A in progress (2026-05-13). Migration applied to Supabase
-and deployed to prod. Vendors admin page built locally, awaiting localhost
-smoke test before commit. Next session resumes here.
+**Status:** Phase A and Phase B shipped to prod (2026-05-13). Vendors admin
++ staff admin (create, reassign vendor, reset password, hard delete) are
+live. Supabase ↔ GitHub integration is now wired so edge functions and
+future migrations auto-deploy on push to `main`.
+
+**Mid-stream change before Phase C:** session-first enrolment + username
+identity model. Half-built in the working tree as of end-of-day 2026-05-13,
+**not yet committed.** Resumes tomorrow with the Path 2 (session-scoped
+join codes) decision below. After this lands, Phase C resumes from C1.
 
 ## Build progress (2026-05-13)
 
@@ -35,22 +41,23 @@ Two commits on `main`:
   - `MFeroz@etihad.ae` → `super_trainer`
   - `MRMarleen@etihad.ae` → `super_trainer`
 
-### 🟡 Built locally, NOT YET committed or pushed
+### ✅ Phase A shipped (commit `11fae8c`)
 
-The Vendors admin page (Phase A). Files in the working tree:
+Vendors admin page at `/trainer/vendors`:
+- `src/hooks/useVendors.js`, `src/pages/VendorsAdminPage.jsx`
+- `ProtectedRoute` extended for `role="super"`; `TopBar` shows "Vendors"
+  to super-tier only.
 
-- `src/hooks/useVendors.js` — fetch + create + rename + delete, includes
-  per-vendor trainer and session counts
-- `src/pages/VendorsAdminPage.jsx` — list table + inline add form +
-  inline rename + delete (blocked when vendor has trainers or sessions)
-- `src/components/ProtectedRoute.jsx` — extended to accept `role="super"`
-- `src/components/TopBar.jsx` — "Vendors" nav link visible only to
-  super-tier users
-- `src/App.jsx` — new route `/trainer/vendors` gated to super-tier
+### ✅ Phase B shipped (commits `1290b51`, `560450b`, `acf56e5`)
 
-Vite dev server is running at `http://localhost:5174/` with HMR clean.
-**To resume:** open it in the browser as `vbalasubramanian@etihad.ae`
-and run the smoke test below, then commit + push.
+Staff admin page at `/trainer/staff` + Supabase GitHub integration wired:
+- `supabase/functions/create-staff`, `delete-staff`,
+  `reset-staff-password` — all super-tier gated.
+- `supabase/config.toml` — registers project + functions for auto-deploy
+  on push.
+- `src/hooks/useStaff.js`, `src/pages/StaffAdminPage.jsx` — add /
+  reassign-vendor / reset-temp-password / hard-delete.
+- `TopBar` shows "Staff" between "Vendors" and "People" to super-tier.
 
 ### Vendors page smoke test (run on resume)
 
@@ -86,43 +93,218 @@ If anything fails, share the error and I'll fix before committing.
 - **Form layout:** inline add form at the top of the page, matches
   People page pattern.
 
-### 🔲 Pending — Phase B (next up after Phase A is in prod)
+### 🟡 In progress — Session-first enrolment + username identity (resumes 2026-05-14)
 
-**Goal:** super trainers can add vendor managers and vendor trainers.
+**Goal:** trainer creates a session, then adds participants directly inside
+that session — by direct entry or by uploading a CSV template. No more
+"go to People page → create account → come back to session → pick from
+dropdown" workflow.
 
-- New edge function `supabase/functions/create-staff/index.ts` (mirrors
-  `create-participant` but: accepts `role` in `{vendor_manager, vendor_trainer}`,
-  requires `vendor_id`, gated to super-tier callers only). Service-role
-  insert of auth user + profile row.
-- New page `src/pages/StaffAdminPage.jsx` at `/trainer/staff`:
-  - List vendor_managers and vendor_trainers; filter by vendor; show
-    name, email, vendor, role, must_change_password status, created date.
-  - "+ Add staff member" form: Vendor (dropdown), Role (radio:
-    Vendor manager / Vendor trainer), Email, Full name, Temp password.
-  - Edit: reassign vendor (vendor dropdown). Delete: remove **both** the
-    `profiles` row and the `auth.users` row (via service-role
-    `auth.admin.deleteUser()` in the edge function), so the email is
-    freed up and can be re-invited fresh. Decided 2026-05-13.
-- Nav: new "Staff" link in TopBar, super-tier only. Slots between
-  "Vendors" and "People".
-- ProtectedRoute already supports `role="super"`, so no changes there.
+#### Decisions locked (2026-05-13)
 
-### 🔲 Pending — Phase C (after Phase B)
+- **D6 — Workflow is session-first.** Participants are added in the context
+  of a session, not on the People page. People page becomes a read-only
+  roster. Single workflow is easier to teach.
+- **D7 — Two add modes per session:**
+  - **Add one** — inline form with username, full name (optional). Submits
+    a one-row batch to the edge function.
+  - **Upload CSV** — trainer downloads a lightweight template, fills it in
+    Excel, uploads. Server processes the batch.
+- **D8 — CSV template columns: `username`, `full_name`.** No `temp_password`
+  column. Server auto-generates a secure 10-char temp password for every
+  new row and returns it in the per-row results table for the trainer to
+  share. The original 3-col template (email/full_name/temp_password) and
+  the `email` field on the direct-add form get renamed to `username` and
+  the temp_password column dropped before commit.
+- **D9 — Identity model: username, not email.** Supabase Auth requires an
+  email-format string, so the server synthesizes one when needed. If the
+  trainer types a value containing `@`, it's used as the real email.
+  Otherwise the server appends a sentinel domain (see D10).
+- **D10 — Sentinel domain is `pstrainingres.local`.** RFC-reserved for
+  local hostnames, won't collide with real mail.
+- **D11 — Username uniqueness is per-session, NOT global** (resolves the
+  "two johns in parallel sessions" concern). See Path 2 below.
+- **D12 — Session join code + `/join/:code` URL.** Each session gets a
+  short opaque `join_code` (random 6 chars, A–Z/0–9, generated at session
+  creation). Participants log in via `/join/:code` which renders a
+  session-scoped login form (username + password). Trainers and super
+  continue to use `/login` with their real email — that path is unchanged.
 
-Wire the existing pages to actually use the new tiers:
+#### Path 2 implementation plan (build order)
 
-- **TrainerHomePage** — branch by tier. Super tier sees vendor cards;
-  vendor managers see their vendor's sessions list; vendor trainers see
-  only their own sessions. Today everyone sees the same thing.
-- **NewSessionPage** — for vendor trainers, `vendor_id` is auto-set from
-  their profile (no picker). For vendor managers, picker shows only
-  vendor_trainers from their vendor (since managers can't deliver
-  themselves). For super tier, picker shows everyone.
-- **PeoplePage** — for vendor-tier callers, scope the participant list
-  to their vendor only. Add a vendor picker for super-tier.
-- **WorkbookEditorPage** — gate template structural edits on
-  `is_super_trainer_or_above()` (today every trainer-tier user can edit
-  templates; that's wrong per the new model).
+1. **Migration `supabase/migrations/<ts>_session_join_code.sql`** — adds
+   `sessions.join_code text unique not null default <generated>`. Use a
+   small SQL function `gen_join_code()` that picks 6 chars from
+   `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no confusing 0/O, 1/I). Backfill
+   existing sessions with unique codes in the same migration. This is
+   the first migration to ride the Supabase ↔ GitHub integration —
+   verify it auto-applies on push.
+2. **Update `create_session_with_workbook_clone` RPC** (or its caller) to
+   generate the join_code at session creation. Simplest: column default
+   does it; no RPC change needed.
+3. **Edge function `supabase/functions/add-session-participants/index.ts`**
+   — already drafted in the working tree, needs reworking:
+   - Accept `username` (not `email`) in body rows.
+   - Build synthetic auth email: if username contains `@`, use as-is;
+     else `${username}@${join_code}.${SENTINEL_DOMAIN}` where SENTINEL_DOMAIN
+     is `pstrainingres.local`. This namespaces the email per session, so
+     `john` in session ABCDEF and `john` in session GHJKLM are independent
+     auth accounts with emails `john@abcdef.pstrainingres.local` and
+     `john@ghjklm.pstrainingres.local`.
+   - On duplicate-in-session: return `already_enrolled`.
+   - On "username exists for this session's join_code but in a different
+     session" → can't happen by construction (join_code is unique to session).
+   - On "username already in another vendor": same vendor isolation rule
+     still applies — synthesize the email, look up by it, error if the
+     existing profile's vendor differs from the session's vendor.
+4. **CSV helpers `src/lib/csv.js`** — drop `temp_password` column from
+   template + parser; rename `email` → `username`. Already drafted in
+   working tree; needs the rename.
+5. **`AddSessionParticipants.jsx`** — rename Email field to Username;
+   drop "temp password" input from the direct-entry form (server always
+   generates). Results table shows the requested username + assigned
+   temp password.
+6. **New route `/join/:code`** — `src/pages/JoinSessionLoginPage.jsx`:
+   - Look up session by `join_code`. If not found, show "Session not found"
+     and a link to `/login`.
+   - Show session name + cohort dates as the page header.
+   - Username + Password fields. On submit, construct synthetic email
+     `${username}@${join_code}.pstrainingres.local` and call
+     `supabase.auth.signInWithPassword`.
+   - On success, redirect to `/workbook`.
+7. **`SessionDashboardPage.jsx`** — show the join code + share link
+   prominently in the session header so trainer can copy/paste it to
+   participants. Format: "Join URL: <https://pstrainingres.vercel.app/join/ABCDEF>".
+8. **`PeoplePage.jsx`** — remove the "Add a participant" form. Already
+   drafted in the working tree as a read-only roster.
+9. **Login form `LoginPage.jsx`** — no change. Trainers/super still log
+   in via email + password. Only participants use `/join/:code`.
+
+#### What's already in the working tree (uncommitted)
+
+Files modified or created on 2026-05-13, NOT committed because the
+identity model changed (D11/D12) and the code needs reworking before
+push:
+
+- `src/lib/csv.js` — CSV helpers. **Currently uses `email` + `temp_password`
+  columns; needs rename to `username` and drop `temp_password`.**
+- `supabase/functions/add-session-participants/index.ts` — edge function.
+  **Currently uses single global sentinel `@pstrainingres.local`; needs
+  changing to per-session `@{join_code}.pstrainingres.local`.**
+- `supabase/config.toml` — added entry for the new function.
+- `src/hooks/useSessionDashboard.js` — replaced `addParticipant(id)` with
+  `addSessionParticipants(rows)` calling the edge function. ✅ Keep as-is.
+- `src/components/dashboard/AddSessionParticipants.jsx` — new component
+  with two modes. **Currently uses "Email" label and exposes temp password;
+  needs rename to "Username" and drop temp password input.**
+- `src/pages/SessionDashboardPage.jsx` — replaced dropdown picker with
+  the new component. ✅ Keep, plus add join-code/share-URL display.
+- `src/pages/PeoplePage.jsx` — stripped the add form. ✅ Keep as-is.
+
+#### Migration sketch for `sessions.join_code`
+
+```sql
+-- supabase/migrations/<ts>_session_join_code.sql
+
+create or replace function gen_join_code()
+returns text language plpgsql as $$
+declare
+  alphabet text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  code text;
+  ok boolean := false;
+begin
+  while not ok loop
+    code := '';
+    for i in 1..6 loop
+      code := code || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+    end loop;
+    -- check uniqueness
+    perform 1 from sessions where join_code = code;
+    if not found then ok := true; end if;
+  end loop;
+  return code;
+end;
+$$;
+
+alter table sessions
+  add column join_code text;
+
+-- backfill existing rows one at a time so each gets a unique code
+do $$
+declare r record;
+begin
+  for r in select id from sessions where join_code is null loop
+    update sessions set join_code = gen_join_code() where id = r.id;
+  end loop;
+end;
+$$;
+
+alter table sessions
+  alter column join_code set not null,
+  alter column join_code set default gen_join_code(),
+  add constraint sessions_join_code_unique unique (join_code);
+```
+
+(Defer: case-insensitivity at the SQL layer — handle in the app by
+upper-casing the URL param before query.)
+
+#### Resume checklist (2026-05-14)
+
+1. Read this section + the working-tree status above.
+2. Decide if anything in D6–D12 needs a second look before building (e.g.
+   should the trainer be able to *override* the auto-generated temp
+   password from the direct-entry form? See D8 — currently no.).
+3. Build in the order listed under "Path 2 implementation plan."
+4. Use the migration as the first test of the Supabase ↔ GitHub
+   integration's migrations leg.
+5. Smoke test against prod: create a session as a vendor_trainer, copy
+   the join URL, open it in an incognito window, log in with the
+   username you just created. Two parallel sessions, both with a "john"
+   — confirm they're independent auth accounts (different `auth.users.id`
+   in Supabase Dashboard).
+6. Commit + push as a single feature commit ("Session-first enrolment +
+   per-session usernames"). Then resume Phase C from C1.
+
+---
+
+### 🔲 Pending — Phase C (after session-first enrolment lands)
+
+Wire the existing pages to actually use the new tiers. Today RLS allows
+vendor isolation, but the UI pages still load and render as if every
+trainer-tier user is a super_admin — leaks cross-vendor names, lets
+vendor trainers see the "Edit template" buttons even though their write
+would fail at the DB layer, etc.
+
+Sub-tasks, **ordered by priority** (security/correctness first, UX
+polish later):
+
+- **C1 — WorkbookEditorPage:** gate template structural edits on
+  `isSuperTrainerOrAbove(role)`. Hide "Edit", "Delete workbook",
+  "Add section/block" buttons for non-super on template (non-cloned)
+  workbooks. Smallest change; closes a UI leak.
+- **C2 — PeoplePage:** for vendor-tier callers, filter the participant
+  list to `vendor_id = trainer_vendor_id()`. Add a vendor filter for
+  super-tier so they can scope while testing. Also extend
+  `create-participant` UI to expose `vendor_id` to super (the edge
+  function already accepts it; the page doesn't pass it yet).
+- **C3 — NewSessionPage:** auto-set `vendor_id` from caller's profile
+  for `vendor_trainer`; for `vendor_manager`, pin to their vendor and
+  show a `trainer_id` picker filtered to `vendor_trainer` rows in
+  their vendor; for super, show vendor + trainer pickers (all vendors,
+  all trainers).
+- **C4 — TrainerHomePage:** branch by tier.
+  - Super: vendor cards grid (name, # active sessions, # trainers) →
+    drill into vendor; below, full workbook library with "+ New" /
+    "Import .docx".
+  - Vendor manager: their vendor's session list + read-only workbook
+    library.
+  - Vendor trainer: their own sessions only + read-only workbook
+    library.
+  Biggest change of the four — pure UX. Save for last.
+
+Per-step approach: build C1, smoke-test, commit, push. Then C2, etc.
+Avoids landing a 4-page diff and discovering one of them broke
+something downstream.
 
 ## Confirmed decisions
 

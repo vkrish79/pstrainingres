@@ -22,7 +22,7 @@ export function useSessionDashboard(sessionId) {
         const { data: sess, error: e1 } = await supabase
           .from('sessions')
           .select(`
-            id, name, workbook_id, created_at, starts_at, ends_at, city_code,
+            id, name, workbook_id, created_at, starts_at, ends_at, city_code, join_code,
             workbooks ( id, title, description ),
             session_participants ( participant_id, profiles ( id, full_name ) )
           `)
@@ -62,6 +62,7 @@ export function useSessionDashboard(sessionId) {
         setSession({
           id: sess.id, name: sess.name,
           starts_at: sess.starts_at, ends_at: sess.ends_at, city_code: sess.city_code,
+          join_code: sess.join_code,
         });
         setWorkbook(wb);
         setSections(secs || []);
@@ -110,18 +111,65 @@ export function useSessionDashboard(sessionId) {
     return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
 
-  async function addParticipant(participantId) {
-    const { error: insErr } = await supabase
-      .from('session_participants').insert({ session_id: sessionId, participant_id: participantId });
-    if (insErr) return { error: insErr };
-    const { data: prof } = await supabase
-      .from('profiles').select('id, full_name').eq('id', participantId).single();
-    if (prof) {
-      setParticipants(prev =>
-        [...prev, prof].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
-      );
+  async function refreshParticipants() {
+    const { data, error: e } = await supabase
+      .from('session_participants')
+      .select('profiles ( id, full_name )')
+      .eq('session_id', sessionId);
+    if (e) return { error: e };
+    const parts = (data || [])
+      .map(r => r.profiles)
+      .filter(Boolean)
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    setParticipants(parts);
+    return { data: parts };
+  }
+
+  async function addSessionParticipants(rows) {
+    const { data: { session: authSess } } = await supabase.auth.getSession();
+    if (!authSess) return { error: new Error('Not authenticated') };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/add-session-participants`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authSess.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ session_id: sessionId, participants: rows }),
+    });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      return { error: new Error(msg) };
     }
-    return {};
+    const data = await res.json();
+    await refreshParticipants();
+    return { data: data.results || [] };
+  }
+
+  async function resetParticipantPassword(participantId) {
+    const { data: { session: authSess } } = await supabase.auth.getSession();
+    if (!authSess) return { error: new Error('Not authenticated') };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-participant-password`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authSess.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ session_id: sessionId, participant_id: participantId }),
+    });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      return { error: new Error(msg) };
+    }
+    const data = await res.json();
+    return { data };
   }
 
   async function removeParticipant(participantId) {
@@ -140,5 +188,5 @@ export function useSessionDashboard(sessionId) {
     return {};
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, addParticipant, removeParticipant };
+  return { loading, error, session, workbook, sections, blocks, participants, answers, addSessionParticipants, resetParticipantPassword, removeParticipant };
 }

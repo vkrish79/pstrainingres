@@ -15,3 +15,9 @@ verify_jwt = true
 
 [functions.reset-staff-password]
 verify_jwt = true
+
+[functions.add-session-participants]
+verify_jwt = true
+
+[functions.reset-participant-password]
+verify_jwt = true

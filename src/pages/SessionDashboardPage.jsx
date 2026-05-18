@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
-import { useParticipants } from '../hooks/useParticipants.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
@@ -10,6 +9,7 @@ import Block from '../components/blocks/Block.jsx';
 import ExerciseResponses from '../components/dashboard/ExerciseResponses.jsx';
 import NoteRow from '../components/dashboard/NoteRow.jsx';
 import TrainerPracticeView from '../components/dashboard/TrainerPracticeView.jsx';
+import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -27,24 +27,37 @@ export default function SessionDashboardPage() {
   const { id } = useParams();
   const {
     loading, error, session, workbook, sections, blocks, participants, answers,
-    addParticipant, removeParticipant,
+    addSessionParticipants, resetParticipantPassword, removeParticipant,
   } = useSessionDashboard(id);
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
-  const { participants: allParticipants } = useParticipants();
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [adding, setAdding] = useState(false);
-  const [pickId, setPickId] = useState('');
   const [confirmRemove, setConfirmRemove] = useState(null);
+  const [confirmReset, setConfirmReset] = useState(null);
+  const [resetResult, setResetResult] = useState({}); // { [participantId]: { temp_password } | { error } }
   const [busy, setBusy] = useState(false);
+  const [joinCopied, setJoinCopied] = useState(false);
+
+  const joinUrl = session?.join_code
+    ? `${window.location.origin}/join/${session.join_code}`
+    : '';
+
+  async function copyJoinUrl() {
+    if (!joinUrl) return;
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      setJoinCopied(true);
+      setTimeout(() => setJoinCopied(false), 1500);
+    } catch {
+      // clipboard blocked — fall back to selecting the text
+    }
+  }
 
   const fillableBlocks = useMemo(() => blocks.filter(isFillableBlock), [blocks]);
   const totalFillable = fillableBlocks.length;
-
-  const enrolledIds = new Set(participants.map(p => p.id));
-  const candidates = allParticipants.filter(p => !enrolledIds.has(p.id));
 
   function progressFor(participantId) {
     const ans = answers[participantId] || {};
@@ -57,20 +70,23 @@ export default function SessionDashboardPage() {
     return { answered, total: totalFillable, lastTs };
   }
 
-  async function doAdd() {
-    if (!pickId) return;
-    setBusy(true);
-    await addParticipant(pickId);
-    setBusy(false);
-    setPickId(''); setAdding(false);
-  }
-
   async function doRemove(pid) {
     setBusy(true);
     await removeParticipant(pid);
     setBusy(false);
     setConfirmRemove(null);
     if (selectedParticipantId === pid) setSelectedParticipantId(null);
+  }
+
+  async function doResetPassword(pid) {
+    setBusy(true);
+    const { data, error: err } = await resetParticipantPassword(pid);
+    setBusy(false);
+    setConfirmReset(null);
+    setResetResult(prev => ({
+      ...prev,
+      [pid]: err ? { error: err.message } : { temp_password: data.temp_password, username: data.username },
+    }));
   }
 
   function handleExport() {
@@ -104,6 +120,14 @@ export default function SessionDashboardPage() {
                 <span className="session-dates"> · {formatDateRange(session.starts_at, session.ends_at)}</span>
               )}
             </p>
+            {session?.join_code && (
+              <p className="join-code-row">
+                Join URL: <a href={joinUrl} className="mono">{joinUrl}</a>
+                <button type="button" className="ghost" onClick={copyJoinUrl} style={{ marginLeft: '0.5rem' }}>
+                  {joinCopied ? 'Copied!' : 'Copy'}
+                </button>
+              </p>
+            )}
           </div>
           <div className="page-hero-actions">
             {workbook?.id && (
@@ -128,19 +152,16 @@ export default function SessionDashboardPage() {
             <div className="participants-pane">
               <div className="participants-header">
                 <h2 className="section-title" style={{ margin: 0 }}>Participants ({participants.length})</h2>
-                {!adding ? (
+                {!adding && (
                   <button className="ghost" onClick={() => setAdding(true)}>+ Add</button>
-                ) : (
-                  <div className="add-row">
-                    <select className="form-input" value={pickId} onChange={e => setPickId(e.target.value)}>
-                      <option value="">Select participant…</option>
-                      {candidates.map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}
-                    </select>
-                    <button onClick={doAdd} disabled={busy || !pickId}>Add</button>
-                    <button className="ghost" onClick={() => { setAdding(false); setPickId(''); }} disabled={busy}>Cancel</button>
-                  </div>
                 )}
               </div>
+              {adding && (
+                <AddSessionParticipants
+                  onAdd={addSessionParticipants}
+                  onCancel={() => setAdding(false)}
+                />
+              )}
 
               {participants.length === 0 && <p className="muted">No participants enrolled.</p>}
               {participants.length > 0 && (
@@ -171,8 +192,40 @@ export default function SessionDashboardPage() {
                                 <button className="danger" onClick={() => doRemove(p.id)} disabled={busy}>Yes</button>
                                 <button className="ghost" onClick={() => setConfirmRemove(null)} disabled={busy}>No</button>
                               </>
+                            ) : confirmReset === p.id ? (
+                              <>
+                                <span className="confirm-text">Reset password?</span>
+                                <button className="danger" onClick={() => doResetPassword(p.id)} disabled={busy}>Yes</button>
+                                <button className="ghost" onClick={() => setConfirmReset(null)} disabled={busy}>No</button>
+                              </>
+                            ) : resetResult[p.id]?.temp_password ? (
+                              <>
+                                <span className="confirm-text">New pwd:</span>
+                                <span className="mono">{resetResult[p.id].temp_password}</span>
+                                <button
+                                  className="ghost"
+                                  onClick={() => {
+                                    navigator.clipboard?.writeText(resetResult[p.id].temp_password).catch(() => {});
+                                  }}
+                                >Copy</button>
+                                <button
+                                  className="ghost"
+                                  onClick={() => setResetResult(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+                                >Done</button>
+                              </>
+                            ) : resetResult[p.id]?.error ? (
+                              <>
+                                <span className="error">{resetResult[p.id].error}</span>
+                                <button
+                                  className="ghost"
+                                  onClick={() => setResetResult(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+                                >Dismiss</button>
+                              </>
                             ) : (
-                              <button className="ghost danger" onClick={() => setConfirmRemove(p.id)}>Remove</button>
+                              <>
+                                <button className="ghost" onClick={() => setConfirmReset(p.id)}>Reset pwd</button>
+                                <button className="ghost danger" onClick={() => setConfirmRemove(p.id)}>Remove</button>
+                              </>
                             )}
                           </td>
                         </tr>
