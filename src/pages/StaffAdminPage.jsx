@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStaff } from '../hooks/useStaff.js';
 import { useVendors } from '../hooks/useVendors.js';
-import { generateTempPassword } from '../hooks/useParticipants.js';
+import { generateTempPassword } from '../lib/passwords.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';

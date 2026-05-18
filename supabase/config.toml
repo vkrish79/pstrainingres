@@ -4,9 +4,6 @@
 
 project_id = "ncgnufkzuziqrargehnz"
 
-[functions.create-participant]
-verify_jwt = true
-
 [functions.create-staff]
 verify_jwt = true
 

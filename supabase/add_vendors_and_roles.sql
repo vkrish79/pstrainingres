@@ -191,7 +191,7 @@ create policy profiles_self_update on profiles for update
   using (id = auth.uid());
 
 -- Direct profile inserts/updates are super-only; everyone else goes
--- through the create-participant / create-vendor-trainer edge functions
+-- through the add-session-participants / create-staff edge functions
 -- (service-role) which validate the caller's permissions explicitly.
 create policy profiles_super_insert on profiles for insert
   with check (is_super_trainer_or_above());

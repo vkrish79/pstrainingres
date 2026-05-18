@@ -261,23 +261,6 @@ button.ghost.compact, button.danger.compact {
 .option-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
 .option-row .form-input { flex: 1; }
 
-/* People page */
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-@media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
-.password-row { display: flex; gap: 0.5rem; }
-.password-row .form-input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-
-.created-card {
-  margin-top: 1rem;
-  padding: 1rem 1.25rem;
-  background: #e8f5ec;
-  border: 1px solid #b8e0c4;
-  border-radius: 6px;
-  font-size: 0.95rem;
-}
-.credentials { display: flex; gap: 1.25rem; margin-top: 0.5rem; flex-wrap: wrap; }
-.credentials .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #fff; padding: 0.2rem 0.6rem; border-radius: 4px; }
-
 .status-pill {
   font-size: 0.75rem;
   padding: 0.15rem 0.55rem;

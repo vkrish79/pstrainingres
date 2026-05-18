@@ -373,8 +373,10 @@ Edge functions: `supabase/functions/create-staff`, `delete-staff`,
 The 5-tier model is enforced at the DB layer by RLS, but several pages
 still render as if every trainer-tier user were super_admin. Phase C
 fixes this page by page. **C1 shipped — see §11.1 below.** Remaining:
-C2 (PeoplePage vendor scoping), C3 (NewSessionPage tier-aware pickers),
-C4 (TrainerHomePage full tier branching — partially done as part of C1).
+C3 (NewSessionPage tier-aware pickers), C4 (TrainerHomePage full tier
+branching — partially done as part of C1). C2 was dropped: the People
+page was removed entirely (see §8.6) since participant management is
+now per-session only.
 
 ---
 
@@ -446,9 +448,13 @@ the session's trainer.
 
 - **`SessionDashboardPage` hero**: third line shows
   `Join URL: https://…/join/<CODE>` with a Copy button.
-- **People page** (`src/pages/PeoplePage.jsx`): becomes a read-only
-  roster — the inline add form was removed (all enrolment now happens
-  inside a session).
+- **People page removed entirely** (originally became a read-only
+  roster on 2026-05-18; deleted on 2026-05-18 since per-session
+  enrolment is now the only path). Removed: `src/pages/PeoplePage.jsx`,
+  `src/hooks/useParticipants.js`, `/trainer/people` route, TopBar
+  "People" link, and the `create-participant` edge function +
+  `[functions.create-participant]` config block. `generateTempPassword`
+  moved to `src/lib/passwords.js` (still used by StaffAdminPage).
 - **`vercel.json`** at repo root: catch-all rewrite to `/index.html`.
   Without it, direct hits to `/join/:code` (or any deep link in
   incognito) returned Vercel's edge 404. See [[vercel-spa-rewrite]].
@@ -563,9 +569,10 @@ the participant workbook sidebar too.
 
 #### Remaining Phase C work
 
-- **C2 — PeoplePage:** filter the read-only roster to
-  `vendor_id = trainer_vendor_id()` for vendor-tier callers; add a
-  vendor filter for super-tier.
+- **C2 — dropped.** Plan was to vendor-scope the People page roster.
+  Instead the page was removed entirely on 2026-05-18 (see §8.6) since
+  participant management is per-session-only and a generic cross-vendor
+  roster has no role-appropriate reader.
 - **C3 — NewSessionPage:** auto-set `vendor_id` from caller's profile
   for `vendor_trainer`; for `vendor_manager`, pin to their vendor with
   a trainer picker filtered to their vendor; for super, show both

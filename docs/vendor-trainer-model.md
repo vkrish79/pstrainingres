@@ -26,6 +26,7 @@ Two commits on `main`:
     updated to use the helper (no more `role === 'trainer'` string checks)
   - `supabase/functions/create-participant/index.ts` updated to accept all
     four trainer-tier roles and stamp `vendor_id` on the new participant
+    *(function later removed entirely on 2026-05-18 — see §"People page removed")*
   - This doc with the full role-tier spec and decisions
 - **`bd2744a`** — TopBar role chip (gold = super_admin, midnight = super_trainer,
   qasr = vendor_manager, outline = vendor_trainer; no chip for participant)
@@ -93,7 +94,7 @@ If anything fails, share the error and I'll fix before committing.
 - **List columns:** Code · Name · # Trainers (managers + trainers in
   that vendor) · # Sessions · Created · Actions.
 - **Form layout:** inline add form at the top of the page, matches
-  People page pattern.
+  the StaffAdminPage inline-add pattern.
 
 ### ✅ Session-first enrolment + username identity — shipped (commits `226f2f3`, `59e72b2`, `fee8f90` on 2026-05-18)
 
@@ -132,6 +133,7 @@ dropdown" workflow.
 - `src/pages/SessionDashboardPage.jsx` — hero surfaces join URL with
   Copy; per-row "Reset pwd" action showing the new temp password inline.
 - `src/pages/PeoplePage.jsx` — read-only roster (Add form removed).
+  *(Page removed entirely on 2026-05-18 — see "People page removed" below.)*
 - `vercel.json` — SPA catch-all rewrite so `/join/:code` and other deep
   links resolve from cold opens (Vercel returned a 404 from the edge
   before this).
@@ -139,8 +141,10 @@ dropdown" workflow.
 **Decisions locked (2026-05-13)**
 
 - **D6 — Workflow is session-first.** Participants are added in the context
-  of a session, not on the People page. People page becomes a read-only
-  roster. Single workflow is easier to teach.
+  of a session, not on the People page. People page initially became a
+  read-only roster, then was **removed entirely on 2026-05-18** (no
+  role-appropriate reader for a cross-vendor roster once enrolment
+  itself moved into the session). Single workflow is easier to teach.
 - **D7 — Two add modes per session:**
   - **Add one** — inline form with username, full name (optional). Submits
     a one-row batch to the edge function.
@@ -200,11 +204,10 @@ polish later):
   `isSuperTrainerOrAbove(role)`. Hide "Edit", "Delete workbook",
   "Add section/block" buttons for non-super on template (non-cloned)
   workbooks. Smallest change; closes a UI leak.
-- **C2 — PeoplePage:** for vendor-tier callers, filter the participant
-  list to `vendor_id = trainer_vendor_id()`. Add a vendor filter for
-  super-tier so they can scope while testing. Also extend
-  `create-participant` UI to expose `vendor_id` to super (the edge
-  function already accepts it; the page doesn't pass it yet).
+- **C2 — dropped.** Plan was to vendor-scope the People page. Instead
+  the People page was removed entirely on 2026-05-18 (the
+  `create-participant` edge function went with it). Per-session
+  enrolment via `add-session-participants` is the only path now.
 - **C3 — NewSessionPage:** auto-set `vendor_id` from caller's profile
   for `vendor_trainer`; for `vendor_manager`, pin to their vendor and
   show a `trainer_id` picker filtered to `vendor_trainer` rows in
