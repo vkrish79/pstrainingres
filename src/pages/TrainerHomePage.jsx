@@ -2,29 +2,18 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
-import { isSuperTrainerOrAbove } from '../lib/roles.js';
+import { useVendors } from '../hooks/useVendors.js';
+import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../lib/roles.js';
+import SessionCard from '../components/dashboard/SessionCard.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
-function formatDateRange(start, end) {
-  const fmt = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-  if (start && end) return `${fmt(start)} → ${fmt(end)}`;
-  if (start) return `From ${fmt(start)}`;
-  if (end) return `Until ${fmt(end)}`;
-  return '';
-}
-
 export default function TrainerHomePage() {
   const { profile, session: authSession } = useAuth();
-  const { loading: sl, error: se, sessions } = useTrainerSessions(authSession?.user.id);
-  const { loading: wl, workbooks } = useTrainerWorkbooks(authSession?.user.id);
+  const isSuper = isSuperTrainerOrAbove(profile?.role);
+  const isManager = isVendorManagerOrAbove(profile?.role) && !isSuper;
 
   const firstName = (profile?.full_name || '').split(' ')[0] || 'there';
-  const canAuthorWorkbooks = isSuperTrainerOrAbove(profile?.role);
-  const totalParticipants = sessions.reduce(
-    (sum, s) => sum + (s.session_participants?.length || 0),
-    0
-  );
 
   return (
     <>
@@ -35,7 +24,7 @@ export default function TrainerHomePage() {
             <h1>Welcome back, {firstName}</h1>
           </div>
           <div className="page-hero-actions">
-            {canAuthorWorkbooks && (
+            {isSuper && (
               <>
                 <Link to="/trainer/workbooks/new" className="ghost-link">+ New workbook</Link>
                 <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>
@@ -45,75 +34,181 @@ export default function TrainerHomePage() {
           </div>
         </section>
 
-        <div className="stat-strip">
-          <div className="stat-card">
-            <div className="stat-icon">W</div>
-            <div>
-              <div className="stat-num">{wl ? '—' : workbooks.length}</div>
-              <div className="stat-label">Workbook{workbooks.length === 1 ? '' : 's'}</div>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">S</div>
-            <div>
-              <div className="stat-num">{sl ? '—' : sessions.length}</div>
-              <div className="stat-label">Session{sessions.length === 1 ? '' : 's'}</div>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">P</div>
-            <div>
-              <div className="stat-num">{sl ? '—' : totalParticipants}</div>
-              <div className="stat-label">Enrolled participants</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="section-row">
-          <h2 className="section-title">Workbooks</h2>
-        </div>
-        {wl && <div className="loading">Loading…</div>}
-        {!wl && workbooks.length === 0 && <p className="muted">No workbooks yet.</p>}
-        {!wl && workbooks.length > 0 && (
-          <div className="session-grid">
-            {workbooks.map(w => (
-              <Link key={w.id} to={`/trainer/workbooks/${w.id}`} className="session-card">
-                <h3>{w.title}</h3>
-                {w.description && <p className="session-card-workbook">{w.description}</p>}
-                <p className="session-card-meta">Updated {new Date(w.updated_at).toLocaleDateString()}</p>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        <div className="section-row" style={{ marginTop: '2rem' }}>
-          <h2 className="section-title">Your sessions</h2>
-        </div>
-        {sl && <div className="loading">Loading…</div>}
-        {se && <div className="error">{se}</div>}
-        {!sl && !se && sessions.length === 0 && (
-          <p className="muted">No sessions yet. Click "New session" above to create one.</p>
-        )}
-        {!sl && sessions.length > 0 && (
-          <div className="session-grid">
-            {sessions.map(s => (
-              <Link key={s.id} to={`/trainer/sessions/${s.id}`} className="session-card">
-                <div className="session-card-head">
-                  <h3>{s.name}</h3>
-                  {s.city_code && <span className="city-tag">{s.city_code}</span>}
-                </div>
-                <p className="session-card-workbook">{s.workbooks?.title}</p>
-                {(s.starts_at || s.ends_at) && (
-                  <p className="session-card-dates">{formatDateRange(s.starts_at, s.ends_at)}</p>
-                )}
-                <p className="session-card-meta">
-                  {(s.session_participants || []).length} participant{(s.session_participants || []).length === 1 ? '' : 's'}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
+        {isSuper && <SuperHome userId={authSession?.user.id} />}
+        {isManager && <VendorManagerHome userId={authSession?.user.id} />}
+        {!isSuper && !isManager && <VendorTrainerHome userId={authSession?.user.id} />}
       </main>
+    </>
+  );
+}
+
+// ----- super_admin / super_trainer -----------------------------------------
+
+function SuperHome({ userId }) {
+  const { loading: vl, vendors } = useVendors();
+  // Super's "my sessions" strip — only the ones they self-deliver (C3 flow).
+  const { loading: msl, sessions: mySessions } = useTrainerSessions(userId, 'own');
+  const { loading: wl, workbooks } = useTrainerWorkbooks(userId);
+
+  const totalSessions = vendors.reduce((s, v) => s + (v.session_count || 0), 0);
+  const totalTrainers = vendors.reduce((s, v) => s + (v.trainer_count || 0), 0);
+
+  return (
+    <>
+      <div className="stat-strip">
+        <StatCard icon="V" num={vl ? '—' : vendors.length} label="Vendor" />
+        <StatCard icon="S" num={vl ? '—' : totalSessions} label="Session" />
+        <StatCard icon="T" num={vl ? '—' : totalTrainers} label="Trainer" />
+        <StatCard icon="W" num={wl ? '—' : workbooks.length} label="Workbook" />
+      </div>
+
+      {!msl && mySessions.length > 0 && (
+        <>
+          <SectionHeader title="My sessions" />
+          <div className="session-grid">
+            {mySessions.map(s => <SessionCard key={s.id} session={s} />)}
+          </div>
+        </>
+      )}
+
+      <SectionHeader title="Vendors" topGap />
+      {vl && <div className="loading">Loading…</div>}
+      {!vl && vendors.length === 0 && (
+        <p className="muted">No vendors yet. <Link to="/trainer/vendors">Add one</Link>.</p>
+      )}
+      {!vl && vendors.length > 0 && (
+        <div className="session-grid">
+          {vendors.map(v => (
+            <Link key={v.id} to={`/trainer/vendors/${v.id}/sessions`} className="session-card vendor-card">
+              <div className="session-card-head">
+                <h3>{v.name}</h3>
+                <span className="city-tag">{v.code}</span>
+              </div>
+              <p className="session-card-meta">
+                {v.session_count} session{v.session_count === 1 ? '' : 's'} ·
+                {' '}{v.trainer_count} trainer{v.trainer_count === 1 ? '' : 's'}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <WorkbookLibrary loading={wl} workbooks={workbooks} />
+    </>
+  );
+}
+
+// ----- vendor_manager -------------------------------------------------------
+
+function VendorManagerHome({ userId }) {
+  // scope='all' relies on RLS: vendor_manager naturally sees only their vendor.
+  const { loading: sl, error, sessions } = useTrainerSessions(userId, 'all');
+  const { loading: wl, workbooks } = useTrainerWorkbooks(userId);
+
+  const totalParticipants = sessions.reduce(
+    (sum, s) => sum + (s.session_participants?.length || 0), 0,
+  );
+
+  return (
+    <>
+      <div className="stat-strip">
+        <StatCard icon="S" num={sl ? '—' : sessions.length} label="Vendor session" />
+        <StatCard icon="P" num={sl ? '—' : totalParticipants} label="Enrolled participant" />
+        <StatCard icon="W" num={wl ? '—' : workbooks.length} label="Workbook" />
+      </div>
+
+      <SectionHeader title="Vendor sessions" />
+      {sl && <div className="loading">Loading…</div>}
+      {error && <div className="error">{error}</div>}
+      {!sl && !error && sessions.length === 0 && (
+        <p className="muted">No sessions yet. Click "New session" above to create one.</p>
+      )}
+      {!sl && sessions.length > 0 && (
+        <div className="session-grid">
+          {sessions.map(s => <SessionCard key={s.id} session={s} showTrainer />)}
+        </div>
+      )}
+
+      <WorkbookLibrary loading={wl} workbooks={workbooks} />
+    </>
+  );
+}
+
+// ----- vendor_trainer (and pre-migration "trainer") ------------------------
+
+function VendorTrainerHome({ userId }) {
+  const { loading: sl, error, sessions } = useTrainerSessions(userId, 'own');
+  const { loading: wl, workbooks } = useTrainerWorkbooks(userId);
+
+  const totalParticipants = sessions.reduce(
+    (sum, s) => sum + (s.session_participants?.length || 0), 0,
+  );
+
+  return (
+    <>
+      <div className="stat-strip">
+        <StatCard icon="S" num={sl ? '—' : sessions.length} label="Session" />
+        <StatCard icon="P" num={sl ? '—' : totalParticipants} label="Enrolled participant" />
+        <StatCard icon="W" num={wl ? '—' : workbooks.length} label="Workbook" />
+      </div>
+
+      <SectionHeader title="Your sessions" />
+      {sl && <div className="loading">Loading…</div>}
+      {error && <div className="error">{error}</div>}
+      {!sl && !error && sessions.length === 0 && (
+        <p className="muted">No sessions yet. Click "New session" above to create one.</p>
+      )}
+      {!sl && sessions.length > 0 && (
+        <div className="session-grid">
+          {sessions.map(s => <SessionCard key={s.id} session={s} />)}
+        </div>
+      )}
+
+      <WorkbookLibrary loading={wl} workbooks={workbooks} />
+    </>
+  );
+}
+
+// ----- shared bits ----------------------------------------------------------
+
+function StatCard({ icon, num, label }) {
+  const plural = String(num) !== '1' ? 's' : '';
+  return (
+    <div className="stat-card">
+      <div className="stat-icon">{icon}</div>
+      <div>
+        <div className="stat-num">{num}</div>
+        <div className="stat-label">{label}{plural}</div>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ title, topGap = false }) {
+  return (
+    <div className="section-row" style={topGap ? { marginTop: '2rem' } : undefined}>
+      <h2 className="section-title">{title}</h2>
+    </div>
+  );
+}
+
+function WorkbookLibrary({ loading, workbooks }) {
+  return (
+    <>
+      <SectionHeader title="Workbooks" topGap />
+      {loading && <div className="loading">Loading…</div>}
+      {!loading && workbooks.length === 0 && <p className="muted">No workbooks yet.</p>}
+      {!loading && workbooks.length > 0 && (
+        <div className="session-grid">
+          {workbooks.map(w => (
+            <Link key={w.id} to={`/trainer/workbooks/${w.id}`} className="session-card">
+              <h3>{w.title}</h3>
+              {w.description && <p className="session-card-workbook">{w.description}</p>}
+              <p className="session-card-meta">Updated {new Date(w.updated_at).toLocaleDateString()}</p>
+            </Link>
+          ))}
+        </div>
+      )}
     </>
   );
 }

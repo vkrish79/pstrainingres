@@ -438,11 +438,9 @@ Edge functions: `supabase/functions/create-staff`, `delete-staff`,
 
 The 5-tier model is enforced at the DB layer by RLS, but several pages
 still render as if every trainer-tier user were super_admin. Phase C
-fixes this page by page. **C1 shipped — see §11.1 below.** Remaining:
-C3 (NewSessionPage tier-aware pickers), C4 (TrainerHomePage full tier
-branching — partially done as part of C1). C2 was dropped: the People
-page was removed entirely (see §8.6) since participant management is
-now per-session only.
+fixed this page by page. **Phase C complete on 2026-05-18:** C1, C3,
+C4 shipped (see §11.1 below for the per-step detail); C2 was dropped
+because the People page was removed entirely (see §8.6).
 
 ---
 
@@ -676,17 +674,43 @@ when not self-delivering; vendor required only when super is in
 assign mode. RPC re-validates on the server side
 (`vendor_trainer` can't pick anyone but themselves, etc.).
 
+#### C4 — TrainerHomePage tier branching *(shipped 2026-05-18)*
+
+`TrainerHomePage` now picks one of three sub-layouts based on
+`profile.role`. Hero actions stay (super-only New workbook / Import,
+all-tiers New session) from C1.
+
+- **vendor_trainer** *(unchanged)*: own sessions (`scope='own'`) +
+  read-only template library.
+- **vendor_manager**: all sessions in their vendor (`scope='all'` —
+  RLS naturally scopes to `vendor_id = my_vendor_id()`). Each card
+  shows `Trainer: <name>` so the manager can see who runs what at a
+  glance. Stat strip shows vendor-wide counts.
+- **super_admin / super_trainer**: vendor-first overview. A "My
+  sessions" strip (own self-delivered sessions from C3) on top — hidden
+  when empty. Below: grid of **vendor cards** showing
+  `<sessions> · <trainers>`. Click a card → new page
+  `/trainer/vendors/:vendorId/sessions` (`VendorSessionsPage`) listing
+  every session in that vendor with trainer names. Full template
+  library with author buttons.
+
+New / refactored:
+- `useTrainerSessions(userId, scope='own', vendorId)` — gained scope
+  param; selects `trainer:profiles!sessions_trainer_id_fkey` so cards
+  can show the trainer name.
+- `src/components/dashboard/SessionCard.jsx` — extracted; accepts a
+  `showTrainer` prop.
+- `src/pages/VendorSessionsPage.jsx` + route
+  `/trainer/vendors/:vendorId/sessions` (super-only via
+  `ProtectedRoute role="super"`).
+
 #### Remaining Phase C work
 
 - **C2 — dropped.** Plan was to vendor-scope the People page roster.
   Instead the page was removed entirely on 2026-05-18 (see §8.6) since
   participant management is per-session-only and a generic cross-vendor
   roster has no role-appropriate reader.
-- **C4 — TrainerHomePage (rest):** full tier branching — super sees
-  vendor cards grid + full workbook library; vendor manager sees their
-  vendor's sessions + read-only library; vendor trainer sees their own
-  sessions + read-only library. (C1 already removed authoring actions
-  for vendor tiers; the per-tier session/workbook scoping is still TODO.)
+- *(Phase C complete — C1, C3, C4 shipped; C2 dropped.)*
 
 Per-step approach: build → smoke test on localhost → commit → push.
 Avoids landing a multi-page diff and discovering one broke downstream.
