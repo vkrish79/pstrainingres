@@ -3,7 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
+import { useSessionPrep } from '../hooks/useSessionPrep.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
+import UploadPrepData from '../components/dashboard/UploadPrepData.jsx';
+import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
@@ -34,6 +37,7 @@ export default function SessionDashboardPage() {
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
+  const { prep: prepBy, saveOne: savePrepOne, saveMany: savePrepMany } = useSessionPrep(id);
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
@@ -46,6 +50,8 @@ export default function SessionDashboardPage() {
   const [resetResult, setResetResult] = useState({}); // { [participantId]: { temp_password } | { error } }
   const [busy, setBusy] = useState(false);
   const [joinCopied, setJoinCopied] = useState(false);
+  const [uploadPrepOpen, setUploadPrepOpen] = useState(false);
+  const [prepEditorFor, setPrepEditorFor] = useState(null); // participant id
 
   const joinUrl = session?.join_code
     ? `${window.location.origin}/join/${session.join_code}`
@@ -100,7 +106,7 @@ export default function SessionDashboardPage() {
   }
 
   function handleExport() {
-    const csv = buildAnswersCsv({ session, sections, blocks, participants, answers, notes, participantNotes });
+    const csv = buildAnswersCsv({ session, sections, blocks, participants, answers, notes, participantNotes, participantPrep: prepBy });
     const safe = (session?.name || 'session').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
     downloadCsv(`${safe}_answers_${stamp}.csv`, csv);
@@ -162,6 +168,9 @@ export default function SessionDashboardPage() {
             )}
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
+            </button>
+            <button className="ghost-link" onClick={() => setUploadPrepOpen(true)} disabled={participants.length === 0}>
+              📎 Upload prep data
             </button>
             {confirmClose ? (
               <>
@@ -268,6 +277,7 @@ export default function SessionDashboardPage() {
                               </>
                             ) : (
                               <>
+                                <button className="ghost" onClick={() => setPrepEditorFor(p.id)}>Prep…</button>
                                 <button className="ghost" onClick={() => setConfirmReset(p.id)}>Reset pwd</button>
                                 <button className="ghost danger" onClick={() => setConfirmDelete(p.id)}>Delete</button>
                               </>
@@ -290,9 +300,16 @@ export default function SessionDashboardPage() {
                 <div className="answers-pane-body">
                   {sections.map(sec => {
                     const pNote = participantNotes[selected.id]?.[sec.id]?.note;
+                    const prepText = prepBy[selected.id]?.[sec.id]?.content;
                     return (
                       <section key={sec.id} className="wb-section answers-section">
                         <h3>{sec.title}</h3>
+                        {prepText && (
+                          <div className="participant-prep-callout">
+                            <span className="participant-prep-callout-label">Prep</span>
+                            {prepText}
+                          </div>
+                        )}
                         {pNote && (
                           <div className="participant-note-readonly">
                             <span className="participant-note-readonly-label">Participant note</span>
@@ -330,6 +347,7 @@ export default function SessionDashboardPage() {
             answers={answers}
             notes={notes}
             participantNotes={participantNotes}
+            prepBy={prepBy}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
           />
@@ -339,6 +357,21 @@ export default function SessionDashboardPage() {
           <TrainerPracticeView sessionId={id} trainerId={authSession?.user.id} />
         )}
       </main>
+      <UploadPrepData
+        open={uploadPrepOpen}
+        onClose={() => setUploadPrepOpen(false)}
+        sections={sections}
+        participants={participants}
+        onUpload={savePrepMany}
+      />
+      <PrepEditor
+        open={!!prepEditorFor}
+        onClose={() => setPrepEditorFor(null)}
+        participant={participants.find(p => p.id === prepEditorFor)}
+        sections={sections}
+        prepForParticipant={prepBy[prepEditorFor] || {}}
+        saveOne={savePrepOne}
+      />
     </>
   );
 }

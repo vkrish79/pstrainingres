@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
+import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { renderMarkdownLite, wordCount } from '../lib/markdownLite.js';
 import Block from '../components/blocks/Block.jsx';
@@ -19,6 +20,7 @@ export default function ParticipantWorkbookPage() {
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote, savingMap: notesSavingMap } = useParticipantNotes(session?.id, authSession?.user.id);
+  const { prep: sectionPrep } = useParticipantPrep(session?.id, authSession?.user.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -224,9 +226,16 @@ export default function ParticipantWorkbookPage() {
             </div>
             {visibleSections.map(sec => {
               const noteText = sectionNotes[sec.id]?.note || '';
+              const prepText = sectionPrep[sec.id]?.content || '';
               return (
                 <section key={sec.id} className="wb-section">
                   <h2>{sec.title}</h2>
+                  {prepText && (
+                    <div className="participant-prep-callout">
+                      <span className="participant-prep-callout-label">Pre-work from your trainer</span>
+                      {prepText}
+                    </div>
+                  )}
                   {blocks.filter(b => b.section_id === sec.id).map(b => (
                     <Block
                       key={b.id}

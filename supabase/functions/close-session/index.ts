@@ -113,6 +113,7 @@ Deno.serve(async (req: Request) => {
     { data: answersRows },
     { data: sectionNotesRows },
     { data: trainerNotesRows },
+    { data: prepRows },
   ] = await Promise.all([
     participantIds.length
       ? admin.from('answers').select('participant_id, block_id, value, updated_at')
@@ -127,6 +128,10 @@ Deno.serve(async (req: Request) => {
           .select('participant_id, block_id, note, flag, trainer_id, updated_at')
           .eq('session_id', session_id)
       : Promise.resolve({ data: [] as any[] }),
+    participantIds.length
+      ? admin.from('participant_prep').select('participant_id, section_id, content, updated_at')
+          .eq('session_id', session_id)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
 
   // Group answers and notes by participant for the snapshot.
@@ -139,6 +144,11 @@ Deno.serve(async (req: Request) => {
   for (const n of sectionNotesRows || []) {
     notesByP[n.participant_id] = notesByP[n.participant_id] || {};
     notesByP[n.participant_id][n.section_id] = { note: n.note, updated_at: n.updated_at };
+  }
+  const prepByP: Record<string, Record<string, any>> = {};
+  for (const p of prepRows || []) {
+    prepByP[p.participant_id] = prepByP[p.participant_id] || {};
+    prepByP[p.participant_id][p.section_id] = { content: p.content, updated_at: p.updated_at };
   }
 
   // ---- 4. Resolve "username" for the synthesized-email path so the
@@ -155,6 +165,7 @@ Deno.serve(async (req: Request) => {
     username: usernameFromEmail(p.email),
     answers: ansByP[p.id] || {},
     section_notes: notesByP[p.id] || {},
+    section_prep: prepByP[p.id] || {},
   }));
 
   // ---- 5. Build the snapshot ----

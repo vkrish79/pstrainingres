@@ -60,6 +60,13 @@ upload the `.docx`, and the app creates the workbook + sections + blocks.
 - **Matrix table** (question row + bold header row + option rows where the
   last K cells each have one checkbox) → prose question + one `check_group`
   field per option row, options drawn from the trailing K column headers.
+- **Inline-choice row inside a data table** (a single row whose first cell
+  is the question and remaining cells each contain one checkbox + short
+  label, e.g. `☐YES` / `☐NO`) → the table is **split** around that row:
+  rows above become one table block, the choice row becomes a `field`
+  (`input_type=choice`) with options drawn from the checkbox-cell labels,
+  rows below become another table block. Preserves visual order without
+  requiring a choice-cell type on the table data model.
 - **Body-cell `colspan` / `rowspan`** are preserved as optional `colSpan` /
   `rowSpan` props on the cell and applied at render time.
 - Pre-section "Document information" / "Revision information" tables are
@@ -150,6 +157,73 @@ By-exercise view + sidebar.
   annotation).
 - Filename: `<session>_answers_<timestamp>.csv`.
 - Disabled when no participants are enrolled.
+
+### 2.8 Per-participant prep data (trainer upload)
+
+**Goal:** trainers often have scenario-specific prep per participant (a
+PNR, ticket number, sample passenger) prepared in Excel before the
+session. Upload the spreadsheet and each row's prep populates that
+participant's workbook at the right exercise.
+
+**Schema** (migration `20260518000004_participant_prep.sql`, idempotent):
+
+```
+participant_prep (
+  id, session_id, participant_id, section_id, content,
+  created_at, updated_at,
+  unique (session_id, participant_id, section_id)
+)
+```
+
+RLS: participant reads own; trainer-tier (super OR vendor_manager of
+vendor OR session trainer) has full CRUD. Added to `supabase_realtime`
+so uploaded prep appears live in any open participant tab.
+
+**Mapping (D-prep-1):** rows in the spreadsheet are auto-distributed to
+participants sorted alphabetically by `full_name`. The Excel doesn't
+need a participant-identifier column. Trainers can edit per-participant
+prep afterwards via the per-row "Prep…" action — order-based mapping
+gets you 90% there, manual fixes cover the rest.
+
+**Header → exercise matching (D-prep-2):**
+- Exact case-insensitive match on section title (e.g. "Exercise 1").
+- Else extract the leading integer and match the section whose title
+  contains the same number (e.g. "1", "Ex 1", "Exercise 1" all map to
+  the section titled "Exercise 1").
+- Common non-data headers ignored (`name`, `participant`, `username`,
+  `email`, `id`, `#`, `no.`, `row`, `index`).
+- Unmatched headers shown in the upload preview's "Unmatched" list.
+
+**File parser:**
+- `src/lib/sheetParse.js` — accepts `.xlsx` (lazy-loaded
+  [read-excel-file], ~50 kB chunk) and `.csv` (small inline
+  RFC-4180-ish parser; handles quoted cells with commas / newlines).
+
+**Upload flow:**
+- Button **📎 Upload prep data** in the session dashboard hero.
+- `src/components/dashboard/UploadPrepData.jsx` modal — file picker
+  → preview (matched columns, unmatched, row→participant mapping,
+  warnings for extra rows or missing participants) → Confirm. Batch
+  upsert via `useSessionPrep.saveMany`.
+
+**Per-participant edit:**
+- "Prep…" action on every participant row →
+  `src/components/dashboard/PrepEditor.jsx` modal: one textarea per
+  section; save-on-blur via `useSessionPrep.saveOne`. Empty content =
+  delete that row.
+
+**Visibility:**
+- Participant workbook (`ParticipantWorkbookPage`) shows a purple
+  callout **"Pre-work from your trainer"** at the top of each section
+  with prep. Driven by `useParticipantPrep` (realtime).
+- Trainer dashboard shows the same callout (labelled **"Prep"**) at the
+  top of each section in the Participants tab answers-pane and inside
+  each `ExerciseResponses` tile body.
+- CSV export (`buildAnswersCsv`) gains a `prep` column on every answer
+  row; orphan prep (section has prep but no answers) gets its own row.
+- Closed-session snapshot includes `section_prep` per participant; the
+  `ClosedSessionView` renders the prep callout the same way as live
+  views.
 
 ### 2.7 Close session (snapshot + participant purge)
 
@@ -683,6 +757,10 @@ Supabase ↔ GitHub integration on push to `main`; tracked in
    `closed_summary jsonb`; updated `get_session_by_join_code` RPC to
    expose `closed_at` so `/join/:code` can show "session has ended".
    Idempotent.
+10. `20260518000004_participant_prep.sql` — `participant_prep` table
+    for trainer-uploaded prep data (one entry per participant per
+    section). RLS: participant reads own, trainer-tier full CRUD.
+    Added to `supabase_realtime`. Idempotent.
 
 Going forward, every new migration should land under
 `supabase/migrations/` with a timestamped filename and be **idempotent**

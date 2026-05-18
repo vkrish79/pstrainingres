@@ -13,7 +13,7 @@ const AUTO_COLLAPSE_THRESHOLD = 8;
 
 export default function ExerciseResponses({
   sections, blocks, participants, answers,
-  notes = {}, participantNotes = {}, onSaveNote, onDeleteNote,
+  notes = {}, participantNotes = {}, prepBy = {}, onSaveNote, onDeleteNote,
 }) {
   const sectionsWithFillable = useMemo(() => {
     return sections
@@ -195,6 +195,7 @@ export default function ExerciseResponses({
               answersForP={answers[s.participant.id] || {}}
               notesForP={notes[s.participant.id] || {}}
               sectionNote={participantNotes[s.participant.id]?.[selectedSection.id]?.note || ''}
+              prepText={prepBy[s.participant.id]?.[selectedSection.id]?.content || ''}
               expanded={isExpanded(s.participant.id)}
               onToggle={() => toggleTile(s.participant.id)}
               onSaveNote={onSaveNote}
@@ -207,7 +208,7 @@ export default function ExerciseResponses({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, expanded, onToggle, onSaveNote, onDeleteNote }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
@@ -229,6 +230,12 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, ex
       </button>
       {expanded && (
         <div className="exresp-tile-body">
+          {prepText && (
+            <div className="participant-prep-callout">
+              <span className="participant-prep-callout-label">Prep</span>
+              {prepText}
+            </div>
+          )}
           {sectionNote && (
             <div className="participant-note-readonly">
               <span className="participant-note-readonly-label">Participant note</span>

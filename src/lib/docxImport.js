@@ -122,6 +122,8 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
       if (choice) { sec.blocks.push(choice); continue; }
       const matrix = tryMatrixFieldsFromTable(node);
       if (matrix) { matrix.forEach(b => sec.blocks.push(b)); continue; }
+      const split = tryInlineChoiceSplit(node);
+      if (split) { split.forEach(b => sec.blocks.push(b)); continue; }
       sec.blocks.push(tableBlockFromHtml(node));
       continue;
     }
@@ -281,6 +283,101 @@ const METADATA_TABLE_RE = /\b(document|revision)\s+information\b/i;
 
 function isMetadataTable(tableEl) {
   return METADATA_TABLE_RE.test(tableEl.textContent || '');
+}
+
+// Inline-choice row: a single row inside an otherwise normal data table
+// where the first cell holds a question and the remaining cells each
+// contain one Word checkbox + a short label (e.g. "☐YES", "☐NO").
+// Returns an array of blocks segmenting the table around any such rows,
+// or null if the table has none (caller falls back to a plain table block).
+function tryInlineChoiceSplit(tableEl) {
+  const allRows = Array.from(tableEl.querySelectorAll('tr'));
+  if (allRows.length === 0) return null;
+
+  // Detect header row the same way tableBlockFromHtml does.
+  let headerRowIdx = -1;
+  const theadRow = tableEl.querySelector('thead tr');
+  if (theadRow) headerRowIdx = allRows.indexOf(theadRow);
+  else {
+    const firstCells = Array.from(allRows[0].children);
+    const allBold = firstCells.length > 0 && firstCells.every(c => {
+      const t = c.textContent.trim();
+      return t && (c.querySelector('strong, b') || isAllBold(c));
+    });
+    if (allBold) headerRowIdx = 0;
+  }
+
+  const dataStart = headerRowIdx + 1;
+  const dataRows = headerRowIdx >= 0 ? allRows.slice(dataStart) : allRows;
+  const classifications = dataRows.map(classifyInlineChoiceRow);
+  if (!classifications.some(c => c && c.kind === 'choice')) return null;
+
+  const blocks = [];
+  let runStart = 0;
+  function flushRun(end) {
+    if (end <= runStart) return;
+    const sub = subTableFromRows(tableEl, headerRowIdx, dataStart + runStart, dataStart + end);
+    if (sub) blocks.push(tableBlockFromHtml(sub));
+  }
+  for (let i = 0; i < dataRows.length; i++) {
+    const c = classifications[i];
+    if (c && c.kind === 'choice') {
+      flushRun(i);
+      blocks.push(c.field);
+      runStart = i + 1;
+    }
+  }
+  flushRun(dataRows.length);
+  return blocks;
+}
+
+function classifyInlineChoiceRow(rowEl) {
+  const cells = Array.from(rowEl.children);
+  if (cells.length < 2) return null;
+  const [first, ...rest] = cells;
+  if (first.querySelectorAll('input[type="checkbox"]').length !== 0) return null;
+  const question = first.textContent.trim();
+  if (!question) return null;
+  if (!rest.every(isCheckboxOptionCell)) return null;
+  const options = rest.map(getCheckboxCellLabel).filter(Boolean);
+  if (options.length < 2) return null;
+  return {
+    kind: 'choice',
+    field: {
+      block_type: 'field',
+      config: {
+        label: stripLeadingListNumber(question),
+        input_type: 'choice',
+        options,
+      },
+    },
+  };
+}
+
+function isCheckboxOptionCell(cellEl) {
+  if (cellEl.querySelectorAll('input[type="checkbox"]').length !== 1) return false;
+  const label = getCheckboxCellLabel(cellEl);
+  return !!label && label.length <= 60;
+}
+
+function getCheckboxCellLabel(cellEl) {
+  // Strip any leftover unicode ballot-box glyphs and trim.
+  return (cellEl.textContent || '')
+    .replace(/[☐☑☒☐☑☒□]/g, '')
+    .trim();
+}
+
+// Clone the table, keep only the header row (if any) + the row range
+// [absStart, absEnd) (absolute indexes into allRows). Empty result -> null.
+function subTableFromRows(tableEl, headerRowIdx, absStart, absEnd) {
+  if (absEnd <= absStart) return null;
+  const clone = tableEl.cloneNode(true);
+  const rows = Array.from(clone.querySelectorAll('tr'));
+  const keep = new Set();
+  if (headerRowIdx >= 0 && headerRowIdx < rows.length) keep.add(headerRowIdx);
+  for (let i = absStart; i < absEnd && i < rows.length; i++) keep.add(i);
+  rows.forEach((tr, idx) => { if (!keep.has(idx)) tr.remove(); });
+  return clone;
 }
 
 function parseSpan(attr) {

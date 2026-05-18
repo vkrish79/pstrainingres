@@ -185,14 +185,22 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, expande
           {(workbook?.sections || []).map(sec => {
             const secBlocks = (sec.blocks || []).filter(isFillableBlock);
             const sectionNote = participant.section_notes?.[sec.id]?.note;
+            const sectionPrep = participant.section_prep?.[sec.id]?.content;
             // Skip rendering a section if there's nothing to show.
             const hasContent = secBlocks.some(b => participant.answers?.[b.id]?.value != null)
               || sectionNote
+              || sectionPrep
               || secBlocks.some(b => notesForP[b.id]);
             if (!hasContent) return null;
             return (
               <section key={sec.id} className="closed-section">
                 <h3>{sec.title}</h3>
+                {sectionPrep && (
+                  <div className="participant-prep-callout">
+                    <span className="participant-prep-callout-label">Prep</span>
+                    {sectionPrep}
+                  </div>
+                )}
                 {sectionNote && (
                   <div className="participant-note-readonly">
                     <span className="participant-note-readonly-label">Participant note</span>
