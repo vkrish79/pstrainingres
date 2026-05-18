@@ -339,6 +339,15 @@ function classifyInlineChoiceRow(rowEl) {
   const question = first.textContent.trim();
   if (!question) return null;
   if (!rest.every(isCheckboxOptionCell)) return null;
+  // Strict guard for the option-word fallback (no checkbox glyph or input
+  // survived in any rest cell): require the first cell to look like a
+  // question. Avoids classifying random short labels in regular data tables.
+  const allBareWords = rest.every(c => {
+    if (c.querySelectorAll('input[type="checkbox"]').length === 1) return false;
+    if (BALLOT_BOX_RE.test((c.textContent || '').trim())) return false;
+    return true;
+  });
+  if (allBareWords && !/\?/.test(question)) return null;
   const options = rest.map(getCheckboxCellLabel).filter(Boolean);
   if (options.length < 2) return null;
   return {
@@ -354,16 +363,47 @@ function classifyInlineChoiceRow(rowEl) {
   };
 }
 
+// A choice option cell is one of:
+//   a) has exactly one <input type="checkbox"> (Word content control rendered
+//      by mammoth);
+//   b) text starts with a ballot-box glyph (☐ □ ☑ etc.) — Word symbol char;
+//   c) text is exactly a recognised option word (YES, NO, A, B, ...). This
+//      catches the case where Word's content-control checkbox was silently
+//      dropped during mammoth conversion and only the label survived. The
+//      first cell must contain "?" for the row to qualify, so unrelated
+//      short cells in data tables don't get misclassified.
+const COMMON_OPTION_WORDS = new Set([
+  'yes', 'no', 'y', 'n',
+  'true', 'false', 't', 'f',
+  'a', 'b', 'c', 'd', 'e', 'f',
+  'i', 'ii', 'iii', 'iv', 'v',
+  '1', '2', '3', '4', '5',
+]);
+
+const BALLOT_BOX_RE = /^[☐☑☒□☐☑☒□]\s*/;
+
 function isCheckboxOptionCell(cellEl) {
-  if (cellEl.querySelectorAll('input[type="checkbox"]').length !== 1) return false;
-  const label = getCheckboxCellLabel(cellEl);
-  return !!label && label.length <= 60;
+  const rawText = (cellEl.textContent || '').trim();
+  if (!rawText || rawText.length > 60) return false;
+  if (/\[input:(short|long)\]/i.test(rawText)) return false;
+  if (/click\s+or\s+tap/i.test(rawText)) return false;
+
+  // (a) Native input checkbox.
+  if (cellEl.querySelectorAll('input[type="checkbox"]').length === 1) {
+    return !!getCheckboxCellLabel(cellEl);
+  }
+  // (b) Ballot-box glyph prefix.
+  if (BALLOT_BOX_RE.test(rawText)) {
+    return !!getCheckboxCellLabel(cellEl);
+  }
+  // (c) Bare option word.
+  const lower = rawText.toLowerCase();
+  return COMMON_OPTION_WORDS.has(lower);
 }
 
 function getCheckboxCellLabel(cellEl) {
-  // Strip any leftover unicode ballot-box glyphs and trim.
   return (cellEl.textContent || '')
-    .replace(/[☐☑☒☐☑☒□]/g, '')
+    .replace(BALLOT_BOX_RE, '')
     .trim();
 }
 
