@@ -65,6 +65,27 @@ export default function JoinSessionLoginPage() {
     );
   }
 
+  if (lookupState === 'found' && session?.closed_at) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card">
+          <div className="auth-brand">
+            <div className="auth-brand-mark">PS</div>
+            <div>
+              <div className="auth-brand-title">pstrainingres</div>
+              <div className="auth-brand-sub">Training resources</div>
+            </div>
+          </div>
+          <h1>This session has ended</h1>
+          <p>{session.name} closed on {new Date(session.closed_at).toLocaleDateString()}. Your workbook and answers have been archived by your trainer.</p>
+          <div className="auth-meta">
+            <Link to="/login" className="auth-link">Staff sign in</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (lookupState === 'notfound' || lookupState === 'error') {
     return (
       <div className="auth-shell">

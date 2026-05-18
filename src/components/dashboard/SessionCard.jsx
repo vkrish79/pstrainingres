@@ -13,11 +13,13 @@ function formatDateRange(start, end) {
 // isn't necessarily the trainer (vendor_manager / super).
 export default function SessionCard({ session, showTrainer = false }) {
   const participants = session.session_participants || [];
+  const closed = !!session.closed_at;
   return (
-    <Link to={`/trainer/sessions/${session.id}`} className="session-card">
+    <Link to={`/trainer/sessions/${session.id}`} className={`session-card ${closed ? 'closed' : ''}`}>
       <div className="session-card-head">
         <h3>{session.name}</h3>
         {session.city_code && <span className="city-tag">{session.city_code}</span>}
+        {closed && <span className="closed-pill small">Closed</span>}
       </div>
       <p className="session-card-workbook">{session.workbooks?.title}</p>
       {(session.starts_at || session.ends_at) && (

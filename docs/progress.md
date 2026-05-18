@@ -151,6 +151,65 @@ By-exercise view + sidebar.
 - Filename: `<session>_answers_<timestamp>.csv`.
 - Disabled when no participants are enrolled.
 
+### 2.7 Close session (snapshot + participant purge)
+
+**Goal:** when a cohort finishes, the trainer freezes the session, the
+data becomes a permanent JSON record, and the participant accounts are
+hard-deleted so the auth table doesn't accumulate single-use accounts.
+
+**Schema** (migration `20260518000003_close_session.sql`, idempotent):
+- `sessions.closed_at timestamptz`
+- `sessions.closed_by uuid references profiles on delete set null`
+- `sessions.closed_summary jsonb`
+- partial index `sessions_closed_at_idx` on `closed_at` where not null
+- `get_session_by_join_code` RPC dropped + recreated to expose `closed_at`
+  (anon-callable, used by `/join/:code`)
+
+**Edge function** `supabase/functions/close-session/`:
+- Auth: super-tier OR vendor_manager of the session's vendor OR
+  the session's trainer (mirrors `add-session-participants`).
+- Loads workbook structure + participants + answers + section notes +
+  trainer notes/flags via service role.
+- Builds a snapshot JSON (`schema_version: 1`):
+  `{ closed_at, closed_by, session, workbook, participants, trainer_notes }`.
+  Each participant entry captures `id, full_name, username` (parsed from
+  the synthesized email so the human-readable handle survives) plus
+  `answers` and `section_notes`.
+- Persists snapshot to `sessions.closed_summary`, sets `closed_at` and
+  `closed_by`.
+- HARD DELETES every participant via `auth.admin.deleteUser`. The
+  schema's existing FK cascade chain (auth.users → profiles →
+  session_participants → answers → participant_notes → answer_notes)
+  takes care of the rest. Per-row delete errors are logged in the
+  response but don't fail the close — the snapshot is already saved.
+
+**Trigger UI:** "✕ Close session" button in the session dashboard hero.
+Confirmation reads "Close session? Participants and their accounts will
+be permanently deleted; a JSON summary is saved." No un-close.
+
+**Closed view** `src/components/dashboard/ClosedSessionView.jsx`:
+- Mounted automatically by `SessionDashboardPage` when `closed_at` is set
+  (skips the live dashboard entirely; there's nothing live left).
+- Hero: session metadata + Closed pill + "Closed YYYY-MM-DD by X".
+- Stat strip: participant count + avg completion % + flagged count.
+- Toolbar: search by name/username + filter (All / Has flags / Has
+  section notes) + expand/collapse all.
+- Body: participant-first cards. Click to expand → renders that
+  participant's answers section-by-section, plus their section notes,
+  plus any trainer notes/flags inline under the relevant block.
+- Two export buttons: **Download JSON** (machine archive, the raw
+  snapshot) and **Print / Download PDF** (human archive, browser print
+  dialog; print CSS expands all cards).
+
+**Home / SessionCard** gain a `Closed` pill on closed sessions; card
+opacity drops to 0.7 (returns to 1 on hover). Closed sessions remain
+in the same lists as live ones — no separate "Archived" page.
+
+**Participant impact:** `JoinSessionLoginPage` checks `session.closed_at`
+and renders "This session has ended" with the close date instead of the
+login form. Even if a stale browser tab tries to submit, the auth account
+is already deleted so login would fail.
+
 ### 2.6 Trainer annotations (flag + note)
 
 **Schema:** `answer_notes` table (`supabase/add_answer_notes.sql`):
@@ -600,6 +659,10 @@ Supabase ↔ GitHub integration on push to `main`; tracked in
 8. `20260518000002_participant_notes.sql` — `participant_notes` table
    for per-section notes written by participants. RLS: self-only writes,
    trainers in the session get read access. Added to `supabase_realtime`.
+   Idempotent.
+9. `20260518000003_close_session.sql` — `sessions.closed_at`, `closed_by`,
+   `closed_summary jsonb`; updated `get_session_by_join_code` RPC to
+   expose `closed_at` so `/join/:code` can show "session has ended".
    Idempotent.
 
 Going forward, every new migration should land under

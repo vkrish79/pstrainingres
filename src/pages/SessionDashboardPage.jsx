@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
+import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
@@ -28,7 +29,7 @@ export default function SessionDashboardPage() {
   const { id } = useParams();
   const {
     loading, error, session, workbook, sections, blocks, participants, answers,
-    addSessionParticipants, resetParticipantPassword, deleteParticipant,
+    addSessionParticipants, resetParticipantPassword, deleteParticipant, closeSession,
   } = useSessionDashboard(id);
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
@@ -39,6 +40,8 @@ export default function SessionDashboardPage() {
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleteError, setDeleteError] = useState({}); // { [participantId]: msg }
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closeError, setCloseError] = useState('');
   const [confirmReset, setConfirmReset] = useState(null);
   const [resetResult, setResetResult] = useState({}); // { [participantId]: { temp_password } | { error } }
   const [busy, setBusy] = useState(false);
@@ -106,6 +109,21 @@ export default function SessionDashboardPage() {
   if (loading) return <><TopBar /><div className="loading">Loading session…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
 
+  // Once closed, render the snapshot view instead of the live dashboard —
+  // participants and answers are gone from the live tables.
+  if (session?.closed_at && session?.closed_summary) {
+    return <ClosedSessionView snapshot={session.closed_summary} />;
+  }
+
+  async function doClose() {
+    setBusy(true);
+    setCloseError('');
+    const { error: err } = await closeSession();
+    setBusy(false);
+    setConfirmClose(false);
+    if (err) setCloseError(err.message);
+  }
+
   const selected = participants.find(p => p.id === selectedParticipantId);
   const selectedAnswers = selected ? (answers[selected.id] || {}) : {};
   const selectedNotes = selected ? (notes[selected.id] || {}) : {};
@@ -145,8 +163,20 @@ export default function SessionDashboardPage() {
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
             </button>
+            {confirmClose ? (
+              <>
+                <span className="confirm-text">Close session? Participants and their accounts will be permanently deleted; a JSON summary is saved.</span>
+                <button className="danger" onClick={doClose} disabled={busy}>Yes, close</button>
+                <button className="ghost" onClick={() => setConfirmClose(false)} disabled={busy}>Cancel</button>
+              </>
+            ) : (
+              <button className="ghost-link danger" onClick={() => setConfirmClose(true)}>
+                ✕ Close session
+              </button>
+            )}
           </div>
         </section>
+        {closeError && <p className="error">{closeError}</p>}
 
         <div className="view-tabs">
           <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>

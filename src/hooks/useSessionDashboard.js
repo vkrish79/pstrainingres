@@ -23,6 +23,7 @@ export function useSessionDashboard(sessionId) {
           .from('sessions')
           .select(`
             id, name, workbook_id, created_at, starts_at, ends_at, city_code, join_code,
+            closed_at, closed_by, closed_summary,
             workbooks ( id, title, description ),
             session_participants ( participant_id, profiles ( id, full_name ) )
           `)
@@ -63,6 +64,7 @@ export function useSessionDashboard(sessionId) {
           id: sess.id, name: sess.name,
           starts_at: sess.starts_at, ends_at: sess.ends_at, city_code: sess.city_code,
           join_code: sess.join_code,
+          closed_at: sess.closed_at, closed_by: sess.closed_by, closed_summary: sess.closed_summary,
         });
         setWorkbook(wb);
         setSections(secs || []);
@@ -200,5 +202,32 @@ export function useSessionDashboard(sessionId) {
     return {};
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, addSessionParticipants, resetParticipantPassword, deleteParticipant };
+  async function closeSession() {
+    const { data: { session: authSess } } = await supabase.auth.getSession();
+    if (!authSess) return { error: new Error('Not authenticated') };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/close-session`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authSess.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      return { error: new Error(msg) };
+    }
+    const data = await res.json();
+    // Drop participants + answers from local state — they're gone now.
+    setParticipants([]);
+    setAnswers({});
+    setSession(prev => prev ? { ...prev, closed_at: data.closed_at, closed_summary: data.closed_summary } : prev);
+    return { data };
+  }
+
+  return { loading, error, session, workbook, sections, blocks, participants, answers, addSessionParticipants, resetParticipantPassword, deleteParticipant, closeSession };
 }

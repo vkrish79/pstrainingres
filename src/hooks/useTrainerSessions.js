@@ -20,7 +20,7 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null) {
         let q = supabase
           .from('sessions')
           .select(`
-            id, name, created_at, starts_at, ends_at, city_code, trainer_id, vendor_id,
+            id, name, created_at, starts_at, ends_at, city_code, trainer_id, vendor_id, closed_at,
             workbooks ( id, title ),
             session_participants ( participant_id ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name )
