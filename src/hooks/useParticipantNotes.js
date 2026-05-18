@@ -4,11 +4,14 @@ import { supabase } from '../lib/supabase.js';
 const SAVE_DEBOUNCE_MS = 600;
 
 // Participant-written section notes for the current session.
-// Shape: notes[sectionId] = { id, note, updated_at }
+// Shape:
+//   notes[sectionId]      = { id, note, updated_at }
+//   savingMap[sectionId]  = 'saving' | 'saved' | 'error'  (undefined if untouched)
 // `sessionId` and `participantId` may be null on first render; the hook
 // no-ops until both are set.
 export function useParticipantNotes(sessionId, participantId) {
   const [notes, setNotes] = useState({});
+  const [savingMap, setSavingMap] = useState({});
   const [loading, setLoading] = useState(true);
   const timersRef = useRef({});
 
@@ -37,6 +40,7 @@ export function useParticipantNotes(sessionId, participantId) {
       ...prev,
       [sectionId]: { ...(prev[sectionId] || {}), section_id: sectionId, note },
     }));
+    setSavingMap(prev => ({ ...prev, [sectionId]: 'saving' }));
 
     if (timersRef.current[sectionId]) clearTimeout(timersRef.current[sectionId]);
     timersRef.current[sectionId] = setTimeout(async () => {
@@ -47,16 +51,21 @@ export function useParticipantNotes(sessionId, participantId) {
         section_id: sectionId,
         note: note || '',
       };
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('participant_notes')
         .upsert(payload, { onConflict: 'session_id,participant_id,section_id' })
         .select()
         .single();
+      if (error) {
+        setSavingMap(prev => ({ ...prev, [sectionId]: 'error' }));
+        return;
+      }
       if (data) {
         setNotes(prev => ({ ...prev, [sectionId]: data }));
+        setSavingMap(prev => ({ ...prev, [sectionId]: 'saved' }));
       }
     }, SAVE_DEBOUNCE_MS);
   }, [sessionId, participantId]);
 
-  return { notes, loading, saveNote };
+  return { notes, loading, saveNote, savingMap };
 }

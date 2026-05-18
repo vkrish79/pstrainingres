@@ -291,9 +291,25 @@ pattern. Added to `supabase_realtime` so trainers see edits live.
 current participant + session, exposes `saveNote(sectionId, text)` with
 600 ms debounce + optimistic local update.
 
-**UI (participant):** under each section heading on
-`ParticipantWorkbookPage` there's a small "My notes for this exercise"
-textarea. Saves on keystroke (debounced).
+**UI (participant) — slide-in notes drawer:**
+
+- A **📝 Notes** button in the hero opens a right-side drawer
+  (`src/components/participant/NotesDrawer.jsx`, styles in
+  `src/styles/drawer.css`). Drawer lists all sections with their
+  current note; the section in view is auto-expanded and focused.
+  Mobile: slides up from the bottom.
+- Keyboard: **N** toggles the drawer (unless typing in an input);
+  **Esc** closes it.
+- Save indicator inline with each note: "Saving…" → "Saved 14:23".
+- Word count badge on the section heading and on the sidebar
+  (💬 N words) — gives an at-a-glance overview of what's been jotted.
+- Rotating placeholder hints (e.g. *"Why did this exercise matter?"*,
+  *"What's the rule of thumb here?"*) chosen deterministically per
+  section so a participant who doesn't know what to write gets a nudge.
+- The button shows total word count when > 0 (e.g. `📝 Notes (124)`).
+- Markdown lite supported in printed output: `**bold**`, `_italic_`,
+  `- bullet`. Helper: `src/lib/markdownLite.js`. The drawer is plain
+  text on screen — formatting renders in the PDF.
 
 **UI (trainer):** read-only render at the top of each section in the
 Participants tab answers-pane and inside each `ExerciseResponses` tile

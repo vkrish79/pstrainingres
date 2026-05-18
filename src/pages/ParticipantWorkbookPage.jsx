@@ -3,11 +3,14 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
+import { renderMarkdownLite, wordCount } from '../lib/markdownLite.js';
 import Block from '../components/blocks/Block.jsx';
+import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
 import '../styles/print.css';
+import '../styles/drawer.css';
 
 const ALL_KEY = '__all__';
 
@@ -15,9 +18,47 @@ export default function ParticipantWorkbookPage() {
   const { session: authSession } = useAuth();
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
-  const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
+  const { notes: sectionNotes, saveNote, savingMap: notesSavingMap } = useParticipantNotes(session?.id, authSession?.user.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  // Keyboard shortcut: "N" toggles the drawer. Skip when typing in an input,
+  // textarea, contenteditable, or when meta/ctrl/alt is held (let real
+  // shortcuts through).
+  useEffect(() => {
+    function onKey(e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Escape always closes the drawer if it's open, even while typing in
+      // the note textarea — that's the expected dismiss gesture.
+      if (e.key === 'Escape' && notesOpen) {
+        setNotesOpen(false);
+        return;
+      }
+      const t = e.target;
+      const tag = t?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setNotesOpen(o => !o);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [notesOpen]);
+
+  const notesByCount = useMemo(() => {
+    const out = {};
+    for (const s of Object.values(sectionNotes)) {
+      out[s.section_id] = wordCount(s.note || '');
+    }
+    return out;
+  }, [sectionNotes]);
+
+  const totalNoteWords = useMemo(
+    () => Object.values(notesByCount).reduce((a, b) => a + b, 0),
+    [notesByCount]
+  );
 
   const overallStatus = useMemo(() => {
     const statuses = Object.values(savingMap);
@@ -93,6 +134,14 @@ export default function ParticipantWorkbookPage() {
             <button
               type="button"
               className="ghost no-print"
+              onClick={() => setNotesOpen(true)}
+              title="Open your notes (press N)"
+            >
+              📝 Notes{totalNoteWords > 0 ? ` (${totalNoteWords})` : ''}
+            </button>
+            <button
+              type="button"
+              className="ghost no-print"
               onClick={() => window.print()}
               title="Open the print dialog. Choose 'Save as PDF' to download."
             >
@@ -133,6 +182,7 @@ export default function ParticipantWorkbookPage() {
               {sectionStats.map(s => {
                 const barClass = s.pct === 0 ? 'none' : s.pct === 100 ? 'full' : 'partial';
                 const isActive = selectedSectionId === s.id;
+                const noteWords = notesByCount[s.id] || 0;
                 return (
                   <li key={s.id}>
                     <button
@@ -140,7 +190,14 @@ export default function ParticipantWorkbookPage() {
                       onClick={() => setSelectedSectionId(s.id)}
                     >
                       <div className="exresp-sidebar-row">
-                        <span className="exresp-sidebar-title">{s.title}</span>
+                        <span className="exresp-sidebar-title">
+                          {s.title}
+                          {noteWords > 0 && (
+                            <span className="exresp-sidebar-note-badge" title={`${noteWords} word${noteWords === 1 ? '' : 's'} in note`}>
+                              💬 {noteWords}
+                            </span>
+                          )}
+                        </span>
                         <span className="exresp-sidebar-pct">{s.pct}%</span>
                       </div>
                       <div className={`exresp-sidebar-bar ${barClass}`}>
@@ -179,28 +236,32 @@ export default function ParticipantWorkbookPage() {
                       recentlyUpdated={!!recentlyUpdated[b.id]}
                     />
                   ))}
-                  <div className="participant-note-row">
-                    <label className="participant-note-label">My notes for this exercise</label>
-                    <textarea
-                      className="participant-note-input"
-                      placeholder="Jot down anything you want to remember…"
-                      value={noteText}
-                      onChange={e => saveNote(sec.id, e.target.value)}
-                      rows={3}
-                    />
-                    {/* Print-friendly rendering: textareas don't print their
-                        value cleanly across browsers, so we also emit the note
-                        as plain text that only shows in print. */}
-                    {noteText && (
-                      <div className="print-only participant-note-print">{noteText}</div>
-                    )}
-                  </div>
+                  {/* Print-only: render participant note inline as formatted
+                      HTML (the drawer textarea is screen-only). */}
+                  {noteText && (
+                    <div className="print-only participant-note-row">
+                      <div className="participant-note-label">My notes</div>
+                      <div
+                        className="participant-note-print"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdownLite(noteText) }}
+                      />
+                    </div>
+                  )}
                 </section>
               );
             })}
           </div>
         </div>
       </main>
+      <NotesDrawer
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        sections={sections}
+        notes={sectionNotes}
+        savingMap={notesSavingMap}
+        saveNote={saveNote}
+        currentSectionId={selectedSectionId === ALL_KEY ? sections[0]?.id : selectedSectionId}
+      />
     </>
   );
 }
