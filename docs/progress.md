@@ -4,6 +4,35 @@ A reference for what's been built on top of the v1 commit (`0992ec8`), grouped
 by area. Each section lists capability, where it lives in the code, gotchas,
 and any deferred work.
 
+## Session log
+
+### 2026-05-18
+
+A large day. Phase C of the role-tier rollout finished, plus three
+operationally significant feature additions (session close, prep data,
+notes drawer) and one DOCX importer fix.
+
+| Commit | Summary |
+|---|---|
+| `54a7e13` | **C1** — WorkbookEditor + TrainerHome tier gating (§11.1) |
+| `805ab05` | People page removed (was C2); per-session is the only enrolment path now (§8.6) |
+| `4e6513a` | `delete-participant` edge function; Remove → Delete on session dashboard (§8.5a) |
+| `7ae9784` | **C3** — NewSessionPage tier-aware pickers + participant notes feature + print PDF (§5.6, §5.7, §11.1) |
+| `d19724b` | Notes drawer UI replacing inline textarea; markdown lite + keyboard `N` + word count (§5.6) |
+| `55b9881` | **C4** — TrainerHomePage tier branching + VendorSessionsPage drill-in (§11.1) |
+| `43c2c06` | **Close session** — snapshot + hard delete + closed view (§2.7) |
+| `31f333c` | Closed sessions archive page + TopBar entry (§2.7) |
+| `0701f15` | **Prep data** — Excel/CSV upload, per-participant inline callout (§2.8) + DOCX inline-choice row split (§1.1) |
+| `242e6c6` | DOCX: bare option-word fallback for dropped Word checkboxes |
+| `1ca6cde` | Fix Vercel build: `read-excel-file` subpath import |
+
+Manual Supabase step from earlier in the day (still applies if not done):
+delete the legacy `create-participant` edge function from the Supabase
+dashboard — the GitHub integration only stops *redeploying*, not
+*undeploying*.
+
+
+
 > **Required setup before this all works in a deployed environment**
 >
 > 1. Apply both migrations in Supabase Studio → SQL Editor:
@@ -881,19 +910,22 @@ Avoids landing a multi-page diff and discovering one broke downstream.
    creation. Today only the create flow exists.
 2. **Date-based access enforcement** — read-only after `ends_at`,
    hidden before `starts_at`.
-3. **Multi-session handling** — session picker on participant landing
-   if enrolled in more than one session. Today `useWorkbook` does
-   `.limit(1)` and silently picks one.
-4. **Archive old sessions** — derive from `ends_at < today`; hide from
-   the home page until "show archived" toggled.
+3. ~~Multi-session handling~~ — N/A under the plain-username identity
+   policy (each session = a distinct auth account; `useWorkbook`'s
+   `.limit(1)` is correct).
+4. ~~Archive old sessions~~ — done as part of session close (§2.7) +
+   the dedicated archive page (§2.7).
 5. **Pick an email delivery option** for staff/super password reset
    flows — see `docs/auth-email-setup.md`. (Participants use temp
    passwords and `/join/:code`, so this is now staff-only.)
 6. **Docx import: preserve header-row `colspan` / `rowspan`** — body
    merging is done; headers still flatten. See
    `docs/docx-importer-next.md` §8.
-7. **Bundle code-splitting** — main bundle is ~520 kB; lazy-load the
-   editor and dashboard routes.
+7. **Bundle code-splitting** — main bundle is ~600 kB after the prep
+   feature; lazy-load the editor / dashboard / archive routes.
+8. **Strip the real-email path from `add-session-participants`** — the
+   D9 escape hatch is no longer policy. See `vendor-trainer-model.md`
+   for context. Currently dormant code, low priority.
 
 ### 11.3 Forward-looking UX
 
