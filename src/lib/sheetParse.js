@@ -7,7 +7,8 @@
 export async function parseSheetFile(file) {
   const name = (file.name || '').toLowerCase();
   if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    const { default: readXlsxFile } = await import('read-excel-file');
+    // The package only exports subpaths; use the browser build explicitly.
+    const { default: readXlsxFile } = await import('read-excel-file/browser');
     const rows = await readXlsxFile(file);
     return normalizeRows(rows);
   }
