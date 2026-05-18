@@ -27,7 +27,7 @@ export default function SessionDashboardPage() {
   const { id } = useParams();
   const {
     loading, error, session, workbook, sections, blocks, participants, answers,
-    addSessionParticipants, resetParticipantPassword, removeParticipant,
+    addSessionParticipants, resetParticipantPassword, deleteParticipant,
   } = useSessionDashboard(id);
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
@@ -35,7 +35,8 @@ export default function SessionDashboardPage() {
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [adding, setAdding] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState({}); // { [participantId]: msg }
   const [confirmReset, setConfirmReset] = useState(null);
   const [resetResult, setResetResult] = useState({}); // { [participantId]: { temp_password } | { error } }
   const [busy, setBusy] = useState(false);
@@ -70,11 +71,15 @@ export default function SessionDashboardPage() {
     return { answered, total: totalFillable, lastTs };
   }
 
-  async function doRemove(pid) {
+  async function doDelete(pid) {
     setBusy(true);
-    await removeParticipant(pid);
+    const { error: err } = await deleteParticipant(pid);
     setBusy(false);
-    setConfirmRemove(null);
+    setConfirmDelete(null);
+    if (err) {
+      setDeleteError(prev => ({ ...prev, [pid]: err.message }));
+      return;
+    }
     if (selectedParticipantId === pid) setSelectedParticipantId(null);
   }
 
@@ -186,11 +191,19 @@ export default function SessionDashboardPage() {
                           </td>
                           <td>{lastTs ? new Date(lastTs).toLocaleString() : '—'}</td>
                           <td onClick={e => e.stopPropagation()} className="row-actions">
-                            {confirmRemove === p.id ? (
+                            {confirmDelete === p.id ? (
                               <>
-                                <span className="confirm-text">Remove?</span>
-                                <button className="danger" onClick={() => doRemove(p.id)} disabled={busy}>Yes</button>
-                                <button className="ghost" onClick={() => setConfirmRemove(null)} disabled={busy}>No</button>
+                                <span className="confirm-text">Delete account &amp; all answers?</span>
+                                <button className="danger" onClick={() => doDelete(p.id)} disabled={busy}>Yes</button>
+                                <button className="ghost" onClick={() => setConfirmDelete(null)} disabled={busy}>No</button>
+                              </>
+                            ) : deleteError[p.id] ? (
+                              <>
+                                <span className="error">{deleteError[p.id]}</span>
+                                <button
+                                  className="ghost"
+                                  onClick={() => setDeleteError(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+                                >Dismiss</button>
                               </>
                             ) : confirmReset === p.id ? (
                               <>
@@ -224,7 +237,7 @@ export default function SessionDashboardPage() {
                             ) : (
                               <>
                                 <button className="ghost" onClick={() => setConfirmReset(p.id)}>Reset pwd</button>
-                                <button className="ghost danger" onClick={() => setConfirmRemove(p.id)}>Remove</button>
+                                <button className="ghost danger" onClick={() => setConfirmDelete(p.id)}>Delete</button>
                               </>
                             )}
                           </td>

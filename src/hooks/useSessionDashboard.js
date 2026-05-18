@@ -172,13 +172,25 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  async function removeParticipant(participantId) {
-    const { error: delErr } = await supabase
-      .from('session_participants')
-      .delete()
-      .eq('session_id', sessionId)
-      .eq('participant_id', participantId);
-    if (delErr) return { error: delErr };
+  async function deleteParticipant(participantId) {
+    const { data: { session: authSess } } = await supabase.auth.getSession();
+    if (!authSess) return { error: new Error('Not authenticated') };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-participant`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authSess.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ session_id: sessionId, participant_id: participantId }),
+    });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      return { error: new Error(msg) };
+    }
     setParticipants(prev => prev.filter(p => p.id !== participantId));
     setAnswers(prev => {
       const next = { ...prev };
@@ -188,5 +200,5 @@ export function useSessionDashboard(sessionId) {
     return {};
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, addSessionParticipants, resetParticipantPassword, removeParticipant };
+  return { loading, error, session, workbook, sections, blocks, participants, answers, addSessionParticipants, resetParticipantPassword, deleteParticipant };
 }

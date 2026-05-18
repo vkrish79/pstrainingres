@@ -437,12 +437,31 @@ session header + username/password form. On success, redirects to
 
 ### 8.5 Per-row password reset
 
-Each participant row now has a **Reset pwd** action next to Remove.
+Each participant row has a **Reset pwd** action next to Delete.
 Click → confirm → server generates a new temp password, sets
 `must_change_password=true`, and the new password renders inline with a
 Copy button for the trainer to share. Backed by
 `supabase/functions/reset-participant-password/`. Auth: super tier OR
 the session's trainer.
+
+### 8.5a Per-row hard delete
+
+Each participant row has a **Delete** action. Click → confirm → server
+hard-deletes the auth user, which cascades through `profiles →
+session_participants → answers` via the schema's `ON DELETE CASCADE`
+chain. One call wipes the participant, their enrolment in this session,
+and every answer they submitted.
+
+Backed by `supabase/functions/delete-participant/`. Auth: super tier OR
+vendor_manager of `sessions.vendor_id` OR `sessions.trainer_id ===
+caller.id` (mirrors `add-session-participants`).
+
+Replaces the earlier "Remove" action which only deleted the
+`session_participants` row — that left an orphan auth account that
+couldn't log back in (the join-code-namespaced email no longer matched
+an enrolment) and orphan `answers` rows attached to the deleted
+enrolment. Hard delete is the safe default under the plain-username
+policy (each account is single-session by design).
 
 ### 8.6 Other touch-ups in the same push
 
