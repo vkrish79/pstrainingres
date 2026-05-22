@@ -6,21 +6,32 @@ import { supabase } from '../lib/supabase.js';
 // participant editor). Shape: prep[participantId][sectionId] = { id, content, updated_at }.
 export function useSessionPrep(sessionId) {
   const [prep, setPrep] = useState({});
+  const [standalone, setStandalone] = useState({}); // [participantId] = [{label, content}]
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!sessionId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('participant_prep')
-      .select('id, participant_id, section_id, content, updated_at')
-      .eq('session_id', sessionId);
+    const [{ data: secData }, { data: stdData }] = await Promise.all([
+      supabase.from('participant_prep')
+        .select('id, participant_id, section_id, content, updated_at')
+        .eq('session_id', sessionId),
+      supabase.from('participant_prep_standalone')
+        .select('id, participant_id, label, content, updated_at')
+        .eq('session_id', sessionId).order('label'),
+    ]);
     const map = {};
-    (data || []).forEach(r => {
+    (secData || []).forEach(r => {
       map[r.participant_id] = map[r.participant_id] || {};
       map[r.participant_id][r.section_id] = r;
     });
     setPrep(map);
+    const sMap = {};
+    (stdData || []).forEach(r => {
+      sMap[r.participant_id] = sMap[r.participant_id] || [];
+      sMap[r.participant_id].push(r);
+    });
+    setStandalone(sMap);
     setLoading(false);
   }, [sessionId]);
 
@@ -34,6 +45,11 @@ export function useSessionPrep(sessionId) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'participant_prep', filter: `session_id=eq.${sessionId}` },
+        () => { refresh(); },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'participant_prep_standalone', filter: `session_id=eq.${sessionId}` },
         () => { refresh(); },
       )
       .subscribe();
@@ -81,5 +97,5 @@ export function useSessionPrep(sessionId) {
     return { count: rows.length };
   }, [sessionId, refresh]);
 
-  return { prep, loading, refresh, saveOne, saveMany };
+  return { prep, standalone, loading, refresh, saveOne, saveMany };
 }

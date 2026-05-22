@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isTrainerTier, isSuperTrainerOrAbove, homePathForRole, roleLabel } from '../lib/roles.js';
+import PrepUploadModal from './prep/PrepUploadModal.jsx';
 
 export default function TopBar() {
   const { profile, signOut } = useAuth();
@@ -8,7 +10,9 @@ export default function TopBar() {
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   const homePath = homePathForRole(profile?.role);
   const chipLabel = roleLabel(profile?.role);
+  const [prepOpen, setPrepOpen] = useState(false);
   return (
+    <>
     <header className="topbar">
       <div className="topbar-inner">
         <Link to={homePath} className="topbar-brand">
@@ -29,6 +33,7 @@ export default function TopBar() {
                 </>
               )}
               <NavLink to="/trainer/archive" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Closed sessions</NavLink>
+              <button type="button" className="topbar-nav-link topbar-nav-btn" onClick={() => setPrepOpen(true)}>Prep</button>
             </>
           )}
           <span className="topbar-user">
@@ -42,5 +47,7 @@ export default function TopBar() {
         </nav>
       </div>
     </header>
+    {prepOpen && <PrepUploadModal onClose={() => setPrepOpen(false)} profile={profile} />}
+    </>
   );
 }

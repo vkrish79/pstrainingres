@@ -21,15 +21,15 @@ export default function ParticipantWorkbookPage() {
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote, savingMap: notesSavingMap } = useParticipantNotes(session?.id, authSession?.user.id);
-  const { prep: sectionPrep } = useParticipantPrep(session?.id, authSession?.user.id);
+  const { prep: sectionPrep, standalone: standalonePrep } = useParticipantPrep(session?.id, authSession?.user.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
   const [notesOpen, setNotesOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
 
   const prepCount = useMemo(
-    () => Object.values(sectionPrep).filter(p => (p?.content || '').trim()).length,
-    [sectionPrep]
+    () => Object.values(sectionPrep).filter(p => (p?.content || '').trim()).length + standalonePrep.length,
+    [sectionPrep, standalonePrep]
   );
 
   // Keyboard shortcut: "N" toggles the drawer. Skip when typing in an input,
@@ -239,6 +239,16 @@ export default function ParticipantWorkbookPage() {
                 {(session?.starts_at || session?.ends_at) && ` · ${formatDateRange(session.starts_at, session.ends_at)}`}
               </p>
             </div>
+            {standalonePrep.length > 0 && (
+              <div className="participant-prep-callout prep-prework-callout">
+                <span className="participant-prep-callout-label">Pre-work from your trainer</span>
+                <ul className="prep-prework-list">
+                  {standalonePrep.map(s => (
+                    <li key={s.id}><strong>{s.label}:</strong> {s.content}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {visibleSections.map(sec => {
               const noteText = sectionNotes[sec.id]?.note || '';
               const prepText = sectionPrep[sec.id]?.content || '';
@@ -291,6 +301,7 @@ export default function ParticipantWorkbookPage() {
         onClose={() => setPrepOpen(false)}
         sections={sections}
         prep={sectionPrep}
+        standalone={standalonePrep}
       />
     </>
   );

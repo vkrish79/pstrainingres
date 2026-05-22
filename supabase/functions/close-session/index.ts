@@ -114,6 +114,7 @@ Deno.serve(async (req: Request) => {
     { data: sectionNotesRows },
     { data: trainerNotesRows },
     { data: prepRows },
+    { data: standaloneRows },
   ] = await Promise.all([
     participantIds.length
       ? admin.from('answers').select('participant_id, block_id, value, updated_at')
@@ -130,6 +131,10 @@ Deno.serve(async (req: Request) => {
       : Promise.resolve({ data: [] as any[] }),
     participantIds.length
       ? admin.from('participant_prep').select('participant_id, section_id, content, updated_at')
+          .eq('session_id', session_id)
+      : Promise.resolve({ data: [] as any[] }),
+    participantIds.length
+      ? admin.from('participant_prep_standalone').select('participant_id, label, content, updated_at')
           .eq('session_id', session_id)
       : Promise.resolve({ data: [] as any[] }),
   ]);
@@ -150,6 +155,11 @@ Deno.serve(async (req: Request) => {
     prepByP[p.participant_id] = prepByP[p.participant_id] || {};
     prepByP[p.participant_id][p.section_id] = { content: p.content, updated_at: p.updated_at };
   }
+  const standaloneByP: Record<string, any[]> = {};
+  for (const s of standaloneRows || []) {
+    standaloneByP[s.participant_id] = standaloneByP[s.participant_id] || [];
+    standaloneByP[s.participant_id].push({ label: s.label, content: s.content, updated_at: s.updated_at });
+  }
 
   // ---- 4. Resolve "username" for the synthesized-email path so the
   // snapshot has something readable even after auth deletion. ----
@@ -166,6 +176,7 @@ Deno.serve(async (req: Request) => {
     answers: ansByP[p.id] || {},
     section_notes: notesByP[p.id] || {},
     section_prep: prepByP[p.id] || {},
+    standalone_prep: standaloneByP[p.id] || [],
   }));
 
   // ---- 5. Build the snapshot ----

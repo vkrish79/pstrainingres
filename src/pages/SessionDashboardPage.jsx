@@ -36,7 +36,7 @@ export default function SessionDashboardPage() {
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
-  const { prep: prepBy, saveOne: savePrepOne } = useSessionPrep(id);
+  const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne } = useSessionPrep(id);
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
@@ -104,7 +104,7 @@ export default function SessionDashboardPage() {
   }
 
   function handleExport() {
-    const csv = buildAnswersCsv({ session, sections, blocks, participants, answers, notes, participantNotes, participantPrep: prepBy });
+    const csv = buildAnswersCsv({ session, sections, blocks, participants, answers, notes, participantNotes, participantPrep: prepBy, participantStandalone: standaloneBy });
     const safe = (session?.name || 'session').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
     downloadCsv(`${safe}_answers_${stamp}.csv`, csv);

@@ -292,3 +292,160 @@ from `participant_prep.pool_row_id` references, because session-close must keep
 kits consumed while individual-delete must return them — a distinction FK
 cascade can't make. The trade-off: the edge functions own the lifecycle
 transitions (claim/release/mark-used) rather than letting cascade do it.
+
+---
+
+## 9. Revision 2 (2026-05-22) — template setup screen + dedicated Prep tab
+
+Front-of-house restructure after the first build shipped (commit `e22c1a7`).
+The **engine is unchanged** — `workbook_prep_kits`, vendor partitioning,
+`claim_prep_kit` / `release_prep_kit` / `mark_prep_kits_used`, withdrawal on
+enrolment, and the participant Prep modal all stand. Five deltas:
+
+### R2.1 Per-workbook prep template *structure* (new storage)
+Prep-requiring exercises are no longer "all exercises" / implicit-from-fill —
+the **super trainer explicitly defines them** by uploading an **empty** template
+(header row only) whose columns map to exercises.
+
+- `workbooks.prep_template jsonb` (nullable) = ordered `[{ section_id, header }]`.
+  Set by the super's setup upload (parse headers → `matchSection` → store matched
+  columns in order). **No kits seeded** (the upload is empty). Read by all
+  trainer tiers (templates are trainer-readable) to generate the empty template
+  in the Prep tab.
+- New idempotent migration: `alter table workbooks add column if not exists
+  prep_template jsonb`.
+- Caveat: re-defining the structure after kits exist does not migrate existing
+  kits (payloads stay keyed by `section_id`); document, don't auto-clear.
+- Validation: the setup upload is **rejected if no header resolves to a section**
+  (≥1 required) — guards against the wrong file / bad headers.
+- If two headers resolve to the **same section**, dedupe **first-wins**.
+- Stored column **order = the order columns appeared in the super's upload**; the
+  tab regenerates the empty template in that order.
+
+### R2.2 Editor "Prep" section → setup only (super)
+`WorkbookPrepPanel` is repurposed to a **template-setup** panel:
+- Renders **only in the super edit view** — REMOVE the mount from the vendor
+  read-only viewer (vendor tiers now upload via the tab).
+- Upload a template → its headers define & store `workbooks.prep_template`.
+  Show the current structure (list of prep exercises) + allow re-upload to
+  redefine.
+- REMOVE from here: the all-exercises download, fill/append, balance, clear
+  (all move to the tab).
+
+### R2.3 New top-level "Prep" tab (all trainer tiers)
+- TopBar entry → opens a **modal**.
+- Step 1: **select a workbook** (templates the user can access).
+- Step 2 (super only): **pool filter** — Super (shared) | each vendor.
+- Then: **download the empty template** built from that workbook's
+  `prep_template` (only the prep columns, not all exercises) → fill → upload →
+  **append** to the repo in the selected partition. **Balance shown.**
+- New: a `PrepUploadModal` + a TopBar entry (and route if page-backed).
+- Upload mapping: match each uploaded column by exact header against
+  `prep_template` (fallback `matchSection`); payload keyed by `section_id`.
+- If a selected workbook has no `prep_template` yet: "No prep template set up for
+  this workbook yet — ask a super trainer." Hide upload + download, but still
+  show **balance read-only** (in case stale kits exist).
+- **Clear unconsumed** stays available in the tab, gated like upload (super:
+  super pool only; vendor-tier: own pool).
+
+### R2.4 Upload-permission rule (super) — UI + RLS
+Super may **upload only to the super pool** (`vendor_id = null`). Selecting a
+vendor pool in the filter shows **balance only** (read-only). Vendor-tier
+uploads to their own pool only. Enforced in both layers:
+- UI: hide/disable upload when a super has a vendor pool selected.
+- RLS (defense-in-depth): split the current `wpk_rw` FOR ALL policy into:
+  - **SELECT** — super any partition; vendor-tier `vendor_id = my_vendor_id()`.
+  - **INSERT/UPDATE/DELETE** — super only `vendor_id IS NULL`; vendor-tier
+    `vendor_id = my_vendor_id()`.
+  `claim_prep_kit` etc. are SECURITY DEFINER, so withdrawal into vendor pools
+  still works regardless. New idempotent migration drops `wpk_rw`, adds
+  `wpk_read` + `wpk_write`.
+- Verified `useWorkbookPrep.appendKits` / `clearUnconsumed` are the only
+  client-side writers of `workbook_prep_kits`; R2.3's UI gating stops super from
+  attempting a disallowed vendor-pool write.
+
+### R2.5 Empty-template generation
+`prepTemplate.js`: replace the all-sections builder with one that takes the
+stored `prep_template` columns (headers). The download on the editor setup
+screen goes away entirely.
+
+### R2.6 Existing kits from R1 testing
+Leave them — production hasn't run a real cohort and they draw fine (their
+`section_id` payload keys still resolve). A trainer can remove test kits via the
+tab's **Clear unconsumed** per partition. No one-time wipe in the migration.
+
+**Status of R2:** shipped (build passes; both migrations applied to hosted DB).
+
+---
+
+## 10. Revision 3 (2026-05-22) — prep items not tied to an exercise
+
+Some prep columns don't map to any exercise (e.g. a role-play PNR that's needed
+but has no exercise number). R2 **silently dropped** unmatched columns — losing
+that prep. R3 makes prep an *item* that is **optionally** linked to an exercise.
+Design goal: **additive and low-risk** — the exercise-linked path stays exactly
+as-is; standalone prep gets its own small store.
+
+### R3.1 Template setup keeps unmatched columns
+- `workbooks.prep_template` = `[{ header, section_id|null }]`. At setup, **every**
+  column is kept; `matchSection` resolves `section_id` where it can, else `null`
+  (standalone). Setup rejects only an empty file (not "no match"). The panel
+  shows which columns are exercise-linked vs standalone.
+- Dedup/link rule: dedup exact headers (case-insensitive, **first-wins**). A
+  section hosts **at most one** linked column (preserves `participant_prep`'s
+  one-per-section) — a second column matching an already-used section is kept as
+  **standalone**, so nothing is dropped.
+
+### R3.2 Kit payload keyed by header
+- `workbook_prep_kits.payload` becomes `{ "<header>": "content" }` (was keyed by
+  master section_id). The header is the stable per-template item key (deduped at
+  setup). Balance per-item keys by header (label = header).
+- Existing R1/R2 **test** kits use section-id-keyed payloads; the R3 migration
+  **truncates `workbook_prep_kits`** (no production cohorts) so no uuid-keyed
+  orphans survive into the header-keyed model.
+
+### R3.3 Standalone store (linked path unchanged)
+- New table `participant_prep_standalone (id, session_id, participant_id, label,
+  content, created_at, updated_at)`, unique `(session_id, participant_id,
+  label)`. RLS mirrors `participant_prep` (participant reads own; trainer-in-
+  session full CRUD). Added to realtime.
+- `claim_prep_kit` rewrite: payload keyed by header; read `master.prep_template`;
+  for each `header → content`: if the column has a `section_id` → map master→clone
+  via `template_section_id` and upsert **`participant_prep`** (UNCHANGED,
+  section-keyed); else upsert **`participant_prep_standalone`**. If a payload
+  header isn't found in `prep_template` (renamed/removed later) → treat as
+  **standalone with `label = header`** — never drop (the header is human-readable,
+  so it reads sensibly in the General group; uuid-keyed orphans are gone via the
+  truncate in R3.2).
+- **Linked prep is 100% unchanged downstream** (callout, modal section list,
+  PrepEditor, `useSessionPrep`, CSV, snapshot, dashboard). R3 only ADDS standalone.
+
+### R3.4 Participant display (the confirmed experience)
+- `useParticipantPrep` also loads standalone (+ realtime); returns
+  `{ prep (by section, unchanged), standalone: [{ label, content }] }`.
+- `ParticipantWorkbookPage`: a **"Pre-work" callout at the top** listing
+  standalone items; the exercise-linked callouts are unchanged.
+- `PrepModal`: existing section-grouped prep **+ a "General / pre-work" group**
+  for standalone items.
+
+### R3.5 No silent data loss on export / close
+- `buildAnswersCsv`: append standalone prep rows per participant.
+- `close-session` snapshot: add `standalone_prep` per participant;
+  `ClosedSessionView` renders it.
+
+### R3.6 Deferred (participant experience is the priority now)
+- Trainer **manual editing** of standalone prep (`PrepEditor` stays section-only).
+- Live trainer-**dashboard** per-participant standalone display.
+  (Standalone prep is set via the pool upload and shown to participants; trainer-
+  side editing/inline display can follow.)
+
+**Status of R3:** shipped (build passes). Needs migration #3 applied to the
+hosted DB + a push to redeploy the `close-session` edge function (the
+`claim_prep_kit` rewrite ships inside migration #3, so withdrawal updates on SQL
+apply; only the closed-snapshot capture needs the push).
+
+**Known gap (deferred, R3.6):** trainers can't manually edit a participant's
+standalone prep yet — `PrepEditor` is section-only. A typo in a standalone PNR
+can't be fixed except by redoing the pool. Worth telling the user. Migration #1 (`20260522000000`) is
+already applied/deployed; R2 lands a new migration for `prep_template` + the RLS
+split, plus the UI rework.

@@ -164,8 +164,6 @@ export default function WorkbookEditorPage() {
             </div>
           </section>
 
-          <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} />
-
           <div className="exresp-layout">
             <div className="exresp-mobile-nav">
               <select

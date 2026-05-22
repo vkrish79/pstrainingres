@@ -93,6 +93,10 @@ input, select, textarea { font-family: inherit; }
 }
 .topbar-nav-link:hover { background: var(--bg); }
 .topbar-nav-link.active { background: var(--midnight); color: #fff; }
+/* "Prep" is a <button> styled as a nav link. Reset button chrome and beat the
+   global button:hover (which outranks a single class). */
+.topbar-nav-link.topbar-nav-btn { background: none; border: none; cursor: pointer; font-family: inherit; }
+.topbar-nav-link.topbar-nav-btn:hover { background: var(--bg); color: var(--midnight); }
 
 .topbar-user {
   display: flex; align-items: center; gap: 0.5rem;

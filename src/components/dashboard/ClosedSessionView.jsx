@@ -182,6 +182,17 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, expande
       </button>
       {expanded && (
         <div className="closed-record-body">
+          {(participant.standalone_prep?.length > 0) && (
+            <section className="closed-section">
+              <h3>Pre-work</h3>
+              {participant.standalone_prep.map((s, i) => (
+                <div key={i} className="participant-prep-callout">
+                  <span className="participant-prep-callout-label">{s.label}</span>
+                  {s.content}
+                </div>
+              ))}
+            </section>
+          )}
           {(workbook?.sections || []).map(sec => {
             const secBlocks = (sec.blocks || []).filter(isFillableBlock);
             const sectionNote = participant.section_notes?.[sec.id]?.note;

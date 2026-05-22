@@ -9,7 +9,7 @@ import { isFillableBlock, labelOf, inputCellsOf } from './blockHelpers.js';
 
 export function buildAnswersCsv({
   session, sections, blocks, participants, answers,
-  notes = {}, participantNotes = {}, participantPrep = {},
+  notes = {}, participantNotes = {}, participantPrep = {}, participantStandalone = {},
 }) {
   const sectionTitle = Object.fromEntries(sections.map(s => [s.id, s.title]));
   const fillable = blocks.filter(isFillableBlock);
@@ -67,6 +67,14 @@ export function buildAnswersCsv({
       rows.push([
         session.name, pname, sectionTitle[sectionId] || '', '', '', '',
         ts, '', '', n?.note || '', pr?.content || '',
+      ]);
+    }
+    // Standalone prep (not tied to any exercise) — one synthetic row per item.
+    for (const item of (participantStandalone[p.id] || [])) {
+      if (!item?.content) continue;
+      rows.push([
+        session.name, pname, 'Pre-work', item.label || '', '', '',
+        item.updated_at || '', '', '', '', item.content,
       ]);
     }
   }
