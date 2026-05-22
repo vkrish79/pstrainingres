@@ -32,6 +32,13 @@ export default function ParticipantWorkbookPage() {
     [sectionPrep, standalonePrep]
   );
 
+  // Push the page canvas left while the prep drawer is open (desktop). The
+  // fixed drawer fills the gap. Cleaned up on close / unmount.
+  useEffect(() => {
+    document.body.classList.toggle('prep-drawer-pushed', prepOpen);
+    return () => document.body.classList.remove('prep-drawer-pushed');
+  }, [prepOpen]);
+
   // Keyboard shortcut: "N" toggles the drawer. Skip when typing in an input,
   // textarea, contenteditable, or when meta/ctrl/alt is held (let real
   // shortcuts through).

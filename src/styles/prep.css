@@ -74,5 +74,50 @@
 .prep-modal-empty { color: var(--muted); }
 .prep-modal-group-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); margin-top: 0.35rem; }
 
-/* Prep drawer body padding (shares the notes-drawer slide-in shell) */
-.notes-drawer-body.prep-drawer-scroll { padding: 0.85rem 1.25rem; }
+/* Prep drawer — narrow slide-in on the right that PUSHES the canvas (not an
+   overlay). Narrow because prep values are short (a PNR / ticket number). */
+.prep-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(300px, 100vw);
+  background: var(--card, #fff);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(15, 22, 38, 0.08);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 50;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.prep-drawer.open { transform: translateX(0); }
+
+.prep-drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.1rem; border-bottom: 1px solid var(--border); background: #fafbfd;
+}
+.prep-drawer-head h2 { margin: 0; font-size: 1.05rem; color: var(--midnight); }
+.prep-drawer-head .icon-btn { background: transparent; color: var(--text); font-size: 1.4rem; padding: 0.1rem 0.6rem; border-radius: 4px; }
+.prep-drawer-head .icon-btn:hover { background: var(--border); }
+
+.prep-drawer-body { flex: 1; overflow-y: auto; padding: 0.85rem 1rem; }
+
+/* Desktop: push the whole page left so the drawer gets its own strip. The
+   fixed drawer stays at the viewport edge and fills the gap; centered content
+   re-centers in the narrower space. */
+@media (min-width: 900px) {
+  body { transition: margin-right 0.25s ease; }
+  body.prep-drawer-pushed { margin-right: min(300px, 100vw); }
+}
+
+/* Narrow screens: bottom sheet; don't push. */
+@media (max-width: 899px) {
+  .prep-drawer {
+    width: 100vw; top: auto; height: 70vh;
+    border-left: none; border-top: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    transform: translateY(100%);
+    box-shadow: 0 -8px 24px rgba(15, 22, 38, 0.12);
+  }
+  .prep-drawer.open { transform: translateY(0); }
+}
+
+@media print { .prep-drawer { display: none !important; } }
