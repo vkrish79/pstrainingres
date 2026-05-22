@@ -9,7 +9,12 @@ export async function parseSheetFile(file) {
   if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
     // The package only exports subpaths; use the browser build explicitly.
     const { default: readXlsxFile } = await import('read-excel-file/browser');
-    const rows = await readXlsxFile(file);
+    const result = await readXlsxFile(file);
+    // read-excel-file v9 resolves to an array of sheets: [{ sheet, data: rows }].
+    // (Older versions resolved to the rows directly.) Use the first sheet's rows.
+    const rows = (Array.isArray(result) && result[0] && Array.isArray(result[0].data))
+      ? result[0].data
+      : result;
     return normalizeRows(rows);
   }
   if (name.endsWith('.csv') || file.type === 'text/csv') {
@@ -21,7 +26,8 @@ export async function parseSheetFile(file) {
 
 // Drop leading/trailing wholly-empty rows + cells; coerce to strings.
 function normalizeRows(rows) {
-  const cleaned = rows
+  const cleaned = (rows || [])
+    .filter(r => Array.isArray(r))                 // guard against unexpected shapes
     .map(r => r.map(c => (c == null ? '' : String(c).trim())))
     .filter(r => r.some(c => c !== ''));
   return cleaned;
