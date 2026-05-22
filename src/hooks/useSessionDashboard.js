@@ -24,8 +24,9 @@ export function useSessionDashboard(sessionId) {
           .from('sessions')
           .select(`
             id, name, workbook_id, created_at, starts_at, ends_at, city_code, join_code,
-            closed_at, closed_by, closed_summary,
+            closed_at, closed_by, closed_summary, trainer_id, vendor_id,
             workbooks ( id, title, description, template_id ),
+            trainer:profiles!sessions_trainer_id_fkey ( id, full_name ),
             session_participants ( participant_id, profiles ( id, full_name ) )
           `)
           .eq('id', sessionId)
@@ -75,6 +76,7 @@ export function useSessionDashboard(sessionId) {
           starts_at: sess.starts_at, ends_at: sess.ends_at, city_code: sess.city_code,
           join_code: sess.join_code,
           closed_at: sess.closed_at, closed_by: sess.closed_by, closed_summary: sess.closed_summary,
+          trainer_id: sess.trainer_id, vendor_id: sess.vendor_id, trainer: sess.trainer || null,
         });
         setWorkbook(wb);
         setSections(secs || []);
@@ -240,6 +242,19 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
+  // Reassign the session's trainer (super / vendor_manager only; enforced by
+  // the set_session_trainer RPC). `trainer` is { id, full_name } so we can
+  // update the displayed name without a re-query.
+  async function setSessionTrainer(trainer) {
+    const { error: e } = await supabase.rpc('set_session_trainer', {
+      p_session_id: sessionId,
+      p_trainer_id: trainer.id,
+    });
+    if (e) return { error: new Error(e.message) };
+    setSession(prev => prev ? { ...prev, trainer_id: trainer.id, trainer: { id: trainer.id, full_name: trainer.full_name } } : prev);
+    return { data: true };
+  }
+
   async function closeSession() {
     const { data: { session: authSess } } = await supabase.auth.getSession();
     if (!authSess) return { error: new Error('Not authenticated') };
@@ -267,5 +282,5 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, closeSession };
+  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession };
 }

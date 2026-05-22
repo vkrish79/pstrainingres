@@ -620,6 +620,23 @@
 /* prep.css isn't loaded on this route, so define the notice style locally. */
 .prep-notice { color: #2e7d4f; font-size: 0.9rem; margin: 0.5rem 0; }
 
+/* Change-trainer control in the session hero. Scoped overrides beat the gold
+   `.page-hero-actions button` rule so Save reads as primary and Change/Cancel
+   stay ghost. */
+.change-trainer { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.change-trainer-label { font-size: 0.88rem; color: var(--text); white-space: nowrap; }
+.change-trainer .form-input { width: auto; min-width: 11rem; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+.page-hero-actions .change-trainer button {
+  background: var(--midnight); color: #fff;
+  padding: 0.45rem 0.85rem; font-size: 0.85rem;
+}
+.page-hero-actions .change-trainer button:hover:not(:disabled) { background: var(--midnight-hover); }
+.page-hero-actions .change-trainer button.ghost,
+.page-hero-actions .change-trainer .ghost-link {
+  background: transparent; color: var(--text); border: 1px solid var(--border);
+}
+.change-trainer .error, .change-trainer .muted { font-size: 0.8rem; }
+
 /* Read-only prep callout — used on the trainer dashboard + the
    participant workbook + the closed session view. */
 .participant-prep-callout {

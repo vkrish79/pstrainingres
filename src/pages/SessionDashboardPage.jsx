@@ -6,7 +6,9 @@ import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
+import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
 import Block from '../components/blocks/Block.jsx';
@@ -31,9 +33,10 @@ export default function SessionDashboardPage() {
   const { id } = useParams();
   const {
     loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled,
-    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, closeSession,
+    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession,
   } = useSessionDashboard(id);
-  const { session: authSession } = useAuth();
+  const { session: authSession, profile } = useAuth();
+  const canChangeTrainer = isVendorManagerOrAbove(profile?.role);
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
   const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
@@ -194,6 +197,13 @@ export default function SessionDashboardPage() {
             )}
           </div>
           <div className="page-hero-actions">
+            {canChangeTrainer && (
+              <ChangeTrainerControl
+                sessionVendorId={session?.vendor_id || null}
+                currentTrainer={session?.trainer || null}
+                onChange={setSessionTrainer}
+              />
+            )}
             {workbook?.id && (
               <Link to={`/trainer/workbooks/${workbook.id}`} className="ghost-link">
                 ✎ Edit workbook
