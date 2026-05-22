@@ -7,7 +7,7 @@ import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { renderMarkdownLite, wordCount } from '../lib/markdownLite.js';
 import Block from '../components/blocks/Block.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
-import PrepModal from '../components/participant/PrepModal.jsx';
+import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -44,6 +44,10 @@ export default function ParticipantWorkbookPage() {
         setNotesOpen(false);
         return;
       }
+      if (e.key === 'Escape' && prepOpen) {
+        setPrepOpen(false);
+        return;
+      }
       const t = e.target;
       const tag = t?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable) return;
@@ -54,7 +58,7 @@ export default function ParticipantWorkbookPage() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [notesOpen]);
+  }, [notesOpen, prepOpen]);
 
   const notesByCount = useMemo(() => {
     const out = {};
@@ -239,16 +243,6 @@ export default function ParticipantWorkbookPage() {
                 {(session?.starts_at || session?.ends_at) && ` · ${formatDateRange(session.starts_at, session.ends_at)}`}
               </p>
             </div>
-            {standalonePrep.length > 0 && (
-              <div className="participant-prep-callout prep-prework-callout">
-                <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-                <ul className="prep-prework-list">
-                  {standalonePrep.map(s => (
-                    <li key={s.id}><strong>{s.label}:</strong> {s.content}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
             {visibleSections.map(sec => {
               const noteText = sectionNotes[sec.id]?.note || '';
               const prepText = sectionPrep[sec.id]?.content || '';
@@ -296,7 +290,7 @@ export default function ParticipantWorkbookPage() {
         saveNote={saveNote}
         currentSectionId={selectedSectionId === ALL_KEY ? sections[0]?.id : selectedSectionId}
       />
-      <PrepModal
+      <PrepDrawer
         open={prepOpen}
         onClose={() => setPrepOpen(false)}
         sections={sections}

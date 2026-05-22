@@ -1,5 +1,5 @@
 /* Workbook prep repository panel (WorkbookPrepPanel.jsx) + participant prep
-   modal (PrepModal.jsx). Uses the shared theme variables. */
+   drawer (PrepDrawer.jsx). Uses the shared theme variables. */
 
 .prep-panel { margin-top: 1rem; }
 
@@ -74,6 +74,5 @@
 .prep-modal-empty { color: var(--muted); }
 .prep-modal-group-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); margin-top: 0.35rem; }
 
-/* Participant top "pre-work" callout (standalone prep) */
-.prep-prework-callout .prep-prework-list { margin: 0.35rem 0 0; padding-left: 1.1rem; }
-.prep-prework-callout .prep-prework-list li { margin: 0.15rem 0; }
+/* Prep drawer body padding (shares the notes-drawer slide-in shell) */
+.notes-drawer-body.prep-drawer-scroll { padding: 0.85rem 1.25rem; }
