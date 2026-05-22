@@ -6,8 +6,8 @@ import '../../styles/workbook.css';
 
 const ALL_KEY = '__all__';
 
-// Tab body: trainer's private fillable copy of the session workbook.
-// Answers persist in localStorage only — see useTrainerPractice for details.
+// Tab body: the session's trainer-facing fillable copy of the workbook.
+// Answers persist server-side, scoped to the session — see useTrainerPractice.
 export default function TrainerPracticeView({ sessionId, trainerId }) {
   const {
     loading, error, sections, blocks, answers, saveAnswer, resetAnswers,
@@ -37,8 +37,9 @@ export default function TrainerPracticeView({ sessionId, trainerId }) {
     <div>
       <div className="practice-banner">
         <div>
-          <strong>Trainer practice copy.</strong> Answers are saved on this device only.
-          Participants don't see them; they don't appear in cohort progress or CSV exports.
+          <strong>Trainer practice copy.</strong> Saved to this session — if the trainer is
+          changed, the new trainer resumes this progress. Participants don't see it; it
+          doesn't appear in cohort progress or CSV exports.
         </div>
         <div className="practice-banner-actions">
           {confirmReset ? (
