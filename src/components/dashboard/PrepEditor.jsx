@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 // Per-participant prep editor. Opened from a participant's row in the
 // session dashboard so a trainer can tweak or fill in prep without
@@ -6,11 +7,17 @@ import { useEffect, useState } from 'react';
 //
 // `prepForParticipant` shape: { [sectionId]: { id, content, updated_at } }
 // `saveOne(payload)`: ({ participantId, sectionId, content }) -> server
+// `onAllocate(participantId)`: draw one kit from the pool for this participant
+//   (only relevant when `prepEnabled` and they have no prep yet).
 export default function PrepEditor({
-  open, onClose, participant, sections, prepForParticipant, saveOne,
+  open, onClose, participant, sections, prepForParticipant, saveOne, prepEnabled, onAllocate,
 }) {
   const [drafts, setDrafts] = useState({});
   const [savingId, setSavingId] = useState(null);
+  const [allocating, setAllocating] = useState(false);
+  const [allocateMsg, setAllocateMsg] = useState('');
+
+  useBodyScrollLock(open && !!participant);
 
   useEffect(() => {
     if (!open) return;
@@ -19,9 +26,12 @@ export default function PrepEditor({
       seed[s.id] = prepForParticipant?.[s.id]?.content || '';
     }
     setDrafts(seed);
+    setAllocateMsg('');
   }, [open, sections, prepForParticipant]);
 
   if (!open || !participant) return null;
+
+  const hasNoPrep = !prepForParticipant || Object.keys(prepForParticipant).length === 0;
 
   async function commit(sectionId) {
     setSavingId(sectionId);
@@ -31,6 +41,19 @@ export default function PrepEditor({
       content: drafts[sectionId] || '',
     });
     setSavingId(null);
+  }
+
+  async function handleAllocate() {
+    setAllocating(true);
+    setAllocateMsg('');
+    const { data, error } = await onAllocate(participant.id);
+    setAllocating(false);
+    if (error) { setAllocateMsg(error.message); return; }
+    const r = data?.results?.[0];
+    if (r?.status === 'allocated') setAllocateMsg('Prep allocated from the pool.');
+    else if (r?.status === 'exhausted') setAllocateMsg('The pool is out of kits — nothing to allocate.');
+    else if (r?.status === 'skipped') setAllocateMsg('This participant already has prep.');
+    else setAllocateMsg('No prep available to allocate.');
   }
 
   return (
@@ -45,6 +68,15 @@ export default function PrepEditor({
             One prep entry per exercise. Saved when you leave a field. Clear a
             field to remove that prep.
           </p>
+          {prepEnabled && hasNoPrep && onAllocate && (
+            <div className="prep-allocate-banner">
+              <span>This participant has no prep yet — draw a kit from the workbook pool.</span>
+              <button type="button" className="ghost" onClick={handleAllocate} disabled={allocating}>
+                {allocating ? 'Allocating…' : '↓ Allocate from pool'}
+              </button>
+            </div>
+          )}
+          {allocateMsg && <p className="prep-notice">{allocateMsg}</p>}
           {sections.length === 0 && <p className="muted">No exercises in this workbook yet.</p>}
           {sections.map(sec => (
             <div className="prep-editor-row" key={sec.id}>

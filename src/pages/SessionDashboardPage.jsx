@@ -30,13 +30,13 @@ function formatDateRange(start, end) {
 export default function SessionDashboardPage() {
   const { id } = useParams();
   const {
-    loading, error, session, workbook, sections, blocks, participants, answers,
-    addSessionParticipants, resetParticipantPassword, deleteParticipant, closeSession,
+    loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled,
+    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, closeSession,
   } = useSessionDashboard(id);
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
-  const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne } = useSessionPrep(id);
+  const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
@@ -50,6 +50,19 @@ export default function SessionDashboardPage() {
   const [busy, setBusy] = useState(false);
   const [joinCopied, setJoinCopied] = useState(false);
   const [prepEditorFor, setPrepEditorFor] = useState(null); // participant id
+  const [allocating, setAllocating] = useState(false);
+  const [allocateMsg, setAllocateMsg] = useState('');
+
+  // A participant "needs prep" when the workbook expects prep but they have no
+  // section prep rows yet (un-allocated, or enrolled while the pool was empty).
+  function hasPrep(pid) {
+    const sec = prepBy[pid];
+    return !!sec && Object.keys(sec).length > 0;
+  }
+  const unPreppedIds = useMemo(
+    () => (prepEnabled ? participants.filter(p => !hasPrep(p.id)).map(p => p.id) : []),
+    [prepEnabled, participants, prepBy],
+  );
 
   const joinUrl = session?.join_code
     ? `${window.location.origin}/join/${session.join_code}`
@@ -101,6 +114,28 @@ export default function SessionDashboardPage() {
       ...prev,
       [pid]: err ? { error: err.message } : { temp_password: data.temp_password, username: data.username },
     }));
+  }
+
+  async function doAllocateAll() {
+    setAllocating(true);
+    setAllocateMsg('');
+    const { data, error: err } = await allocateSessionPrep();
+    setAllocating(false);
+    if (err) { setAllocateMsg(err.message); return; }
+    await refreshPrep();
+    const a = data.allocated || 0;
+    const ex = data.exhausted || 0;
+    let msg = a > 0 ? `Allocated prep to ${a} participant${a === 1 ? '' : 's'}.` : 'No prep allocated.';
+    if (ex > 0) msg += ` ${ex} could not be allocated — the pool is out of kits.`;
+    setAllocateMsg(msg);
+  }
+
+  // Used by PrepEditor's "Allocate from pool" action for a single participant.
+  async function allocateOne(participantId) {
+    const { data, error: err } = await allocateSessionPrep(participantId);
+    if (err) return { error: err };
+    await refreshPrep();
+    return { data };
   }
 
   function handleExport() {
@@ -193,10 +228,18 @@ export default function SessionDashboardPage() {
             <div className="participants-pane">
               <div className="participants-header">
                 <h2 className="section-title" style={{ margin: 0 }}>Participants ({participants.length})</h2>
-                {!adding && (
-                  <button className="ghost" onClick={() => setAdding(true)}>+ Add</button>
-                )}
+                <div className="participants-header-actions">
+                  {unPreppedIds.length > 0 && (
+                    <button className="ghost" onClick={doAllocateAll} disabled={allocating}>
+                      {allocating ? 'Allocating…' : `Allocate prep (${unPreppedIds.length} need it)`}
+                    </button>
+                  )}
+                  {!adding && (
+                    <button className="ghost" onClick={() => setAdding(true)}>+ Add</button>
+                  )}
+                </div>
               </div>
+              {allocateMsg && <p className="prep-notice">{allocateMsg}</p>}
               {adding && (
                 <AddSessionParticipants
                   onAdd={addSessionParticipants}
@@ -218,7 +261,10 @@ export default function SessionDashboardPage() {
                       return (
                         <tr key={p.id} className={isSel ? 'selected' : ''}
                             onClick={() => setSelectedParticipantId(isSel ? null : p.id)}>
-                          <td>{p.full_name || '(unnamed)'}</td>
+                          <td>
+                            {p.full_name || '(unnamed)'}
+                            {prepEnabled && !hasPrep(p.id) && <span className="no-prep-tag" title="No prep allocated yet">No prep</span>}
+                          </td>
                           <td>
                             <div className="progress-cell">
                               <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
@@ -359,6 +405,8 @@ export default function SessionDashboardPage() {
         sections={sections}
         prepForParticipant={prepBy[prepEditorFor] || {}}
         saveOne={savePrepOne}
+        prepEnabled={prepEnabled}
+        onAllocate={allocateOne}
       />
     </>
   );

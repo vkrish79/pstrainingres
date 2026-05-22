@@ -12,6 +12,7 @@ export function useSessionDashboard(sessionId) {
   const [blocks, setBlocks] = useState([]);
   const [participants, setParticipants] = useState([]);   // [{ id, full_name }]
   const [answers, setAnswers] = useState({});              // { [participantId]: { [blockId]: { value, updated_at } } }
+  const [prepEnabled, setPrepEnabled] = useState(false);   // master workbook has a prep template
 
   useEffect(() => {
     if (!sessionId) return;
@@ -24,7 +25,7 @@ export function useSessionDashboard(sessionId) {
           .select(`
             id, name, workbook_id, created_at, starts_at, ends_at, city_code, join_code,
             closed_at, closed_by, closed_summary,
-            workbooks ( id, title, description ),
+            workbooks ( id, title, description, template_id ),
             session_participants ( participant_id, profiles ( id, full_name ) )
           `)
           .eq('id', sessionId)
@@ -36,6 +37,15 @@ export function useSessionDashboard(sessionId) {
           .map(sp => sp.profiles)
           .filter(Boolean)
           .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+        // Does this session's workbook expect prep? The prep template lives on
+        // the MASTER (template) workbook, not the per-session clone.
+        let prepIsEnabled = false;
+        if (wb.template_id) {
+          const { data: master } = await supabase
+            .from('workbooks').select('prep_template').eq('id', wb.template_id).maybeSingle();
+          prepIsEnabled = Array.isArray(master?.prep_template) && master.prep_template.length > 0;
+        }
 
         const { data: secs, error: e2 } = await supabase
           .from('sections').select('*').eq('workbook_id', wb.id).order('order_index');
@@ -71,6 +81,7 @@ export function useSessionDashboard(sessionId) {
         setBlocks(blks || []);
         setParticipants(parts);
         setAnswers(ansMap);
+        setPrepEnabled(prepIsEnabled);
         setLoading(false);
       } catch (err) {
         if (!cancelled) { setError(err.message); setLoading(false); }
@@ -202,6 +213,33 @@ export function useSessionDashboard(sessionId) {
     return {};
   }
 
+  // Retroactively draw prep kits for already-enrolled participants who have
+  // none. Pass a participantId to allocate for just one; omit it to allocate
+  // for everyone who's un-prepped. The participant_prep realtime sub will
+  // surface the new rows, but callers can also refresh prep explicitly.
+  async function allocateSessionPrep(participantId) {
+    const { data: { session: authSess } } = await supabase.auth.getSession();
+    if (!authSess) return { error: new Error('Not authenticated') };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/allocate-session-prep`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authSess.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(participantId ? { session_id: sessionId, participant_id: participantId } : { session_id: sessionId }),
+    });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      return { error: new Error(msg) };
+    }
+    const data = await res.json();
+    return { data };
+  }
+
   async function closeSession() {
     const { data: { session: authSess } } = await supabase.auth.getSession();
     if (!authSess) return { error: new Error('Not authenticated') };
@@ -229,5 +267,5 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, addSessionParticipants, resetParticipantPassword, deleteParticipant, closeSession };
+  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, closeSession };
 }

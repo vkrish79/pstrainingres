@@ -95,7 +95,7 @@ button.ghost {
   border: 1px solid var(--border);
 }
 button.ghost:hover:not(:disabled) { background: var(--border); }
-button.ghost.danger { color: var(--danger); border-color: #f0caca; }
+button.ghost.danger { background: transparent; color: var(--danger); border-color: #f0caca; }
 button.ghost.danger:hover:not(:disabled) { background: #fbecec; }
 button.danger { background: var(--danger); }
 button.danger:hover { background: #a83838; }

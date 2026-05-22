@@ -60,8 +60,14 @@
 .prep-match-list code { background: var(--border); padding: 0 0.3rem; border-radius: 3px; }
 .prep-preview-count { margin: 0.5rem 0; }
 
-/* Prep tab upload modal */
+/* Prep tab upload modal — pickers pinned at top, balance/bars scroll in the
+   middle, primary actions pinned in the footer (so they never scroll away). */
 .prep-upload-modal { max-width: 660px; width: 92vw; }
+.prep-upload-modal .modal-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.prep-upload-modal .prep-pickers { padding: 1rem 1.25rem 0.85rem; margin: 0; }
+.prep-scroll { flex: 1; overflow-y: auto; padding: 0 1.25rem 1rem; }
+.prep-modal-foot { flex-wrap: wrap; gap: 0.5rem; }
+.prep-foot-clear { margin-left: auto; display: inline-flex; align-items: center; gap: 0.5rem; }
 .prep-pickers { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
 .prep-pickers .form-label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
 .prep-pickers .form-input { min-width: 14rem; width: auto; }

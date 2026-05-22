@@ -602,6 +602,24 @@
 .prep-editor-row { margin-bottom: 0.9rem; }
 .prep-editor-row textarea { width: 100%; resize: vertical; }
 
+/* Prep allocation (retroactive draw from the workbook pool) */
+.participants-header-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.no-prep-tag {
+  display: inline-block; margin-left: 0.5rem;
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: #9a6a00; background: #fdf3e0; border: 1px solid #f0d9af;
+  padding: 0.05rem 0.4rem; border-radius: 999px; vertical-align: middle;
+}
+.prep-allocate-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  flex-wrap: wrap;
+  background: #f4ecf7; border: 1px solid #e0cdef; border-radius: 8px;
+  padding: 0.6rem 0.85rem; margin: 0.25rem 0 0.85rem;
+  font-size: 0.88rem;
+}
+/* prep.css isn't loaded on this route, so define the notice style locally. */
+.prep-notice { color: #2e7d4f; font-size: 0.9rem; margin: 0.5rem 0; }
+
 /* Read-only prep callout — used on the trainer dashboard + the
    participant workbook + the closed session view. */
 .participant-prep-callout {

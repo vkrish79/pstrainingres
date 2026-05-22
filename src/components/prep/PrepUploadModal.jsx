@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { useVendors } from '../../hooks/useVendors.js';
 import { useWorkbookPrep } from '../../hooks/useWorkbookPrep.js';
 import { parseSheetFile } from '../../lib/sheetParse.js';
@@ -13,6 +14,7 @@ import '../../styles/prep.css';
 // pool is balance-only. Vendor-tier is locked to their own pool.
 export default function PrepUploadModal({ onClose, profile }) {
   const isSuper = isSuperTrainerOrAbove(profile?.role);
+  useBodyScrollLock();
   const { vendors } = useVendors();
 
   const [templates, setTemplates] = useState([]);
@@ -148,6 +150,7 @@ export default function PrepUploadModal({ onClose, profile }) {
             )}
           </div>
 
+          <div className="prep-scroll">
           {!selectedWorkbookId ? (
             <p className="muted">Pick a workbook to see its prep pool.</p>
           ) : structure.length === 0 ? (
@@ -188,29 +191,6 @@ export default function PrepUploadModal({ onClose, profile }) {
                 <p className="muted">Viewing this vendor’s balance (read-only). You can upload only to the <strong>Super (shared)</strong> pool.</p>
               )}
 
-              <div className="prep-actions">
-                <button type="button" className="ghost" onClick={() => downloadEmptyPrepTemplate(selectedWorkbook.title, structure)}>
-                  ↓ Download template
-                </button>
-                {canWrite && (
-                  <label className="ghost prep-upload-btn">
-                    ↑ Upload filled template
-                    <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} disabled={parsing || submitting} hidden />
-                  </label>
-                )}
-                {canWrite && balance.available > 0 && (
-                  confirmClear ? (
-                    <>
-                      <span className="confirm-text">Delete {balance.available} unconsumed kit{balance.available === 1 ? '' : 's'}?</span>
-                      <button type="button" className="danger" onClick={handleClear}>Yes</button>
-                      <button type="button" className="ghost" onClick={() => setConfirmClear(false)}>No</button>
-                    </>
-                  ) : (
-                    <button type="button" className="ghost danger" onClick={() => setConfirmClear(true)}>Clear unconsumed</button>
-                  )
-                )}
-              </div>
-
               {parsing && <p className="muted">Reading file…</p>}
               {parseError && <p className="error">{parseError}</p>}
               {notice && <p className="prep-notice">{notice}</p>}
@@ -219,7 +199,7 @@ export default function PrepUploadModal({ onClose, profile }) {
                 <div className="prep-preview">
                   <h3>Preview</h3>
                   {matchedHeaders === 0 ? (
-                    <p className="error">No columns matched this workbook’s prep template. Download the template above and fill that exact file.</p>
+                    <p className="error">No columns matched this workbook’s prep template. Use the “Download template” button below and fill that exact file.</p>
                   ) : (
                     <>
                       <p className="prep-preview-count"><strong>{payloadRows.length}</strong> kit{payloadRows.length === 1 ? '' : 's'} will be added.</p>
@@ -239,7 +219,35 @@ export default function PrepUploadModal({ onClose, profile }) {
               )}
             </>
           )}
+          </div>
         </div>
+
+        {selectedWorkbookId && structure.length > 0 && (
+          <footer className="modal-foot prep-modal-foot">
+            <button type="button" className="ghost" onClick={() => downloadEmptyPrepTemplate(selectedWorkbook.title, structure)}>
+              ↓ Download template
+            </button>
+            {canWrite && (
+              <label className="ghost prep-upload-btn">
+                ↑ Upload filled template
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} disabled={parsing || submitting} hidden />
+              </label>
+            )}
+            {canWrite && balance.available > 0 && (
+              <span className="prep-foot-clear">
+                {confirmClear ? (
+                  <>
+                    <span className="confirm-text">Delete {balance.available} unconsumed kit{balance.available === 1 ? '' : 's'}?</span>
+                    <button type="button" className="danger" onClick={handleClear}>Yes</button>
+                    <button type="button" className="ghost" onClick={() => setConfirmClear(false)}>No</button>
+                  </>
+                ) : (
+                  <button type="button" className="ghost danger" onClick={() => setConfirmClear(true)}>Clear unconsumed</button>
+                )}
+              </span>
+            )}
+          </footer>
+        )}
       </div>
     </div>
   );
