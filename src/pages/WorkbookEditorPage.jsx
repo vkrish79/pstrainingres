@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useWorkbookEditor } from '../hooks/useWorkbookEditor.js';
 import BlockListItem from '../components/editor/BlockListItem.jsx';
+import WorkbookPrepPanel from '../components/editor/WorkbookPrepPanel.jsx';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -163,6 +164,8 @@ export default function WorkbookEditorPage() {
             </div>
           </section>
 
+          <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} />
+
           <div className="exresp-layout">
             <div className="exresp-mobile-nav">
               <select
@@ -265,6 +268,8 @@ export default function WorkbookEditorPage() {
             onBlur={commitTitle}
           />
         </section>
+
+        {isTemplate && <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} />}
 
         <div className={`editor-layout ${showPreview ? 'with-preview' : ''}`}>
           <div className="editor-pane">

@@ -1,0 +1,68 @@
+/* Workbook prep repository panel (WorkbookPrepPanel.jsx) + participant prep
+   modal (PrepModal.jsx). Uses the shared theme variables. */
+
+.prep-panel { margin-top: 1rem; }
+
+.prep-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.prep-panel-head h2 { margin: 0; }
+
+.prep-vendor-filter { display: flex; align-items: center; gap: 0.5rem; }
+.prep-vendor-filter select { width: auto; min-width: 12rem; }
+.prep-vendor-label { font-size: 0.85rem; }
+
+.prep-intro { margin-top: 0.5rem; max-width: 60ch; }
+
+/* Balance */
+.prep-balance {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+.prep-balance-headline { font-size: 1rem; }
+.prep-balance-headline strong { font-size: 1.6rem; color: var(--midnight); }
+.prep-balance-meta { font-size: 0.8rem; margin-top: 0.15rem; }
+
+.prep-bars { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.35rem; }
+.prep-bar-row { display: grid; grid-template-columns: minmax(8rem, 14rem) 1fr 2.5rem; align-items: center; gap: 0.6rem; }
+.prep-bar-label { font-size: 0.8rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prep-bar { height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.prep-bar-fill { display: block; height: 100%; border-radius: 4px; background: #6dbf85; transition: width 0.3s; }
+.prep-bar.low .prep-bar-fill { background: var(--gold); }
+.prep-bar.none .prep-bar-fill { background: var(--danger); }
+.prep-bar-count { font-size: 0.8rem; color: var(--muted); text-align: right; }
+
+/* Actions */
+.prep-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.prep-upload-btn { cursor: pointer; display: inline-flex; align-items: center; }
+.prep-upload-btn input { display: none; }
+
+.prep-notice { color: #2e7d4f; font-size: 0.9rem; margin: 0.5rem 0; }
+.prep-warn { color: #9a6a00; font-size: 0.85rem; margin: 0.4rem 0; }
+.prep-pending { color: #9a6a00; font-size: 0.85rem; }
+
+/* Upload preview */
+.prep-preview {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+.prep-preview h3 { margin: 0 0 0.5rem; }
+.prep-match-list { margin: 0.25rem 0 0.5rem; padding-left: 1.2rem; font-size: 0.85rem; }
+.prep-match-list code { background: var(--border); padding: 0 0.3rem; border-radius: 3px; }
+.prep-preview-count { margin: 0.5rem 0; }
+
+/* Participant prep modal */
+.prep-modal-list { display: grid; gap: 0.75rem; }
+.prep-modal-item { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.85rem; }
+.prep-modal-item h4 { margin: 0 0 0.3rem; font-size: 0.95rem; }
+.prep-modal-content { white-space: pre-wrap; font-size: 0.9rem; }
+.prep-modal-empty { color: var(--muted); }

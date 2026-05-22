@@ -5,7 +5,6 @@ import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
-import UploadPrepData from '../components/dashboard/UploadPrepData.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
@@ -37,7 +36,7 @@ export default function SessionDashboardPage() {
   const { session: authSession } = useAuth();
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
-  const { prep: prepBy, saveOne: savePrepOne, saveMany: savePrepMany } = useSessionPrep(id);
+  const { prep: prepBy, saveOne: savePrepOne } = useSessionPrep(id);
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
@@ -50,7 +49,6 @@ export default function SessionDashboardPage() {
   const [resetResult, setResetResult] = useState({}); // { [participantId]: { temp_password } | { error } }
   const [busy, setBusy] = useState(false);
   const [joinCopied, setJoinCopied] = useState(false);
-  const [uploadPrepOpen, setUploadPrepOpen] = useState(false);
   const [prepEditorFor, setPrepEditorFor] = useState(null); // participant id
 
   const joinUrl = session?.join_code
@@ -168,9 +166,6 @@ export default function SessionDashboardPage() {
             )}
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
-            </button>
-            <button className="ghost-link" onClick={() => setUploadPrepOpen(true)} disabled={participants.length === 0}>
-              📎 Upload prep data
             </button>
             {confirmClose ? (
               <>
@@ -357,13 +352,6 @@ export default function SessionDashboardPage() {
           <TrainerPracticeView sessionId={id} trainerId={authSession?.user.id} />
         )}
       </main>
-      <UploadPrepData
-        open={uploadPrepOpen}
-        onClose={() => setUploadPrepOpen(false)}
-        sections={sections}
-        participants={participants}
-        onUpload={savePrepMany}
-      />
       <PrepEditor
         open={!!prepEditorFor}
         onClose={() => setPrepEditorFor(null)}

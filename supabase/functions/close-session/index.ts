@@ -226,6 +226,10 @@ Deno.serve(async (req: Request) => {
     .single();
   if (upErr) return jsonRes(500, { error: `Snapshot save failed: ${upErr.message}` });
 
+  // Mark this session's prep kits permanently used (closed sessions never
+  // return kits to the pool). The snapshot above already captured prep content.
+  const { error: prepMarkErr } = await admin.rpc('mark_prep_kits_used', { p_session_id: session_id });
+
   // ---- 7. HARD DELETE participants. Per-row errors are logged but
   // don't fail the close — the snapshot is already saved. ----
   const deleteErrors: Array<{ id: string; error: string }> = [];
@@ -240,5 +244,6 @@ Deno.serve(async (req: Request) => {
     closed_summary: updated.closed_summary,
     participants_deleted: participantIds.length - deleteErrors.length,
     delete_errors: deleteErrors,
+    prep_mark_used_error: prepMarkErr?.message || null,
   });
 });

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { buildParticipantCsvTemplate, downloadCsv, parseParticipantCsv } from '../../lib/csv.js';
+import '../../styles/prep.css';
 
 const STATUS_LABELS = {
   created: { label: 'Created', cls: 'status-pill ok' },
@@ -144,6 +145,13 @@ export default function AddSessionParticipants({ onAdd, onCancel }) {
       {results && results.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
           <h3 className="section-title" style={{ marginTop: 0 }}>Results</h3>
+          {results.some(r => r.prep === 'exhausted') && (
+            <p className="prep-warn">
+              ⚠ The prep repository is empty for this session's pool — affected participants
+              were added without prep. Top up the repository from the workbook's prep panel
+              for future enrolments.
+            </p>
+          )}
           <table className="participants-table">
             <thead>
               <tr><th>Username</th><th style={{ width: '11rem' }}>Status</th><th>Details</th></tr>
@@ -162,6 +170,8 @@ export default function AddSessionParticipants({ onAdd, onCancel }) {
                       {r.status === 'error' && (r.reason || '—')}
                       {r.status === 'enrolled_existing' && 'Linked existing account.'}
                       {r.status === 'already_enrolled' && 'Was already in this session.'}
+                      {r.prep === 'exhausted' && <span className="prep-pending"> · ⚠ no prep (repository empty)</span>}
+                      {r.prep === 'error' && <span className="prep-pending"> · ⚠ prep error</span>}
                     </td>
                   </tr>
                 );

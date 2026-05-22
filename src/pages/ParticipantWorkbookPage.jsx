@@ -7,6 +7,7 @@ import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { renderMarkdownLite, wordCount } from '../lib/markdownLite.js';
 import Block from '../components/blocks/Block.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
+import PrepModal from '../components/participant/PrepModal.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -24,6 +25,12 @@ export default function ParticipantWorkbookPage() {
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [prepOpen, setPrepOpen] = useState(false);
+
+  const prepCount = useMemo(
+    () => Object.values(sectionPrep).filter(p => (p?.content || '').trim()).length,
+    [sectionPrep]
+  );
 
   // Keyboard shortcut: "N" toggles the drawer. Skip when typing in an input,
   // textarea, contenteditable, or when meta/ctrl/alt is held (let real
@@ -140,6 +147,14 @@ export default function ParticipantWorkbookPage() {
               title="Open your notes (press N)"
             >
               📝 Notes{totalNoteWords > 0 ? ` (${totalNoteWords})` : ''}
+            </button>
+            <button
+              type="button"
+              className="ghost no-print"
+              onClick={() => setPrepOpen(true)}
+              title="View your pre-work from the trainer"
+            >
+              🎯 Prep{prepCount > 0 ? ` (${prepCount})` : ''}
             </button>
             <button
               type="button"
@@ -270,6 +285,12 @@ export default function ParticipantWorkbookPage() {
         savingMap={notesSavingMap}
         saveNote={saveNote}
         currentSectionId={selectedSectionId === ALL_KEY ? sections[0]?.id : selectedSectionId}
+      />
+      <PrepModal
+        open={prepOpen}
+        onClose={() => setPrepOpen(false)}
+        sections={sections}
+        prep={sectionPrep}
       />
     </>
   );

@@ -101,7 +101,19 @@ Deno.serve(async (req: Request) => {
 
   const targetVendorId = sess.vendor_id || caller.vendor_id || null;
 
-  const results: Array<{ username: string; status: string; reason?: string; temp_password?: string }> = [];
+  // Withdraw one prep kit from the workbook's pool (the session's vendor
+  // partition) for a freshly enrolled participant. Returns the claim status
+  // ('allocated' | 'exhausted' | 'none' | 'error') so the UI can warn when the
+  // pool is exhausted. Never fails the enrolment.
+  async function claimPrep(pid: string): Promise<string> {
+    const { data, error } = await admin.rpc('claim_prep_kit', {
+      p_session_id: session_id, p_participant_id: pid,
+    });
+    if (error) return 'error';
+    return (data as { status?: string } | null)?.status || 'none';
+  }
+
+  const results: Array<{ username: string; status: string; reason?: string; temp_password?: string; prep?: string }> = [];
   const seen = new Set<string>();
 
   for (const raw of participants) {
@@ -166,7 +178,8 @@ Deno.serve(async (req: Request) => {
         .from('session_participants')
         .insert({ session_id, participant_id: existing.id });
       if (ee) { results.push({ username: usernameInput, status: 'error', reason: ee.message }); continue; }
-      results.push({ username: usernameInput, status: 'enrolled_existing' });
+      const prepExisting = await claimPrep(existing.id);
+      results.push({ username: usernameInput, status: 'enrolled_existing', prep: prepExisting });
       continue;
     }
 
@@ -199,7 +212,8 @@ Deno.serve(async (req: Request) => {
       results.push({ username: usernameInput, status: 'error', reason: `created but not enrolled: ${ee.message}` });
       continue;
     }
-    results.push({ username: usernameInput, status: 'created', temp_password: tempPassword });
+    const prepCreated = await claimPrep(created.user.id);
+    results.push({ username: usernameInput, status: 'created', temp_password: tempPassword, prep: prepCreated });
   }
 
   return jsonRes(200, { results });

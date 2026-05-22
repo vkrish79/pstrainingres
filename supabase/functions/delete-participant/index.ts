@@ -84,6 +84,10 @@ Deno.serve(async (req: Request) => {
     return jsonRes(403, { error: 'This endpoint only deletes participant accounts' });
   }
 
+  // Return any prep kit this participant held back to the pool before deleting
+  // them (individual delete frees the kit; session-close keeps it consumed).
+  await admin.rpc('release_prep_kit', { p_session_id: session_id, p_participant_id: participant_id });
+
   // auth.users delete cascades to profiles → session_participants → answers.
   const { error: ae } = await admin.auth.admin.deleteUser(participant_id);
   if (ae) return jsonRes(500, { error: ae.message });
