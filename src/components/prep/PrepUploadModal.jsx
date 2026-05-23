@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { useVendors } from '../../hooks/useVendors.js';
 import { useWorkbookPrep } from '../../hooks/useWorkbookPrep.js';
+import { useWorkbookPrepBalances } from '../../hooks/useWorkbookPrepBalances.js';
 import { parseSheetFile } from '../../lib/sheetParse.js';
 import { downloadEmptyPrepTemplate } from '../../lib/prepTemplate.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
@@ -45,6 +46,13 @@ export default function PrepUploadModal({ onClose, profile }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Esc closes the modal.
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const selectedWorkbook = templates.find(t => t.id === selectedWorkbookId) || null;
   const structure = Array.isArray(selectedWorkbook?.prep_template) ? selectedWorkbook.prep_template : [];
 
@@ -53,6 +61,9 @@ export default function PrepUploadModal({ onClose, profile }) {
 
   const { balance, loading: balLoading, appendKits, clearUnconsumed } =
     useWorkbookPrep(selectedWorkbookId || null, partitionVendorId);
+
+  // Balances for every workbook in the selected pool — the overview landing.
+  const { byWorkbook, loading: overviewLoading } = useWorkbookPrepBalances(partitionVendorId);
 
   // normalized uploaded header -> canonical template header (the payload key)
   const headerCanon = useMemo(() => {
@@ -127,19 +138,12 @@ export default function PrepUploadModal({ onClose, profile }) {
     <div className="modal-backdrop visible" onClick={onClose}>
       <div className="modal-card prep-upload-modal" onClick={e => e.stopPropagation()}>
         <header className="modal-head">
-          <h2>🎯 Prep — upload &amp; balance</h2>
+          <h2>🎯 Prep — balance &amp; upload</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </header>
         <div className="modal-body">
-          <div className="prep-pickers">
-            <label className="form-label">
-              Workbook
-              <select className="form-input" value={selectedWorkbookId} onChange={e => changeWorkbook(e.target.value)} disabled={tplLoading}>
-                <option value="">{tplLoading ? 'Loading…' : 'Select a workbook…'}</option>
-                {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-              </select>
-            </label>
-            {isSuper && selectedWorkbookId && (
+          {isSuper && (
+            <div className="prep-pickers">
               <label className="form-label">
                 Pool
                 <select className="form-input" value={selectedVendorId} onChange={e => { setSelectedVendorId(e.target.value); resetUpload(); setNotice(''); setConfirmClear(false); }}>
@@ -147,13 +151,55 @@ export default function PrepUploadModal({ onClose, profile }) {
                   {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </label>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="prep-scroll">
           {!selectedWorkbookId ? (
-            <p className="muted">Pick a workbook to see its prep pool.</p>
-          ) : structure.length === 0 ? (
+            <div className="prep-overview">
+              <p className="muted prep-overview-hint">
+                {isSuper ? `Showing the ${selectedVendorId ? (vendors.find(v => v.id === selectedVendorId)?.name || 'vendor') : 'Super (shared)'} pool. ` : ''}
+                Click a workbook to upload or manage its kits.
+              </p>
+              {(tplLoading || overviewLoading) ? (
+                <p className="muted">Loading…</p>
+              ) : templates.length === 0 ? (
+                <p className="muted">No workbooks yet.</p>
+              ) : (
+                <ul className="prep-overview-list">
+                  {templates.map(t => {
+                    const hasTpl = Array.isArray(t.prep_template) && t.prep_template.length > 0;
+                    const b = byWorkbook[t.id] || { total: 0, fullyPreppable: 0 };
+                    const fp = b.fullyPreppable ?? 0;
+                    const pct = b.total ? Math.round((fp / b.total) * 100) : 0;
+                    const cls = fp === 0 ? 'none' : (fp <= b.total * 0.25 ? 'low' : 'ok');
+                    return (
+                      <li key={t.id}>
+                        <button type="button" className="prep-overview-row" onClick={() => changeWorkbook(t.id)}>
+                          <span className="prep-overview-title">{t.title}</span>
+                          {b.total > 0 ? (
+                            <>
+                              <span className={`prep-bar ${cls}`}><span className="prep-bar-fill" style={{ width: `${pct}%` }} /></span>
+                              <span className="prep-bar-count">{fp} / {b.total}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="prep-bar"><span className="prep-bar-fill" style={{ width: '0%' }} /></span>
+                              <span className="prep-overview-flag">{hasTpl ? 'empty' : 'no template'}</span>
+                            </>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <>
+              <button type="button" className="prep-back" onClick={() => changeWorkbook('')}>← All workbooks</button>
+              <h3 className="prep-detail-title">{selectedWorkbook?.title}</h3>
+              {structure.length === 0 ? (
             <>
               <p className="prep-warn">No prep template set up for this workbook yet — ask a super trainer to set it up from the workbook’s editor.</p>
               {!balLoading && balance.total > 0 && (
@@ -165,10 +211,10 @@ export default function PrepUploadModal({ onClose, profile }) {
               {balLoading ? <p className="muted">Loading pool…</p> : (
                 <div className="prep-balance">
                   <div className="prep-balance-headline">
-                    <strong>{balance.available}</strong> kit{balance.available === 1 ? '' : 's'} available
-                    <span className="muted"> — enough to fully prep {balance.available} more participant{balance.available === 1 ? '' : 's'}</span>
+                    <strong>{balance.fullyPreppable}</strong> participant{balance.fullyPreppable === 1 ? '' : 's'} can be fully prepped
+                    <span className="muted"> — the lowest-stocked exercise sets the limit</span>
                   </div>
-                  <div className="prep-balance-meta muted">{balance.total} total · {balance.allocated} in use · {balance.used} consumed (closed)</div>
+                  <div className="prep-balance-meta muted">{balance.available} kit{balance.available === 1 ? '' : 's'} available · {balance.total} total · {balance.allocated} in use · {balance.used} consumed (closed)</div>
                   {Object.keys(balance.perSection).length > 0 && (
                     <ul className="prep-bars">
                       {Object.entries(balance.perSection).map(([sid, p]) => {
@@ -216,6 +262,8 @@ export default function PrepUploadModal({ onClose, profile }) {
                     </>
                   )}
                 </div>
+              )}
+            </>
               )}
             </>
           )}

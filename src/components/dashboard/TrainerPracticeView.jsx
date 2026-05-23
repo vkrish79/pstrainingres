@@ -1,20 +1,60 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTrainerPractice } from '../../hooks/useTrainerPractice.js';
+import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
 import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 import Block from '../blocks/Block.jsx';
+import PrepDrawer from '../participant/PrepDrawer.jsx';
 import '../../styles/workbook.css';
 
 const ALL_KEY = '__all__';
 
+const DRAW_MSG = {
+  allocated: (n) => `Drew practice prep (${n} item${n === 1 ? '' : 's'}).`,
+  exists: () => 'You already have practice prep for this session.',
+  exhausted: () => 'Prep pool is empty — ask for a top-up, then try again.',
+  none: () => 'No prep is set up for this workbook.',
+};
+
 // Tab body: the session's trainer-facing fillable copy of the workbook.
 // Answers persist server-side, scoped to the session — see useTrainerPractice.
-export default function TrainerPracticeView({ sessionId, trainerId }) {
+// The trainer can draw one prep kit from the pool (useTrainerPrep) so prep-
+// dependent exercises have real values to practise with, mirroring participants.
+export default function TrainerPracticeView({ sessionId, trainerId, prepEnabled = false }) {
   const {
     loading, error, sections, blocks, answers, saveAnswer, resetAnswers,
   } = useTrainerPractice(sessionId, trainerId);
+  const { prep, standalone, hasPrep, drawPrep } = useTrainerPrep(sessionId);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [drawing, setDrawing] = useState(false);
+  const [drawMsg, setDrawMsg] = useState('');
+  const [prepOpen, setPrepOpen] = useState(false);
+
+  // Push the page canvas left while the prep drawer is open (no overlay); the
+  // fixed drawer fills the gap. Mirrors the participant workbook view.
+  useEffect(() => {
+    document.body.classList.toggle('prep-drawer-pushed', prepOpen);
+    return () => document.body.classList.remove('prep-drawer-pushed');
+  }, [prepOpen]);
+
+  // Esc closes the drawer.
+  useEffect(() => {
+    if (!prepOpen) return;
+    function onKey(e) { if (e.key === 'Escape') setPrepOpen(false); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [prepOpen]);
+
+  async function handleDrawPrep() {
+    setDrawing(true);
+    setDrawMsg('');
+    const { data, error: err } = await drawPrep();
+    setDrawing(false);
+    if (err) { setDrawMsg(err.message); return; }
+    const status = data?.status || 'none';
+    setDrawMsg((DRAW_MSG[status] || DRAW_MSG.none)(data?.prepped || 0));
+  }
 
   const sectionStats = useMemo(() => {
     return sections.map(sec => {
@@ -42,6 +82,14 @@ export default function TrainerPracticeView({ sessionId, trainerId }) {
           doesn't appear in cohort progress or CSV exports.
         </div>
         <div className="practice-banner-actions">
+          {prepEnabled && !hasPrep && (
+            <button className="ghost" onClick={handleDrawPrep} disabled={drawing}>
+              {drawing ? 'Drawing…' : '🎯 Draw practice prep'}
+            </button>
+          )}
+          {hasPrep && (
+            <button className="ghost" onClick={() => setPrepOpen(true)}>🎯 Prep</button>
+          )}
           {confirmReset ? (
             <>
               <span className="confirm-text">Clear all your practice answers?</span>
@@ -53,6 +101,7 @@ export default function TrainerPracticeView({ sessionId, trainerId }) {
           )}
         </div>
       </div>
+      {drawMsg && <p className="prep-notice">{drawMsg}</p>}
 
       <div className="exresp-layout">
         <div className="exresp-mobile-nav">
@@ -111,6 +160,12 @@ export default function TrainerPracticeView({ sessionId, trainerId }) {
           {visibleSections.map(sec => (
             <section key={sec.id} className="wb-section">
               <h2>{sec.title}</h2>
+              {prep[sec.id]?.content && (
+                <div className="participant-prep-callout">
+                  <span className="participant-prep-callout-label">Prep</span>
+                  {prep[sec.id].content}
+                </div>
+              )}
               {blocks
                 .filter(b => b.section_id === sec.id)
                 .map(b => (
@@ -125,6 +180,14 @@ export default function TrainerPracticeView({ sessionId, trainerId }) {
           ))}
         </div>
       </div>
+
+      <PrepDrawer
+        open={prepOpen}
+        onClose={() => setPrepOpen(false)}
+        sections={sections}
+        prep={prep}
+        standalone={standalone}
+      />
     </div>
   );
 }

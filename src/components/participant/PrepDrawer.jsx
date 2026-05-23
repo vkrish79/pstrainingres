@@ -35,7 +35,7 @@ export default function PrepDrawer({ open, onClose, sections, prep, standalone =
               <>
                 <div className="prep-modal-group-label">General / pre-work</div>
                 {standalone.map(s => (
-                  <div key={s.id} className="prep-modal-item">
+                  <div key={s.id ?? s.label} className="prep-modal-item">
                     <h4>{s.label}</h4>
                     <div className="prep-modal-content">{s.content}</div>
                   </div>

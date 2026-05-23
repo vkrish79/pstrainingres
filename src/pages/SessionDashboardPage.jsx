@@ -244,7 +244,7 @@ export default function SessionDashboardPage() {
                       {allocating ? 'Allocating…' : `Allocate prep (${unPreppedIds.length} need it)`}
                     </button>
                   )}
-                  {!adding && (
+                  {!adding && !selected && (
                     <button className="ghost" onClick={() => setAdding(true)}>+ Add</button>
                   )}
                 </div>
@@ -261,7 +261,7 @@ export default function SessionDashboardPage() {
               {participants.length > 0 && (
                 <table className="participants-table">
                   <thead>
-                    <tr><th>Name</th><th>Progress</th><th>Last activity</th><th></th></tr>
+                    <tr><th>Name</th><th>Progress</th><th>Last activity</th>{!selected && <th></th>}</tr>
                   </thead>
                   <tbody>
                     {participants.map(p => {
@@ -282,6 +282,7 @@ export default function SessionDashboardPage() {
                             </div>
                           </td>
                           <td>{lastTs ? new Date(lastTs).toLocaleString() : '—'}</td>
+                          {!selected && (
                           <td onClick={e => e.stopPropagation()} className="row-actions">
                             {confirmDelete === p.id ? (
                               <>
@@ -334,6 +335,7 @@ export default function SessionDashboardPage() {
                               </>
                             )}
                           </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -405,7 +407,7 @@ export default function SessionDashboardPage() {
         )}
 
         {view === 'practice' && (
-          <TrainerPracticeView sessionId={id} trainerId={authSession?.user.id} />
+          <TrainerPracticeView sessionId={id} trainerId={authSession?.user.id} prepEnabled={prepEnabled} />
         )}
       </main>
       <PrepEditor

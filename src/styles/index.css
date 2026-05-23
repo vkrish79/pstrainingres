@@ -97,6 +97,13 @@ input, select, textarea { font-family: inherit; }
    global button:hover (which outranks a single class). */
 .topbar-nav-link.topbar-nav-btn { background: none; border: none; cursor: pointer; font-family: inherit; }
 .topbar-nav-link.topbar-nav-btn:hover { background: var(--bg); color: var(--midnight); }
+/* Count badge on the Prep nav item when prep pools are running low. */
+.nav-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.05rem; height: 1.05rem; padding: 0 0.3rem; margin-left: 0.35rem;
+  background: var(--danger); color: #fff; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 700; line-height: 1; vertical-align: middle;
+}
 
 .topbar-user {
   display: flex; align-items: center; gap: 0.5rem;
@@ -167,6 +174,7 @@ input, select, textarea { font-family: inherit; }
 
 .page-hero {
   display: flex; justify-content: space-between; align-items: flex-start;
+  flex-wrap: wrap;
   gap: 1.5rem;
   margin-bottom: 1.75rem;
   padding: 1.5rem 1.75rem;
@@ -205,6 +213,7 @@ input, select, textarea { font-family: inherit; }
 .page-hero-actions {
   position: relative; z-index: 1;
   display: flex; gap: 0.6rem; flex-shrink: 0;
+  flex-wrap: wrap; align-items: center;
 }
 .page-hero-actions a, .page-hero-actions button {
   background: var(--gold); color: #fff;
@@ -213,6 +222,21 @@ input, select, textarea { font-family: inherit; }
   font-size: 0.88rem; font-weight: 600;
 }
 .page-hero-actions a:hover, .page-hero-actions button:hover { background: var(--gold-dark); }
+
+/* Secondary (ghost) actions on the DARK hero. editor.css defines a global
+   `.ghost-link { color: var(--text) !important }` for light backgrounds, which
+   leaks onto this dark hero and makes the text invisible until hover reveals a
+   light fill. Re-light it here (white text + translucent outline), scoped to
+   the non-compact (dark) hero so the light `.page-hero.compact` heroes keep
+   their dark ghost text. !important is required to beat editor.css's. */
+.page-hero:not(.compact) .page-hero-actions .ghost-link {
+  background: transparent !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+}
+.page-hero:not(.compact) .page-hero-actions .ghost-link:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
 
 /* Compact hero variant (for inner pages without big banner) */
 .page-hero.compact {

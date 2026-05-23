@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 // Loads sessions for the trainer home, vendor drill-in, or archive.
-//   scope='own'    -> where trainer_id = userId (vendor_trainer + super's "my sessions" strip)
+//   scope='own'    -> where trainer_id = userId (vendor_trainer's "your sessions")
+//   scope='super'  -> where vendor_id is null (all super-trainer-delivered
+//                     sessions; super trainers have a null vendor_id, so a null
+//                     session vendor_id == delivered by some super). RLS lets
+//                     super read them all.
 //   scope='vendor' -> where vendor_id  = vendorId (vendor drill-in page)
 //   scope='all'    -> no explicit filter; RLS scopes naturally (vendor_manager
 //                     gets their vendor; super gets everything).
@@ -32,6 +36,7 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null, inclu
           `)
           .order('created_at', { ascending: false });
         if (scope === 'own') q = q.eq('trainer_id', userId);
+        else if (scope === 'super') q = q.is('vendor_id', null);
         else if (scope === 'vendor') q = q.eq('vendor_id', vendorId);
         if (includeClosed === 'live') q = q.is('closed_at', null);
         else if (includeClosed === 'closed') q = q.not('closed_at', 'is', null);

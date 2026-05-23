@@ -5,6 +5,7 @@ import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import { useVendors } from '../hooks/useVendors.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../lib/roles.js';
 import SessionCard from '../components/dashboard/SessionCard.jsx';
+import LowPrepBanner from '../components/dashboard/LowPrepBanner.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
@@ -34,6 +35,8 @@ export default function TrainerHomePage() {
           </div>
         </section>
 
+        <LowPrepBanner profile={profile} />
+
         {isSuper && <SuperHome userId={authSession?.user.id} />}
         {isManager && <VendorManagerHome userId={authSession?.user.id} />}
         {!isSuper && !isManager && <VendorTrainerHome userId={authSession?.user.id} />}
@@ -46,8 +49,9 @@ export default function TrainerHomePage() {
 
 function SuperHome({ userId }) {
   const { loading: vl, vendors } = useVendors();
-  // Super's "my sessions" strip — only the ones they self-deliver (C3 flow).
-  const { loading: msl, sessions: mySessions } = useTrainerSessions(userId, 'own');
+  // All super-trainer-delivered sessions (vendor_id is null), not just the
+  // caller's own — every super sees the shared super pool of sessions.
+  const { loading: msl, sessions: superSessions } = useTrainerSessions(userId, 'super');
   const { loading: wl, workbooks } = useTrainerWorkbooks(userId);
 
   const totalSessions = vendors.reduce((s, v) => s + (v.session_count || 0), 0);
@@ -62,11 +66,11 @@ function SuperHome({ userId }) {
         <StatCard icon="W" num={wl ? '—' : workbooks.length} label="Workbook" />
       </div>
 
-      {!msl && mySessions.length > 0 && (
+      {!msl && superSessions.length > 0 && (
         <>
-          <SectionHeader title="My sessions" />
+          <SectionHeader title="Super trainer sessions" />
           <div className="session-grid">
-            {mySessions.map(s => <SessionCard key={s.id} session={s} />)}
+            {superSessions.map(s => <SessionCard key={s.id} session={s} showTrainer />)}
           </div>
         </>
       )}

@@ -57,7 +57,14 @@ export function useWorkbookPrep(workbookId, vendorId) {
         if (k.status === 'available') perSection[sid].available++;
       }
     }
-    return { total: kits.length, available, allocated, used, perSection };
+    // "Fully preppable" = the lowest per-exercise availability among AVAILABLE
+    // kits. A complete kit needs a value in every prep column, so the column
+    // with the fewest filled-in available kits is the bottleneck (e.g. NJ shows
+    // 38 even if more rows exist). Falls back to the kit count when there are no
+    // prep columns at all.
+    const headerAvails = Object.values(perSection).map(p => p.available);
+    const fullyPreppable = headerAvails.length ? Math.min(...headerAvails) : available;
+    return { total: kits.length, available, allocated, used, perSection, fullyPreppable };
   }, [kits]);
 
   // Append new kits to this partition. `payloadRows` is an array of objects

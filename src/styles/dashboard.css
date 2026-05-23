@@ -223,7 +223,10 @@
   border-radius: 0;
   font-weight: 500;
 }
-.view-tab:hover { color: var(--text); }
+/* Keep tabs flat on hover — the global `button:hover` fills with --midnight,
+   which (being more specific than `.view-tab:hover`) would otherwise paint the
+   whole tab dark. Scope via `.view-tabs` to win on specificity. */
+.view-tabs .view-tab:hover { color: var(--text); background: transparent; }
 .view-tab.active {
   color: var(--midnight);
   border-bottom-color: var(--gold);
@@ -619,6 +622,24 @@
 }
 /* prep.css isn't loaded on this route, so define the notice style locally. */
 .prep-notice { color: #2e7d4f; font-size: 0.9rem; margin: 0.5rem 0; }
+
+/* Low-prep alert banner (trainer home, at login). */
+.lowprep-banner {
+  display: flex; align-items: center; gap: 0.75rem;
+  background: #fdf3e0; border: 1px solid #f0d9af; border-radius: 10px;
+  padding: 0.7rem 1rem; margin-bottom: 1.5rem;
+}
+.lowprep-icon { font-size: 1.15rem; line-height: 1; }
+.lowprep-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.lowprep-text strong { color: #8a5a00; font-size: 0.95rem; }
+.lowprep-list { font-size: 0.85rem; color: #7a5f1a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lowprep-review {
+  flex-shrink: 0; background: transparent; color: #8a5a00; border: 1px solid #e0b566;
+  padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.lowprep-banner .lowprep-review:hover:not(:disabled) { background: #f7e6c4; }
+.lowprep-dismiss { flex-shrink: 0; color: #8a5a00; }
 
 /* Change-trainer control in the session hero. Scoped overrides beat the gold
    `.page-hero-actions button` rule so Save reads as primary and Change/Cancel

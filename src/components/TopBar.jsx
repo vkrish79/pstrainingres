@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isTrainerTier, isSuperTrainerOrAbove, homePathForRole, roleLabel } from '../lib/roles.js';
+import { useLowPrepPools } from '../hooks/useLowPrepPools.js';
 import PrepUploadModal from './prep/PrepUploadModal.jsx';
 
 export default function TopBar() {
@@ -11,6 +12,7 @@ export default function TopBar() {
   const homePath = homePathForRole(profile?.role);
   const chipLabel = roleLabel(profile?.role);
   const [prepOpen, setPrepOpen] = useState(false);
+  const { lowPools } = useLowPrepPools(profile);
   return (
     <>
     <header className="topbar">
@@ -33,7 +35,9 @@ export default function TopBar() {
                 </>
               )}
               <NavLink to="/trainer/archive" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Closed sessions</NavLink>
-              <button type="button" className="topbar-nav-link topbar-nav-btn" onClick={() => setPrepOpen(true)}>Prep</button>
+              <button type="button" className="topbar-nav-link topbar-nav-btn" onClick={() => setPrepOpen(true)}>
+                Prep{lowPools.length > 0 && <span className="nav-badge" title={`${lowPools.length} prep pool(s) running low`}>{lowPools.length}</span>}
+              </button>
             </>
           )}
           <span className="topbar-user">
