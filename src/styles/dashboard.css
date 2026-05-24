@@ -364,6 +364,27 @@
 .exresp-sidebar-bar.partial .exresp-sidebar-bar-fill { background: var(--gold); }
 .exresp-sidebar-bar.full .exresp-sidebar-bar-fill { background: #6dbf85; }
 .exresp-sidebar-meta { font-size: 0.7rem; color: var(--muted); }
+/* Live cohort-spread badge: how many participants are on this exercise now. */
+.exresp-sidebar-live {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  margin-left: 0.45rem; font-weight: 600; color: #2e9e5b;
+}
+.exresp-sidebar-live .presence-dot { width: 7px; height: 7px; box-shadow: none; }
+.exresp-sidebar-live { cursor: default; }
+/* Hover popover (portaled to body, so it's never clipped by the sidebar's
+   overflow) listing who is on this exercise right now. */
+.live-here-popover {
+  position: fixed; z-index: 1000; pointer-events: none;
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  padding: 0.5rem 0.65rem; min-width: 150px; max-width: 240px; font-size: 0.82rem;
+}
+.live-here-popover-head {
+  font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); margin-bottom: 0.4rem;
+}
+.live-here-popover ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.live-here-popover li { display: flex; align-items: center; gap: 0.45rem; color: var(--text); }
 
 .exresp-main { min-width: 0; }
 .exresp-main-title {

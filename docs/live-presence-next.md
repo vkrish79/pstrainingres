@@ -122,18 +122,29 @@ push). Then, in two browsers:
   safe). No edge-function changes, so a push isn't required for the feature to
   work once the migration is applied — but push to keep the tree deployable.
 
-## 7. Deferred / follow-ups
+## 7. Shipped follow-up — cohort-spread badges in "By exercise" (v2)
 
-- **Cohort-spread badges in "By exercise."** Once cursors stream, the
-  `ExerciseResponses` sidebar can show a `· N` count per exercise ("how many are
-  parked here now"). Free data; v2.
+The `ExerciseResponses` sidebar now shows a green **● N here** badge per
+exercise (in the `X/Y done` meta row) — how many online participants are parked
+on that exercise right now. The dashboard computes `liveBySection` (section id →
+the list of online participants there, decayed by the same `nowTick`/`OFFLINE_MS`
+as the column) from `cursors` and passes it down; the badge count is the list
+length. **Hovering the badge** opens a small popover listing *who* is on that
+exercise — rendered via a `createPortal` to `document.body` with
+`position: fixed`, because the sidebar has `overflow: auto` and would otherwise
+clip an anchored popover. Gives the "are we together or scattered?" read.
+Note: the "By exercise" tab only lists sections that contain fillable blocks, so
+a participant parked on a non-fillable section shows in the Participants tab's
+**On now** column but not as a badge here.
+
+## 8. Deferred / follow-ups
 - **Re-render churn.** Heartbeats write every 20s/participant, each firing a
   `postgres_changes` event → a dashboard re-render. Fine at cohort scale; if it
   ever matters, throttle or skip state updates that only bump `last_seen`.
 - **Spotlight / "jump to"** (the other half of roadmap #1) — trainer pushes the
   cohort to an exercise. Separate feature; this cursor read is the prerequisite.
 
-## 8. Known low-risk gap
+## 9. Known low-risk gap
 
 The participant write policy (`participant_cursor_self_rw`) only checks
 `participant_id = auth.uid()`, not session enrolment — so a participant could

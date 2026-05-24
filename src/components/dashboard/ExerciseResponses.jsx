@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
 import NoteRow from './NoteRow.jsx';
 
@@ -13,7 +14,7 @@ const AUTO_COLLAPSE_THRESHOLD = 8;
 
 export default function ExerciseResponses({
   sections, blocks, participants, answers,
-  notes = {}, participantNotes = {}, prepBy = {}, onSaveNote, onDeleteNote,
+  notes = {}, participantNotes = {}, prepBy = {}, liveBySection = {}, onSaveNote, onDeleteNote,
 }) {
   const sectionsWithFillable = useMemo(() => {
     return sections
@@ -45,6 +46,7 @@ export default function ExerciseResponses({
   const [query, setQuery] = useState('');
   const [defaultExpanded, setDefaultExpanded] = useState(participants.length <= AUTO_COLLAPSE_THRESHOLD);
   const [toggleSet, setToggleSet] = useState(() => new Set());
+  const [liveHover, setLiveHover] = useState(null); // { names: string[], x, y } | null
 
   useEffect(() => {
     if (!selectedId && sectionsWithFillable.length) setSelectedId(sectionsWithFillable[0].id);
@@ -132,14 +134,14 @@ export default function ExerciseResponses({
         <ul className="exresp-sidebar-list">
           {sectionsWithFillable.map(sec => {
             const isActive = sec.id === selectedSection.id;
-            const { pct, participantsDone, blocksCount } = sec._stats;
+            const { pct, participantsDone } = sec._stats;
             const barClass = pct === 0 ? 'none' : pct === 100 ? 'full' : 'partial';
+            const here = liveBySection[sec.id] || [];
             return (
               <li key={sec.id}>
                 <button
                   className={`exresp-sidebar-item ${isActive ? 'active' : ''}`}
                   onClick={() => setSelectedId(sec.id)}
-                  title={`${participantsDone} of ${participants.length} participants done · ${blocksCount} block${blocksCount === 1 ? '' : 's'}`}
                 >
                   <div className="exresp-sidebar-row">
                     <span className="exresp-sidebar-title">{sec.title}</span>
@@ -148,7 +150,25 @@ export default function ExerciseResponses({
                   <div className={`exresp-sidebar-bar ${barClass}`}>
                     <div className="exresp-sidebar-bar-fill" style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="exresp-sidebar-meta">{participantsDone}/{participants.length} done</div>
+                  <div className="exresp-sidebar-meta">
+                    {participantsDone}/{participants.length} done
+                    {here.length > 0 && (
+                      <span
+                        className="exresp-sidebar-live"
+                        onMouseEnter={(e) => {
+                          const r = e.currentTarget.getBoundingClientRect();
+                          setLiveHover({
+                            names: here.map(p => p.full_name || '(unnamed)'),
+                            x: r.right + 8,
+                            y: r.top,
+                          });
+                        }}
+                        onMouseLeave={() => setLiveHover(null)}
+                      >
+                        <span className="presence-dot live" /> {here.length} here
+                      </span>
+                    )}
+                  </div>
                 </button>
               </li>
             );
@@ -204,6 +224,18 @@ export default function ExerciseResponses({
           ))}
         </div>
       </div>
+
+      {liveHover && createPortal(
+        <div className="live-here-popover" style={{ left: liveHover.x, top: liveHover.y }}>
+          <div className="live-here-popover-head">On this exercise now</div>
+          <ul>
+            {liveHover.names.map((n, i) => (
+              <li key={i}><span className="presence-dot live" /> {n}</li>
+            ))}
+          </ul>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

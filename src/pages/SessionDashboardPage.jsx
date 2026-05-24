@@ -157,6 +157,23 @@ export default function SessionDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participants, cursors, nowTick]);
 
+  // Which online participants are parked on each exercise right now — the
+  // cohort-spread read for the "By exercise" sidebar (count = list length; the
+  // names feed the hover popover). Keyed by section id (clone sections, which
+  // the cursor writes and the dashboard loads).
+  const liveBySection = useMemo(() => {
+    const now = Date.now();
+    const out = {};
+    for (const p of participants) {
+      const cur = cursors[p.id];
+      if (cur?.section_id && cur.last_seen && now - new Date(cur.last_seen).getTime() < OFFLINE_MS) {
+        (out[cur.section_id] = out[cur.section_id] || []).push({ id: p.id, full_name: p.full_name });
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants, cursors, nowTick]);
+
   async function doDelete(pid) {
     setBusy(true);
     const { error: err } = await deleteParticipant(pid);
@@ -480,6 +497,7 @@ export default function SessionDashboardPage() {
             notes={notes}
             participantNotes={participantNotes}
             prepBy={prepBy}
+            liveBySection={liveBySection}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
           />
