@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTrainerPractice } from '../../hooks/useTrainerPractice.js';
 import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
+import { useSessionFocus } from '../../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 import Block from '../blocks/Block.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
@@ -28,6 +29,7 @@ export default function TrainerPracticeView({
     loading, error, sections, blocks, answers, saveAnswer, resetAnswers,
   } = useTrainerPractice(sessionId, trainerId);
   const { prep, standalone, hasPrep, drawPrep } = useTrainerPrep(sessionId);
+  const { focus, spotlight, clear: clearSpotlight } = useSessionFocus(sessionId, trainerId);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -94,6 +96,12 @@ export default function TrainerPracticeView({
     ? sections
     : sections.filter(s => s.id === selectedSectionId);
 
+  // Spotlight acts on the selected exercise (sidebar selection). Null in the
+  // "All exercises" scroll view → the controls are disabled with a hint.
+  const selectedSection = selectedSectionId === ALL_KEY
+    ? null
+    : sections.find(s => s.id === selectedSectionId) || null;
+
   return (
     <div>
       <div className="practice-banner">
@@ -114,6 +122,28 @@ export default function TrainerPracticeView({
           <button className={`ghost ${monitorOpen ? 'active' : ''}`} onClick={openMonitor}>
             👁 Monitor{onlineTotal > 0 ? ` (${onlineTotal})` : ''}
           </button>
+          <button
+            className={`ghost ${focus?.section_id && focus.section_id === selectedSection?.id ? 'active' : ''}`}
+            onClick={() => selectedSection && spotlight(selectedSection)}
+            disabled={!selectedSection}
+            title={selectedSection ? 'Show participants a banner pointing to this exercise (they choose to follow)' : 'Select an exercise first'}
+          >
+            🔦 Spotlight
+          </button>
+          <button
+            className="ghost"
+            onClick={() => selectedSection && spotlight(selectedSection, { hard: true })}
+            disabled={!selectedSection}
+            title={selectedSection ? 'Jump every participant to this exercise now' : 'Select an exercise first'}
+          >
+            ⚡ Snap here
+          </button>
+          {focus?.section_id && (
+            <span className="spotlight-chip" title="Currently spotlighted for participants">
+              🔦 {focus.section_title}
+              <button type="button" className="spotlight-chip-clear" onClick={clearSpotlight} aria-label="Clear spotlight">×</button>
+            </span>
+          )}
           {confirmReset ? (
             <>
               <span className="confirm-text">Clear all your practice answers?</span>

@@ -133,4 +133,40 @@
   flex-wrap: wrap;
 }
 .practice-banner strong { color: #3d2e00; }
-.practice-banner-actions { display: flex; gap: 0.4rem; align-items: center; }
+.practice-banner-actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+/* Active state for Spotlight / Monitor toggle buttons in the practice banner. */
+.practice-banner-actions .ghost.active { background: #fff4e0; border-color: #f0d9af; color: #8a5a00; }
+
+/* ===== Trainer spotlight ===== */
+/* Trainer-side chip showing what's currently spotlighted (in My copy). */
+.spotlight-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: #fff4e0; border: 1px solid #f0d9af; border-radius: 999px;
+  padding: 0.18rem 0.3rem 0.18rem 0.6rem; font-size: 0.8rem; font-weight: 600; color: #8a5a00;
+}
+.spotlight-chip-clear {
+  background: transparent; border: none; cursor: pointer; color: #8a5a00;
+  font-size: 0.95rem; line-height: 1; padding: 0 0.2rem;
+}
+.spotlight-chip-clear.spotlight-chip-clear:hover { background: transparent; color: #6f4800; }
+
+/* Participant-side soft banner pointing to the spotlighted exercise. */
+.spotlight-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  background: #fff4e0; border: 1px solid #f0d9af; border-radius: 8px;
+  padding: 0.6rem 0.9rem; margin-bottom: 0.85rem;
+  font-size: 0.92rem; color: #8a5a00;
+}
+.spotlight-banner-text strong { color: #6f4800; }
+.spotlight-banner-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.spotlight-jump.spotlight-jump {
+  background: var(--gold, #c8a04f); color: #fff; border: none; cursor: pointer;
+  padding: 0.35rem 0.8rem; border-radius: 6px; font: inherit; font-weight: 600; font-size: 0.85rem;
+}
+.spotlight-jump.spotlight-jump:hover { background: var(--gold-dark, #b08a3e); }
+.spotlight-dismiss {
+  background: transparent; border: none; cursor: pointer; color: #8a5a00;
+  font-size: 1.15rem; line-height: 1; padding: 0 0.3rem;
+}
+.spotlight-dismiss.spotlight-dismiss:hover { background: #f3e2c4; }
+@media print { .spotlight-banner { display: none !important; } }

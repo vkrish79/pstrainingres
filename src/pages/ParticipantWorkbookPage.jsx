@@ -4,6 +4,7 @@ import { useWorkbook } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
 import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
+import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { renderMarkdownLite, wordCount } from '../lib/markdownLite.js';
 import Block from '../components/blocks/Block.jsx';
@@ -39,6 +40,29 @@ export default function ParticipantWorkbookPage() {
     sectionId: currentSectionId,
     sectionTitle: sections.find(s => s.id === currentSectionId)?.title || '',
   });
+
+  // Trainer spotlight: a soft banner the participant can follow, plus a
+  // one-time force-jump on a hard snap (a change in focus.snap_at).
+  const { focus } = useSessionFocus(session?.id, authSession?.user.id);
+  const [spotlightDismissedAt, setSpotlightDismissedAt] = useState(null);
+  const lastSnapRef = useRef(undefined);
+  const snapInitRef = useRef(false);
+  useEffect(() => {
+    if (!focus) return;
+    // Seed from the first value we see so joining mid-session doesn't yank.
+    if (!snapInitRef.current) {
+      snapInitRef.current = true;
+      lastSnapRef.current = focus.snap_at ?? null;
+      return;
+    }
+    // Force-jump once per hard snap: snap_at changed AND points at a section.
+    if (focus.section_id && focus.snap_at && focus.snap_at !== lastSnapRef.current) {
+      lastSnapRef.current = focus.snap_at;
+      setSelectedSectionId(focus.section_id);
+    }
+  }, [focus]);
+
+  const showSpotlight = !!focus?.section_id && focus.set_at !== spotlightDismissedAt;
 
   const prepCount = useMemo(
     () => Object.values(sectionPrep).filter(p => (p?.content || '').trim()).length + standalonePrep.length,
@@ -222,6 +246,29 @@ export default function ParticipantWorkbookPage() {
             </button>
           </div>
         </section>
+
+        {showSpotlight && (
+          <div className="spotlight-banner" role="status">
+            <span className="spotlight-banner-text">🔦 Your trainer is on <strong>{focus.section_title}</strong></span>
+            <div className="spotlight-banner-actions">
+              <button
+                type="button"
+                className="spotlight-jump"
+                onClick={() => { setSelectedSectionId(focus.section_id); setSpotlightDismissedAt(focus.set_at); }}
+              >
+                Jump to it
+              </button>
+              <button
+                type="button"
+                className="spotlight-dismiss"
+                onClick={() => setSpotlightDismissedAt(focus.set_at)}
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="exresp-layout">
           <div className="exresp-mobile-nav">
