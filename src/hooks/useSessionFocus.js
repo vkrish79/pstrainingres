@@ -47,17 +47,19 @@ export function useSessionFocus(sessionId, selfId) {
 
   async function spotlight(section, { hard = false } = {}) {
     if (!sessionId || !section) return;
+    const now = new Date().toISOString();
     const row = {
       session_id: sessionId,
       section_id: section.id,
       section_title: section.title,
       set_by: selfId,
-      set_at: new Date().toISOString(),
+      set_at: now,
     };
-    // Bump snap_at only on a hard snap. Omitting it on a soft spotlight leaves
-    // the existing value intact (upsert only writes provided columns), so a
-    // prior snap doesn't re-fire.
-    if (hard) row.snap_at = new Date().toISOString();
+    // Bump snap_at only on a hard snap, to the SAME timestamp as set_at — so
+    // `snap_at === set_at` is a reliable "this focus came from a snap" flag.
+    // Omitting it on a soft spotlight leaves the existing value intact (upsert
+    // only writes provided columns), so a prior snap doesn't re-fire.
+    if (hard) row.snap_at = now;
     await supabase.from('session_focus').upsert(row, { onConflict: 'session_id' });
   }
 

@@ -114,8 +114,9 @@
    overlay). Narrow because prep values are short (a PNR / ticket number). */
 .prep-drawer {
   position: fixed;
-  top: 0; right: 0; bottom: 0;
-  width: min(300px, 100vw);
+  /* Start below the global TopBar (~60px) rather than covering it. */
+  top: 60px; right: 0; bottom: 0;
+  width: min(218px, 100vw);
   background: var(--card, #fff);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 24px rgba(15, 22, 38, 0.08);
@@ -138,10 +139,27 @@
 
 /* Desktop: push the whole page left so the drawer gets its own strip. The
    fixed drawer stays at the viewport edge and fills the gap; centered content
-   re-centers in the narrower space. */
+   re-centers in the narrower space. The sticky TopBar is exempted — a matching
+   negative margin-right keeps it spanning the full viewport so only the content
+   below the header reflows. */
 @media (min-width: 900px) {
   body { transition: margin-right 0.25s ease; }
-  body.prep-drawer-pushed { margin-right: min(300px, 100vw); }
+  body.prep-drawer-pushed { margin-right: min(218px, 100vw); }
+  .topbar { transition: margin-right 0.25s ease; }
+  body.prep-drawer-pushed .topbar { margin-right: calc(-1 * min(218px, 100vw)); }
+
+  /* Trainer "My copy": start the drawer flush with the sticky presenter bar
+     instead of the TopBar. The parent keeps --prep-drawer-top synced to the
+     bar's live top (clamps to 60px when the bar pins on scroll), so the two
+     stay aligned. Falls back to 60px before the first sync. */
+  .prep-drawer.prep-drawer--track { top: var(--prep-drawer-top, 60px); }
+
+  /* The session header card sits above the drawer, not beside it — keep it
+     full-width (like the TopBar) rather than re-centering in the pushed canvas,
+     so its right-aligned actions (Edit workbook / Close session) don't shift.
+     The matching negative margin cancels the body push for this card only. */
+  .dashboard .page-hero { transition: margin-right 0.25s ease; }
+  body.prep-drawer-pushed .dashboard .page-hero { margin-right: calc(-1 * min(218px, 100vw)); }
 }
 
 /* Narrow screens: bottom sheet; don't push. */

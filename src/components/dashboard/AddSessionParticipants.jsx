@@ -1,5 +1,8 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { buildParticipantCsvTemplate, downloadCsv, parseParticipantCsv } from '../../lib/csv.js';
+import {
+  buildAllInvitesText, buildHandoutHtml, buildInviteText, formatDateRange, isShareable,
+} from '../../lib/participantInvite.js';
 import '../../styles/prep.css';
 
 const STATUS_LABELS = {
@@ -9,11 +12,51 @@ const STATUS_LABELS = {
   error: { label: 'Error', cls: 'status-pill warn' },
 };
 
-export default function AddSessionParticipants({ onAdd, onCancel }) {
+// Carry the full name (only known on the input side) onto each result row so
+// invites and handouts can greet participants by name. Matched on username,
+// case-insensitively, mirroring the server's normalization.
+function enrichWithNames(results, inputRows) {
+  const nameByUser = new Map(
+    (inputRows || []).map(r => [(r.username || '').trim().toLowerCase(), (r.full_name || '').trim()]),
+  );
+  return (results || []).map(r => ({
+    ...r, full_name: nameByUser.get((r.username || '').toLowerCase()) || '',
+  }));
+}
+
+export default function AddSessionParticipants({ onAdd, onCancel, session, joinUrl }) {
   const [mode, setMode] = useState('direct');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [results, setResults] = useState(null);
+  const [copied, setCopied] = useState('');
+
+  const inviteCtx = useMemo(() => ({
+    sessionName: session?.name || 'the training session',
+    joinUrl: joinUrl || '',
+    dateRange: formatDateRange(session?.starts_at, session?.ends_at),
+  }), [session?.name, session?.starts_at, session?.ends_at, joinUrl]);
+
+  const shareableRows = (results || []).filter(isShareable);
+
+  function flagCopied(key) {
+    setCopied(key);
+    setTimeout(() => setCopied(c => (c === key ? '' : c)), 1500);
+  }
+
+  async function copyText(text, key) {
+    try { await navigator.clipboard.writeText(text); flagCopied(key); }
+    catch { setError('Could not copy to the clipboard.'); }
+  }
+
+  function printHandouts() {
+    if (shareableRows.length === 0) return;
+    const win = window.open('', '_blank');
+    if (!win) { setError('Pop-up blocked — allow pop-ups for this site to print handouts.'); return; }
+    win.document.open();
+    win.document.write(buildHandoutHtml(shareableRows, inviteCtx));
+    win.document.close();
+  }
 
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
@@ -27,10 +70,11 @@ export default function AddSessionParticipants({ onAdd, onCancel }) {
     e.preventDefault();
     setError(''); setResults(null); setBusy(true);
     const trimmed = username.trim();
-    const { data, error: err } = await onAdd([{ username: trimmed, full_name: fullName.trim() }]);
+    const inputRows = [{ username: trimmed, full_name: fullName.trim() }];
+    const { data, error: err } = await onAdd(inputRows);
     setBusy(false);
     if (err) { setError(err.message); return; }
-    setResults(data);
+    setResults(enrichWithNames(data, inputRows));
     const created = data?.find(r => r.username === trimmed && r.status === 'created');
     if (created) {
       setUsername(''); setFullName('');
@@ -59,7 +103,7 @@ export default function AddSessionParticipants({ onAdd, onCancel }) {
     const { data, error: err } = await onAdd(csvRows);
     setBusy(false);
     if (err) { setError(err.message); return; }
-    setResults(data);
+    setResults(enrichWithNames(data, csvRows));
     setCsvRows([]); setCsvFilename('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -152,13 +196,29 @@ export default function AddSessionParticipants({ onAdd, onCancel }) {
               for future enrolments.
             </p>
           )}
+          {shareableRows.length > 0 && (
+            <div className="invite-actions">
+              <button type="button" onClick={() => copyText(buildAllInvitesText(shareableRows, inviteCtx), 'all')}>
+                {copied === 'all' ? 'Copied!' : `📋 Copy ${shareableRows.length > 1 ? 'all invites' : 'invite'}`}
+              </button>
+              <button type="button" className="ghost" onClick={printHandouts}>
+                🖨 Print handout{shareableRows.length === 1 ? '' : 's'}
+              </button>
+            </div>
+          )}
           <table className="participants-table">
             <thead>
-              <tr><th>Username</th><th style={{ width: '11rem' }}>Status</th><th>Details</th></tr>
+              <tr>
+                <th>Username</th>
+                <th style={{ width: '11rem' }}>Status</th>
+                <th>Details</th>
+                <th style={{ width: '8rem' }}>Invite</th>
+              </tr>
             </thead>
             <tbody>
               {results.map((r, i) => {
                 const meta = STATUS_LABELS[r.status] || { label: r.status, cls: 'status-pill' };
+                const key = `row-${i}`;
                 return (
                   <tr key={i}>
                     <td>{r.username}</td>
@@ -173,13 +233,28 @@ export default function AddSessionParticipants({ onAdd, onCancel }) {
                       {r.prep === 'exhausted' && <span className="prep-pending"> · ⚠ no prep (repository empty)</span>}
                       {r.prep === 'error' && <span className="prep-pending"> · ⚠ prep error</span>}
                     </td>
+                    <td>
+                      {isShareable(r) && (
+                        <button
+                          type="button"
+                          className="ghost btn-sm"
+                          onClick={() => copyText(buildInviteText(r, inviteCtx), key)}
+                          title="Copy a ready-to-send message with the link, username and password"
+                        >
+                          {copied === key ? 'Copied!' : 'Copy invite'}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           <p className="hint" style={{ marginTop: '0.5rem' }}>
-            Share the temp passwords above with the new participants — they'll change them on first login.
+            <strong>Copy invite</strong> grabs a ready-to-send message (link, username, temp password)
+            to paste into chat or email; <strong>Print handouts</strong> opens printable per-participant
+            slips. Temp passwords show only here — participants set their own on first sign-in, and you
+            can reissue one anytime from the participant list.
           </p>
         </div>
       )}

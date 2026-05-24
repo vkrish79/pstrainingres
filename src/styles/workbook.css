@@ -138,6 +138,38 @@
 .practice-banner-actions .ghost.active { background: #fff4e0; border-color: #f0d9af; color: #8a5a00; }
 
 /* ===== Trainer spotlight ===== */
+/* Marker on the focused exercise in the My-copy sidebar. */
+.spotlight-marker { margin-left: 0.35rem; font-size: 0.85rem; }
+
+/* Sticky "presenter" bar in My copy — cohort controls (Spotlight / Snap /
+   Monitor + focus chip) that stay reachable while scrolling the copy. */
+.presenter-bar {
+  /* Pin flush under the global TopBar (sticky, ~61px, z-50). z-40 keeps the
+     TopBar painting over any sub-pixel overlap; a larger top would leave a gap
+     where exercise content scrolls through. */
+  position: sticky; top: 60px; z-index: 40;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.5rem 0.75rem; margin-bottom: 0.85rem;
+  box-shadow: 0 2px 8px rgba(15, 22, 38, 0.04);
+}
+.presenter-bar-label {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); margin-right: 0.15rem;
+}
+.presenter-bar .ghost.active { background: #fff4e0; border-color: #f0d9af; color: #8a5a00; }
+/* Trainer's own Prep, set off on the right of the toolbar (own-copy tool, not
+   a cohort control). */
+.presenter-bar-right {
+  margin-left: auto; display: flex; align-items: center; gap: 0.5rem;
+  padding-left: 0.6rem; border-left: 1px solid var(--border);
+}
+
+/* The My-copy exercise sidebar must clear the sticky presenter bar above it
+   (TopBar ~60 + presenter bar ~52). */
+@media (min-width: 801px) {
+  .practice-view .exresp-sidebar { top: 116px; max-height: calc(100vh - 136px); }
+}
 /* Trainer-side chip showing what's currently spotlighted (in My copy). */
 .spotlight-chip {
   display: inline-flex; align-items: center; gap: 0.3rem;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
@@ -47,7 +47,10 @@ export default function ParticipantWorkbookPage() {
   const [spotlightDismissedAt, setSpotlightDismissedAt] = useState(null);
   const lastSnapRef = useRef(undefined);
   const snapInitRef = useRef(false);
-  useEffect(() => {
+  // useLayoutEffect (pre-paint) so a hard snap jumps + suppresses the banner
+  // without it ever flashing — the banner is the SOFT spotlight's affordance;
+  // on a snap the participant is already being moved, so it's not shown.
+  useLayoutEffect(() => {
     if (!focus) return;
     // Seed from the first value we see so joining mid-session doesn't yank.
     if (!snapInitRef.current) {
@@ -59,6 +62,7 @@ export default function ParticipantWorkbookPage() {
     if (focus.section_id && focus.snap_at && focus.snap_at !== lastSnapRef.current) {
       lastSnapRef.current = focus.snap_at;
       setSelectedSectionId(focus.section_id);
+      setSpotlightDismissedAt(focus.set_at); // already moved → no soft banner
     }
   }, [focus]);
 

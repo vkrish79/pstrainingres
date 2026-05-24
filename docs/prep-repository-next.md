@@ -420,13 +420,15 @@ as-is; standalone prep gets its own small store.
 - **Linked prep is 100% unchanged downstream** (callout, modal section list,
   PrepEditor, `useSessionPrep`, CSV, snapshot, dashboard). R3 only ADDS standalone.
 
-### R3.4 Participant display (the confirmed experience)
+### R3.4 Participant display (final)
 - `useParticipantPrep` also loads standalone (+ realtime); returns
   `{ prep (by section, unchanged), standalone: [{ label, content }] }`.
-- `ParticipantWorkbookPage`: a **"Pre-work" callout at the top** listing
-  standalone items; the exercise-linked callouts are unchanged.
-- `PrepModal`: existing section-grouped prep **+ a "General / pre-work" group**
-  for standalone items.
+- All prep is shown in a **right slide-in `PrepDrawer`** (not a modal): exercise-
+  linked prep grouped by exercise + a "General / pre-work" group for standalone.
+  The drawer **pushes the canvas** (body `margin-right`, no overlay/backdrop),
+  is ~300px (prep values are short), and closes on × / Esc; bottom sheet under
+  900px. The earlier top "Pre-work" callout was **removed** per request — the
+  exercise-linked per-section callout is unchanged.
 
 ### R3.5 No silent data loss on export / close
 - `buildAnswersCsv`: append standalone prep rows per participant.
@@ -446,6 +448,50 @@ apply; only the closed-snapshot capture needs the push).
 
 **Known gap (deferred, R3.6):** trainers can't manually edit a participant's
 standalone prep yet — `PrepEditor` is section-only. A typo in a standalone PNR
-can't be fixed except by redoing the pool. Worth telling the user. Migration #1 (`20260522000000`) is
+can't be fixed except by redoing the pool. Worth telling the user.
+
+---
+
+## 11. Backlog — editing / replacing already-distributed prep (requested)
+
+**Requirement (user, 2026-05-22):** prep that has already been distributed
+sometimes needs fixing (a wrong/expired PNR or ticket number). Provide an option
+to **replace the prep for a particular exercise**, at **two levels**:
+
+### 11.1 Master level — replace one exercise's prep in the pool
+Re-supply the values for a single prep column (exercise/header) in a workbook's
+pool without redoing the whole template + upload. Today the only tools are
+"upload (append)" and "clear unconsumed" — there's no per-column edit.
+
+**Open design questions:**
+- Scope of effect: does replacing a master column update only **available** kits
+  (future withdrawals), or also **propagate to already-distributed** copies
+  (`participant_prep` / `participant_prep_standalone` rows already written to
+  participants)? The request says "already distributed," which implies
+  propagation — but that overwrites per-participant values a trainer may have
+  hand-edited. Decide precedence (pool replace vs manual override).
+- Granularity: replace the whole column's value list, or edit individual kit
+  cells? (Kits are currently immutable — see §6.)
+- Partition: master = the super pool; vendor pools are edited by their own
+  trainers (mirror the upload RLS in R2.4).
+
+### 11.2 Session level — replace one exercise's prep within a session
+Fix an exercise's prep for the participants of a specific session (the
+"already distributed" case).
+
+**What exists:** `PrepEditor` already edits **exercise-linked** prep
+**per-participant, per-section** for a session (`useSessionPrep.saveOne` →
+`participant_prep`). So single-participant linked edits are partly covered today.
+
+**Gaps to close:**
+- **Standalone** prep editing (R3.6) — `PrepEditor` is section-only; no path to
+  edit a participant's standalone item.
+- **Bulk/whole-session replace** — set/replace an exercise's prep for *every*
+  participant in the session at once, not one at a time.
+
+**Open questions:** per-participant vs whole-session default; whether a
+session-level replace should pull fresh values from the (corrected) master pool
+or take a typed value; how this interacts with the closed-session snapshot
+(closed sessions are immutable archives — edits apply to live sessions only). Migration #1 (`20260522000000`) is
 already applied/deployed; R2 lands a new migration for `prep_template` + the RLS
 split, plus the UI rework.

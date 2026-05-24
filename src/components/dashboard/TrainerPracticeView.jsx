@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTrainerPractice } from '../../hooks/useTrainerPractice.js';
 import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
 import { useSessionFocus } from '../../hooks/useSessionFocus.js';
@@ -26,17 +26,17 @@ export default function TrainerPracticeView({
   participants = [], participantAnswers = {}, liveBySection = {},
 }) {
   const {
-    loading, error, sections, blocks, answers, saveAnswer, resetAnswers,
+    loading, error, sections, blocks, answers, saveAnswer,
   } = useTrainerPractice(sessionId, trainerId);
   const { prep, standalone, hasPrep, drawPrep } = useTrainerPrep(sessionId);
   const { focus, spotlight, clear: clearSpotlight } = useSessionFocus(sessionId, trainerId);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
-  const [confirmReset, setConfirmReset] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [drawMsg, setDrawMsg] = useState('');
   const [prepOpen, setPrepOpen] = useState(false);
   const [monitorOpen, setMonitorOpen] = useState(false);
+  const barRef = useRef(null);
 
   // Prep and Monitor are both right push-drawers; keep at most one open.
   function openPrep() { setMonitorOpen(false); setPrepOpen(true); }
@@ -53,6 +53,34 @@ export default function TrainerPracticeView({
       document.body.classList.remove('monitor-drawer-pushed');
     };
   }, [prepOpen, monitorOpen]);
+
+  // Anchor the prep drawer's top to the sticky presenter bar so the two stay
+  // aligned at any scroll position. The bar's rect.top already reflects its
+  // sticky pin (clamps to ~60px under the TopBar), so we feed it straight to a
+  // CSS var the drawer reads. rAF-coalesced so scroll stays smooth.
+  useEffect(() => {
+    if (!prepOpen) return undefined;
+    let raf = 0;
+    const sync = () => {
+      raf = 0;
+      const bar = barRef.current;
+      if (!bar) return;
+      const top = Math.round(bar.getBoundingClientRect().top);
+      document.body.style.setProperty('--prep-drawer-top', `${top}px`);
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(sync); };
+    sync();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      // Deliberately keep --prep-drawer-top: clearing it here would snap the
+      // drawer's top to the 60px fallback mid-close, so it'd jump up to the
+      // TopBar and grow before sliding out. The next open re-syncs it.
+    };
+  }, [prepOpen]);
 
   // Esc closes whichever drawer is open.
   useEffect(() => {
@@ -102,58 +130,56 @@ export default function TrainerPracticeView({
     ? null
     : sections.find(s => s.id === selectedSectionId) || null;
 
+  // Which exercise is the live cohort focus, and was it set by a snap (hard)
+  // vs a spotlight (soft)? snap_at === set_at means the latest action was a snap.
+  const focusedSectionId = focus?.section_id || null;
+  const focusIsSnap = !!focus?.snap_at && focus.snap_at === focus.set_at;
+
   return (
-    <div>
-      <div className="practice-banner">
-        <div>
-          <strong>Trainer practice copy.</strong> Saved to this session — if the trainer is
-          changed, the new trainer resumes this progress. Participants don't see it; it
-          doesn't appear in cohort progress or CSV exports.
-        </div>
-        <div className="practice-banner-actions">
-          {prepEnabled && !hasPrep && (
-            <button className="ghost" onClick={handleDrawPrep} disabled={drawing}>
-              {drawing ? 'Drawing…' : '🎯 Draw practice prep'}
-            </button>
-          )}
-          {hasPrep && (
-            <button className="ghost" onClick={openPrep}>🎯 Prep</button>
-          )}
-          <button className={`ghost ${monitorOpen ? 'active' : ''}`} onClick={openMonitor}>
-            👁 Monitor{onlineTotal > 0 ? ` (${onlineTotal})` : ''}
-          </button>
-          <button
-            className={`ghost ${focus?.section_id && focus.section_id === selectedSection?.id ? 'active' : ''}`}
-            onClick={() => selectedSection && spotlight(selectedSection)}
-            disabled={!selectedSection}
-            title={selectedSection ? 'Show participants a banner pointing to this exercise (they choose to follow)' : 'Select an exercise first'}
-          >
-            🔦 Spotlight
-          </button>
-          <button
-            className="ghost"
-            onClick={() => selectedSection && spotlight(selectedSection, { hard: true })}
-            disabled={!selectedSection}
-            title={selectedSection ? 'Jump every participant to this exercise now' : 'Select an exercise first'}
-          >
-            ⚡ Snap here
-          </button>
-          {focus?.section_id && (
-            <span className="spotlight-chip" title="Currently spotlighted for participants">
-              🔦 {focus.section_title}
-              <button type="button" className="spotlight-chip-clear" onClick={clearSpotlight} aria-label="Clear spotlight">×</button>
-            </span>
-          )}
-          {confirmReset ? (
-            <>
-              <span className="confirm-text">Clear all your practice answers?</span>
-              <button className="danger" onClick={() => { resetAnswers(); setConfirmReset(false); }}>Yes, clear</button>
-              <button className="ghost" onClick={() => setConfirmReset(false)}>No</button>
-            </>
-          ) : (
-            <button className="ghost" onClick={() => setConfirmReset(true)}>↺ Reset</button>
-          )}
-        </div>
+    <div className="practice-view">
+      {/* Sticky My-copy toolbar: cohort controls (Spotlight / Snap / Monitor +
+          focus chip) on the left; the trainer's own Prep set off on the right.
+          Stays reachable while scrolling. Spotlight/Snap act on the selected
+          exercise. */}
+      <div className="presenter-bar" ref={barRef}>
+        <span className="presenter-bar-label">Cohort</span>
+        <button
+          className={`ghost ${focus?.section_id && focus.section_id === selectedSection?.id ? 'active' : ''}`}
+          onClick={() => selectedSection && spotlight(selectedSection)}
+          disabled={!selectedSection}
+          title={selectedSection ? 'Show participants a banner pointing to this exercise (they choose to follow)' : 'Select an exercise first'}
+        >
+          🔦 Spotlight
+        </button>
+        <button
+          className="ghost"
+          onClick={() => selectedSection && spotlight(selectedSection, { hard: true })}
+          disabled={!selectedSection}
+          title={selectedSection ? 'Jump every participant to this exercise now' : 'Select an exercise first'}
+        >
+          ⚡ Snap here
+        </button>
+        <button className={`ghost ${monitorOpen ? 'active' : ''}`} onClick={openMonitor}>
+          👁 Monitor{onlineTotal > 0 ? ` (${onlineTotal})` : ''}
+        </button>
+        {focus?.section_id && (
+          <span className="spotlight-chip" title="Currently broadcast to participants">
+            {focusIsSnap ? '⚡ Snapped to' : '🔦 Spotlighting'} {focus.section_title}
+            <button type="button" className="spotlight-chip-clear" onClick={clearSpotlight} aria-label="Clear spotlight">×</button>
+          </span>
+        )}
+        {(hasPrep || prepEnabled) && (
+          <div className="presenter-bar-right">
+            {prepEnabled && !hasPrep && (
+              <button className="ghost" onClick={handleDrawPrep} disabled={drawing}>
+                {drawing ? 'Drawing…' : '🎯 Draw practice prep'}
+              </button>
+            )}
+            {hasPrep && (
+              <button className="ghost" onClick={openPrep}>🎯 Prep</button>
+            )}
+          </div>
+        )}
       </div>
       {drawMsg && <p className="prep-notice">{drawMsg}</p>}
 
@@ -196,7 +222,14 @@ export default function TrainerPracticeView({
                     onClick={() => setSelectedSectionId(s.id)}
                   >
                     <div className="exresp-sidebar-row">
-                      <span className="exresp-sidebar-title">{s.title}</span>
+                      <span className="exresp-sidebar-title">
+                        {s.title}
+                        {focusedSectionId === s.id && (
+                          <span className="spotlight-marker" title={focusIsSnap ? 'Snapped the cohort here' : 'Spotlighted for the cohort'}>
+                            {focusIsSnap ? '⚡' : '🔦'}
+                          </span>
+                        )}
+                      </span>
                       <span className="exresp-sidebar-pct">{s.pct}%</span>
                     </div>
                     <div className={`exresp-sidebar-bar ${barClass}`}>
@@ -236,6 +269,7 @@ export default function TrainerPracticeView({
       </div>
 
       <PrepDrawer
+        className="prep-drawer--track"
         open={prepOpen}
         onClose={() => setPrepOpen(false)}
         sections={sections}

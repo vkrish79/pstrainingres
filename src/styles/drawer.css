@@ -17,7 +17,8 @@
 
 .notes-drawer {
   position: fixed;
-  top: 0; right: 0; bottom: 0;
+  /* Start below the global TopBar (~60px) rather than covering it. */
+  top: 60px; right: 0; bottom: 0;
   width: min(420px, 100vw);
   background: var(--card, #fff);
   border-left: 1px solid var(--border);

@@ -5,13 +5,13 @@ import '../../styles/prep.css';
 // PUSHES the page canvas (no overlay/backdrop) — the parent toggles a body
 // class for that. Closes via the × button or Esc (handled by the parent).
 // `prep` is keyed by section_id -> { content }; `standalone` is [{ label, content }].
-export default function PrepDrawer({ open, onClose, sections, prep, standalone = [] }) {
+export default function PrepDrawer({ open, onClose, sections, prep, standalone = [], className = '' }) {
   const withPrep = sections.filter(s => (prep[s.id]?.content || '').trim());
   const hasAny = withPrep.length > 0 || standalone.length > 0;
 
   return (
     <aside
-      className={`prep-drawer ${open ? 'open' : ''}`}
+      className={`prep-drawer ${className} ${open ? 'open' : ''}`}
       role="dialog"
       aria-label="Your prep"
       aria-hidden={!open}

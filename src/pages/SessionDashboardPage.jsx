@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
+import { buildAllInvitesText, buildHandoutHtml, buildInviteText } from '../lib/participantInvite.js';
 import Block from '../components/blocks/Block.jsx';
 import ExerciseResponses from '../components/dashboard/ExerciseResponses.jsx';
 import NoteRow from '../components/dashboard/NoteRow.jsx';
@@ -73,6 +74,15 @@ export default function SessionDashboardPage() {
   const [prepEditorFor, setPrepEditorFor] = useState(null); // participant id
   const [allocating, setAllocating] = useState(false);
   const [allocateMsg, setAllocateMsg] = useState('');
+  // Bulk "reset all & print invites": regenerates every participant's password
+  // and opens the printable handouts. Destructive (invalidates already-shared
+  // passwords), so it's gated behind a confirm step.
+  const [invitesPhase, setInvitesPhase] = useState('idle'); // idle | confirm | running | done
+  const [invitesProgress, setInvitesProgress] = useState({ done: 0, total: 0 });
+  const [invitesRows, setInvitesRows] = useState([]);
+  const [invitesError, setInvitesError] = useState('');
+  const [invitesCopied, setInvitesCopied] = useState(false);
+  const [copiedRowInvite, setCopiedRowInvite] = useState(null); // participant id
 
   // A participant "needs prep" when the workbook expects prep but they have no
   // section prep rows yet (un-allocated, or enrolled while the pool was empty).
@@ -98,6 +108,100 @@ export default function SessionDashboardPage() {
     } catch {
       // clipboard blocked — fall back to selecting the text
     }
+  }
+
+  // Shared context for the invite/handout builders.
+  const inviteCtx = useMemo(() => ({
+    sessionName: session?.name || 'the training session',
+    joinUrl,
+    dateRange: formatDateRange(session?.starts_at, session?.ends_at),
+  }), [session?.name, session?.starts_at, session?.ends_at, joinUrl]);
+
+  function openHandoutWindow(rows) {
+    const win = window.open('', '_blank');
+    if (!win) { setInvitesError('Pop-up blocked — allow pop-ups for this site to print handouts.'); return; }
+    win.document.open();
+    win.document.write(buildHandoutHtml(rows, inviteCtx));
+    win.document.close();
+  }
+
+  // Reset every enrolled participant's password (one call each — the edge fn
+  // returns username + full_name + the fresh temp password) and open the
+  // printable handouts. Sequential to stay gentle on the auth admin API.
+  async function resetAllAndPrintInvites() {
+    if (participants.length === 0) return;
+    setInvitesError('');
+    setInvitesPhase('running');
+    setInvitesProgress({ done: 0, total: participants.length });
+    // Open the print window NOW, while still inside the click gesture — opening
+    // it after the awaits below would be outside the gesture and pop-up blockers
+    // would block it. We fill it in once the resets finish. If it's blocked
+    // anyway, the "Print again" button (a fresh gesture) is the fallback.
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.open();
+      win.document.write('<!doctype html><meta charset="utf-8"><title>Preparing handouts…</title><body style="font-family:system-ui,sans-serif;color:#1e3c5a;padding:28px">Preparing handouts…</body>');
+      win.document.close();
+    }
+    const rows = [];
+    const failures = [];
+    for (const p of participants) {
+      const { data, error: err } = await resetParticipantPassword(p.id);
+      if (err || !data?.temp_password) {
+        failures.push(p.full_name || p.id);
+      } else {
+        rows.push({
+          username: data.username,
+          full_name: data.full_name || p.full_name || '',
+          temp_password: data.temp_password,
+          status: 'created',
+        });
+      }
+      setInvitesProgress(prev => ({ ...prev, done: prev.done + 1 }));
+    }
+    setInvitesRows(rows);
+    if (failures.length) {
+      setInvitesError(`Couldn't reset ${failures.length} participant(s): ${failures.join(', ')}.`);
+    }
+    setInvitesPhase('done');
+    if (rows.length > 0) {
+      if (win) {
+        win.document.open();
+        win.document.write(buildHandoutHtml(rows, inviteCtx));
+        win.document.close();
+      } else {
+        setInvitesError(prev => prev || 'Pop-up blocked — use "Print again" to open the handouts.');
+      }
+    } else if (win) {
+      win.close();
+    }
+  }
+
+  async function copyAllInvites() {
+    try {
+      await navigator.clipboard.writeText(buildAllInvitesText(invitesRows, inviteCtx));
+      setInvitesCopied(true);
+      setTimeout(() => setInvitesCopied(false), 1500);
+    } catch { setInvitesError('Could not copy to the clipboard.'); }
+  }
+
+  // Build a single handout/invite row from a just-reset participant: the reset
+  // result carries the fresh password + username; full_name comes from the row.
+  function inviteRowFromReset(p) {
+    const r = resetResult[p.id] || {};
+    return { username: r.username, full_name: p.full_name || '', temp_password: r.temp_password, status: 'created' };
+  }
+
+  async function copyRowInvite(p) {
+    try {
+      await navigator.clipboard.writeText(buildInviteText(inviteRowFromReset(p), inviteCtx));
+      setCopiedRowInvite(p.id);
+      setTimeout(() => setCopiedRowInvite(c => (c === p.id ? null : c)), 1500);
+    } catch { /* clipboard blocked — leave the visible password as fallback */ }
+  }
+
+  function printRowHandout(p) {
+    openHandoutWindow([inviteRowFromReset(p)]);
   }
 
   const fillableBlocks = useMemo(() => blocks.filter(isFillableBlock), [blocks]);
@@ -329,16 +433,62 @@ export default function SessionDashboardPage() {
                       {allocating ? 'Allocating…' : `Allocate prep (${unPreppedIds.length} need it)`}
                     </button>
                   )}
+                  {!adding && !selected && participants.length > 0 && (
+                    <button
+                      className="ghost"
+                      onClick={() => setInvitesPhase('confirm')}
+                      disabled={invitesPhase === 'running'}
+                      title="Reset every participant's password and print fresh credential handouts"
+                    >
+                      🖨 Print invites
+                    </button>
+                  )}
                   {!adding && !selected && (
                     <button className="ghost" onClick={() => setAdding(true)}>+ Add</button>
                   )}
                 </div>
               </div>
               {allocateMsg && <p className="prep-notice">{allocateMsg}</p>}
+              {invitesPhase === 'confirm' && (
+                <div className="invite-banner warn">
+                  <span>
+                    Reset <strong>all {participants.length}</strong> participants' passwords and open fresh
+                    printable handouts? This invalidates any password you've already shared.
+                  </span>
+                  <div className="invite-banner-actions">
+                    <button className="danger" onClick={resetAllAndPrintInvites}>Reset all &amp; print</button>
+                    <button className="ghost" onClick={() => setInvitesPhase('idle')}>Cancel</button>
+                  </div>
+                </div>
+              )}
+              {invitesPhase === 'running' && (
+                <p className="prep-notice">Resetting passwords… {invitesProgress.done}/{invitesProgress.total}</p>
+              )}
+              {invitesPhase === 'done' && (
+                <div className="invite-banner">
+                  <span>
+                    {invitesRows.length > 0
+                      ? `Reset ${invitesRows.length} password${invitesRows.length === 1 ? '' : 's'} and opened the printable handouts.`
+                      : 'No handouts were generated.'}
+                  </span>
+                  <div className="invite-banner-actions">
+                    {invitesRows.length > 0 && (
+                      <>
+                        <button className="ghost" onClick={() => openHandoutWindow(invitesRows)}>🖨 Print again</button>
+                        <button className="ghost" onClick={copyAllInvites}>{invitesCopied ? 'Copied!' : '📋 Copy all invites'}</button>
+                      </>
+                    )}
+                    <button className="ghost" onClick={() => { setInvitesPhase('idle'); setInvitesRows([]); setInvitesError(''); }}>Dismiss</button>
+                  </div>
+                </div>
+              )}
+              {invitesError && <p className="error">{invitesError}</p>}
               {adding && (
                 <AddSessionParticipants
                   onAdd={addSessionParticipants}
                   onCancel={() => setAdding(false)}
+                  session={session}
+                  joinUrl={joinUrl}
                 />
               )}
 
@@ -405,13 +555,24 @@ export default function SessionDashboardPage() {
                                 <span className="confirm-text">New pwd:</span>
                                 <span className="mono">{resetResult[p.id].temp_password}</span>
                                 <button
-                                  className="ghost"
+                                  className="ghost btn-sm"
+                                  title="Copy just the password"
                                   onClick={() => {
                                     navigator.clipboard?.writeText(resetResult[p.id].temp_password).catch(() => {});
                                   }}
                                 >Copy</button>
                                 <button
-                                  className="ghost"
+                                  className="ghost btn-sm"
+                                  title="Copy a ready-to-send message with link, username and this password"
+                                  onClick={() => copyRowInvite(p)}
+                                >{copiedRowInvite === p.id ? 'Copied!' : 'Copy invite'}</button>
+                                <button
+                                  className="ghost btn-sm"
+                                  title="Open a printable handout slip for this participant"
+                                  onClick={() => printRowHandout(p)}
+                                >🖨 Print</button>
+                                <button
+                                  className="ghost btn-sm"
                                   onClick={() => setResetResult(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
                                 >Done</button>
                               </>

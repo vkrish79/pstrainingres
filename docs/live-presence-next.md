@@ -166,14 +166,36 @@ the copy stays usable).
   the value being that the trainer never leaves their own copy. Prep and Monitor
   drawers are mutually exclusive (opening one closes the other).
 
-## 9. Deferred / follow-ups
+## 9. Shipped follow-up — Spotlight / Snap (the other half of roadmap #1)
+
+The trainer can draw the cohort to an exercise, from **My copy**:
+- **🔦 Spotlight** (soft): participants get a banner *"Your trainer is on Ex N"*
+  with a **Jump** button (they choose to follow; dismissable). Acts on the
+  exercise selected in the sidebar; disabled in the "All" scroll view.
+- **⚡ Snap here** (hard): force-jumps every participant to that exercise once.
+- **Clear** (the chip's ×): removes the spotlight.
+
+Backed by `session_focus` (one row/session; migration
+`20260524000001_session_focus.sql`) + `useSessionFocus`. RLS: trainer CRUD,
+enrolled participant read. Realtime drives the live banner. A **change** in
+`snap_at` is the one-time snap signal — participants compare it for change (not
+magnitude → clock-skew-proof) and seed from the loaded row, so joining
+mid-session never yanks. A soft spotlight leaves `snap_at` untouched; Clear
+never bumps it; banner-dismiss and snap are independent paths (a dismissed
+participant still gets snapped). **Jump/Snap switches the participant from the
+`__all__` scroll view to that single section** — a deliberate, visible layout
+change. Because a jump also moves the participant's cursor, the cohort
+converging is visible live in the Monitor / By-exercise views.
+
+## 10. Deferred / follow-ups
 - **Re-render churn.** Heartbeats write every 20s/participant, each firing a
   `postgres_changes` event → a dashboard re-render. Fine at cohort scale; if it
   ever matters, throttle or skip state updates that only bump `last_seen`.
-- **Spotlight / "jump to"** (the other half of roadmap #1) — trainer pushes the
-  cohort to an exercise. Separate feature; this cursor read is the prerequisite.
+- **Spotlight auto-follow.** Spotlight is explicit (persists until re-spotlight
+  / Clear); it does NOT track the trainer's exercise as they navigate. A
+  "follow my current exercise" auto-mode could be added if wanted.
 
-## 10. Known low-risk gap
+## 11. Known low-risk gap
 
 The participant write policy (`participant_cursor_self_rw`) only checks
 `participant_id = auth.uid()`, not session enrolment — so a participant could

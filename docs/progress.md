@@ -46,6 +46,50 @@ dashboard — the GitHub integration only stops *redeploying*, not
 > 3. Decide on email delivery before any cohort relies on password reset —
 >    see [`docs/auth-email-setup.md`](./auth-email-setup.md).
 
+### 2026-05-22
+
+Prep allocation gap closed, two session-management features, and a batch of
+prep-modal UX fixes.
+
+| Commit | Summary |
+|---|---|
+| `db95d86` | **Retroactive prep allocation** + prep-modal UX fixes (scroll lock, pinned footer layout, `ghost.danger` red-on-red fix) |
+| `968fa17` | Register `allocate-session-prep` in `config.toml` so the integration deploys it |
+| `a6930d5` | **Change session trainer** (super + vendor manager), `set_session_trainer` RPC |
+| `416044b` | **Trainer practice copy** persists server-side per session (resumable on trainer reassignment) |
+
+**Manual Supabase SQL applied this session** (run in SQL Editor; re-run safe — idempotent):
+- `supabase/migrations/20260522000003_set_session_trainer.sql`
+- `supabase/migrations/20260522000004_trainer_practice.sql`
+
+**Deferred / pick-later:**
+
+- **Prep allocation** (`allocate-session-prep` fn + dashboard "Allocate prep" /
+  "No prep" tag / per-participant "Allocate from pool" in the Prep editor):
+  - A participant with only `participant_prep_standalone` (no section prep) is
+    flagged "No prep" — kits only provide section prep. Decide if that's wanted.
+  - No lock around the read-then-claim guard, so two trainers clicking allocate
+    at the same instant could double-consume. Rare; revisit if it bites.
+- **Change trainer** (`set_session_trainer` RPC + `ChangeTrainerControl`):
+  same-vendor only by design; **cross-vendor reassignment deferred** (would move
+  the session's `vendor_id` and split it from already-allocated prep kits).
+- **Trainer practice handoff** (`trainer_practice` table, `useTrainerPractice`
+  rewritten off localStorage):
+  - Practice entered **before** this deploy lives only in that trainer's browser;
+    it syncs to the server the next time *that* trainer opens the session. Already
+    reassigned sessions won't carry the old trainer's pre-deploy progress.
+  - Broad `sessions` UPDATE RLS (`is_trainer()`) lets any trainer reach a session
+    dashboard; `trainer_practice` RLS is correctly scoped, so a non-assigned
+    vendor_trainer of the same vendor would hit silent save failures. Edge case.
+- **Schema reproducibility:** `role_of_caller` / `my_vendor_id` /
+  `is_super_trainer_or_above` / `is_vendor_trainer_or_above` are used by the
+  migrations but their defining file (`add_vendors_and_roles.sql`) was deleted —
+  present in the live DB, **not** recreatable from the migration tree. Re-add to
+  a migration if a clean rebuild is ever needed.
+- **Edge-function gotcha:** new functions must get a `[functions.<name>]` block
+  in `supabase/config.toml` or the GitHub integration silently never deploys
+  them (404 surfaces as a CORS preflight error).
+
 ---
 
 ## 1. Workbook authoring
