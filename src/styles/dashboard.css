@@ -149,6 +149,31 @@
 }
 .progress-text { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 
+/* ===== Live presence ("On now") ===== */
+.presence { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; max-width: 220px; }
+.presence-dot {
+  flex: none; width: 9px; height: 9px; border-radius: 50%;
+  background: #c4c9d2; /* offline default */
+}
+.presence-dot.live {
+  background: #2e9e5b;
+  box-shadow: 0 0 0 3px rgba(46, 158, 91, 0.18);
+}
+.presence-dot.idle { background: #e0a526; }
+.presence-dot.offline { background: #c4c9d2; }
+.presence-label {
+  font-size: 0.82rem; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.presence.idle .presence-label,
+.presence.offline .presence-label { color: var(--muted); }
+
+.online-count {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  margin-left: 0.75rem; font-size: 0.8rem; font-weight: 600;
+  color: #2e9e5b; text-transform: none; letter-spacing: 0;
+}
+
 /* ===== Answers panel ===== */
 .answers-pane {
   background: var(--card);

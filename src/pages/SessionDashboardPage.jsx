@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
+import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
@@ -21,6 +22,13 @@ import '../styles/dashboard.css';
 import '../styles/workbook.css';
 import '../styles/editor.css';
 
+// A participant counts as "live" (vs. idle) if they changed exercise or saved
+// an answer within this window; otherwise the dot decays to idle.
+const IDLE_MS = 45000;
+// No heartbeat within this window → treated as offline (must exceed the
+// participant heartbeat interval, currently 20s, with headroom).
+const OFFLINE_MS = 45000;
+
 function formatDateRange(start, end) {
   const fmt = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   if (start && end) return `${fmt(start)} → ${fmt(end)}`;
@@ -40,6 +48,16 @@ export default function SessionDashboardPage() {
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
   const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
+  // Live cursors: where each participant is looking right now. Read-only here.
+  const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
+
+  // live/idle/offline are time-based, so tick periodically to let dots decay
+  // even when no cursor/answer event arrives.
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(n => n + 1), 15000);
+    return () => clearInterval(t);
+  }, []);
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
@@ -95,6 +113,49 @@ export default function SessionDashboardPage() {
     }
     return { answered, total: totalFillable, lastTs };
   }
+
+  // Section title of the participant's most recently edited answer — the
+  // offline fallback for the "On now" column.
+  function lastSectionTitleFor(participantId) {
+    const ans = answers[participantId] || {};
+    let lastTs = null; let lastBlockId = null;
+    for (const b of fillableBlocks) {
+      const a = ans[b.id];
+      if (a?.updated_at && (!lastTs || a.updated_at > lastTs)) { lastTs = a.updated_at; lastBlockId = b.id; }
+    }
+    if (!lastBlockId) return null;
+    const secId = blocks.find(b => b.id === lastBlockId)?.section_id;
+    return sections.find(s => s.id === secId)?.title || null;
+  }
+
+  // Live "On now" state for a row. A fresh last_seen (heartbeat) means online;
+  // moved_at (server-stamped only on a section change) OR a recent answer
+  // (`lastTs`) within IDLE_MS keeps them "live" vs. "idle".
+  function presenceFor(participantId, lastTs) {
+    const cur = cursors[participantId];
+    const now = Date.now();
+    const online = cur?.last_seen && now - new Date(cur.last_seen).getTime() < OFFLINE_MS;
+    if (online) {
+      const movedRecently = cur.moved_at && now - new Date(cur.moved_at).getTime() < IDLE_MS;
+      const answeredRecently = lastTs && now - new Date(lastTs).getTime() < IDLE_MS;
+      return {
+        state: movedRecently || answeredRecently ? 'live' : 'idle',
+        label: cur.section_title || 'In workbook',
+      };
+    }
+    const last = lastSectionTitleFor(participantId);
+    return { state: 'offline', label: last ? `last · ${last}` : 'offline' };
+  }
+
+  const onlineCount = useMemo(() => {
+    const now = Date.now();
+    return participants.filter(p => {
+      const cur = cursors[p.id];
+      return cur?.last_seen && now - new Date(cur.last_seen).getTime() < OFFLINE_MS;
+    }).length;
+    // nowTick forces recompute so the count decays as heartbeats go stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants, cursors, nowTick]);
 
   async function doDelete(pid) {
     setBusy(true);
@@ -237,7 +298,14 @@ export default function SessionDashboardPage() {
           <div className={`dashboard-layout ${selected ? 'with-panel' : ''}`}>
             <div className="participants-pane">
               <div className="participants-header">
-                <h2 className="section-title" style={{ margin: 0 }}>Participants ({participants.length})</h2>
+                <h2 className="section-title" style={{ margin: 0 }}>
+                  Participants ({participants.length})
+                  {onlineCount > 0 && (
+                    <span className="online-count" title={`${onlineCount} viewing the workbook now`}>
+                      <span className="presence-dot live" /> {onlineCount} online
+                    </span>
+                  )}
+                </h2>
                 <div className="participants-header-actions">
                   {unPreppedIds.length > 0 && (
                     <button className="ghost" onClick={doAllocateAll} disabled={allocating}>
@@ -261,7 +329,7 @@ export default function SessionDashboardPage() {
               {participants.length > 0 && (
                 <table className="participants-table">
                   <thead>
-                    <tr><th>Name</th><th>Progress</th><th>Last activity</th>{!selected && <th></th>}</tr>
+                    <tr><th>Name</th><th>Progress</th><th>On now</th><th>Last activity</th>{!selected && <th></th>}</tr>
                   </thead>
                   <tbody>
                     {participants.map(p => {
@@ -280,6 +348,17 @@ export default function SessionDashboardPage() {
                               <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
                               <span className="progress-text">{answered} / {total}</span>
                             </div>
+                          </td>
+                          <td>
+                            {(() => {
+                              const { state, label } = presenceFor(p.id, lastTs);
+                              return (
+                                <span className={`presence ${state}`}>
+                                  <span className={`presence-dot ${state}`} />
+                                  <span className="presence-label">{label}</span>
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td>{lastTs ? new Date(lastTs).toLocaleString() : '—'}</td>
                           {!selected && (

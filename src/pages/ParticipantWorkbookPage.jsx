@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
 import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
+import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { renderMarkdownLite, wordCount } from '../lib/markdownLite.js';
 import Block from '../components/blocks/Block.jsx';
@@ -26,6 +27,18 @@ export default function ParticipantWorkbookPage() {
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
   const [notesOpen, setNotesOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
+
+  // Live presence: tell the trainer which exercise this participant is looking
+  // at. The fill view defaults to one scrolling page (`__all__`), so the
+  // current section comes from a scroll-spy (below) rather than the selector.
+  const [currentSectionId, setCurrentSectionId] = useState(null);
+  const sectionRefs = useRef({}); // sectionId -> DOM node
+  useSessionCursor(session?.id, {
+    selfId: authSession?.user.id,
+    track: true,
+    sectionId: currentSectionId,
+    sectionTitle: sections.find(s => s.id === currentSectionId)?.title || '',
+  });
 
   const prepCount = useMemo(
     () => Object.values(sectionPrep).filter(p => (p?.content || '').trim()).length + standalonePrep.length,
@@ -105,6 +118,38 @@ export default function ParticipantWorkbookPage() {
       setSelectedSectionId(ALL_KEY);
     }
   }, [sections, selectedSectionId]);
+
+  // Scroll-spy: which section sits in the viewport's active band. Feeds the
+  // trainer's live "On now" column. In single-section mode there's nothing to
+  // spy — the selected section is, by definition, the current one.
+  useEffect(() => {
+    if (loading) return undefined;
+    if (selectedSectionId !== ALL_KEY) {
+      setCurrentSectionId(selectedSectionId);
+      return undefined;
+    }
+    const visible = new Set();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = e.target.dataset.sectionId;
+          if (e.isIntersecting) visible.add(id); else visible.delete(id);
+        }
+        // First section (document order) inside the band is the current one.
+        const cur = sections.find(s => visible.has(s.id));
+        if (cur) setCurrentSectionId(cur.id);
+      },
+      // Active band: from 80px below the top to ~35% down the viewport.
+      { rootMargin: '-80px 0px -65% 0px', threshold: 0 }
+    );
+    for (const sec of sections) {
+      const el = sectionRefs.current[sec.id];
+      if (el) observer.observe(el);
+    }
+    // Seed a value before the first scroll event fires.
+    setCurrentSectionId(prev => prev || sections[0]?.id || null);
+    return () => observer.disconnect();
+  }, [loading, selectedSectionId, sections]);
 
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) {
@@ -254,7 +299,12 @@ export default function ParticipantWorkbookPage() {
               const noteText = sectionNotes[sec.id]?.note || '';
               const prepText = sectionPrep[sec.id]?.content || '';
               return (
-                <section key={sec.id} className="wb-section">
+                <section
+                  key={sec.id}
+                  className="wb-section"
+                  data-section-id={sec.id}
+                  ref={el => { sectionRefs.current[sec.id] = el; }}
+                >
                   <h2>{sec.title}</h2>
                   {prepText && (
                     <div className="participant-prep-callout">
