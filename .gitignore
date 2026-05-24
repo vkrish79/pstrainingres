@@ -9,3 +9,8 @@ dist
 .claude
 workbook-source/*
 !workbook-source/.gitkeep
+
+# Local-only: contains a plaintext shared password — keep out of git history.
+supabase/reset_super_trainer_passwords.sql
+# Stray source-data spreadsheets dropped into supabase/ (belongs in workbook-source/).
+supabase/*.xlsx
