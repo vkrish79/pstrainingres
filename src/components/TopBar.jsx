@@ -35,6 +35,7 @@ export default function TopBar() {
                 </>
               )}
               <NavLink to="/trainer/archive" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Closed sessions</NavLink>
+              <NavLink to="/trainer/analytics" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Analytics</NavLink>
               <button type="button" className="topbar-nav-link topbar-nav-btn" onClick={() => setPrepOpen(true)}>
                 Prep{lowPools.length > 0 && <span className="nav-badge" title={`${lowPools.length} prep pool(s) running low`}>{lowPools.length}</span>}
               </button>

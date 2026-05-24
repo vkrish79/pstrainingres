@@ -13,6 +13,7 @@ import NewSessionPage from './pages/NewSessionPage.jsx';
 import VendorsAdminPage from './pages/VendorsAdminPage.jsx';
 import VendorSessionsPage from './pages/VendorSessionsPage.jsx';
 import ClosedSessionsPage from './pages/ClosedSessionsPage.jsx';
+import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import StaffAdminPage from './pages/StaffAdminPage.jsx';
 import ParticipantWorkbookPage from './pages/ParticipantWorkbookPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -47,6 +48,9 @@ export default function App() {
       } />
       <Route path="/trainer/archive" element={
         <ProtectedRoute role="trainer"><ClosedSessionsPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/analytics" element={
+        <ProtectedRoute role="trainer"><AnalyticsPage /></ProtectedRoute>
       } />
       <Route path="/trainer/vendors" element={
         <ProtectedRoute role="super"><VendorsAdminPage /></ProtectedRoute>
