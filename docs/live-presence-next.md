@@ -137,14 +137,43 @@ Note: the "By exercise" tab only lists sections that contain fillable blocks, so
 a participant parked on a non-fillable section shows in the Participants tab's
 **On now** column but not as a badge here.
 
-## 8. Deferred / follow-ups
+**Drill-down from the popover.** Pinning the badge makes it interactive; each
+name is then a button → clicking it selects that exercise in the grid and
+**focuses** that participant (collapses the others, expands + scrolls to their
+tile). The tile grid also uses `align-items: start` so a collapsed tile is never
+stretched to a tall empty pane by an expanded neighbour.
+
+## 8. Shipped follow-up — Monitor from "My copy" (trainer)
+
+A trainer working their own copy (the ▶ My copy tab) can monitor the cohort on
+the exercise they're on, without leaving their copy. A **👁 Monitor (N)** button
+(N = participants online) opens a right push-drawer (`MonitorDrawer`,
+`monitor-drawer-pushed` body class — same push pattern as the prep drawer, so
+the copy stays usable).
+
+- **Driven by the sidebar selection, not a scroll-spy** — teaching is a
+  deliberate "I'm on this exercise now" gesture; a scroll-spy would flicker.
+  "All exercises" → the drawer prompts to pick one.
+- For the selected exercise it shows: who's on it now (live dots, from
+  `liveBySection`), every participant's completion (answered/total, from the
+  cohort `answers`), online-here sorted first, and an **inline drill-down** —
+  click a participant to expand their actual answers for that exercise.
+- Data is lifted from `SessionDashboardPage` into `TrainerPracticeView` as new
+  props: `participants`, `participantAnswers` (named to avoid colliding with the
+  view's own practice `answers`), and `liveBySection`. Section/block ids align
+  because both load the session's clone workbook.
+- **Overlap with By exercise is intentional** — it reproduces ~80% of that tab,
+  the value being that the trainer never leaves their own copy. Prep and Monitor
+  drawers are mutually exclusive (opening one closes the other).
+
+## 9. Deferred / follow-ups
 - **Re-render churn.** Heartbeats write every 20s/participant, each firing a
   `postgres_changes` event → a dashboard re-render. Fine at cohort scale; if it
   ever matters, throttle or skip state updates that only bump `last_seen`.
 - **Spotlight / "jump to"** (the other half of roadmap #1) — trainer pushes the
   cohort to an exercise. Separate feature; this cursor read is the prerequisite.
 
-## 9. Known low-risk gap
+## 10. Known low-risk gap
 
 The participant write policy (`participant_cursor_self_rw`) only checks
 `participant_id = auth.uid()`, not session enrolment — so a participant could

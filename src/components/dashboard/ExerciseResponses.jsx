@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
 import NoteRow from './NoteRow.jsx';
@@ -46,13 +46,66 @@ export default function ExerciseResponses({
   const [query, setQuery] = useState('');
   const [defaultExpanded, setDefaultExpanded] = useState(participants.length <= AUTO_COLLAPSE_THRESHOLD);
   const [toggleSet, setToggleSet] = useState(() => new Set());
-  const [liveHover, setLiveHover] = useState(null); // { names: string[], x, y } | null
+  // "Who's here" popover: { sectionId, x, y, pinned }. Hover shows it
+  // transiently; clicking the badge pins it open (and interactive). Names are
+  // derived live from liveBySection at render, so the panel stays current.
+  const [popover, setPopover] = useState(null);
+  const popoverRef = useRef(null);
+  // A participant to reveal (expand + scroll) after a popover drill-down. Done
+  // via an effect because selecting a new exercise resets toggleSet first.
+  const [drillTarget, setDrillTarget] = useState(null);
+
+  function openHover(e, sectionId) {
+    if (popover?.pinned) return; // a pinned popover takes precedence over hover
+    const r = e.currentTarget.getBoundingClientRect();
+    setPopover({ sectionId, x: r.right + 8, y: r.top, pinned: false });
+  }
+  function closeHover() {
+    setPopover(prev => (prev && !prev.pinned ? null : prev));
+  }
+  function togglePin(e, sectionId) {
+    const r = e.currentTarget.getBoundingClientRect();
+    setPopover(prev => (prev?.pinned && prev.sectionId === sectionId
+      ? null
+      : { sectionId, x: r.right + 8, y: r.top, pinned: true }));
+  }
+  // Drill from a popover name to that participant's tile on that exercise.
+  function drillTo(sectionId, participantId) {
+    setSelectedId(sectionId);
+    setDrillTarget(participantId);
+    setPopover(null);
+  }
 
   useEffect(() => {
     if (!selectedId && sectionsWithFillable.length) setSelectedId(sectionsWithFillable[0].id);
   }, [sectionsWithFillable, selectedId]);
 
   useEffect(() => { setToggleSet(new Set()); }, [selectedId]);
+
+  // Reveal a drilled-to participant: FOCUS just them — collapse everyone
+  // (default-collapsed) and expand only the target. Runs after the selectedId
+  // reset above (declared later → runs later), so it sticks. Then scroll to it.
+  useEffect(() => {
+    if (!drillTarget) return;
+    setDefaultExpanded(false);
+    setToggleSet(new Set([drillTarget]));
+    const el = document.getElementById(`exresp-tile-${drillTarget}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setDrillTarget(null);
+  }, [drillTarget, selectedId]);
+
+  // Dismiss a pinned popover on Escape or a click outside it. (Badge clicks
+  // call stopPropagation, so they never reach this listener.)
+  useEffect(() => {
+    if (!popover?.pinned) return undefined;
+    function onKey(e) { if (e.key === 'Escape') setPopover(null); }
+    function onClick(e) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) setPopover(null);
+    }
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('click', onClick);
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('click', onClick); };
+  }, [popover?.pinned]);
 
   if (sectionsWithFillable.length === 0) {
     return <p className="muted">No fillable blocks in this workbook.</p>;
@@ -150,26 +203,26 @@ export default function ExerciseResponses({
                   <div className={`exresp-sidebar-bar ${barClass}`}>
                     <div className="exresp-sidebar-bar-fill" style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="exresp-sidebar-meta">
-                    {participantsDone}/{participants.length} done
-                    {here.length > 0 && (
-                      <span
-                        className="exresp-sidebar-live"
-                        onMouseEnter={(e) => {
-                          const r = e.currentTarget.getBoundingClientRect();
-                          setLiveHover({
-                            names: here.map(p => p.full_name || '(unnamed)'),
-                            x: r.right + 8,
-                            y: r.top,
-                          });
-                        }}
-                        onMouseLeave={() => setLiveHover(null)}
-                      >
-                        <span className="presence-dot live" /> {here.length} here
-                      </span>
-                    )}
-                  </div>
+                  <div className="exresp-sidebar-meta">{participantsDone}/{participants.length} done</div>
                 </button>
+                {/* Sibling of the select button (not nested) so it can be its
+                    own focusable, clickable control — invalid as a button-in-a-
+                    button, and the reason the row is restructured. */}
+                {here.length > 0 && (
+                  <button
+                    type="button"
+                    className={`exresp-sidebar-live exresp-sidebar-live ${popover?.sectionId === sec.id && popover?.pinned ? 'pinned' : ''}`}
+                    aria-label={`${here.length} on this exercise now: ${here.map(p => p.full_name || 'unnamed').join(', ')}`}
+                    aria-expanded={popover?.sectionId === sec.id}
+                    onMouseEnter={(e) => openHover(e, sec.id)}
+                    onMouseLeave={closeHover}
+                    onFocus={(e) => openHover(e, sec.id)}
+                    onBlur={closeHover}
+                    onClick={(e) => { e.stopPropagation(); togglePin(e, sec.id); }}
+                  >
+                    <span className="presence-dot live" /> {here.length} here
+                  </button>
+                )}
               </li>
             );
           })}
@@ -225,17 +278,39 @@ export default function ExerciseResponses({
         </div>
       </div>
 
-      {liveHover && createPortal(
-        <div className="live-here-popover" style={{ left: liveHover.x, top: liveHover.y }}>
-          <div className="live-here-popover-head">On this exercise now</div>
-          <ul>
-            {liveHover.names.map((n, i) => (
-              <li key={i}><span className="presence-dot live" /> {n}</li>
-            ))}
-          </ul>
-        </div>,
-        document.body,
-      )}
+      {popover && (() => {
+        const here = liveBySection[popover.sectionId] || [];
+        if (here.length === 0) return null; // everyone left → nothing to show
+        return createPortal(
+          <div
+            ref={popoverRef}
+            className={`live-here-popover ${popover.pinned ? 'pinned' : ''}`}
+            style={{ left: popover.x, top: popover.y }}
+          >
+            <div className="live-here-popover-head">
+              <span>On this exercise now</span>
+              {popover.pinned && (
+                <button type="button" className="live-here-popover-close" onClick={() => setPopover(null)} aria-label="Close">×</button>
+              )}
+            </div>
+            <ul>
+              {here.map(p => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    className="live-here-name"
+                    onClick={() => drillTo(popover.sectionId, p.id)}
+                    title="Show this participant's answer for this exercise"
+                  >
+                    <span className="presence-dot live" /> {p.full_name || '(unnamed)'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>,
+          document.body,
+        );
+      })()}
     </div>
   );
 }
@@ -247,7 +322,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   const lastLabel = lastTs ? relativeTime(lastTs) : 'No activity yet';
 
   return (
-    <div className={`exresp-tile ${expanded ? 'expanded' : 'collapsed'} ${flaggedCount > 0 ? 'has-flag' : ''}`}>
+    <div id={`exresp-tile-${participant.id}`} className={`exresp-tile ${expanded ? 'expanded' : 'collapsed'} ${flaggedCount > 0 ? 'has-flag' : ''}`}>
       <button className="exresp-tile-head" onClick={onToggle} aria-expanded={expanded}>
         <div className="exresp-tile-head-left">
           <span className="exresp-chevron" aria-hidden>{expanded ? '▾' : '▸'}</span>

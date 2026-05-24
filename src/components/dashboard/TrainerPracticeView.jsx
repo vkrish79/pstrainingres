@@ -4,6 +4,7 @@ import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
 import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 import Block from '../blocks/Block.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
+import MonitorDrawer from './MonitorDrawer.jsx';
 import '../../styles/workbook.css';
 
 const ALL_KEY = '__all__';
@@ -19,7 +20,10 @@ const DRAW_MSG = {
 // Answers persist server-side, scoped to the session — see useTrainerPractice.
 // The trainer can draw one prep kit from the pool (useTrainerPrep) so prep-
 // dependent exercises have real values to practise with, mirroring participants.
-export default function TrainerPracticeView({ sessionId, trainerId, prepEnabled = false }) {
+export default function TrainerPracticeView({
+  sessionId, trainerId, prepEnabled = false,
+  participants = [], participantAnswers = {}, liveBySection = {},
+}) {
   const {
     loading, error, sections, blocks, answers, saveAnswer, resetAnswers,
   } = useTrainerPractice(sessionId, trainerId);
@@ -30,21 +34,31 @@ export default function TrainerPracticeView({ sessionId, trainerId, prepEnabled 
   const [drawing, setDrawing] = useState(false);
   const [drawMsg, setDrawMsg] = useState('');
   const [prepOpen, setPrepOpen] = useState(false);
+  const [monitorOpen, setMonitorOpen] = useState(false);
 
-  // Push the page canvas left while the prep drawer is open (no overlay); the
-  // fixed drawer fills the gap. Mirrors the participant workbook view.
+  // Prep and Monitor are both right push-drawers; keep at most one open.
+  function openPrep() { setMonitorOpen(false); setPrepOpen(true); }
+  function openMonitor() { setPrepOpen(false); setMonitorOpen(true); }
+
+  // Push the page canvas left while a right drawer is open (no overlay); the
+  // fixed drawer fills the gap. Mirrors the participant workbook view. One body
+  // class each — mutual exclusivity (open*/) keeps them from stacking.
   useEffect(() => {
     document.body.classList.toggle('prep-drawer-pushed', prepOpen);
-    return () => document.body.classList.remove('prep-drawer-pushed');
-  }, [prepOpen]);
+    document.body.classList.toggle('monitor-drawer-pushed', monitorOpen);
+    return () => {
+      document.body.classList.remove('prep-drawer-pushed');
+      document.body.classList.remove('monitor-drawer-pushed');
+    };
+  }, [prepOpen, monitorOpen]);
 
-  // Esc closes the drawer.
+  // Esc closes whichever drawer is open.
   useEffect(() => {
-    if (!prepOpen) return;
-    function onKey(e) { if (e.key === 'Escape') setPrepOpen(false); }
+    if (!prepOpen && !monitorOpen) return undefined;
+    function onKey(e) { if (e.key === 'Escape') { setPrepOpen(false); setMonitorOpen(false); } }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [prepOpen]);
+  }, [prepOpen, monitorOpen]);
 
   async function handleDrawPrep() {
     setDrawing(true);
@@ -55,6 +69,13 @@ export default function TrainerPracticeView({ sessionId, trainerId, prepEnabled 
     const status = data?.status || 'none';
     setDrawMsg((DRAW_MSG[status] || DRAW_MSG.none)(data?.prepped || 0));
   }
+
+  // Total participants online anywhere (each is on exactly one section), for
+  // the Monitor button's live hint.
+  const onlineTotal = useMemo(
+    () => Object.values(liveBySection).reduce((n, arr) => n + (arr?.length || 0), 0),
+    [liveBySection],
+  );
 
   const sectionStats = useMemo(() => {
     return sections.map(sec => {
@@ -88,8 +109,11 @@ export default function TrainerPracticeView({ sessionId, trainerId, prepEnabled 
             </button>
           )}
           {hasPrep && (
-            <button className="ghost" onClick={() => setPrepOpen(true)}>🎯 Prep</button>
+            <button className="ghost" onClick={openPrep}>🎯 Prep</button>
           )}
+          <button className={`ghost ${monitorOpen ? 'active' : ''}`} onClick={openMonitor}>
+            👁 Monitor{onlineTotal > 0 ? ` (${onlineTotal})` : ''}
+          </button>
           {confirmReset ? (
             <>
               <span className="confirm-text">Clear all your practice answers?</span>
@@ -187,6 +211,15 @@ export default function TrainerPracticeView({ sessionId, trainerId, prepEnabled 
         sections={sections}
         prep={prep}
         standalone={standalone}
+      />
+      <MonitorDrawer
+        open={monitorOpen}
+        onClose={() => setMonitorOpen(false)}
+        section={selectedSectionId === ALL_KEY ? null : sections.find(s => s.id === selectedSectionId) || null}
+        blocks={blocks}
+        participants={participants}
+        participantAnswers={participantAnswers}
+        liveHere={liveBySection[selectedSectionId] || []}
       />
     </div>
   );

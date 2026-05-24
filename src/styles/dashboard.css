@@ -303,7 +303,7 @@
   background: var(--card);
 }
 .exresp-sidebar-list { list-style: none; padding: 0; margin: 0; }
-.exresp-sidebar-list li { border-bottom: 1px solid var(--border); }
+.exresp-sidebar-list li { border-bottom: 1px solid var(--border); position: relative; }
 .exresp-sidebar-list li:last-child { border-bottom: none; }
 .exresp-sidebar-item {
   width: 100%;
@@ -365,12 +365,22 @@
 .exresp-sidebar-bar.full .exresp-sidebar-bar-fill { background: #6dbf85; }
 .exresp-sidebar-meta { font-size: 0.7rem; color: var(--muted); }
 /* Live cohort-spread badge: how many participants are on this exercise now. */
-.exresp-sidebar-live {
+/* Live cohort badge — a standalone button anchored bottom-right of the row
+   (sibling of the select button), so it's independently focusable/clickable.
+   Doubled class beats the global `button:hover:not(:disabled)` specificity. */
+.exresp-sidebar-live.exresp-sidebar-live {
+  position: absolute; right: 0.75rem; bottom: 0.5rem;
   display: inline-flex; align-items: center; gap: 0.3rem;
-  margin-left: 0.45rem; font-weight: 600; color: #2e9e5b;
+  background: transparent; border: none; margin: 0; padding: 0.1rem 0.35rem;
+  font: inherit; font-weight: 600; color: #2e9e5b; line-height: 1.2;
+  border-radius: 999px; cursor: pointer;
 }
+.exresp-sidebar-live.exresp-sidebar-live:hover { background: #eaf6ee; }
+.exresp-sidebar-live.exresp-sidebar-live:focus-visible {
+  background: #eaf6ee; outline: 2px solid #2e9e5b; outline-offset: 1px;
+}
+.exresp-sidebar-live.exresp-sidebar-live.pinned { background: #d6eddd; }
 .exresp-sidebar-live .presence-dot { width: 7px; height: 7px; box-shadow: none; }
-.exresp-sidebar-live { cursor: default; }
 /* Hover popover (portaled to body, so it's never clipped by the sidebar's
    overflow) listing who is on this exercise right now. */
 .live-here-popover {
@@ -379,12 +389,92 @@
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
   padding: 0.5rem 0.65rem; min-width: 150px; max-width: 240px; font-size: 0.82rem;
 }
+.live-here-popover.pinned { pointer-events: auto; }
 .live-here-popover-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
   font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--muted); margin-bottom: 0.4rem;
 }
-.live-here-popover ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
-.live-here-popover li { display: flex; align-items: center; gap: 0.45rem; color: var(--text); }
+.live-here-popover-close {
+  background: transparent; border: none; cursor: pointer; text-transform: none;
+  font-size: 0.95rem; line-height: 1; color: var(--muted); padding: 0 0.15rem;
+}
+.live-here-popover-close.live-here-popover-close:hover { background: transparent; color: var(--text); }
+.live-here-popover ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.live-here-popover li { display: flex; }
+/* Each name is a button (clickable only while pinned → pointer-events:auto). */
+.live-here-name.live-here-name {
+  display: flex; align-items: center; gap: 0.45rem; width: 100%;
+  background: transparent; border: none; margin: 0; padding: 0.2rem 0.35rem;
+  font: inherit; color: var(--text); text-align: left; cursor: pointer; border-radius: 5px;
+}
+.live-here-name.live-here-name:hover,
+.live-here-name.live-here-name:focus-visible { background: #f0f3f7; outline: none; }
+
+/* ===== Monitor drawer ("My copy" live cohort monitor) ===== */
+/* Right push-in drawer, mirroring the prep drawer but wider for the list. */
+.monitor-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(380px, 100vw);
+  background: var(--card, #fff);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(15, 22, 38, 0.08);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 50;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.monitor-drawer.open { transform: translateX(0); }
+.monitor-drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.1rem; border-bottom: 1px solid var(--border); background: #fafbfd;
+}
+.monitor-drawer-head h2 { margin: 0; font-size: 1.05rem; color: var(--midnight); }
+.monitor-drawer-head .icon-btn { background: transparent; color: var(--text); font-size: 1.4rem; padding: 0.1rem 0.6rem; border-radius: 4px; }
+.monitor-drawer-head .icon-btn:hover { background: var(--border); }
+.monitor-drawer-body { flex: 1; overflow-y: auto; padding: 0.85rem 1rem; }
+
+.monitor-empty { color: var(--muted); font-size: 0.9rem; }
+.monitor-exercise { font-size: 1rem; font-weight: 600; color: var(--midnight); margin-bottom: 0.35rem; }
+.monitor-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  font-size: 0.82rem; color: var(--muted); margin-bottom: 0.6rem;
+  padding-bottom: 0.6rem; border-bottom: 1px solid var(--border);
+}
+.monitor-summary-here { display: inline-flex; align-items: center; gap: 0.4rem; color: #2e9e5b; font-weight: 600; }
+
+.monitor-list { list-style: none; margin: 0; padding: 0; }
+.monitor-row { border-bottom: 1px solid var(--border); }
+.monitor-row:last-child { border-bottom: none; }
+.monitor-row-head {
+  width: 100%; display: flex; align-items: center; gap: 0.5rem;
+  background: transparent; border: none; font: inherit; color: var(--text);
+  text-align: left; cursor: pointer; padding: 0.55rem 0.3rem;
+}
+.monitor-row-head.monitor-row-head:hover { background: #f6f8fb; }
+.monitor-row-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-status { font-size: 0.72rem; font-weight: 600; padding: 0.05rem 0.45rem; border-radius: 999px; flex-shrink: 0; }
+.monitor-status.done { color: #2e7d4f; background: #e4f4ea; }
+.monitor-status.partial { color: #9a6a00; background: #fdf3e0; }
+.monitor-status.none { color: var(--muted); background: #eef1f5; }
+.monitor-chevron { font-size: 0.75rem; color: var(--muted); width: 0.8rem; flex-shrink: 0; }
+.monitor-row-body { padding: 0.2rem 0.3rem 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
+
+@media (min-width: 900px) {
+  body { transition: margin-right 0.25s ease; }
+  body.monitor-drawer-pushed { margin-right: min(380px, 100vw); }
+}
+@media (max-width: 899px) {
+  .monitor-drawer {
+    width: 100vw; top: auto; height: 75vh;
+    border-left: none; border-top: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    transform: translateY(100%);
+    box-shadow: 0 -8px 24px rgba(15, 22, 38, 0.12);
+  }
+  .monitor-drawer.open { transform: translateY(0); }
+}
+@media print { .monitor-drawer { display: none !important; } }
 
 .exresp-main { min-width: 0; }
 .exresp-main-title {
@@ -412,6 +502,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 0.75rem;
+  /* Each tile sizes to its own content; without this, grid stretches a
+     collapsed tile to match an expanded neighbour in the same row (empty pane). */
+  align-items: start;
 }
 
 .exresp-tile {
@@ -441,7 +534,9 @@
   border-radius: 0;
 }
 .exresp-tile.collapsed .exresp-tile-head { border-bottom: none; }
-.exresp-tile-head:hover { background: #eef2f7; }
+/* Doubled class beats the global `button:hover:not(:disabled)` (--midnight),
+   which would otherwise fill the header navy and hide the dark text. */
+.exresp-tile-head.exresp-tile-head:hover { background: #eef2f7; }
 .exresp-tile-head-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; flex: 1; }
 .exresp-tile-head-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
 .exresp-chevron { color: var(--muted); font-size: 0.75rem; width: 12px; }

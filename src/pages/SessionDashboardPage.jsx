@@ -504,7 +504,14 @@ export default function SessionDashboardPage() {
         )}
 
         {view === 'practice' && (
-          <TrainerPracticeView sessionId={id} trainerId={authSession?.user.id} prepEnabled={prepEnabled} />
+          <TrainerPracticeView
+            sessionId={id}
+            trainerId={authSession?.user.id}
+            prepEnabled={prepEnabled}
+            participants={participants}
+            participantAnswers={answers}
+            liveBySection={liveBySection}
+          />
         )}
       </main>
       <PrepEditor
