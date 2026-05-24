@@ -152,6 +152,26 @@
 .invite-banner.warn { background: #fff7e8; border-color: #ecd9a8; }
 .invite-banner-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; }
 
+/* Closed-session "By exercise" completion table. */
+.closed-by-exercise { margin: 0.25rem 0 1.25rem; }
+.closed-subhead {
+  font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); margin: 0 0 0.5rem;
+}
+.closed-exercise-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.closed-exercise-table th {
+  text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--muted);
+  padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border);
+}
+.closed-exercise-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.closed-exercise-table .cet-num { text-align: right; white-space: nowrap; width: 5rem; }
+.cet-title { color: var(--midnight); font-weight: 500; }
+.cet-bar-row { display: flex; align-items: center; gap: 0.65rem; }
+.cet-bar { flex: 1; max-width: 220px; height: 8px; background: #eef1f5; border-radius: 999px; overflow: hidden; }
+.cet-bar-fill { height: 100%; background: var(--gold); border-radius: 999px; }
+.cet-bar-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+
 .progress-cell { display: flex; align-items: center; gap: 0.65rem; }
 .progress-bar {
   width: 100%;

@@ -8,7 +8,27 @@ import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/bl
 // since the live participants/answers tables are wiped on close.
 
 export default function ClosedSessionView({ snapshot }) {
-  const { session, workbook, participants = [], closed_at, closed_by, trainer_notes = [] } = snapshot;
+  const { session, participants = [], closed_at, closed_by, trainer_notes = [] } = snapshot;
+
+  // Snapshots store block.type, but blockHelpers (isFillableBlock/isAnswered/
+  // labelOf) read block.block_type. Alias both so the helpers work — without
+  // this, no block counts as fillable, so answers never render and completion
+  // stats read 0 (older closed sessions showed only prep for this reason).
+  const workbook = useMemo(() => {
+    const wb = snapshot.workbook;
+    if (!wb) return null;
+    return {
+      ...wb,
+      sections: (wb.sections || []).map(s => ({
+        ...s,
+        blocks: (s.blocks || []).map(b => ({
+          ...b,
+          block_type: b.block_type ?? b.type,
+          type: b.type ?? b.block_type,
+        })),
+      })),
+    };
+  }, [snapshot.workbook]);
 
   const fillable = useMemo(
     () => (workbook?.sections || []).flatMap(s => (s.blocks || []).filter(isFillableBlock)),
@@ -26,20 +46,79 @@ export default function ClosedSessionView({ snapshot }) {
     return out;
   }, [trainer_notes]);
 
+  // Session-level rollup (the same metrics persisted in session_analytics).
   const stats = useMemo(() => {
+    const pc = participants.length;
     let totalAnswered = 0;
-    let flagged = 0;
+    let fullyCompleted = 0;
+    let notStarted = 0;
+    let firstAct = null;
+    let lastAct = null;
     for (const p of participants) {
+      let a = 0;
       for (const b of fillable) {
-        const v = p.answers?.[b.id]?.value;
-        if (v != null && isAnswered(b, v)) totalAnswered += 1;
+        const entry = p.answers?.[b.id];
+        if (entry && isAnswered(b, entry.value)) a += 1;
+        const ts = entry?.updated_at ? new Date(entry.updated_at).getTime() : NaN;
+        if (!Number.isNaN(ts)) {
+          if (firstAct == null || ts < firstAct) firstAct = ts;
+          if (lastAct == null || ts > lastAct) lastAct = ts;
+        }
       }
+      totalAnswered += a;
+      if (totalFillable > 0 && a >= totalFillable) fullyCompleted += 1;
+      if (totalFillable > 0 && a === 0) notStarted += 1;
     }
-    for (const n of trainer_notes) if (n.flag) flagged += 1;
-    const slots = participants.length * totalFillable;
+    let flagged = 0;
+    let trainerNoted = 0;
+    for (const n of trainer_notes) {
+      if (n.flag) flagged += 1;
+      if (n.note && String(n.note).trim() !== '') trainerNoted += 1;
+    }
+    let prepped = 0;
+    for (const p of participants) {
+      const hasPrep = (p.section_prep && Object.keys(p.section_prep).length > 0)
+        || (Array.isArray(p.standalone_prep) && p.standalone_prep.length > 0);
+      if (hasPrep) prepped += 1;
+    }
+    const slots = pc * totalFillable;
     const avgPct = slots ? Math.round((totalAnswered / slots) * 100) : 0;
-    return { avgPct, flagged };
+    return { avgPct, flagged, trainerNoted, fullyCompleted, notStarted, prepped, firstAct, lastAct };
   }, [participants, fillable, totalFillable, trainer_notes]);
+
+  // Per-exercise rollup (the same metrics persisted in session_section_analytics).
+  const sectionStats = useMemo(() => {
+    const pc = participants.length;
+    const blockSection = {};
+    for (const s of (workbook?.sections || [])) for (const b of (s.blocks || [])) blockSection[b.id] = s.id;
+    const flagsBySection = {};
+    for (const n of trainer_notes) {
+      if (!n.flag) continue;
+      const sid = blockSection[n.block_id];
+      if (sid) flagsBySection[sid] = (flagsBySection[sid] || 0) + 1;
+    }
+    return (workbook?.sections || [])
+      .map(s => {
+        const fb = (s.blocks || []).filter(isFillableBlock);
+        let answered = 0;
+        for (const p of participants) for (const b of fb) {
+          if (isAnswered(b, p.answers?.[b.id]?.value)) answered += 1;
+        }
+        const total = fb.length * pc;
+        return {
+          id: s.id,
+          title: s.title,
+          order_index: s.order_index,
+          fillable: fb.length,
+          answered,
+          total,
+          pct: total ? Math.round((answered / total) * 100) : 0,
+          flagged: flagsBySection[s.id] || 0,
+        };
+      })
+      .filter(s => s.fillable > 0)
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+  }, [workbook, participants, trainer_notes]);
 
   const [query, setQuery] = useState('');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'flagged' | 'noted'
@@ -112,8 +191,35 @@ export default function ClosedSessionView({ snapshot }) {
         <div className="stat-strip">
           <div className="stat-card"><div className="stat-icon">P</div><div><div className="stat-num">{participants.length}</div><div className="stat-label">Participant{participants.length === 1 ? '' : 's'}</div></div></div>
           <div className="stat-card"><div className="stat-icon">%</div><div><div className="stat-num">{stats.avgPct}%</div><div className="stat-label">Avg completion</div></div></div>
+          <div className="stat-card"><div className="stat-icon">✓</div><div><div className="stat-num">{stats.fullyCompleted}</div><div className="stat-label">Fully complete</div></div></div>
+          <div className="stat-card"><div className="stat-icon">∅</div><div><div className="stat-num">{stats.notStarted}</div><div className="stat-label">Not started</div></div></div>
           <div className="stat-card"><div className="stat-icon">🚩</div><div><div className="stat-num">{stats.flagged}</div><div className="stat-label">Flagged answer{stats.flagged === 1 ? '' : 's'}</div></div></div>
         </div>
+
+        {sectionStats.length > 0 && (
+          <section className="closed-by-exercise">
+            <h2 className="closed-subhead">By exercise</h2>
+            <table className="closed-exercise-table">
+              <thead>
+                <tr><th>Exercise</th><th>Completion</th><th className="cet-num">Flags</th></tr>
+              </thead>
+              <tbody>
+                {sectionStats.map(s => (
+                  <tr key={s.id}>
+                    <td className="cet-title">{s.title || '(untitled)'}</td>
+                    <td>
+                      <div className="cet-bar-row">
+                        <div className="cet-bar"><div className="cet-bar-fill" style={{ width: `${s.pct}%` }} /></div>
+                        <span className="cet-bar-label">{s.answered}/{s.total} · {s.pct}%</span>
+                      </div>
+                    </td>
+                    <td className="cet-num">{s.flagged > 0 ? `🚩 ${s.flagged}` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         <div className="exresp-toolbar no-print">
           <input
