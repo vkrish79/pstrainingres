@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useStaff } from '../hooks/useStaff.js';
 import { useVendors } from '../hooks/useVendors.js';
+import { useSessionTypes } from '../hooks/useSessionTypes.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../lib/roles.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -14,6 +15,7 @@ export default function NewSessionPage() {
   const navigate = useNavigate();
   const { staff } = useStaff();
   const { vendors } = useVendors();
+  const { types: sessionTypes } = useSessionTypes(); // active only
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   // vendor_manager OR super — anyone who needs to *pick* the trainer.
   const canPickTrainer = isVendorManagerOrAbove(profile?.role);
@@ -24,6 +26,7 @@ export default function NewSessionPage() {
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [cityCode, setCityCode] = useState('');
+  const [sessionTypeId, setSessionTypeId] = useState('');
   // Super-tier picks the vendor first; the trainer dropdown then filters to
   // that vendor. Vendor_manager has no vendor picker — their vendor is implied
   // and RLS already scopes the staff list to it.
@@ -85,6 +88,11 @@ export default function NewSessionPage() {
     if (isSuper && !superSelfDeliver && !vendorId) {
       return 'Pick a vendor.';
     }
+    // Required only when types have been configured — keeps creation unblocked
+    // before any are set up, while ensuring clean by-type analytics once they are.
+    if (sessionTypes.length > 0 && !sessionTypeId) {
+      return 'Pick a session type.';
+    }
     return null;
   }
 
@@ -104,6 +112,7 @@ export default function NewSessionPage() {
         p_starts_at: startsAt || null,
         p_ends_at: endsAt || null,
         p_city_code: cityCode || null,
+        p_session_type_id: sessionTypeId || null,
         // null = "assign to caller". RPC re-validates: vendor_manager can't
         // pick outside their vendor; vendor_trainer can't pick anyone but
         // themselves. Super self-delivering also passes null.
@@ -190,6 +199,23 @@ export default function NewSessionPage() {
 
             <label className="form-label">Session name</label>
             <input className="form-input" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. ARDW — Cohort 2026-05" />
+
+            {sessionTypes.length > 0 && (
+              <>
+                <label className="form-label">Session type</label>
+                <select
+                  className="form-input"
+                  value={sessionTypeId}
+                  onChange={e => setSessionTypeId(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>Select…</option>
+                  {sessionTypes.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
 
             <div className="form-grid">
               <div>

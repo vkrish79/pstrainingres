@@ -17,12 +17,13 @@ export function useSessionAnalytics() {
       try {
         const [sa, ssa] = await Promise.all([
           supabase.from('session_analytics').select(`
-            session_id, workbook_id, vendor_id, trainer_id,
+            session_id, workbook_id, vendor_id, trainer_id, session_type_id,
             closed_at, duration_minutes, first_activity_at, last_activity_at,
             participant_count, section_count, block_count,
             total_slots, answered_slots, completion_pct,
             fully_completed_count, not_started_count,
             flagged_count, trainer_noted_count, section_note_count, prepped_participant_count,
+            session_type:session_types ( id, name ),
             sessions (
               name, city_code, starts_at, closed_at,
               workbooks ( id, title ),

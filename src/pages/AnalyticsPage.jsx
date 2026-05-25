@@ -1,119 +1,157 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext.jsx';
-import { isSuperTrainerOrAbove } from '../lib/roles.js';
-import { useSessionAnalytics } from '../hooks/useSessionAnalytics.js';
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line,
+} from 'recharts';
+import { useSessionRollup } from '../hooks/useSessionRollup.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
-// Weighted completion across a set of analytics rows: total answered / total
-// possible. Beats averaging per-session percentages (a 2-person session
-// shouldn't weigh the same as a 40-person one).
-function wpct(rows) {
-  const total = rows.reduce((s, r) => s + (r.total_slots || 0), 0);
-  const answered = rows.reduce((s, r) => s + (r.answered_slots || 0), 0);
-  return total ? Math.round((answered / total) * 100) : 0;
-}
-function sumBy(rows, f) { return rows.reduce((s, r) => s + (f(r) || 0), 0); }
-function group(rows, keyFn) {
+const NONE = '__none__'; // bucket key for sessions with no type / no vendor
+const ACTIVE_COLOR = '#4CAF50';
+const CLOSED_COLOR = '#9aa7b4';
+// Categorical palette (brand-ish) for type/vendor slices.
+const PALETTE = ['#b5985a', '#1e3c5a', '#4CAF50', '#6b8fb5', '#c9bea6', '#8b7342', '#9aa7b4', '#d98c5f', '#5a8a72', '#a05c7b'];
+
+// Tally active/closed sessions + participants for each group.
+function rollup(rows, keyFn, nameFn) {
   const m = new Map();
   for (const r of rows) {
     const k = keyFn(r);
     if (k == null) continue;
-    if (!m.has(k)) m.set(k, []);
-    m.get(k).push(r);
+    if (!m.has(k)) m.set(k, { key: k, name: nameFn(r), active: 0, closed: 0, participants: 0 });
+    const g = m.get(k);
+    if (r.isClosed) g.closed += 1; else g.active += 1;
+    g.participants += r.participants;
   }
-  return m;
+  return [...m.values()].sort((x, y) => (y.active + y.closed) - (x.active + x.closed));
 }
 
-function CompletionBar({ pct }) {
+// Sessions per month (gap-filled so the line is continuous), split active/closed
+// with a participant tally.
+function buildTimeSeries(rows) {
+  const m = new Map();
+  for (const r of rows) {
+    const k = r.date ? String(r.date).slice(0, 7) : null;
+    if (!k) continue;
+    if (!m.has(k)) m.set(k, { active: 0, closed: 0, participants: 0 });
+    const g = m.get(k);
+    if (r.isClosed) g.closed += 1; else g.active += 1;
+    g.participants += r.participants;
+  }
+  if (m.size === 0) return [];
+  const keys = [...m.keys()].sort();
+  const out = [];
+  let [y, mo] = keys[0].split('-').map(Number);
+  const [ey, emo] = keys[keys.length - 1].split('-').map(Number);
+  while (y < ey || (y === ey && mo <= emo)) {
+    const k = `${y}-${String(mo).padStart(2, '0')}`;
+    const g = m.get(k) || { active: 0, closed: 0, participants: 0 };
+    out.push({ key: k, label: new Date(y, mo - 1, 1).toLocaleDateString(undefined, { month: 'short', year: '2-digit' }), ...g });
+    mo += 1;
+    if (mo > 12) { mo = 1; y += 1; }
+  }
+  return out;
+}
+
+function Tile({ title, wide, children }) {
   return (
-    <div className="cet-bar-row">
-      <div className="cet-bar"><div className="cet-bar-fill" style={{ width: `${pct}%` }} /></div>
-      <span className="cet-bar-label">{pct}%</span>
+    <div className={`dash-tile${wide ? ' wide' : ''}`}>
+      <h3>{title}</h3>
+      {children}
     </div>
   );
 }
 
-export default function AnalyticsPage() {
-  const { profile } = useAuth();
-  const isSuper = isSuperTrainerOrAbove(profile?.role);
-  const { loading, error, sessions, sections } = useSessionAnalytics();
+// A volume-scaled, active/closed-split bar used in the detail tables.
+function SessionsBar({ active, closed, max }) {
+  const total = active + closed;
+  const widthPct = max > 0 ? (total / max) * 100 : 0;
+  const activePct = total > 0 ? (active / total) * 100 : 0;
+  return (
+    <div className="srt-bar-row">
+      <div className="srt-bar-track">
+        <div className="srt-bar" style={{ width: `${widthPct}%` }} title={`${active} active · ${closed} closed`}>
+          <div className="srt-seg-active" style={{ width: `${activePct}%` }} />
+          <div className="srt-seg-closed" style={{ width: `${100 - activePct}%` }} />
+        </div>
+      </div>
+      <span className="srt-bar-label">{total}</span>
+    </div>
+  );
+}
 
-  const wbTitle = useMemo(() => {
+function RollupTable({ title, label, rows, emptyNote }) {
+  const max = rows.reduce((m, r) => Math.max(m, r.active + r.closed), 0);
+  return (
+    <section className="closed-by-exercise">
+      <h2 className="closed-subhead">{title}</h2>
+      {rows.length === 0 ? (
+        <p className="muted">{emptyNote}</p>
+      ) : (
+        <table className="srt-table">
+          <thead>
+            <tr>
+              <th>{label}</th><th>Sessions</th>
+              <th className="srt-num">Active</th><th className="srt-num">Closed</th><th className="srt-num">Participants</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key}>
+                <td className="srt-name">{r.name}</td>
+                <td><SessionsBar active={r.active} closed={r.closed} max={max} /></td>
+                <td className="srt-num">{r.active}</td>
+                <td className="srt-num">{r.closed}</td>
+                <td className="srt-num">{r.participants}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+export default function AnalyticsPage() {
+  const { loading, error, sessions } = useSessionRollup();
+  const [typeFilter, setTypeFilter] = useState('all'); // 'all' | typeId | NONE
+
+  const typeOptions = useMemo(() => {
     const m = new Map();
-    for (const r of sessions) {
-      const wb = r.sessions?.workbooks;
-      if (wb?.id) m.set(wb.id, wb.title);
+    let hasUntyped = false;
+    for (const s of sessions) {
+      if (s.typeId) m.set(s.typeId, s.typeName || '(unknown type)');
+      else hasUntyped = true;
     }
-    return m;
+    const opts = [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    if (hasUntyped) opts.push({ id: NONE, name: 'Untyped' });
+    return opts;
   }, [sessions]);
 
-  const summary = useMemo(() => ({
-    sessions: sessions.length,
-    participants: sumBy(sessions, r => r.participant_count),
-    pct: wpct(sessions),
-    flagged: sumBy(sessions, r => r.flagged_count),
-  }), [sessions]);
+  const filtered = useMemo(() => (
+    typeFilter === 'all' ? sessions : sessions.filter((s) => (s.typeId ?? NONE) === typeFilter)
+  ), [sessions, typeFilter]);
 
-  const byWorkbook = useMemo(() => (
-    [...group(sessions, r => r.workbook_id).entries()].map(([id, rows]) => ({
-      id,
-      title: rows[0].sessions?.workbooks?.title || '(unknown workbook)',
-      sessions: rows.length,
-      pct: wpct(rows),
-      flagged: sumBy(rows, r => r.flagged_count),
-    })).sort((a, b) => b.sessions - a.sessions)
-  ), [sessions]);
+  const overall = useMemo(() => ({
+    sessions: filtered.length,
+    active: filtered.filter((s) => !s.isClosed).length,
+    closed: filtered.filter((s) => s.isClosed).length,
+    participants: filtered.reduce((n, s) => n + s.participants, 0),
+  }), [filtered]);
 
-  const byTrainer = useMemo(() => (
-    [...group(sessions, r => r.trainer_id).entries()].map(([id, rows]) => ({
-      id,
-      name: rows[0].sessions?.trainer?.full_name || '(unknown)',
-      sessions: rows.length,
-      pct: wpct(rows),
-    })).sort((a, b) => b.sessions - a.sessions)
-  ), [sessions]);
+  const byType = useMemo(() => rollup(sessions, (s) => s.typeId ?? NONE, (s) => s.typeName || 'Untyped'), [sessions]);
+  const byVendor = useMemo(() => rollup(filtered.filter((s) => s.vendorId), (s) => s.vendorId, (s) => s.vendorName || '(unknown vendor)'), [filtered]);
+  const bySuperTrainer = useMemo(() => rollup(filtered.filter((s) => !s.vendorId && s.isSuperTrainer), (s) => s.trainerId, (s) => s.trainerName || '(unknown)'), [filtered]);
+  const timeSeries = useMemo(() => buildTimeSeries(filtered), [filtered]);
 
-  const byVendor = useMemo(() => (
-    [...group(sessions, r => r.vendor_id ?? '__none__').entries()].map(([id, rows]) => ({
-      id,
-      name: id === '__none__' ? 'Super-delivered' : (rows[0].sessions?.vendors?.name || '(unknown vendor)'),
-      sessions: rows.length,
-      pct: wpct(rows),
-    })).sort((a, b) => b.sessions - a.sessions)
-  ), [sessions]);
-
-  const overTime = useMemo(() => (
-    [...group(sessions.filter(r => r.closed_at), r => String(r.closed_at).slice(0, 7)).entries()]
-      .map(([month, rows]) => ({ month, sessions: rows.length, pct: wpct(rows) }))
-      .sort((a, b) => a.month.localeCompare(b.month))
-  ), [sessions]);
-
-  const hardest = useMemo(() => {
-    const m = new Map();
-    for (const r of sections) {
-      if (!(r.total_slots > 0)) continue;
-      const k = `${r.workbook_id}::${r.section_id}`;
-      if (!m.has(k)) m.set(k, { workbook_id: r.workbook_id, section_id: r.section_id, title: r.title, rows: [] });
-      m.get(k).rows.push(r);
-    }
-    return [...m.values()]
-      .map(g => ({
-        key: `${g.workbook_id}::${g.section_id}`,
-        title: g.title || '(untitled)',
-        workbook: wbTitle.get(g.workbook_id) || '',
-        sessions: g.rows.length,
-        pct: wpct(g.rows),
-      }))
-      .sort((a, b) => a.pct - b.pct)
-      .slice(0, 12);
-  }, [sections, wbTitle]);
-
-  const monthLabel = (m) => {
-    const [y, mo] = m.split('-');
-    return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-  };
+  const filterName = typeFilter === 'all' ? null : (typeOptions.find((o) => o.id === typeFilter)?.name || '');
+  const statusData = [
+    { name: 'Active', value: overall.active },
+    { name: 'Closed', value: overall.closed },
+  ].filter((d) => d.value > 0);
+  const vendorBars = byVendor.map((v) => ({ name: v.name, active: v.active, closed: v.closed }));
 
   return (
     <>
@@ -124,95 +162,122 @@ export default function AnalyticsPage() {
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>📊 Analytics</h1>
             <p className="muted">
-              {loading ? 'Loading…' : `Across ${summary.sessions} closed session${summary.sessions === 1 ? '' : 's'}`}
+              {loading
+                ? 'Loading…'
+                : filterName
+                  ? `${filterName} · ${overall.sessions} session${overall.sessions === 1 ? '' : 's'}`
+                  : `${overall.sessions} session${overall.sessions === 1 ? '' : 's'} across every cohort you can see`}
             </p>
           </div>
         </section>
 
         {error && <p className="error">{error}</p>}
-        {!loading && !error && summary.sessions === 0 && (
-          <p className="muted">
-            No closed-session analytics yet. They appear as sessions are closed — or run
-            <strong> Backfill analytics</strong> on the Closed sessions page to include older ones.
-          </p>
+        {!loading && !error && sessions.length === 0 && (
+          <p className="muted">No sessions yet. Create one to start tracking volume here.</p>
         )}
 
-        {!loading && summary.sessions > 0 && (
+        {!loading && sessions.length > 0 && (
           <>
+            {typeOptions.length > 0 && (
+              <div className="srt-filter">
+                <label htmlFor="srt-type">Session type</label>
+                <select
+                  id="srt-type"
+                  className="form-input"
+                  style={{ width: 'auto', minWidth: '13rem' }}
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                >
+                  <option value="all">All types</option>
+                  {typeOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </div>
+            )}
+
             <div className="stat-strip">
-              <div className="stat-card"><div className="stat-icon">S</div><div><div className="stat-num">{summary.sessions}</div><div className="stat-label">Closed sessions</div></div></div>
-              <div className="stat-card"><div className="stat-icon">P</div><div><div className="stat-num">{summary.participants}</div><div className="stat-label">Participants</div></div></div>
-              <div className="stat-card"><div className="stat-icon">%</div><div><div className="stat-num">{summary.pct}%</div><div className="stat-label">Avg completion</div></div></div>
-              <div className="stat-card"><div className="stat-icon">🚩</div><div><div className="stat-num">{summary.flagged}</div><div className="stat-label">Flagged answer{summary.flagged === 1 ? '' : 's'}</div></div></div>
+              <div className="stat-card"><div className="stat-icon">S</div><div><div className="stat-num">{overall.sessions}</div><div className="stat-label">{filterName ? `${filterName} sessions` : 'Total sessions'}</div></div></div>
+              <div className="stat-card"><div className="stat-icon">●</div><div><div className="stat-num">{overall.active}</div><div className="stat-label">Active sessions</div></div></div>
+              <div className="stat-card"><div className="stat-icon">✓</div><div><div className="stat-num">{overall.closed}</div><div className="stat-label">Closed sessions</div></div></div>
+              <div className="stat-card"><div className="stat-icon">P</div><div><div className="stat-num">{overall.participants}</div><div className="stat-label">Participants</div></div></div>
             </div>
 
-            <section className="closed-by-exercise">
-              <h2 className="closed-subhead">Completion over time</h2>
-              <table className="closed-exercise-table">
-                <thead><tr><th>Month closed</th><th>Completion</th><th className="cet-num">Sessions</th></tr></thead>
-                <tbody>
-                  {overTime.map(m => (
-                    <tr key={m.month}><td className="cet-title">{monthLabel(m.month)}</td><td><CompletionBar pct={m.pct} /></td><td className="cet-num">{m.sessions}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+            <div className="dash-grid">
+              <Tile title="Session status">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                      {statusData.map((d) => (
+                        <Cell key={d.name} fill={d.name === 'Active' ? ACTIVE_COLOR : CLOSED_COLOR} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Tile>
 
-            <section className="closed-by-exercise">
-              <h2 className="closed-subhead">By workbook</h2>
-              <table className="closed-exercise-table">
-                <thead><tr><th>Workbook</th><th>Completion</th><th className="cet-num">Sessions</th><th className="cet-num">Flags</th></tr></thead>
-                <tbody>
-                  {byWorkbook.map(w => (
-                    <tr key={w.id}><td className="cet-title">{w.title}</td><td><CompletionBar pct={w.pct} /></td><td className="cet-num">{w.sessions}</td><td className="cet-num">{w.flagged || '—'}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+              {typeFilter === 'all' && byType.length > 0 && (
+                <Tile title="Sessions by type">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie data={byType.map((t) => ({ name: t.name, value: t.active + t.closed }))} dataKey="value" nameKey="name" outerRadius={85} label>
+                        {byType.map((t, i) => <Cell key={t.key} fill={PALETTE[i % PALETTE.length]} />)}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Tile>
+              )}
 
-            <section className="closed-by-exercise">
-              <h2 className="closed-subhead">By trainer</h2>
-              <table className="closed-exercise-table">
-                <thead><tr><th>Trainer</th><th>Completion</th><th className="cet-num">Sessions</th></tr></thead>
-                <tbody>
-                  {byTrainer.map(t => (
-                    <tr key={t.id}><td className="cet-title">{t.name}</td><td><CompletionBar pct={t.pct} /></td><td className="cet-num">{t.sessions}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+              {vendorBars.length > 0 && (
+                <Tile title="Sessions by vendor">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={vendorBars} margin={{ top: 8, right: 8, bottom: 8, left: -16 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="active" stackId="a" name="Active" fill={ACTIVE_COLOR} />
+                      <Bar dataKey="closed" stackId="a" name="Closed" fill={CLOSED_COLOR} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Tile>
+              )}
 
-            {isSuper && byVendor.length > 0 && (
-              <section className="closed-by-exercise">
-                <h2 className="closed-subhead">By vendor</h2>
-                <table className="closed-exercise-table">
-                  <thead><tr><th>Vendor</th><th>Completion</th><th className="cet-num">Sessions</th></tr></thead>
-                  <tbody>
-                    {byVendor.map(v => (
-                      <tr key={v.id}><td className="cet-title">{v.name}</td><td><CompletionBar pct={v.pct} /></td><td className="cet-num">{v.sessions}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
+              <Tile title="Sessions over time" wide>
+                {timeSeries.length === 0 ? (
+                  <p className="muted">No dated sessions to plot.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <ComposedChart data={timeSeries} margin={{ top: 8, right: 8, bottom: 8, left: -16 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <YAxis yAxisId="right" orientation="right" allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar yAxisId="left" dataKey="active" stackId="t" name="Active" fill={ACTIVE_COLOR} />
+                      <Bar yAxisId="left" dataKey="closed" stackId="t" name="Closed" fill={CLOSED_COLOR} />
+                      <Line yAxisId="right" type="monotone" dataKey="participants" name="Participants" stroke="#b5985a" strokeWidth={2} dot={{ r: 3 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
+              </Tile>
+            </div>
+
+            {typeFilter === 'all' && (
+              <RollupTable title="By session type" label="Session type" rows={byType} />
             )}
-
-            {hardest.length > 0 && (
-              <section className="closed-by-exercise">
-                <h2 className="closed-subhead">Hardest exercises (lowest completion across cohorts)</h2>
-                <table className="closed-exercise-table">
-                  <thead><tr><th>Exercise</th><th>Completion</th><th className="cet-num">Cohorts</th></tr></thead>
-                  <tbody>
-                    {hardest.map(h => (
-                      <tr key={h.key}>
-                        <td className="cet-title">{h.title}{h.workbook && <span className="muted" style={{ marginLeft: '0.4rem' }}>· {h.workbook}</span>}</td>
-                        <td><CompletionBar pct={h.pct} /></td>
-                        <td className="cet-num">{h.sessions}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
-            )}
+            <RollupTable
+              title="By vendor" label="Vendor" rows={byVendor}
+              emptyNote={filterName ? `No vendor-delivered "${filterName}" sessions.` : 'No vendor-delivered sessions.'}
+            />
+            <RollupTable
+              title="By super trainer" label="Super trainer" rows={bySuperTrainer}
+              emptyNote={filterName ? `No super-delivered "${filterName}" sessions.` : 'No super-delivered sessions.'}
+            />
           </>
         )}
       </main>

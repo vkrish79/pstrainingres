@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage.jsx';
 import JoinSessionLoginPage from './pages/JoinSessionLoginPage.jsx';
@@ -13,8 +14,10 @@ import NewSessionPage from './pages/NewSessionPage.jsx';
 import VendorsAdminPage from './pages/VendorsAdminPage.jsx';
 import VendorSessionsPage from './pages/VendorSessionsPage.jsx';
 import ClosedSessionsPage from './pages/ClosedSessionsPage.jsx';
-import AnalyticsPage from './pages/AnalyticsPage.jsx';
+// Lazy: pulls in recharts, so keep it out of the main bundle.
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'));
 import StaffAdminPage from './pages/StaffAdminPage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
 import ParticipantWorkbookPage from './pages/ParticipantWorkbookPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
@@ -50,7 +53,11 @@ export default function App() {
         <ProtectedRoute role="trainer"><ClosedSessionsPage /></ProtectedRoute>
       } />
       <Route path="/trainer/analytics" element={
-        <ProtectedRoute role="trainer"><AnalyticsPage /></ProtectedRoute>
+        <ProtectedRoute role="trainer">
+          <Suspense fallback={<div className="loading" style={{ padding: '2rem' }}>Loading analytics…</div>}>
+            <AnalyticsPage />
+          </Suspense>
+        </ProtectedRoute>
       } />
       <Route path="/trainer/vendors" element={
         <ProtectedRoute role="super"><VendorsAdminPage /></ProtectedRoute>
@@ -60,6 +67,9 @@ export default function App() {
       } />
       <Route path="/trainer/staff" element={
         <ProtectedRoute role="super"><StaffAdminPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/settings" element={
+        <ProtectedRoute role="super"><SettingsPage /></ProtectedRoute>
       } />
       <Route path="/workbook" element={
         <ProtectedRoute role="participant"><ParticipantWorkbookPage /></ProtectedRoute>

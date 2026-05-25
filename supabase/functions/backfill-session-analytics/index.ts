@@ -139,6 +139,7 @@ function computeAnalytics(snap: any) {
     workbook_id: wb.id || null,
     vendor_id: sess.vendor?.id || null,
     trainer_id: sess.trainer?.id || null,
+    session_type_id: sess.session_type?.id || null,
     starts_at: sess.starts_at || null,
     ends_at: sess.ends_at || null,
     closed_at: snap.closed_at,

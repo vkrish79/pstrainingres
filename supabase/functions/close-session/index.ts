@@ -147,6 +147,7 @@ function computeAnalytics(snap: any) {
     workbook_id: wb.id || null,
     vendor_id: sess.vendor?.id || null,
     trainer_id: sess.trainer?.id || null,
+    session_type_id: sess.session_type?.id || null,
     starts_at: sess.starts_at || null,
     ends_at: sess.ends_at || null,
     closed_at: snap.closed_at,
@@ -206,8 +207,9 @@ Deno.serve(async (req: Request) => {
     .from('sessions')
     .select(`
       id, name, city_code, starts_at, ends_at, join_code,
-      vendor_id, trainer_id, workbook_id, closed_at,
+      vendor_id, trainer_id, workbook_id, closed_at, session_type_id,
       vendors ( id, code, name ),
+      session_type:session_types ( id, name ),
       trainer:profiles!sessions_trainer_id_fkey ( id, full_name, email )
     `)
     .eq('id', session_id)
@@ -334,6 +336,7 @@ Deno.serve(async (req: Request) => {
       ends_at: sess.ends_at,
       join_code: sess.join_code,
       vendor: sess.vendors || null,
+      session_type: sess.session_type || null,
       trainer: sess.trainer || null,
     },
     workbook: workbook ? {

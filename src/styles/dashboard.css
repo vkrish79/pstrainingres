@@ -172,6 +172,57 @@
 .cet-bar-fill { height: 100%; background: var(--gold); border-radius: 999px; }
 .cet-bar-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 
+/* Session rollup tables (Analytics): active/closed volume by type/vendor/super trainer. */
+.srt-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.srt-table th {
+  text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--muted);
+  padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border);
+}
+.srt-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.srt-name { color: var(--midnight); font-weight: 500; }
+.srt-num { text-align: right; white-space: nowrap; width: 5rem; font-variant-numeric: tabular-nums; }
+
+.srt-bar-row { display: flex; align-items: center; gap: 0.65rem; }
+.srt-bar-track { flex: 1; max-width: 280px; }
+.srt-bar { display: flex; height: 14px; border-radius: 999px; overflow: hidden; min-width: 3px; background: #eef1f5; }
+.srt-seg-active { background: var(--success); height: 100%; }
+.srt-seg-closed { background: #9aa7b4; height: 100%; }
+.srt-bar-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.srt-legend { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin: 0.5rem 0 1.25rem; font-size: 0.8rem; color: var(--muted); }
+.srt-legend > span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.srt-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.srt-sw-active { background: var(--success); }
+.srt-sw-closed { background: #9aa7b4; }
+
+.srt-filter { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 1rem; }
+.srt-filter label {
+  font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--muted);
+}
+
+/* Power-BI-style chart grid. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+}
+.dash-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem 0.5rem;
+  min-width: 0; /* let charts shrink inside the grid track */
+}
+.dash-tile.wide { grid-column: 1 / -1; }
+.dash-tile h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
 .progress-cell { display: flex; align-items: center; gap: 0.65rem; }
 .progress-bar {
   width: 100%;
