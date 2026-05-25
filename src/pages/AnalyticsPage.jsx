@@ -143,6 +143,7 @@ export default function AnalyticsPage() {
 
   const byType = useMemo(() => rollup(sessions, (s) => s.typeId ?? NONE, (s) => s.typeName || 'Untyped'), [sessions]);
   const byVendor = useMemo(() => rollup(filtered.filter((s) => s.vendorId), (s) => s.vendorId, (s) => s.vendorName || '(unknown vendor)'), [filtered]);
+  const byCity = useMemo(() => rollup(filtered.filter((s) => s.cityCode), (s) => s.cityCode, (s) => s.cityName || s.cityCode), [filtered]);
   const bySuperTrainer = useMemo(() => rollup(filtered.filter((s) => !s.vendorId && s.isSuperTrainer), (s) => s.trainerId, (s) => s.trainerName || '(unknown)'), [filtered]);
   const timeSeries = useMemo(() => buildTimeSeries(filtered), [filtered]);
 
@@ -273,6 +274,10 @@ export default function AnalyticsPage() {
             <RollupTable
               title="By vendor" label="Vendor" rows={byVendor}
               emptyNote={filterName ? `No vendor-delivered "${filterName}" sessions.` : 'No vendor-delivered sessions.'}
+            />
+            <RollupTable
+              title="By city / venue" label="City" rows={byCity}
+              emptyNote={filterName ? `No "${filterName}" sessions have a city set.` : 'No sessions have a city set.'}
             />
             <RollupTable
               title="By super trainer" label="Super trainer" rows={bySuperTrainer}

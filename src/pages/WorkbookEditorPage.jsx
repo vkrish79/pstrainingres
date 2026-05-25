@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase.js';
 import { useWorkbookEditor } from '../hooks/useWorkbookEditor.js';
+import { renumberExercises } from '../lib/exerciseNumbering.js';
 import BlockListItem from '../components/editor/BlockListItem.jsx';
 import WorkbookPrepPanel from '../components/editor/WorkbookPrepPanel.jsx';
+import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -19,7 +22,7 @@ export default function WorkbookEditorPage() {
     loading, error, workbook, sections, blocks,
     updateWorkbookTitle, createBlock, updateBlock, deleteBlock, moveBlock,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
-    deleteWorkbook,
+    deleteWorkbook, reload,
   } = useWorkbookEditor(id);
 
   const [titleDraft, setTitleDraft] = useState('');
@@ -28,8 +31,10 @@ export default function WorkbookEditorPage() {
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
   const [confirmDelSection, setConfirmDelSection] = useState(null);
   const [confirmDelWorkbook, setConfirmDelWorkbook] = useState(false);
+  const [refByOnDelete, setRefByOnDelete] = useState([]); // composed workbooks drawing this pool
   const [delErr, setDelErr] = useState('');
   const [showPreview, setShowPreview] = useState(true);
+  const [showAddExercises, setShowAddExercises] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState(null);
   const [pulseBlockId, setPulseBlockId] = useState(null);
   const [selectedBlockId, setSelectedBlockId] = useState(null);
@@ -245,12 +250,28 @@ export default function WorkbookEditorPage() {
             {isTemplate && (
               confirmDelWorkbook ? (
                 <>
-                  <span className="confirm-text">Delete workbook &amp; all sections/blocks?</span>
+                  <span className="confirm-text">
+                    Delete workbook &amp; all sections/blocks?
+                    {refByOnDelete.length > 0 && (
+                      <> ⚠ Prep for <strong>{refByOnDelete.join(', ')}</strong> draws from this workbook — they’ll lose it.</>
+                    )}
+                  </span>
                   <button className="danger" onClick={handleDeleteWorkbook}>Yes</button>
                   <button className="ghost" onClick={() => { setConfirmDelWorkbook(false); setDelErr(''); }}>No</button>
                 </>
               ) : (
-                <button className="ghost danger" onClick={() => setConfirmDelWorkbook(true)}>Delete workbook</button>
+                <button
+                  className="ghost danger"
+                  onClick={async () => {
+                    setConfirmDelWorkbook(true);
+                    const { data: allWbs } = await supabase
+                      .from('workbooks').select('id, title, prep_template').eq('is_template', true);
+                    setRefByOnDelete((allWbs || [])
+                      .filter(w => w.id !== id && Array.isArray(w.prep_template)
+                        && w.prep_template.some(e => e?.source_workbook_id === id))
+                      .map(w => w.title));
+                  }}
+                >Delete workbook</button>
               )
             )}
           </div>
@@ -346,6 +367,8 @@ export default function WorkbookEditorPage() {
 
         <div className="add-section-row">
           <button className="ghost" onClick={() => createSection('New section')}>+ Add section</button>
+          <button className="ghost" onClick={() => setShowAddExercises(true)}>➕ Add exercises from another workbook</button>
+          <button className="ghost" onClick={async () => { await renumberExercises(id); await reload(); }}>🔢 Renumber exercises</button>
         </div>
           </div>
 
@@ -386,6 +409,13 @@ export default function WorkbookEditorPage() {
           )}
         </div>
       </main>
+      {showAddExercises && (
+        <AddExercisesModal
+          currentWorkbookId={id}
+          onClose={() => setShowAddExercises(false)}
+          onAdded={reload}
+        />
+      )}
     </>
   );
 }

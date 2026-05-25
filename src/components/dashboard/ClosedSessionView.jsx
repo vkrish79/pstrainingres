@@ -173,6 +173,7 @@ export default function ClosedSessionView({ snapshot }) {
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>
               {session?.name}
+              {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}
               {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
               <span className="closed-pill">Closed</span>
             </h1>

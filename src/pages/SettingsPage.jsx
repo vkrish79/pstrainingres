@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSessionTypes } from '../hooks/useSessionTypes.js';
+import CitiesSettings from '../components/settings/CitiesSettings.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
@@ -169,6 +170,8 @@ export default function SettingsPage() {
           )}
           {rowError && <p className="error" style={{ marginTop: '0.75rem' }}>{rowError}</p>}
         </section>
+
+        <CitiesSettings />
       </main>
     </>
   );

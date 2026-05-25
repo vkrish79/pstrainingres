@@ -24,8 +24,9 @@ export function useSessionDashboard(sessionId) {
           .from('sessions')
           .select(`
             id, name, workbook_id, created_at, starts_at, ends_at, city_code, join_code,
-            closed_at, closed_by, closed_summary, trainer_id, vendor_id,
+            closed_at, closed_by, closed_summary, trainer_id, vendor_id, session_type_id,
             workbooks ( id, title, description, template_id ),
+            session_type:session_types ( id, name ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name ),
             session_participants ( participant_id, profiles ( id, full_name ) )
           `)
@@ -77,6 +78,7 @@ export function useSessionDashboard(sessionId) {
           join_code: sess.join_code,
           closed_at: sess.closed_at, closed_by: sess.closed_by, closed_summary: sess.closed_summary,
           trainer_id: sess.trainer_id, vendor_id: sess.vendor_id, trainer: sess.trainer || null,
+          session_type_id: sess.session_type_id, session_type: sess.session_type || null,
         });
         setWorkbook(wb);
         setSections(secs || []);

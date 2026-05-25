@@ -22,26 +22,33 @@ export function useSessionRollup() {
     let cancelled = false;
     (async () => {
       try {
-        const [s, a] = await Promise.all([
+        const [s, a, c] = await Promise.all([
           supabase.from('sessions').select(`
-            id, vendor_id, trainer_id, session_type_id, closed_at, created_at, starts_at,
+            id, vendor_id, trainer_id, session_type_id, city_code, closed_at, created_at, starts_at,
             vendors ( id, name ),
             session_type:session_types ( id, name ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name, role ),
             session_participants ( count )
           `),
           supabase.from('session_analytics').select('session_id, participant_count'),
+          supabase.from('cities').select('code, name'),
         ]);
         if (s.error) throw s.error;
         if (a.error) throw a.error;
+        if (c.error) throw c.error;
         if (cancelled) return;
 
         const closedParticipants = new Map();
         for (const r of a.data || []) closedParticipants.set(r.session_id, r.participant_count || 0);
+        // code -> name from the city registry (legacy codes not in the registry
+        // just show their raw code).
+        const cityName = new Map();
+        for (const r of c.data || []) cityName.set(r.code, r.name);
 
         const mapped = (s.data || []).map((row) => {
           const isClosed = !!row.closed_at;
           const live = row.session_participants?.[0]?.count ?? 0;
+          const code = row.city_code || null;
           return {
             id: row.id,
             isClosed,
@@ -56,6 +63,8 @@ export function useSessionRollup() {
             isSuperTrainer: SUPER_ROLES.has(row.trainer?.role),
             typeId: row.session_type_id ?? null,
             typeName: row.session_type?.name || null,
+            cityCode: code,
+            cityName: code ? (cityName.get(code) || code) : null,
           };
         });
 

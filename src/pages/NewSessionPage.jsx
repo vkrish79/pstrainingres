@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase.js';
 import { useStaff } from '../hooks/useStaff.js';
 import { useVendors } from '../hooks/useVendors.js';
 import { useSessionTypes } from '../hooks/useSessionTypes.js';
+import { useCities } from '../hooks/useCities.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../lib/roles.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -16,6 +17,7 @@ export default function NewSessionPage() {
   const { staff } = useStaff();
   const { vendors } = useVendors();
   const { types: sessionTypes } = useSessionTypes(); // active only
+  const { cities } = useCities(); // active only
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   // vendor_manager OR super — anyone who needs to *pick* the trainer.
   const canPickTrainer = isVendorManagerOrAbove(profile?.role);
@@ -71,7 +73,9 @@ export default function NewSessionPage() {
   }, [trainerOptions, trainerId, isSuper]);
 
   function validate() {
-    if (cityCode && !/^[A-Z]{3}$/.test(cityCode)) {
+    // Only enforce the freeform 3-letter rule when there's no managed city list
+    // (the dropdown supplies a valid registry code).
+    if (cities.length === 0 && cityCode && !/^[A-Z]{3}$/.test(cityCode)) {
       return 'City code must be three uppercase letters (e.g. AUH).';
     }
     if (startsAt && endsAt && endsAt < startsAt) {
@@ -228,14 +232,23 @@ export default function NewSessionPage() {
               </div>
             </div>
 
-            <label className="form-label">City code (3 letters, optional)</label>
-            <input
-              className="form-input city-code-input"
-              value={cityCode}
-              onChange={e => setCityCode(e.target.value.toUpperCase().slice(0, 3))}
-              maxLength={3}
-              placeholder="AUH"
-            />
+            <label className="form-label">City / venue (optional)</label>
+            {cities.length > 0 ? (
+              <select className="form-input" value={cityCode} onChange={e => setCityCode(e.target.value)}>
+                <option value="">— None —</option>
+                {cities.map(c => (
+                  <option key={c.id} value={c.code}>{c.name} ({c.code})</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="form-input city-code-input"
+                value={cityCode}
+                onChange={e => setCityCode(e.target.value.toUpperCase().slice(0, 3))}
+                maxLength={3}
+                placeholder="AUH"
+              />
+            )}
 
             {error && <p className="error">{error}</p>}
             <div className="form-actions">

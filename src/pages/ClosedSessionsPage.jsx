@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
+import { useSessionTypes } from '../hooks/useSessionTypes.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -27,12 +28,29 @@ export default function ClosedSessionsPage() {
   const navigate = useNavigate();
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   // scope='all' relies on RLS for each role.
-  const { loading, error, sessions } = useTrainerSessions(
+  const { loading, error, sessions, setSessions } = useTrainerSessions(
     authSession?.user.id, 'all', null, 'closed',
   );
+  // includeInactive so a session keeps showing a type that's since been retired.
+  const { types: sessionTypes } = useSessionTypes({ includeInactive: true });
 
   const [backfilling, setBackfilling] = useState(false);
   const [backfillMsg, setBackfillMsg] = useState('');
+  const [typeMsg, setTypeMsg] = useState('');
+
+  // Retro-tag a closed session's type. RLS (sessions_trainer_all) already lets a
+  // trainer update any session they can see, so a plain update suffices; patch
+  // local state rather than refetch.
+  async function setType(s, typeId) {
+    setTypeMsg('');
+    const { error: e } = await supabase
+      .from('sessions').update({ session_type_id: typeId || null }).eq('id', s.id);
+    if (e) { setTypeMsg(`Couldn't set type for "${s.name}": ${e.message}`); return; }
+    const t = sessionTypes.find(x => x.id === typeId) || null;
+    setSessions(prev => prev.map(x => (
+      x.id === s.id ? { ...x, session_type_id: typeId || null, session_type: t ? { id: t.id, name: t.name } : null } : x
+    )));
+  }
 
   // One-time maintenance: populate analytics for sessions closed before the
   // session-analytics feature shipped. Idempotent (upserts), super-tier only.
@@ -147,6 +165,7 @@ export default function ClosedSessionsPage() {
           )}
         </section>
         {backfillMsg && <p className="prep-notice">{backfillMsg}</p>}
+        {typeMsg && <p className="error">{typeMsg}</p>}
 
         <div className="archive-toolbar">
           <input
@@ -181,6 +200,7 @@ export default function ClosedSessionsPage() {
             <thead>
               <tr>
                 <th onClick={() => toggleSort('name')} className="sortable">Session{sortIndicator('name')}</th>
+                <th>Type</th>
                 {isSuper && <th>Vendor</th>}
                 <th>Trainer</th>
                 <th onClick={() => toggleSort('starts_at')} className="sortable">Dates{sortIndicator('starts_at')}</th>
@@ -192,7 +212,7 @@ export default function ClosedSessionsPage() {
                 <Fragment key={`group-${group.year}`}>
                   {yearFilter === 'all' && (
                     <tr className="archive-year-row">
-                      <td colSpan={isSuper ? 5 : 4}>{group.year}</td>
+                      <td colSpan={isSuper ? 6 : 5}>{group.year}</td>
                     </tr>
                   )}
                   {group.rows.map(s => (
@@ -206,6 +226,19 @@ export default function ClosedSessionsPage() {
                           {s.name}
                           {s.city_code && <span className="city-tag">{s.city_code}</span>}
                         </div>
+                      </td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <select
+                          className="form-input archive-type-select"
+                          value={s.session_type_id || ''}
+                          onChange={e => setType(s, e.target.value)}
+                          title="Set this session's type"
+                        >
+                          <option value="">— Untyped —</option>
+                          {sessionTypes.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}{t.is_active ? '' : ' (inactive)'}</option>
+                          ))}
+                        </select>
                       </td>
                       {isSuper && <td>{s.vendors?.name || '—'}</td>}
                       <td>{s.trainer?.full_name || '—'}</td>

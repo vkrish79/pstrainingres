@@ -28,9 +28,10 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null, inclu
         let q = supabase
           .from('sessions')
           .select(`
-            id, name, created_at, starts_at, ends_at, city_code, trainer_id, vendor_id, closed_at,
+            id, name, created_at, starts_at, ends_at, city_code, trainer_id, vendor_id, closed_at, session_type_id,
             workbooks ( id, title ),
             vendors ( id, code, name ),
+            session_type:session_types ( id, name ),
             session_participants ( participant_id ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name )
           `)
@@ -52,5 +53,5 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null, inclu
     return () => { cancelled = true; };
   }, [userId, scope, vendorId, includeClosed]);
 
-  return { loading, error, sessions };
+  return { loading, error, sessions, setSessions };
 }

@@ -8,36 +8,34 @@ export function useWorkbookEditor(workbookId) {
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!workbookId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data: wb, error: e1 } = await supabase
-          .from('workbooks').select('*').eq('id', workbookId).single();
-        if (e1) throw e1;
+    try {
+      const { data: wb, error: e1 } = await supabase
+        .from('workbooks').select('*').eq('id', workbookId).single();
+      if (e1) throw e1;
 
-        const { data: secs, error: e2 } = await supabase
-          .from('sections').select('*').eq('workbook_id', workbookId).order('order_index');
-        if (e2) throw e2;
+      const { data: secs, error: e2 } = await supabase
+        .from('sections').select('*').eq('workbook_id', workbookId).order('order_index');
+      if (e2) throw e2;
 
-        const sectionIds = (secs || []).map(s => s.id);
-        const { data: blks, error: e3 } = sectionIds.length
-          ? await supabase.from('blocks').select('*').in('section_id', sectionIds).order('order_index')
-          : { data: [], error: null };
-        if (e3) throw e3;
+      const sectionIds = (secs || []).map(s => s.id);
+      const { data: blks, error: e3 } = sectionIds.length
+        ? await supabase.from('blocks').select('*').in('section_id', sectionIds).order('order_index')
+        : { data: [], error: null };
+      if (e3) throw e3;
 
-        if (cancelled) return;
-        setWorkbook(wb);
-        setSections(secs || []);
-        setBlocks(blks || []);
-        setLoading(false);
-      } catch (err) {
-        if (!cancelled) { setError(err.message); setLoading(false); }
-      }
-    })();
-    return () => { cancelled = true; };
+      setWorkbook(wb);
+      setSections(secs || []);
+      setBlocks(blks || []);
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
   }, [workbookId]);
+
+  useEffect(() => { load(); }, [load]);
 
   const updateWorkbookTitle = useCallback(async (title) => {
     setWorkbook(w => ({ ...w, title }));
@@ -186,6 +184,6 @@ export function useWorkbookEditor(workbookId) {
     workbook, sections, blocks,
     updateWorkbookTitle, createBlock, updateBlock, deleteBlock, moveBlock,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
-    deleteWorkbook,
+    deleteWorkbook, reload: load,
   };
 }

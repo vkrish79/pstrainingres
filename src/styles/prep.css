@@ -175,3 +175,6 @@
 }
 
 @media print { .prep-drawer { display: none !important; } }
+
+/* Referenced-prep marker in the prep-template setup panel (composed workbooks) */
+.prep-ref-tag { color: var(--gold-dark); font-size: 0.82rem; }

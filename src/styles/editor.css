@@ -390,3 +390,21 @@ button.ghost.compact, button.danger.compact {
   .editor-layout.with-preview { grid-template-columns: 1fr; }
   .preview-pane { position: static; max-height: none; }
 }
+
+/* Add-exercises picker (compose from existing workbooks) */
+.picker-list { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.picker-row { border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
+.picker-row.picked { border-color: var(--gold); background: rgba(181, 152, 90, 0.06); }
+.picker-head { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; margin: 0; }
+.picker-title { font-weight: 500; color: var(--midnight); }
+.picker-count { margin-left: auto; font-size: 0.8rem; }
+.picker-toggle { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+.picker-preview {
+  margin-top: 0.6rem;
+  padding: 0.85rem 0.95rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 0 0 6px 6px;
+}
+.picker-preview .wb-block { margin-bottom: 0.65rem; }
+.picker-preview .wb-block:last-child { margin-bottom: 0; }

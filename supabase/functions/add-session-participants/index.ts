@@ -101,19 +101,23 @@ Deno.serve(async (req: Request) => {
 
   const targetVendorId = sess.vendor_id || caller.vendor_id || null;
 
-  // Withdraw one prep kit from the workbook's pool (the session's vendor
-  // partition) for a freshly enrolled participant. Returns the claim status
-  // ('allocated' | 'exhausted' | 'none' | 'error') so the UI can warn when the
-  // pool is exhausted. Never fails the enrolment.
-  async function claimPrep(pid: string): Promise<string> {
+  // Withdraw prep kit(s) for a freshly enrolled participant. A composed workbook
+  // draws from several source pools, so claim_prep_kit returns an overall status
+  // plus a per-source breakdown. We surface the overall status ('allocated' |
+  // 'partial' | 'exhausted' | 'none' | 'error') and the ids of any pools that ran
+  // dry, so the UI can name them. Never fails the enrolment.
+  async function claimPrep(pid: string): Promise<{ status: string; missing: string[] }> {
     const { data, error } = await admin.rpc('claim_prep_kit', {
       p_session_id: session_id, p_participant_id: pid,
     });
-    if (error) return 'error';
-    return (data as { status?: string } | null)?.status || 'none';
+    if (error) return { status: 'error', missing: [] };
+    const status = (data as { status?: string } | null)?.status || 'none';
+    const sources = ((data as { sources?: Array<{ workbook_id: string; status: string }> } | null)?.sources) || [];
+    const missing = sources.filter(s => s.status === 'exhausted' || s.status === 'none').map(s => s.workbook_id);
+    return { status, missing };
   }
 
-  const results: Array<{ username: string; status: string; reason?: string; temp_password?: string; prep?: string }> = [];
+  const results: Array<{ username: string; status: string; reason?: string; temp_password?: string; prep?: string; prep_missing_ids?: string[]; prep_missing?: string[] }> = [];
   const seen = new Set<string>();
 
   for (const raw of participants) {
@@ -179,7 +183,7 @@ Deno.serve(async (req: Request) => {
         .insert({ session_id, participant_id: existing.id });
       if (ee) { results.push({ username: usernameInput, status: 'error', reason: ee.message }); continue; }
       const prepExisting = await claimPrep(existing.id);
-      results.push({ username: usernameInput, status: 'enrolled_existing', prep: prepExisting });
+      results.push({ username: usernameInput, status: 'enrolled_existing', prep: prepExisting.status, prep_missing_ids: prepExisting.missing });
       continue;
     }
 
@@ -213,7 +217,20 @@ Deno.serve(async (req: Request) => {
       continue;
     }
     const prepCreated = await claimPrep(created.user.id);
-    results.push({ username: usernameInput, status: 'created', temp_password: tempPassword, prep: prepCreated });
+    results.push({ username: usernameInput, status: 'created', temp_password: tempPassword, prep: prepCreated.status, prep_missing_ids: prepCreated.missing });
+  }
+
+  // Resolve names for any prep pools that ran dry, so the UI can say which one.
+  const missingIds = [...new Set(results.flatMap(r => r.prep_missing_ids || []))];
+  if (missingIds.length) {
+    const { data: wbs } = await admin.from('workbooks').select('id, title').in('id', missingIds);
+    const titleById = new Map((wbs || []).map((w: { id: string; title: string }) => [w.id, w.title]));
+    for (const r of results) {
+      if (r.prep_missing_ids?.length) {
+        r.prep_missing = r.prep_missing_ids.map(id => titleById.get(id) || 'a workbook');
+      }
+      delete r.prep_missing_ids;
+    }
   }
 
   return jsonRes(200, { results });

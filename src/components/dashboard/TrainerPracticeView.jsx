@@ -12,6 +12,7 @@ const ALL_KEY = '__all__';
 
 const DRAW_MSG = {
   allocated: (n) => `Drew practice prep (${n} item${n === 1 ? '' : 's'}).`,
+  partial: (n) => `Drew practice prep (${n} item${n === 1 ? '' : 's'}) — some source pools were empty.`,
   exists: () => 'You already have practice prep for this session.',
   exhausted: () => 'Prep pool is empty — ask for a top-up, then try again.',
   none: () => 'No prep is set up for this workbook.',

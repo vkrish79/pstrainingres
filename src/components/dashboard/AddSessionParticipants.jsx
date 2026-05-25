@@ -189,13 +189,15 @@ export default function AddSessionParticipants({ onAdd, onCancel, session, joinU
       {results && results.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
           <h3 className="section-title" style={{ marginTop: 0 }}>Results</h3>
-          {results.some(r => r.prep === 'exhausted') && (
-            <p className="prep-warn">
-              ⚠ The prep repository is empty for this session's pool — affected participants
-              were added without prep. Top up the repository from the workbook's prep panel
-              for future enrolments.
-            </p>
-          )}
+          {(() => {
+            const lowPools = [...new Set(results.flatMap(r => r.prep_missing || []))];
+            return lowPools.length > 0 ? (
+              <p className="prep-warn">
+                ⚠ Prep ran out for: <strong>{lowPools.join(', ')}</strong> — affected participants were added
+                without that prep. Top up the pool from the workbook's prep panel for future enrolments.
+              </p>
+            ) : null;
+          })()}
           {shareableRows.length > 0 && (
             <div className="invite-actions">
               <button type="button" onClick={() => copyText(buildAllInvitesText(shareableRows, inviteCtx), 'all')}>
@@ -230,7 +232,7 @@ export default function AddSessionParticipants({ onAdd, onCancel, session, joinU
                       {r.status === 'error' && (r.reason || '—')}
                       {r.status === 'enrolled_existing' && 'Linked existing account.'}
                       {r.status === 'already_enrolled' && 'Was already in this session.'}
-                      {r.prep === 'exhausted' && <span className="prep-pending"> · ⚠ no prep (repository empty)</span>}
+                      {r.prep_missing?.length > 0 && <span className="prep-pending"> · ⚠ no prep from {r.prep_missing.join(', ')}</span>}
                       {r.prep === 'error' && <span className="prep-pending"> · ⚠ prep error</span>}
                     </td>
                     <td>
