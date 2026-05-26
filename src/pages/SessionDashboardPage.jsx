@@ -5,6 +5,7 @@ import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
@@ -83,6 +84,16 @@ export default function SessionDashboardPage() {
   const [invitesError, setInvitesError] = useState('');
   const [invitesCopied, setInvitesCopied] = useState(false);
   const [copiedRowInvite, setCopiedRowInvite] = useState(null); // participant id
+
+  // Close-session confirm modal: freeze background scroll while open and let
+  // Esc dismiss it (matches the other modals).
+  useBodyScrollLock(confirmClose);
+  useEffect(() => {
+    if (!confirmClose) return undefined;
+    function onKey(e) { if (e.key === 'Escape' && !busy) setConfirmClose(false); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmClose, busy]);
 
   // A participant "needs prep" when the workbook expects prep but they have no
   // section prep rows yet (un-allocated, or enrolled while the pool was empty).
@@ -344,8 +355,8 @@ export default function SessionDashboardPage() {
     setCloseError('');
     const { error: err } = await closeSession();
     setBusy(false);
+    if (err) { setCloseError(err.message); return; } // keep the modal open to show it
     setConfirmClose(false);
-    if (err) setCloseError(err.message);
   }
 
   const selected = participants.find(p => p.id === selectedParticipantId);
@@ -390,20 +401,11 @@ export default function SessionDashboardPage() {
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
             </button>
-            {confirmClose ? (
-              <>
-                <span className="confirm-text">Close session? Participants and their accounts will be permanently deleted; a JSON summary is saved.</span>
-                <button className="danger" onClick={doClose} disabled={busy}>Yes, close</button>
-                <button className="ghost" onClick={() => setConfirmClose(false)} disabled={busy}>Cancel</button>
-              </>
-            ) : (
-              <button className="ghost-link danger" onClick={() => setConfirmClose(true)}>
-                ✕ Close session
-              </button>
-            )}
+            <button className="ghost-link danger" onClick={() => { setCloseError(''); setConfirmClose(true); }}>
+              ✕ Close session
+            </button>
           </div>
         </section>
-        {closeError && <p className="error">{closeError}</p>}
 
         <div className="view-tabs">
           <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>
@@ -681,6 +683,29 @@ export default function SessionDashboardPage() {
         prepEnabled={prepEnabled}
         onAllocate={allocateOne}
       />
+      {confirmClose && (
+        <div className="modal-backdrop visible" onClick={() => { if (!busy) setConfirmClose(false); }}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <header className="modal-head">
+              <h2>Close this session?</h2>
+              <button className="icon-btn" onClick={() => setConfirmClose(false)} disabled={busy} aria-label="Close">×</button>
+            </header>
+            <div className="modal-body">
+              <p>Closing <strong>{session?.name}</strong> will:</p>
+              <ul className="confirm-list">
+                <li>Save a permanent <strong>JSON summary</strong> of every answer and note.</li>
+                <li><strong>Permanently delete</strong> all {participants.length} participant{participants.length === 1 ? '' : 's'} and their accounts — they can no longer log in.</li>
+              </ul>
+              <p className="muted">This can’t be undone. The session moves to your Closed sessions archive.</p>
+              {closeError && <p className="error">{closeError}</p>}
+            </div>
+            <footer className="modal-foot">
+              <button className="ghost" onClick={() => setConfirmClose(false)} disabled={busy}>Cancel</button>
+              <button className="danger" onClick={doClose} disabled={busy}>{busy ? 'Closing…' : 'Yes, close session'}</button>
+            </footer>
+          </div>
+        </div>
+      )}
     </>
   );
 }
