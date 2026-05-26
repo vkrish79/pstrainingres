@@ -387,11 +387,6 @@ export default function SessionDashboardPage() {
                 onChange={setSessionTrainer}
               />
             )}
-            {workbook?.id && (
-              <Link to={`/trainer/workbooks/${workbook.id}`} className="ghost-link">
-                ✎ Edit workbook
-              </Link>
-            )}
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
             </button>

@@ -408,3 +408,53 @@ button.ghost.compact, button.danger.compact {
 }
 .picker-preview .wb-block { margin-bottom: 0.65rem; }
 .picker-preview .wb-block:last-child { margin-bottom: 0; }
+
+/* ===== Content-only editor (session-level inline edits) ===== */
+.ce-doc { max-width: 880px; margin: 0 auto; padding: 0 1rem 3rem; }
+.ce-hint {
+  background: #faf6ec;
+  border: 1px solid var(--gold);
+  color: var(--gold-dark);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
+  margin: 0 0 1.25rem;
+}
+.ce-section { margin-bottom: 1.5rem; }
+
+/* Click-to-edit authored text */
+.ce-editable {
+  cursor: text;
+  border-radius: 4px;
+  padding: 0 0.15rem;
+  border-bottom: 1px dashed var(--gold);
+  transition: background 0.12s ease;
+}
+.ce-editable:hover { background: #faf6ec; }
+.ce-editable:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.ce-editable.ce-empty { color: var(--muted); font-style: italic; }
+.ce-prose.ce-editable { display: block; padding: 0.25rem 0.4rem; border-bottom: none; border: 1px dashed var(--border); }
+.ce-prose.ce-editable:hover { border-color: var(--gold); }
+
+/* Inline input that replaces the text while editing */
+.ce-input {
+  font: inherit;
+  color: var(--text);
+  width: 100%;
+  min-width: 4rem;
+  box-sizing: border-box;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  background: #fff;
+}
+.ce-prose-edit .ce-input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+
+/* Locked answer slots — distinct from editable text */
+.ce-locked {
+  background: repeating-linear-gradient(45deg, #f1f3f6, #f1f3f6 6px, #e9edf2 6px, #e9edf2 12px);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.ce-locked-control { cursor: not-allowed; }
+.ce-choice { display: flex; align-items: center; gap: 0.5rem; margin: 0.3rem 0; }

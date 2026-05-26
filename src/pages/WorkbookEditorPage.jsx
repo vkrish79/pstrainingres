@@ -6,6 +6,7 @@ import { renumberExercises } from '../lib/exerciseNumbering.js';
 import BlockListItem from '../components/editor/BlockListItem.jsx';
 import WorkbookPrepPanel from '../components/editor/WorkbookPrepPanel.jsx';
 import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
+import ContentEditor from '../components/editor/ContentEditor.jsx';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -228,6 +229,27 @@ export default function WorkbookEditorPage() {
               })}
             </div>
           </div>
+        </main>
+      </>
+    );
+  }
+
+  // Session clones (is_template=false) get the content-only inline editor for
+  // every role: tweak the wording of existing exercises, but no structural
+  // changes (rows, columns, blocks, sections) — that's done on the template.
+  if (!isTemplate) {
+    return (
+      <>
+        <TopBar />
+        <main className="page workbook">
+          <section className="page-hero compact">
+            <div className="page-hero-text">
+              <Link to="/trainer" className="back-link">&larr; Back</Link>
+              <h1>{title || 'Untitled workbook'}</h1>
+              <p>Session workbook — edit the wording of any exercise. Layout and answer fields are fixed; changes show to enrolled participants live.</p>
+            </div>
+          </section>
+          <ContentEditor sections={sections} blocks={blocks} onSaveBlock={updateBlock} />
         </main>
       </>
     );

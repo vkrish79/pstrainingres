@@ -116,6 +116,18 @@ export function useTrainerPractice(sessionId, trainerId) {
     }, SAVE_DEBOUNCE_MS);
   }, [sessionId]);
 
+  // Content edit (session-level): write a block's config to the shared blocks
+  // table and reflect it locally. Same target as the structural editor, so RLS
+  // (session trainer / super) is the guard; participants pick it up via the
+  // existing blocks realtime subscription in useWorkbook.
+  const updateBlockConfig = useCallback(async (blockId, config) => {
+    const { data, error: e } = await supabase
+      .from('blocks').update({ config }).eq('id', blockId).select().single();
+    if (e) return { error: e };
+    setBlocks(prev => prev.map(b => (b.id === blockId ? data : b)));
+    return { data };
+  }, []);
+
   const resetAnswers = useCallback(async () => {
     // Cancel any in-flight debounced saves so they don't re-upsert a pre-reset
     // value after we've cleared the rows.
@@ -129,6 +141,6 @@ export function useTrainerPractice(sessionId, trainerId) {
 
   return {
     loading, error, session, workbook, sections, blocks, answers,
-    saveAnswer, resetAnswers, answeredCount,
+    saveAnswer, resetAnswers, answeredCount, updateBlockConfig,
   };
 }

@@ -4,6 +4,7 @@ import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
 import { useSessionFocus } from '../../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 import Block from '../blocks/Block.jsx';
+import { EditableBlock } from '../editor/ContentEditor.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
 import MonitorDrawer from './MonitorDrawer.jsx';
 import '../../styles/workbook.css';
@@ -27,7 +28,7 @@ export default function TrainerPracticeView({
   participants = [], participantAnswers = {}, liveBySection = {},
 }) {
   const {
-    loading, error, sections, blocks, answers, saveAnswer,
+    loading, error, sections, blocks, answers, saveAnswer, updateBlockConfig,
   } = useTrainerPractice(sessionId, trainerId);
   const { prep, standalone, hasPrep, drawPrep } = useTrainerPrep(sessionId);
   const { focus, spotlight, clear: clearSpotlight } = useSessionFocus(sessionId, trainerId);
@@ -37,7 +38,18 @@ export default function TrainerPracticeView({
   const [drawMsg, setDrawMsg] = useState('');
   const [prepOpen, setPrepOpen] = useState(false);
   const [monitorOpen, setMonitorOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const barRef = useRef(null);
+
+  // Toggle content-edit mode. Entering it closes the right drawers so the
+  // editable canvas isn't pushed under one.
+  function toggleEdit() {
+    setEditMode(m => {
+      const next = !m;
+      if (next) { setPrepOpen(false); setMonitorOpen(false); }
+      return next;
+    });
+  }
 
   // Prep and Monitor are both right push-drawers; keep at most one open.
   function openPrep() { setMonitorOpen(false); setPrepOpen(true); }
@@ -169,18 +181,23 @@ export default function TrainerPracticeView({
             <button type="button" className="spotlight-chip-clear" onClick={clearSpotlight} aria-label="Clear spotlight">×</button>
           </span>
         )}
-        {(hasPrep || prepEnabled) && (
-          <div className="presenter-bar-right">
-            {prepEnabled && !hasPrep && (
-              <button className="ghost" onClick={handleDrawPrep} disabled={drawing}>
-                {drawing ? 'Drawing…' : '🎯 Draw practice prep'}
-              </button>
-            )}
-            {hasPrep && (
-              <button className="ghost" onClick={openPrep}>🎯 Prep</button>
-            )}
-          </div>
-        )}
+        <div className="presenter-bar-right">
+          <button
+            className={`ghost ${editMode ? 'active' : ''}`}
+            onClick={toggleEdit}
+            title={editMode ? 'Finish editing and return to your practice copy' : 'Edit the wording of any exercise in place — changes show to participants live'}
+          >
+            {editMode ? '✓ Done editing' : '✎ Edit content'}
+          </button>
+          {prepEnabled && !hasPrep && (
+            <button className="ghost" onClick={handleDrawPrep} disabled={drawing || editMode}>
+              {drawing ? 'Drawing…' : '🎯 Draw practice prep'}
+            </button>
+          )}
+          {hasPrep && (
+            <button className="ghost" onClick={openPrep} disabled={editMode}>🎯 Prep</button>
+          )}
+        </div>
       </div>
       {drawMsg && <p className="prep-notice">{drawMsg}</p>}
 
@@ -245,6 +262,9 @@ export default function TrainerPracticeView({
         </aside>
 
         <div className="exresp-main">
+          {editMode && (
+            <p className="ce-hint">✎ Editing content — click any text to change its wording. Answer boxes and the layout are locked, and edits show to enrolled participants live. Press <strong>Done editing</strong> when finished.</p>
+          )}
           {visibleSections.map(sec => (
             <section key={sec.id} className="wb-section">
               <h2>{sec.title}</h2>
@@ -256,14 +276,18 @@ export default function TrainerPracticeView({
               )}
               {blocks
                 .filter(b => b.section_id === sec.id)
-                .map(b => (
+                .map(b => (editMode ? (
+                  <div key={b.id} className="wb-block">
+                    <EditableBlock block={b} onSave={config => updateBlockConfig(b.id, config)} />
+                  </div>
+                ) : (
                   <Block
                     key={b.id}
                     block={b}
                     value={answers[b.id]}
                     onChange={v => saveAnswer(b.id, v)}
                   />
-                ))}
+                )))}
             </section>
           ))}
         </div>
