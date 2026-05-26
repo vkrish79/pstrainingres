@@ -41,10 +41,29 @@ export function AuthProvider({ children }) {
     await loadProfile(session.user.id);
     return {};
   }
+  // Routes the recovery email through our edge function → Power Automate, since
+  // Supabase's built-in sender isn't used in prod. Generic result (the function
+  // never reveals whether the address has an account).
   async function sendPasswordReset(email) {
-    return supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/request-password-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ email, redirectTo: `${window.location.origin}/reset-password` }),
+      });
+      if (!res.ok) {
+        let msg = 'Could not send the reset email. Please try again.';
+        try { const j = await res.json(); msg = j.error || msg; } catch { /* ignore */ }
+        return { error: new Error(msg) };
+      }
+      return {};
+    } catch (e) {
+      return { error: e instanceof Error ? e : new Error('Network error') };
+    }
   }
 
   return (

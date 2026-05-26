@@ -31,3 +31,7 @@ verify_jwt = true
 [functions.backfill-session-analytics]
 verify_jwt = true
 
+# Public: the forgot-password page is unauthenticated.
+[functions.request-password-reset]
+verify_jwt = false
+
