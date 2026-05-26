@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { isTrainerTier, isSuperTrainerOrAbove, homePathForRole, roleLabel } from '../lib/roles.js';
 import { useLowPrepPools } from '../hooks/useLowPrepPools.js';
 import PrepUploadModal from './prep/PrepUploadModal.jsx';
+import GlobalSearch from './GlobalSearch.jsx';
 
 export default function TopBar() {
   const { profile, signOut } = useAuth();
@@ -27,6 +28,7 @@ export default function TopBar() {
         <nav className="topbar-nav">
           {isTrainer && (
             <>
+              <GlobalSearch />
               <NavLink to="/trainer" end className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Home</NavLink>
               {isSuper && (
                 <>
