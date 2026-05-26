@@ -458,3 +458,7 @@ button.ghost.compact, button.danger.compact {
 }
 .ce-locked-control { cursor: not-allowed; }
 .ce-choice { display: flex; align-items: center; gap: 0.5rem; margin: 0.3rem 0; }
+
+/* Inline checkbox + label row (e.g. "Make available to vendors"). */
+.checkbox-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.9rem; line-height: 1.45; cursor: pointer; }
+.checkbox-row input[type="checkbox"] { margin-top: 0.2rem; flex-shrink: 0; }

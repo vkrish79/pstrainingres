@@ -37,9 +37,9 @@ export default function TrainerHomePage() {
 
         <LowPrepBanner profile={profile} />
 
-        {isSuper && <SuperHome userId={authSession?.user.id} />}
-        {isManager && <VendorManagerHome userId={authSession?.user.id} />}
-        {!isSuper && !isManager && <VendorTrainerHome userId={authSession?.user.id} />}
+        {isSuper && <SuperHome userId={authSession?.user.id} role={profile?.role} />}
+        {isManager && <VendorManagerHome userId={authSession?.user.id} role={profile?.role} />}
+        {!isSuper && !isManager && <VendorTrainerHome userId={authSession?.user.id} role={profile?.role} />}
       </main>
     </>
   );
@@ -47,12 +47,12 @@ export default function TrainerHomePage() {
 
 // ----- super_admin / super_trainer -----------------------------------------
 
-function SuperHome({ userId }) {
+function SuperHome({ userId, role }) {
   const { loading: vl, vendors } = useVendors();
   // All super-trainer-delivered sessions (vendor_id is null), not just the
   // caller's own — every super sees the shared super pool of sessions.
   const { loading: msl, sessions: superSessions } = useTrainerSessions(userId, 'super');
-  const { loading: wl, workbooks } = useTrainerWorkbooks(userId);
+  const { loading: wl, workbooks } = useTrainerWorkbooks(userId, role);
 
   const totalSessions = vendors.reduce((s, v) => s + (v.session_count || 0), 0);
   const totalTrainers = vendors.reduce((s, v) => s + (v.trainer_count || 0), 0);
@@ -104,10 +104,10 @@ function SuperHome({ userId }) {
 
 // ----- vendor_manager -------------------------------------------------------
 
-function VendorManagerHome({ userId }) {
+function VendorManagerHome({ userId, role }) {
   // scope='all' relies on RLS: vendor_manager naturally sees only their vendor.
   const { loading: sl, error, sessions } = useTrainerSessions(userId, 'all');
-  const { loading: wl, workbooks } = useTrainerWorkbooks(userId);
+  const { loading: wl, workbooks } = useTrainerWorkbooks(userId, role);
 
   const totalParticipants = sessions.reduce(
     (sum, s) => sum + (s.session_participants?.length || 0), 0,
@@ -139,9 +139,9 @@ function VendorManagerHome({ userId }) {
 
 // ----- vendor_trainer (and pre-migration "trainer") ------------------------
 
-function VendorTrainerHome({ userId }) {
+function VendorTrainerHome({ userId, role }) {
   const { loading: sl, error, sessions } = useTrainerSessions(userId, 'own');
-  const { loading: wl, workbooks } = useTrainerWorkbooks(userId);
+  const { loading: wl, workbooks } = useTrainerWorkbooks(userId, role);
 
   const totalParticipants = sessions.reduce(
     (sum, s) => sum + (s.session_participants?.length || 0), 0,

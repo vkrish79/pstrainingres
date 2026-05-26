@@ -21,7 +21,7 @@ export default function WorkbookEditorPage() {
   const { profile } = useAuth();
   const {
     loading, error, workbook, sections, blocks,
-    updateWorkbookTitle, createBlock, updateBlock, deleteBlock, moveBlock,
+    updateWorkbookTitle, updateVendorVisible, createBlock, updateBlock, deleteBlock, moveBlock,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
     deleteWorkbook, reload,
   } = useWorkbookEditor(id);
@@ -308,6 +308,14 @@ export default function WorkbookEditorPage() {
             onChange={e => setTitleDraft(e.target.value)}
             onBlur={commitTitle}
           />
+          <label className="checkbox-row" style={{ marginTop: '0.75rem' }}>
+            <input
+              type="checkbox"
+              checked={workbook?.vendor_visible ?? false}
+              onChange={e => updateVendorVisible(e.target.checked)}
+            />
+            <span>Visible to vendors <span className="muted">— vendor trainers can find this workbook and run sessions from it</span></span>
+          </label>
         </section>
 
         {isTemplate && <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} />}

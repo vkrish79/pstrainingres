@@ -42,6 +42,11 @@ export function useWorkbookEditor(workbookId) {
     await supabase.from('workbooks').update({ title }).eq('id', workbookId);
   }, [workbookId]);
 
+  const updateVendorVisible = useCallback(async (vendor_visible) => {
+    setWorkbook(w => ({ ...w, vendor_visible }));
+    await supabase.from('workbooks').update({ vendor_visible }).eq('id', workbookId);
+  }, [workbookId]);
+
   const createBlock = useCallback(async (sectionId, blockType, config = {}) => {
     const sectionBlocks = blocks.filter(b => b.section_id === sectionId);
     const maxIdx = sectionBlocks.reduce((m, b) => Math.max(m, b.order_index), -1);
@@ -182,7 +187,7 @@ export function useWorkbookEditor(workbookId) {
   return {
     loading, error,
     workbook, sections, blocks,
-    updateWorkbookTitle, createBlock, updateBlock, deleteBlock, moveBlock,
+    updateWorkbookTitle, updateVendorVisible, createBlock, updateBlock, deleteBlock, moveBlock,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
     deleteWorkbook, reload: load,
   };

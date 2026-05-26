@@ -13,6 +13,7 @@ export default function ImportWorkbookPage() {
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState(null);
   const [titleDraft, setTitleDraft] = useState('');
+  const [vendorVisible, setVendorVisible] = useState(false);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
 
@@ -47,6 +48,7 @@ export default function ImportWorkbookPage() {
           title: titleDraft.trim() || parsed.title,
           description: parsed.description || null,
           is_template: true,
+          vendor_visible: vendorVisible,
           created_by: authSession.user.id,
         })
         .select()
@@ -116,6 +118,11 @@ export default function ImportWorkbookPage() {
                 <p className="muted" style={{ marginTop: 0 }}>{parsed.description}</p>
               </>
             )}
+
+            <label className="checkbox-row" style={{ margin: '0.85rem 0' }}>
+              <input type="checkbox" checked={vendorVisible} onChange={e => setVendorVisible(e.target.checked)} />
+              <span>Make available to vendors <span className="muted">— off for custom/one-off workbooks; on to let vendor trainers run sessions from it</span></span>
+            </label>
 
             <div className="import-counts">
               <span>{counts.sections} section{counts.sections === 1 ? '' : 's'}</span>

@@ -43,15 +43,18 @@ export default function NewSessionPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('workbooks')
         .select('id, title')
         .eq('is_template', true)
         .order('updated_at', { ascending: false });
+      // Vendor-tier only sees vendor-visible templates; super sees all.
+      if (!isSuper) q = q.eq('vendor_visible', true);
+      const { data } = await q;
       setWorkbooks(data || []);
       if (data?.length) setWorkbookId(data[0].id);
     })();
-  }, []);
+  }, [isSuper]);
 
   // Trainers a vendor_manager / super can assign sessions to. Includes
   // vendor_managers themselves (they can run sessions too). RLS already

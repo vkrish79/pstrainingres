@@ -11,6 +11,7 @@ export default function NewWorkbookPage() {
   const { session: authSession } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [vendorVisible, setVendorVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,6 +24,7 @@ export default function NewWorkbookPage() {
         title: title.trim(),
         description: description.trim() || null,
         is_template: true,
+        vendor_visible: vendorVisible,
         created_by: authSession.user.id,
       })
       .select()
@@ -53,6 +55,11 @@ export default function NewWorkbookPage() {
 
             <label className="form-label">Description (optional)</label>
             <input className="form-input" value={description} onChange={e => setDescription(e.target.value)} />
+
+            <label className="checkbox-row" style={{ marginTop: '0.85rem' }}>
+              <input type="checkbox" checked={vendorVisible} onChange={e => setVendorVisible(e.target.checked)} />
+              <span>Make available to vendors <span className="muted">— off for custom/one-off workbooks; on to let vendor trainers run sessions from it</span></span>
+            </label>
 
             {error && <p className="error">{error}</p>}
             <div className="form-actions">
