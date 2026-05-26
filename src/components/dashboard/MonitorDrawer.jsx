@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Block from '../blocks/Block.jsx';
 import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 
@@ -12,8 +12,15 @@ import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 // participant's actual answers. Read-only.
 export default function MonitorDrawer({
   open, onClose, section, blocks, participants = [], participantAnswers = {}, liveHere = [],
+  className = '', onWideChange,
 }) {
   const [expanded, setExpanded] = useState(() => new Set());
+
+  // Expanding a participant shows their full exercise — too wide for the narrow
+  // drawer. Report "wide" so the parent shrinks the canvas to the exercise
+  // sidebar and the drawer takes the freed space.
+  const isWide = open && expanded.size > 0;
+  useEffect(() => { onWideChange?.(isWide); }, [isWide, onWideChange]);
 
   const sectionBlocks = section
     ? blocks.filter(b => b.section_id === section.id && isFillableBlock(b))
@@ -41,7 +48,7 @@ export default function MonitorDrawer({
   }
 
   return (
-    <aside className={`monitor-drawer ${open ? 'open' : ''}`} role="dialog" aria-label="Monitor participants" aria-hidden={!open}>
+    <aside className={`monitor-drawer ${className} ${open ? 'open' : ''} ${isWide ? 'monitor-drawer--wide' : ''}`} role="dialog" aria-label="Monitor participants" aria-hidden={!open}>
       <header className="monitor-drawer-head">
         <h2>👁 Monitor</h2>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close monitor">×</button>

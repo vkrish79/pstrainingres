@@ -114,14 +114,15 @@
    overlay). Narrow because prep values are short (a PNR / ticket number). */
 .prep-drawer {
   position: fixed;
-  /* Start below the global TopBar (~60px) rather than covering it. */
-  top: 60px; right: 0; bottom: 0;
+  /* Floating rounded card, inset from the edges (matches the monitor drawer). */
+  top: 60px; right: 12px; bottom: 12px;
   width: min(218px, 100vw);
   background: var(--card, #fff);
-  border-left: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   box-shadow: -8px 0 24px rgba(15, 22, 38, 0.08);
-  transform: translateX(100%);
-  transition: transform 0.25s ease;
+  transform: translateX(calc(100% + 12px));
+  transition: transform 0.3s ease;
   z-index: 50;
   display: flex; flex-direction: column; overflow: hidden;
 }
@@ -143,30 +144,33 @@
    negative margin-right keeps it spanning the full viewport so only the content
    below the header reflows. */
 @media (min-width: 900px) {
-  body { transition: margin-right 0.25s ease; }
-  body.prep-drawer-pushed { margin-right: min(218px, 100vw); }
-  .topbar { transition: margin-right 0.25s ease; }
-  body.prep-drawer-pushed .topbar { margin-right: calc(-1 * min(218px, 100vw)); }
+  body { transition: margin-right 0.3s ease; }
+  /* 218 drawer + 12 right inset. */
+  body.prep-drawer-pushed { margin-right: min(230px, 100vw); }
+  .topbar { transition: margin-right 0.3s ease; }
 
-  /* Trainer "My copy": start the drawer flush with the sticky presenter bar
-     instead of the TopBar. The parent keeps --prep-drawer-top synced to the
-     bar's live top (clamps to 60px when the bar pins on scroll), so the two
-     stay aligned. Falls back to 60px before the first sync. */
-  .prep-drawer.prep-drawer--track { top: var(--prep-drawer-top, 60px); }
+  /* Trainer "My copy": align with the exercise row (level with the monitor
+     drawer), below the full-width presenter bar — reuses --monitor-bar-bottom
+     (the exercise-row top synced by the parent). Participant view (no --track)
+     keeps the base top: 60px. */
+  .prep-drawer.prep-drawer--track { top: var(--monitor-bar-bottom, 110px); }
 
-  /* The session header card sits above the drawer, not beside it — keep it
-     full-width (like the TopBar) rather than re-centering in the pushed canvas,
-     so its right-aligned actions (Edit workbook / Close session) don't shift.
-     The matching negative margin cancels the body push for this card only. */
-  .dashboard .page-hero { transition: margin-right 0.25s ease; }
-  body.prep-drawer-pushed .dashboard .page-hero { margin-right: calc(-1 * min(218px, 100vw)); }
+  /* Keep the session header card, tabs AND presenter bar full-width above the
+     drawer (their negative margin cancels the body push, in lockstep). */
+  .dashboard .page-hero { transition: margin-right 0.3s ease; }
+  body.prep-drawer-pushed .topbar,
+  body.prep-drawer-pushed .dashboard .page-hero,
+  body.prep-drawer-pushed .dashboard .view-tabs,
+  body.prep-drawer-pushed .practice-view .presenter-bar {
+    margin-right: calc(-1 * min(230px, 100vw));
+  }
 }
 
 /* Narrow screens: bottom sheet; don't push. */
 @media (max-width: 899px) {
   .prep-drawer {
-    width: 100vw; top: auto; height: 70vh;
-    border-left: none; border-top: 1px solid var(--border);
+    width: 100vw; top: auto; right: 0; bottom: 0; height: 70vh;
+    border: none; border-top: 1px solid var(--border);
     border-radius: 12px 12px 0 0;
     transform: translateY(100%);
     box-shadow: 0 -8px 24px rgba(15, 22, 38, 0.12);
@@ -178,3 +182,23 @@
 
 /* Referenced-prep marker in the prep-template setup panel (composed workbooks) */
 .prep-ref-tag { color: var(--gold-dark); font-size: 0.82rem; }
+
+/* One-off prep extraction (composed workbooks) */
+.prep-extract {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: #faf6ec;
+}
+.prep-extract-head { font-weight: 600; margin: 0 0 0.35rem; }
+.prep-extract-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin: 0.6rem 0 0.25rem;
+  flex-wrap: wrap;
+}
+.prep-extract-row .form-label { display: flex; flex-direction: column; gap: 0.25rem; margin: 0; font-size: 0.85rem; }
+.prep-extract-row .form-input.compact { width: 7rem; }
+.prep-warn { color: #9a6a00; font-size: 0.9rem; margin: 0.4rem 0 0; }

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { wordCount } from '../../lib/markdownLite.js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { sanitizeNotesHtml, wordCountHtml } from '../../lib/notesRichText.js';
 
 // Rotating placeholders so participants who don't know what to write get a
 // nudge. Deterministically picked per section so it doesn't shuffle.
@@ -28,11 +28,17 @@ function formatSavedAt(updatedAt) {
 }
 
 export default function NotesDrawer({
-  open, onClose, sections, notes, savingMap, saveNote, currentSectionId,
+  open, onClose, sections, notes, saveNote, currentSectionId,
 }) {
   // Per-section expand/collapse. `currentSectionId` is opened by default
   // when the drawer opens; toggleSet tracks user overrides.
   const [toggleSet, setToggleSet] = useState(() => new Set());
+
+  // Each expanded editor registers a flush fn; on drawer close we save them all
+  // (covers ×, backdrop, Esc, and the N shortcut — all just flip `open`).
+  const flushersRef = useRef({});
+  const register = useCallback((id, fn) => { flushersRef.current[id] = fn; }, []);
+  const unregister = useCallback((id) => { delete flushersRef.current[id]; }, []);
 
   function isExpanded(id) {
     const defaultOpen = id === currentSectionId;
@@ -46,9 +52,12 @@ export default function NotesDrawer({
     });
   }
 
-  // Reset toggles when the drawer is closed so re-opening shows a clean default.
+  // On close: flush every open editor, then reset toggles for a clean re-open.
   useEffect(() => {
-    if (!open) setToggleSet(new Set());
+    if (!open) {
+      Object.values(flushersRef.current).forEach(fn => fn());
+      setToggleSet(new Set());
+    }
   }, [open]);
 
   return (
@@ -76,7 +85,7 @@ export default function NotesDrawer({
           </button>
         </header>
         <p className="notes-drawer-hint">
-          One note per exercise. Tip: <code>**bold**</code>, <code>_italic_</code>, <code>- bullet</code>.
+          One note per exercise. Select text and use <strong>B</strong> / <em>I</em> / • to format. Saved when you close.
         </p>
         <div className="notes-drawer-body">
           {sections.map(sec => (
@@ -84,11 +93,12 @@ export default function NotesDrawer({
               key={sec.id}
               section={sec}
               note={notes[sec.id]}
-              saving={savingMap[sec.id]}
               expanded={isExpanded(sec.id)}
               onToggle={() => toggle(sec.id)}
-              onChange={text => saveNote(sec.id, text)}
+              onFlush={html => saveNote(sec.id, html)}
               isCurrent={sec.id === currentSectionId}
+              register={register}
+              unregister={unregister}
             />
           ))}
         </div>
@@ -97,20 +107,8 @@ export default function NotesDrawer({
   );
 }
 
-function NoteCard({ section, note, saving, expanded, onToggle, onChange, isCurrent }) {
-  const ref = useRef(null);
-  const text = note?.note || '';
-  const count = useMemo(() => wordCount(text), [text]);
-
-  // Autofocus the current section's textarea when the card is expanded.
-  useEffect(() => {
-    if (expanded && isCurrent && ref.current) {
-      // Defer to next tick so the transition doesn't fight focus.
-      const t = setTimeout(() => ref.current?.focus(), 50);
-      return () => clearTimeout(t);
-    }
-  }, [expanded, isCurrent]);
-
+function NoteCard({ section, note, expanded, onToggle, onFlush, isCurrent, register, unregister }) {
+  const count = wordCountHtml(note?.note || '');
   return (
     <div className={`notes-card ${expanded ? 'expanded' : 'collapsed'} ${isCurrent ? 'current' : ''}`}>
       <button
@@ -124,27 +122,84 @@ function NoteCard({ section, note, saving, expanded, onToggle, onChange, isCurre
         {count > 0 && <span className="notes-card-count">{count} word{count === 1 ? '' : 's'}</span>}
       </button>
       {expanded && (
-        <div className="notes-card-body">
-          <textarea
-            ref={ref}
-            className="notes-card-textarea"
-            value={text}
-            placeholder={promptFor(section.id)}
-            onChange={e => onChange(e.target.value)}
-            rows={5}
-          />
-          <div className="notes-card-status">
-            {saving === 'saving' && <span className="muted">Saving…</span>}
-            {saving === 'saved' && note?.updated_at && (
-              <span className="muted">{formatSavedAt(note.updated_at)}</span>
-            )}
-            {saving === 'error' && <span className="error">Save failed — will retry</span>}
-            {!saving && note?.updated_at && (
-              <span className="muted">{formatSavedAt(note.updated_at)}</span>
-            )}
-          </div>
-        </div>
+        <NoteEditor
+          section={section}
+          savedHtml={note?.note || ''}
+          updatedAt={note?.updated_at}
+          isCurrent={isCurrent}
+          onFlush={onFlush}
+          register={register}
+          unregister={unregister}
+        />
       )}
+    </div>
+  );
+}
+
+// Uncontrolled contentEditable: React never owns its children. Initial HTML is
+// set once via ref on mount; we read it back (sanitized) only on flush. This is
+// what keeps typing responsive — no per-keystroke state/save.
+function NoteEditor({ section, savedHtml, updatedAt, isCurrent, onFlush, register, unregister }) {
+  const editorRef = useRef(null);
+
+  // Mount: seed the editor and focus the current section's note.
+  useEffect(() => {
+    if (editorRef.current) editorRef.current.innerHTML = sanitizeNotesHtml(savedHtml);
+    if (isCurrent) {
+      const t = setTimeout(() => editorRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+    // Mount-only: must not re-run on re-render or it would wipe the user's edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save the current content if it differs from what's stored.
+  function flush() {
+    const el = editorRef.current;
+    if (!el) return;
+    const html = sanitizeNotesHtml(el.innerHTML);
+    if (html !== sanitizeNotesHtml(savedHtml)) onFlush(html);
+  }
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+
+  // Register a stable flush wrapper for the drawer's close-flush; flush on
+  // unmount too (collapsing this card).
+  useEffect(() => {
+    const fn = () => flushRef.current();
+    register(section.id, fn);
+    return () => { fn(); unregister(section.id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section.id]);
+
+  function exec(cmd) {
+    document.execCommand(cmd, false, null);
+    editorRef.current?.focus();
+  }
+
+  return (
+    <div className="notes-card-body">
+      <div className="notes-toolbar" role="toolbar" aria-label="Formatting">
+        {/* preventDefault keeps the editor selection while clicking a tool */}
+        <button type="button" className="notes-tool" onMouseDown={e => e.preventDefault()} onClick={() => exec('bold')} title="Bold" aria-label="Bold"><strong>B</strong></button>
+        <button type="button" className="notes-tool" onMouseDown={e => e.preventDefault()} onClick={() => exec('italic')} title="Italic" aria-label="Italic"><em>I</em></button>
+        <button type="button" className="notes-tool" onMouseDown={e => e.preventDefault()} onClick={() => exec('insertUnorderedList')} title="Bullet list" aria-label="Bullet list">• List</button>
+      </div>
+      <div
+        ref={editorRef}
+        className="notes-card-editor"
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label={`Notes for ${section.title}`}
+        data-placeholder={promptFor(section.id)}
+        onBlur={flush}
+      />
+      <div className="notes-card-status">
+        {updatedAt && <span className="muted">{formatSavedAt(updatedAt)}</span>}
+      </div>
     </div>
   );
 }

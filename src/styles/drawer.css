@@ -177,3 +177,23 @@
   .notes-drawer,
   .notes-drawer-backdrop { display: none !important; }
 }
+
+/* Rich-text note editor (replaces the plain textarea) */
+.notes-toolbar { display: flex; gap: 0.35rem; margin-bottom: 0.4rem; }
+.notes-tool {
+  min-width: 2rem; padding: 0.2rem 0.5rem; font-size: 0.9rem; line-height: 1;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: #fff; color: var(--text); cursor: pointer;
+}
+.notes-tool:hover:not(:disabled) { background: var(--border); color: var(--text); }
+.notes-card-editor {
+  min-height: 6.5rem; padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff;
+  font-size: 0.95rem; line-height: 1.5; outline: none; overflow-wrap: anywhere;
+}
+.notes-card-editor:focus { border-color: var(--gold); }
+.notes-card-editor:empty:before {
+  content: attr(data-placeholder); color: var(--muted); font-style: italic; pointer-events: none;
+}
+.notes-card-editor ul, .notes-card-editor ol { margin: 0.25rem 0; padding-left: 1.25rem; }
+.notes-card-editor p { margin: 0.3rem 0; }

@@ -38,8 +38,10 @@ export default function TrainerPracticeView({
   const [drawMsg, setDrawMsg] = useState('');
   const [prepOpen, setPrepOpen] = useState(false);
   const [monitorOpen, setMonitorOpen] = useState(false);
+  const [monitorWide, setMonitorWide] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const barRef = useRef(null);
+  const layoutRef = useRef(null);
 
   // Toggle content-edit mode. Entering it closes the right drawers so the
   // editable canvas isn't pushed under one.
@@ -53,7 +55,7 @@ export default function TrainerPracticeView({
 
   // Prep and Monitor are both right push-drawers; keep at most one open.
   function openPrep() { setMonitorOpen(false); setPrepOpen(true); }
-  function openMonitor() { setPrepOpen(false); setMonitorOpen(true); }
+  function openMonitor() { setPrepOpen(false); setEditMode(false); setMonitorOpen(true); }
 
   // Push the page canvas left while a right drawer is open (no overlay); the
   // fixed drawer fills the gap. Mirrors the participant workbook view. One body
@@ -61,39 +63,55 @@ export default function TrainerPracticeView({
   useEffect(() => {
     document.body.classList.toggle('prep-drawer-pushed', prepOpen);
     document.body.classList.toggle('monitor-drawer-pushed', monitorOpen);
+    document.body.classList.toggle('monitor-drawer-wide', monitorOpen && monitorWide);
     return () => {
       document.body.classList.remove('prep-drawer-pushed');
       document.body.classList.remove('monitor-drawer-pushed');
+      document.body.classList.remove('monitor-drawer-wide');
     };
-  }, [prepOpen, monitorOpen]);
+  }, [prepOpen, monitorOpen, monitorWide]);
 
   // Anchor the prep drawer's top to the sticky presenter bar so the two stay
   // aligned at any scroll position. The bar's rect.top already reflects its
   // sticky pin (clamps to ~60px under the TopBar), so we feed it straight to a
   // CSS var the drawer reads. rAF-coalesced so scroll stays smooth.
   useEffect(() => {
-    if (!prepOpen) return undefined;
+    if (!prepOpen && !monitorOpen) return undefined;
     let raf = 0;
     const sync = () => {
       raf = 0;
       const bar = barRef.current;
       if (!bar) return;
-      const top = Math.round(bar.getBoundingClientRect().top);
-      document.body.style.setProperty('--prep-drawer-top', `${top}px`);
+      const rect = bar.getBoundingClientRect();
+      // Prep starts flush with the bar's top. The Monitor aligns with the
+      // exercise row (nav + content tiles) — the layout's top — but never above
+      // the bar's bottom, so it stays pinned under the sticky bar on scroll.
+      const barBottom = Math.round(rect.bottom);
+      const layoutTop = layoutRef.current
+        ? Math.round(layoutRef.current.getBoundingClientRect().top)
+        : barBottom;
+      document.body.style.setProperty('--prep-drawer-top', `${Math.round(rect.top)}px`);
+      document.body.style.setProperty('--monitor-bar-bottom', `${Math.max(layoutTop, barBottom)}px`);
     };
     const schedule = () => { if (!raf) raf = requestAnimationFrame(sync); };
     sync();
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
+    // The presenter bar un-wraps to full width as the push/exemption animates;
+    // a ResizeObserver re-syncs once its height settles, so the monitor drawer
+    // lands on the bar's true bottom instead of a mid-transition (too-low) value.
+    const ro = new ResizeObserver(schedule);
+    if (barRef.current) ro.observe(barRef.current);
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      ro.disconnect();
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
       // Deliberately keep --prep-drawer-top: clearing it here would snap the
       // drawer's top to the 60px fallback mid-close, so it'd jump up to the
       // TopBar and grow before sliding out. The next open re-syncs it.
     };
-  }, [prepOpen]);
+  }, [prepOpen, monitorOpen]);
 
   // Esc closes whichever drawer is open.
   useEffect(() => {
@@ -148,6 +166,14 @@ export default function TrainerPracticeView({
   const focusedSectionId = focus?.section_id || null;
   const focusIsSnap = !!focus?.snap_at && focus.snap_at === focus.set_at;
 
+  // Monitor and edit-content are mutually exclusive with the cohort controls:
+  // each disables the other's buttons (with a reason) so they can't conflict.
+  const cohortLockMsg = monitorOpen
+    ? 'Close Monitor to use cohort controls'
+    : editMode
+      ? 'Finish editing to use cohort controls'
+      : null;
+
   return (
     <div className="practice-view">
       {/* Sticky My-copy toolbar: cohort controls (Spotlight / Snap / Monitor +
@@ -159,20 +185,25 @@ export default function TrainerPracticeView({
         <button
           className={`ghost ${focus?.section_id && focus.section_id === selectedSection?.id ? 'active' : ''}`}
           onClick={() => selectedSection && spotlight(selectedSection)}
-          disabled={!selectedSection}
-          title={selectedSection ? 'Show participants a banner pointing to this exercise (they choose to follow)' : 'Select an exercise first'}
+          disabled={!selectedSection || monitorOpen || editMode}
+          title={cohortLockMsg || (selectedSection ? 'Show participants a banner pointing to this exercise (they choose to follow)' : 'Select an exercise first')}
         >
           🔦 Spotlight
         </button>
         <button
           className="ghost"
           onClick={() => selectedSection && spotlight(selectedSection, { hard: true })}
-          disabled={!selectedSection}
-          title={selectedSection ? 'Jump every participant to this exercise now' : 'Select an exercise first'}
+          disabled={!selectedSection || monitorOpen || editMode}
+          title={cohortLockMsg || (selectedSection ? 'Jump every participant to this exercise now' : 'Select an exercise first')}
         >
           ⚡ Snap here
         </button>
-        <button className={`ghost ${monitorOpen ? 'active' : ''}`} onClick={openMonitor}>
+        <button
+          className={`ghost ${monitorOpen ? 'active' : ''}`}
+          onClick={openMonitor}
+          disabled={editMode}
+          title={editMode ? 'Finish editing to monitor the cohort' : 'See who is on this exercise and their progress'}
+        >
           👁 Monitor{onlineTotal > 0 ? ` (${onlineTotal})` : ''}
         </button>
         {focus?.section_id && (
@@ -185,7 +216,8 @@ export default function TrainerPracticeView({
           <button
             className={`ghost ${editMode ? 'active' : ''}`}
             onClick={toggleEdit}
-            title={editMode ? 'Finish editing and return to your practice copy' : 'Edit the wording of any exercise in place — changes show to participants live'}
+            disabled={monitorOpen}
+            title={monitorOpen ? 'Close Monitor to edit content' : (editMode ? 'Finish editing and return to your practice copy' : 'Edit the wording of any exercise in place — changes show to participants live')}
           >
             {editMode ? '✓ Done editing' : '✎ Edit content'}
           </button>
@@ -201,7 +233,7 @@ export default function TrainerPracticeView({
       </div>
       {drawMsg && <p className="prep-notice">{drawMsg}</p>}
 
-      <div className="exresp-layout">
+      <div className="exresp-layout" ref={layoutRef}>
         <div className="exresp-mobile-nav">
           <select
             className="form-input"
@@ -302,8 +334,10 @@ export default function TrainerPracticeView({
         standalone={standalone}
       />
       <MonitorDrawer
+        className="monitor-drawer--track"
         open={monitorOpen}
         onClose={() => setMonitorOpen(false)}
+        onWideChange={setMonitorWide}
         section={selectedSectionId === ALL_KEY ? null : sections.find(s => s.id === selectedSectionId) || null}
         blocks={blocks}
         participants={participants}

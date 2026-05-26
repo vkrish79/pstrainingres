@@ -6,6 +6,7 @@
 // the section had no answers but still has a note or prep, so nothing drops.
 
 import { isFillableBlock, labelOf, inputCellsOf } from './blockHelpers.js';
+import { htmlToPlain } from './notesRichText.js';
 
 export function buildAnswersCsv({
   session, sections, blocks, participants, answers,
@@ -32,7 +33,7 @@ export function buildAnswersCsv({
       const noteEntry = pNotes[b.id];
       const flag = noteEntry?.flag ? 'flagged' : '';
       const note = noteEntry?.note || '';
-      const participantNote = pSectionNotes[b.section_id]?.note || '';
+      const participantNote = htmlToPlain(pSectionNotes[b.section_id]?.note || '');
       const prep = pSectionPrep[b.section_id]?.content || '';
 
       if (b.block_type === 'field') {
@@ -66,7 +67,7 @@ export function buildAnswersCsv({
         : (n?.updated_at || pr?.updated_at || '');
       rows.push([
         session.name, pname, sectionTitle[sectionId] || '', '', '', '',
-        ts, '', '', n?.note || '', pr?.content || '',
+        ts, '', '', htmlToPlain(n?.note || ''), pr?.content || '',
       ]);
     }
     // Standalone prep (not tied to any exercise) — one synthetic row per item.

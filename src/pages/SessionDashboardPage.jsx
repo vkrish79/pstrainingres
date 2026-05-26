@@ -6,6 +6,7 @@ import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
+import { sanitizeNotesHtml } from '../lib/notesRichText.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
@@ -621,7 +622,7 @@ export default function SessionDashboardPage() {
                         {pNote && (
                           <div className="participant-note-readonly">
                             <span className="participant-note-readonly-label">Participant note</span>
-                            <div className="participant-note-readonly-text">{pNote}</div>
+                            <div className="participant-note-readonly-text" dangerouslySetInnerHTML={{ __html: sanitizeNotesHtml(pNote) }} />
                           </div>
                         )}
                         {blocks.filter(b => b.section_id === sec.id).map(b => (

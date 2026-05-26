@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import TopBar from '../TopBar.jsx';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
+import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 
 // Read-only summary view rendered when sessions.closed_at is set. Driven
 // entirely by sessions.closed_summary (the snapshot saved at close time)
@@ -322,7 +323,7 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, expande
                 {sectionNote && (
                   <div className="participant-note-readonly">
                     <span className="participant-note-readonly-label">Participant note</span>
-                    <div className="participant-note-readonly-text">{sectionNote}</div>
+                    <div className="participant-note-readonly-text" dangerouslySetInnerHTML={{ __html: sanitizeNotesHtml(sectionNote) }} />
                   </div>
                 )}
                 {secBlocks.map(b => (

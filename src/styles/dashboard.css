@@ -522,14 +522,15 @@
 /* ===== Monitor drawer ("My copy" live cohort monitor) ===== */
 /* Right push-in drawer, mirroring the prep drawer but wider for the list. */
 .monitor-drawer {
-  /* Start below the global TopBar (~60px) rather than covering it. */
-  position: fixed; top: 60px; right: 0; bottom: 0;
+  /* Floating rounded card; top is set live to align with the exercise row. */
+  position: fixed; top: 60px; right: 12px; bottom: 12px;
   width: min(380px, 100vw);
   background: var(--card, #fff);
-  border-left: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   box-shadow: -8px 0 24px rgba(15, 22, 38, 0.08);
-  transform: translateX(100%);
-  transition: transform 0.25s ease;
+  transform: translateX(calc(100% + 12px));
+  transition: transform 0.3s ease, width 0.3s ease;
   z-index: 50;
   display: flex; flex-direction: column; overflow: hidden;
 }
@@ -570,13 +571,48 @@
 .monitor-row-body { padding: 0.2rem 0.3rem 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
 
 @media (min-width: 900px) {
-  body { transition: margin-right 0.25s ease; }
-  body.monitor-drawer-pushed { margin-right: min(380px, 100vw); }
+  body { transition: margin-right 0.3s ease; }
+  /* The push-exempt chrome (TopBar/hero/tabs/presenter bar) must transition
+     margin-right IDENTICALLY to the body, so its compensating negative margin
+     cancels the push at every frame — i.e. it stays visually still while the
+     canvas reflows. (TopBar/hero already have it from prep.css.) */
+  .dashboard .view-tabs,
+  .practice-view .presenter-bar { transition: margin-right 0.3s ease; }
+  /* 380 drawer + 12 right inset. */
+  body.monitor-drawer-pushed { margin-right: min(392px, 100vw); }
+
+  /* The Monitor starts BELOW the presenter bar (level with the exercise nav),
+     and the bar — including the Prep button — stays full-width above it. The
+     parent keeps --monitor-bar-bottom synced to the bar's live bottom. TopBar +
+     hero also stay full-width so only the canvas below reflows. */
+  .monitor-drawer.monitor-drawer--track { top: var(--monitor-bar-bottom, 110px); }
+  body.monitor-drawer-pushed .topbar,
+  body.monitor-drawer-pushed .dashboard .page-hero,
+  body.monitor-drawer-pushed .practice-view .presenter-bar {
+    margin-right: calc(-1 * min(392px, 100vw));
+  }
+
+  /* Wide mode: a participant is expanded, so shrink the canvas down to just the
+     exercise sidebar (the "exercise number column") and let the drawer take the
+     rest, giving the student's exercise a full-width read. --monitor-keep is the
+     strip left visible (sidebar + page padding). */
+  body.monitor-drawer-wide { margin-right: calc(100vw - var(--monitor-keep, 320px)); }
+  .monitor-drawer.monitor-drawer--wide { width: calc(100vw - var(--monitor-keep, 320px) - 12px); }
+  /* Keep the TopBar, hero AND presenter bar full-width; the wide drawer starts
+     below the presenter bar (its live bottom) so the bar isn't squeezed. */
+  body.monitor-drawer-wide .topbar,
+  body.monitor-drawer-wide .dashboard .page-hero,
+  body.monitor-drawer-wide .dashboard .view-tabs,
+  body.monitor-drawer-wide .practice-view .presenter-bar {
+    margin-right: calc(-1 * (100vw - var(--monitor-keep, 320px)));
+  }
+  .monitor-drawer.monitor-drawer--wide { top: var(--monitor-bar-bottom, 110px); }
+  body.monitor-drawer-wide .exresp-main { display: none; }
 }
 @media (max-width: 899px) {
   .monitor-drawer {
-    width: 100vw; top: auto; height: 75vh;
-    border-left: none; border-top: 1px solid var(--border);
+    width: 100vw; top: auto; right: 0; bottom: 0; height: 75vh;
+    border: none; border-top: 1px solid var(--border);
     border-radius: 12px 12px 0 0;
     transform: translateY(100%);
     box-shadow: 0 -8px 24px rgba(15, 22, 38, 0.12);

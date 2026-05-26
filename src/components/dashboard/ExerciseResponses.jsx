@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
+import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import NoteRow from './NoteRow.jsx';
 
 // Layout: sidebar nav (one row per exercise, with cohort progress) → tile grid
@@ -346,7 +347,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
           {sectionNote && (
             <div className="participant-note-readonly">
               <span className="participant-note-readonly-label">Participant note</span>
-              <div className="participant-note-readonly-text">{sectionNote}</div>
+              <div className="participant-note-readonly-text" dangerouslySetInnerHTML={{ __html: sanitizeNotesHtml(sectionNote) }} />
             </div>
           )}
           {blocks.map(b => (

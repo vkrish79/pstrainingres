@@ -6,7 +6,7 @@ import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
-import { renderMarkdownLite, wordCount } from '../lib/markdownLite.js';
+import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
@@ -22,7 +22,7 @@ export default function ParticipantWorkbookPage() {
   const { session: authSession } = useAuth();
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
-  const { notes: sectionNotes, saveNote, savingMap: notesSavingMap } = useParticipantNotes(session?.id, authSession?.user.id);
+  const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
   const { prep: sectionPrep, standalone: standalonePrep } = useParticipantPrep(session?.id, authSession?.user.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
@@ -111,7 +111,7 @@ export default function ParticipantWorkbookPage() {
   const notesByCount = useMemo(() => {
     const out = {};
     for (const s of Object.values(sectionNotes)) {
-      out[s.section_id] = wordCount(s.note || '');
+      out[s.section_id] = wordCountHtml(s.note || '');
     }
     return out;
   }, [sectionNotes]);
@@ -379,7 +379,7 @@ export default function ParticipantWorkbookPage() {
                       <div className="participant-note-label">My notes</div>
                       <div
                         className="participant-note-print"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdownLite(noteText) }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeNotesHtml(noteText) }}
                       />
                     </div>
                   )}
@@ -394,7 +394,6 @@ export default function ParticipantWorkbookPage() {
         onClose={() => setNotesOpen(false)}
         sections={sections}
         notes={sectionNotes}
-        savingMap={notesSavingMap}
         saveNote={saveNote}
         currentSectionId={selectedSectionId === ALL_KEY ? sections[0]?.id : selectedSectionId}
       />

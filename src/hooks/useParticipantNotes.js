@@ -1,19 +1,13 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 
-const SAVE_DEBOUNCE_MS = 600;
-
 // Participant-written section notes for the current session.
-// Shape:
-//   notes[sectionId]      = { id, note, updated_at }
-//   savingMap[sectionId]  = 'saving' | 'saved' | 'error'  (undefined if untouched)
-// `sessionId` and `participantId` may be null on first render; the hook
-// no-ops until both are set.
+// Shape: notes[sectionId] = { id, note, updated_at }. Notes are stored as a
+// constrained HTML subset (see lib/notesRichText.js). `sessionId` /
+// `participantId` may be null on first render; the hook no-ops until both set.
 export function useParticipantNotes(sessionId, participantId) {
   const [notes, setNotes] = useState({});
-  const [savingMap, setSavingMap] = useState({});
   const [loading, setLoading] = useState(true);
-  const timersRef = useRef({});
 
   useEffect(() => {
     if (!sessionId || !participantId) return;
@@ -33,39 +27,27 @@ export function useParticipantNotes(sessionId, participantId) {
     return () => { cancelled = true; };
   }, [sessionId, participantId]);
 
-  // Debounced upsert: callers can fire on every keystroke and we coalesce.
-  // Optimistic local update so the textarea stays responsive.
-  const saveNote = useCallback((sectionId, note) => {
+  // Immediate upsert. The editor is uncontrolled and only calls this on flush
+  // (drawer close / card blur / collapse), so there's no per-keystroke churn —
+  // that's what keeps typing responsive.
+  const saveNote = useCallback(async (sectionId, note) => {
     setNotes(prev => ({
       ...prev,
       [sectionId]: { ...(prev[sectionId] || {}), section_id: sectionId, note },
     }));
-    setSavingMap(prev => ({ ...prev, [sectionId]: 'saving' }));
-
-    if (timersRef.current[sectionId]) clearTimeout(timersRef.current[sectionId]);
-    timersRef.current[sectionId] = setTimeout(async () => {
-      if (!sessionId || !participantId) return;
-      const payload = {
-        session_id: sessionId,
-        participant_id: participantId,
-        section_id: sectionId,
-        note: note || '',
-      };
-      const { data, error } = await supabase
-        .from('participant_notes')
-        .upsert(payload, { onConflict: 'session_id,participant_id,section_id' })
-        .select()
-        .single();
-      if (error) {
-        setSavingMap(prev => ({ ...prev, [sectionId]: 'error' }));
-        return;
-      }
-      if (data) {
-        setNotes(prev => ({ ...prev, [sectionId]: data }));
-        setSavingMap(prev => ({ ...prev, [sectionId]: 'saved' }));
-      }
-    }, SAVE_DEBOUNCE_MS);
+    if (!sessionId || !participantId) return;
+    const { data, error } = await supabase
+      .from('participant_notes')
+      .upsert(
+        { session_id: sessionId, participant_id: participantId, section_id: sectionId, note: note || '' },
+        { onConflict: 'session_id,participant_id,section_id' },
+      )
+      .select()
+      .single();
+    if (!error && data) {
+      setNotes(prev => ({ ...prev, [sectionId]: data }));
+    }
   }, [sessionId, participantId]);
 
-  return { notes, loading, saveNote, savingMap };
+  return { notes, loading, saveNote };
 }
