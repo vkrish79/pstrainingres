@@ -54,18 +54,8 @@ function SuperHome({ userId, role }) {
   const { loading: msl, sessions: superSessions } = useTrainerSessions(userId, 'super');
   const { loading: wl, workbooks } = useTrainerWorkbooks(userId, role);
 
-  const totalSessions = vendors.reduce((s, v) => s + (v.session_count || 0), 0);
-  const totalTrainers = vendors.reduce((s, v) => s + (v.trainer_count || 0), 0);
-
   return (
     <>
-      <div className="stat-strip">
-        <StatCard icon="V" num={vl ? '—' : vendors.length} label="Vendor" />
-        <StatCard icon="S" num={vl ? '—' : totalSessions} label="Session" />
-        <StatCard icon="T" num={vl ? '—' : totalTrainers} label="Trainer" />
-        <StatCard icon="W" num={wl ? '—' : workbooks.length} label="Workbook" />
-      </div>
-
       {!msl && superSessions.length > 0 && (
         <>
           <SectionHeader title="Super trainer sessions" />
