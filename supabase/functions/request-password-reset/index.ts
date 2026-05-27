@@ -83,7 +83,8 @@ Deno.serve(async (req: Request) => {
     const resp = await fetch(PA_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: email, subject, body: text, html }),
+      // PA flow's HTTP trigger schema requires `htmlBody` (not `html`).
+      body: JSON.stringify({ to: email, subject, body: text, htmlBody: html }),
     });
     if (!resp.ok) console.error('PA email send failed', resp.status, await resp.text().catch(() => ''));
   } catch (e) {
