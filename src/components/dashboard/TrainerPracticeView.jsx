@@ -34,6 +34,7 @@ export default function TrainerPracticeView({
   const { focus, spotlight, clear: clearSpotlight } = useSessionFocus(sessionId, trainerId);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
+  const [exFilter, setExFilter] = useState('');
   const [drawing, setDrawing] = useState(false);
   const [drawMsg, setDrawMsg] = useState('');
   const [prepOpen, setPrepOpen] = useState(false);
@@ -148,6 +149,26 @@ export default function TrainerPracticeView({
     });
   }, [sections, blocks, answers]);
 
+  // Exercise-jump filter: narrows the sidebar to exercises whose title contains
+  // the typed text. Titles already carry the exercise number ("Exercise 18"), so
+  // a plain substring match handles both "18" and title words — and avoids the
+  // false hits a position-based match caused (section order ≠ exercise number).
+  // Enter jumps to the top match; Esc clears. Mirrors the participant copy.
+  const filteredStats = useMemo(() => {
+    const q = exFilter.trim().toLowerCase();
+    if (!q) return sectionStats;
+    return sectionStats.filter(s => s.title.toLowerCase().includes(q));
+  }, [sectionStats, exFilter]);
+
+  function onExFilterKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredStats.length) setSelectedSectionId(filteredStats[0].id);
+    } else if (e.key === 'Escape') {
+      setExFilter('');
+    }
+  }
+
   if (loading) return <div className="loading">Loading practice copy…</div>;
   if (error) return <p className="error">{error}</p>;
 
@@ -251,18 +272,32 @@ export default function TrainerPracticeView({
 
         <aside className="exresp-sidebar">
           <div className="exresp-sidebar-head">Exercises</div>
+          <input
+            type="text"
+            className="exresp-sidebar-filter"
+            placeholder="Jump to exercise…"
+            value={exFilter}
+            onChange={e => setExFilter(e.target.value)}
+            onKeyDown={onExFilterKeyDown}
+            aria-label="Filter exercises"
+          />
           <ul className="exresp-sidebar-list">
-            <li>
-              <button
-                className={`exresp-sidebar-item ${selectedSectionId === ALL_KEY ? 'active' : ''}`}
-                onClick={() => setSelectedSectionId(ALL_KEY)}
-              >
-                <div className="exresp-sidebar-row">
-                  <span className="exresp-sidebar-title">All exercises</span>
-                </div>
-              </button>
-            </li>
-            {sectionStats.map(s => {
+            {!exFilter.trim() && (
+              <li>
+                <button
+                  className={`exresp-sidebar-item ${selectedSectionId === ALL_KEY ? 'active' : ''}`}
+                  onClick={() => setSelectedSectionId(ALL_KEY)}
+                >
+                  <div className="exresp-sidebar-row">
+                    <span className="exresp-sidebar-title">All exercises</span>
+                  </div>
+                </button>
+              </li>
+            )}
+            {filteredStats.length === 0 && (
+              <li className="exresp-sidebar-empty">No exercises match “{exFilter.trim()}”</li>
+            )}
+            {filteredStats.map(s => {
               const barClass = s.pct === 0 ? 'none' : s.pct === 100 ? 'full' : 'partial';
               const isActive = selectedSectionId === s.id;
               return (

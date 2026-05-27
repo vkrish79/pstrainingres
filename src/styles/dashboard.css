@@ -410,6 +410,31 @@
      paint over this sticky header as they scroll up under it. */
   z-index: 2;
 }
+/* Exercise-jump filter at the top of the sidebar (trainer + participant copies).
+   Type a number ("27") or part of a title to narrow the list; Enter jumps to the
+   top match, Esc clears. */
+.exresp-sidebar-filter {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 1.4rem);
+  margin: 0.55rem 0.7rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.exresp-sidebar-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.exresp-sidebar-empty {
+  padding: 0.7rem 0.95rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .exresp-sidebar-list { list-style: none; padding: 0; margin: 0; }
 .exresp-sidebar-list li { border-bottom: 1px solid var(--border); position: relative; }
 .exresp-sidebar-list li:last-child { border-bottom: none; }
