@@ -124,6 +124,8 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
       if (matrix) { matrix.forEach(b => sec.blocks.push(b)); continue; }
       const split = tryInlineChoiceSplit(node);
       if (split) { split.forEach(b => sec.blocks.push(b)); continue; }
+      const stacked = tryStackedChoiceSplit(node);
+      if (stacked) { stacked.forEach(b => sec.blocks.push(b)); continue; }
       sec.blocks.push(tableBlockFromHtml(node));
       continue;
     }
@@ -405,6 +407,83 @@ function getCheckboxCellLabel(cellEl) {
   return (cellEl.textContent || '')
     .replace(BALLOT_BOX_RE, '')
     .trim();
+}
+
+// Detects "stacked" choice questions inside a composite questionnaire table:
+// a full-width bold question row (a single cell, spanned across the table) that
+// is IMMEDIATELY followed by a row whose every cell holds exactly one Word
+// checkbox + a label. This is the horizontal-options layout the New Joiner
+// workbook uses, e.g.
+//
+//   <tr><td colspan="4"><strong>1) What type of ticket has been issued?</strong></td></tr>
+//   <tr><td>☑Staff Ticket</td><td colspan="2">☑Redemption Ticket</td><td>☑Revenue Ticket</td></tr>
+//
+// Each such pair becomes one `choice` field; rows in between (e.g. the
+// "label | Click or tap here…" text fill-ins) are flushed as residual table
+// blocks, exactly as they'd import today — so this only adds the missing
+// choice fields and changes nothing else. Returns an array of blocks, or null
+// if the table has no such pair. Runs after the vertical-MCQ, matrix, and
+// inline-choice detectors, so it never competes with them (a checkbox row of
+// ≥2 boxes-per-row can't match any of those — see their cell-count guards).
+function tryStackedChoiceSplit(tableEl) {
+  const allRows = Array.from(tableEl.querySelectorAll('tr'));
+  if (allRows.length < 2) return null;
+
+  // A single-cell row whose text is bold — the question header.
+  function isQuestionRow(tr) {
+    const cells = Array.from(tr.children);
+    if (cells.length !== 1) return false;
+    const cell = cells[0];
+    if (!cell.textContent.trim()) return false;
+    return !!(cell.querySelector('strong, b') || isAllBold(cell));
+  }
+  // A row of ≥2 cells where EVERY cell has exactly one native checkbox and a
+  // non-empty label. Strict on purpose (not isCheckboxOptionCell, whose bare-
+  // word fallback could over-match plain data rows in other workbooks).
+  function horizontalOptions(tr) {
+    const cells = Array.from(tr.children);
+    if (cells.length < 2) return null;
+    const options = [];
+    for (const c of cells) {
+      if (c.querySelectorAll('input[type="checkbox"]').length !== 1) return null;
+      const label = getCheckboxCellLabel(c);
+      if (!label) return null;
+      options.push(label);
+    }
+    return options;
+  }
+
+  const blocks = [];
+  let runStart = 0;
+  let found = false;
+  function flushRun(end) {
+    if (end <= runStart) return;
+    const sub = subTableFromRows(tableEl, -1, runStart, end);
+    if (sub) blocks.push(tableBlockFromHtml(sub));
+  }
+
+  let i = 0;
+  while (i < allRows.length) {
+    const options = (i + 1 < allRows.length && isQuestionRow(allRows[i]))
+      ? horizontalOptions(allRows[i + 1])
+      : null;
+    if (options) {
+      flushRun(i);
+      const label = stripLeadingListNumber(allRows[i].children[0].textContent.trim());
+      blocks.push({
+        block_type: 'field',
+        config: { label: label || 'Untitled question', input_type: 'choice', options },
+      });
+      runStart = i + 2;
+      i += 2;
+      found = true;
+    } else {
+      i += 1;
+    }
+  }
+  if (!found) return null;
+  flushRun(allRows.length);
+  return blocks;
 }
 
 // Clone the table, keep only the header row (if any) + the row range
