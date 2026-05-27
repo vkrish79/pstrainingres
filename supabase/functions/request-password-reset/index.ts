@@ -54,7 +54,12 @@ Deno.serve(async (req: Request) => {
     options: { redirectTo },
   });
   const link = (data as { properties?: { action_link?: string } } | null)?.properties?.action_link;
-  if (error || !link) return jsonRes(200, { ok: true });
+  if (error || !link) {
+    // Logged (never surfaced) so this otherwise-invisible exit is diagnosable:
+    // distinguishes a generateLink error from "no account / no link" for a given email.
+    console.error('No recovery link generated', { email, reason: error ? error.message : 'no link returned' });
+    return jsonRes(200, { ok: true });
+  }
 
   const subject = 'Reset your pstrainingres password';
   const text = [
@@ -74,6 +79,7 @@ Deno.serve(async (req: Request) => {
   // Deliver via Power Automate. Errors are logged but not surfaced (a transport
   // failure only happens for an existing account, so reporting it would leak).
   try {
+    console.log('Recovery link generated, POSTing to PA', { email });
     const resp = await fetch(PA_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
