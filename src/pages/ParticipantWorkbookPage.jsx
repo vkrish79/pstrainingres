@@ -208,6 +208,26 @@ export default function ParticipantWorkbookPage() {
     return () => observer.disconnect();
   }, [loading, selectedSectionId, sections]);
 
+  // Slide-deck state lives in a shared hook so the trainer's "My copy" gets
+  // the same paging behavior. `blockedByDrawer` tells the hook to ignore the
+  // arrow keys while Notes / Prep are open (those drawers have their own
+  // keyboard interactions). MUST be called before any early return so React
+  // sees the same hook order on every render (loading → loaded transition).
+  const {
+    slideIdx, slideDir, animKey, currentSection: currentSlideSection,
+    goSlide, jumpSlide, seedTo,
+    onTouchStart, onTouchEnd,
+  } = useSlides({ sections, viewMode, blockedByDrawer: notesOpen || prepOpen });
+
+  // Broadcast the slide section as the participant's "on now" cursor so the
+  // trainer sees an accurate position even in slides mode. The scroll-spy
+  // below covers scroll mode.
+  useEffect(() => {
+    if (viewMode === 'slides' && currentSlideSection) {
+      setCurrentSectionId(currentSlideSection.id);
+    }
+  }, [viewMode, currentSlideSection?.id]);
+
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) {
     return (
@@ -228,25 +248,6 @@ export default function ParticipantWorkbookPage() {
   const visibleSections = selectedSectionId === ALL_KEY
     ? sections
     : sections.filter(s => s.id === selectedSectionId);
-
-  // Slide-deck state lives in a shared hook so the trainer's "My copy" gets
-  // the same paging behavior. `blockedByDrawer` tells the hook to ignore the
-  // arrow keys while Notes / Prep are open (those drawers have their own
-  // keyboard interactions).
-  const {
-    slideIdx, slideDir, animKey, currentSection: currentSlideSection,
-    goSlide, jumpSlide, seedTo,
-    onTouchStart, onTouchEnd,
-  } = useSlides({ sections, viewMode, blockedByDrawer: notesOpen || prepOpen });
-
-  // Broadcast the slide section as the participant's "on now" cursor so the
-  // trainer sees an accurate position even in slides mode. The scroll-spy
-  // below covers scroll mode.
-  useEffect(() => {
-    if (viewMode === 'slides' && currentSlideSection) {
-      setCurrentSectionId(currentSlideSection.id);
-    }
-  }, [viewMode, currentSlideSection?.id]);
 
   return (
     <>
