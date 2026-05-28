@@ -25,6 +25,9 @@ verify_jwt = true
 [functions.close-session]
 verify_jwt = true
 
+[functions.delete-session]
+verify_jwt = true
+
 [functions.allocate-session-prep]
 verify_jwt = true
 
