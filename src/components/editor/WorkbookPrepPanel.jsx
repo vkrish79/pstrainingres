@@ -150,7 +150,10 @@ export default function WorkbookPrepPanel({ workbook, sections, profile }) {
         const hkey = header.toLowerCase();
         if (seenHeaders.has(hkey)) continue;          // dedupe exact headers, first-wins
         seenHeaders.add(hkey);
-        const sec = matchSection(header, sections);
+        // Only consider exercise (non-group) sections — group banners never
+        // carry prep, so a header that happens to coincide with a group title
+        // must stay as a standalone column.
+        const sec = matchSection(header, sections.filter(s => s.kind !== 'group'));
         if (sec && referencedSectionIds.has(sec.id)) continue; // already referenced
         if (sec && !usedSections.has(sec.id)) {
           usedSections.add(sec.id);

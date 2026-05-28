@@ -145,7 +145,7 @@ export default function TrainerPracticeView({
       const fillable = sBlocks.filter(isFillableBlock);
       const answered = fillable.reduce((n, b) => n + (isAnswered(b, answers[b.id]) ? 1 : 0), 0);
       const pct = fillable.length ? Math.round((answered / fillable.length) * 100) : 0;
-      return { id: sec.id, title: sec.title, total: fillable.length, answered, pct };
+      return { id: sec.id, title: sec.title, kind: sec.kind || 'exercise', total: fillable.length, answered, pct };
     });
   }, [sections, blocks, answers]);
 
@@ -263,8 +263,8 @@ export default function TrainerPracticeView({
           >
             <option value={ALL_KEY}>All exercises</option>
             {sectionStats.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.title} — {s.pct}%
+              <option key={s.id} value={s.id} disabled={s.kind === 'group'}>
+                {s.kind === 'group' ? `— ${s.title} —` : `${s.title} — ${s.pct}%`}
               </option>
             ))}
           </select>
@@ -298,6 +298,19 @@ export default function TrainerPracticeView({
               <li className="exresp-sidebar-empty">No exercises match “{exFilter.trim()}”</li>
             )}
             {filteredStats.map(s => {
+              if (s.kind === 'group') {
+                return (
+                  <li key={s.id} className="exresp-sidebar-group-li">
+                    <button
+                      className="exresp-sidebar-group"
+                      onClick={() => setSelectedSectionId(ALL_KEY)}
+                      title="Group banner"
+                    >
+                      {s.title}
+                    </button>
+                  </li>
+                );
+              }
               const barClass = s.pct === 0 ? 'none' : s.pct === 100 ? 'full' : 'partial';
               const isActive = selectedSectionId === s.id;
               return (
@@ -333,8 +346,8 @@ export default function TrainerPracticeView({
             <p className="ce-hint">✎ Editing content — click any text to change its wording. Answer boxes and the layout are locked, and edits show to enrolled participants live. Press <strong>Done editing</strong> when finished.</p>
           )}
           {visibleSections.map(sec => (
-            <section key={sec.id} className="wb-section">
-              <h2>{sec.title}</h2>
+            <section key={sec.id} className={`wb-section${sec.kind === 'group' ? ' wb-section-group' : ''}`}>
+              {sec.kind === 'group' ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
               {prep[sec.id]?.content && (
                 <div className="participant-prep-callout">
                   <span className="participant-prep-callout-label">Prep</span>

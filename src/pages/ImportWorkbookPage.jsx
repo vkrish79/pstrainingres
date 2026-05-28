@@ -59,7 +59,7 @@ export default function ImportWorkbookPage() {
         const sec = parsed.sections[si];
         const { data: secRow, error: e2 } = await supabase
           .from('sections')
-          .insert({ workbook_id: wb.id, title: sec.title, order_index: si })
+          .insert({ workbook_id: wb.id, title: sec.title, order_index: si, kind: sec.kind || 'exercise' })
           .select()
           .single();
         if (e2) throw e2;
@@ -126,6 +126,7 @@ export default function ImportWorkbookPage() {
 
             <div className="import-counts">
               <span>{counts.sections} section{counts.sections === 1 ? '' : 's'}</span>
+              {counts.groups > 0 && <span>({counts.groups} group{counts.groups === 1 ? '' : 's'})</span>}
               <span>{counts.prose} prose</span>
               <span>{counts.field} field{counts.field === 1 ? '' : 's'}</span>
               <span>{counts.table} table{counts.table === 1 ? '' : 's'}</span>
@@ -133,8 +134,8 @@ export default function ImportWorkbookPage() {
 
             <div className="import-preview">
               {parsed.sections.map((sec, si) => (
-                <div key={si} className="import-section-preview">
-                  <h3>{sec.title}</h3>
+                <div key={si} className={`import-section-preview ${sec.kind === 'group' ? 'group' : ''}`}>
+                  <h3>{sec.kind === 'group' ? '§ ' : ''}{sec.title}</h3>
                   <ul>
                     {sec.blocks.map((b, bi) => (
                       <li key={bi}>
@@ -166,8 +167,8 @@ export default function ImportWorkbookPage() {
         <section className="editor-card">
           <h2 className="section-title" style={{ marginTop: 0 }}>Word formatting cheatsheet</h2>
           <ul className="cheatsheet">
-            <li><strong>Heading 1</strong> → workbook title (use once)</li>
-            <li><strong>Heading 2</strong> → starts a new section</li>
+            <li><strong>Heading 1</strong> → workbook title <em>(single-H1 docs)</em> · top-level section banner <em>(multi-H1 docs)</em></li>
+            <li><strong>Heading 2</strong> → starts a new exercise/section</li>
             <li>Plain paragraphs, bullets, sub-headings → become <em>prose</em> blocks</li>
             <li><code>[SHORT: What is your name?]</code> → short text input</li>
             <li><code>[LONG: Describe your experience…]</code> → multi-line text input</li>

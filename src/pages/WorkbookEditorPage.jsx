@@ -218,9 +218,10 @@ export default function WorkbookEditorPage() {
                 const secBlocks = blocks
                   .filter(b => b.section_id === sec.id)
                   .sort((a, b) => a.order_index - b.order_index);
+                const isGroup = sec.kind === 'group';
                 return (
-                  <section key={sec.id} className="wb-section">
-                    <h2>{sec.title}</h2>
+                  <section key={sec.id} className={`wb-section${isGroup ? ' wb-section-group' : ''}`}>
+                    {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
                     {secBlocks.map(b => (
                       <Block key={b.id} block={b} value={undefined} onChange={() => {}} />
                     ))}
@@ -327,10 +328,11 @@ export default function WorkbookEditorPage() {
             .filter(b => b.section_id === sec.id)
             .sort((a, b) => a.order_index - b.order_index);
           const isEditingTitle = editingSectionId === sec.id;
+          const isGroup = sec.kind === 'group';
           return (
             <section
               key={sec.id}
-              className="editor-section"
+              className={`editor-section${isGroup ? ' editor-section-group' : ''}`}
               data-section-id={sec.id}
               ref={el => { editorSectionRefs.current[sec.id] = el; }}
             >
@@ -346,6 +348,7 @@ export default function WorkbookEditorPage() {
                   />
                 ) : (
                   <h2 className="editor-section-title" onClick={() => startEditingSection(sec)} title="Click to rename">
+                    {isGroup && <span className="editor-section-group-badge">§ Section</span>}
                     {sec.title}
                   </h2>
                 )}
@@ -415,13 +418,14 @@ export default function WorkbookEditorPage() {
                   const secBlocks = blocks
                     .filter(b => b.section_id === sec.id)
                     .sort((a, b) => a.order_index - b.order_index);
+                  const isGroup = sec.kind === 'group';
                   return (
                     <section
                       key={sec.id}
-                      className={`wb-section ${activeSectionId === sec.id ? 'active' : ''}`}
+                      className={`wb-section ${isGroup ? 'wb-section-group ' : ''}${activeSectionId === sec.id ? 'active' : ''}`}
                       ref={el => { previewSectionRefs.current[sec.id] = el; }}
                     >
-                      <h2>{sec.title}</h2>
+                      {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
                       {secBlocks.map(b => (
                         <div
                           key={b.id}

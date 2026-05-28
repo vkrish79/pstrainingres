@@ -17,6 +17,28 @@
   font-size: 1.25rem;
 }
 
+/* Group sections (Word H1) — prominent banner that visually separates the
+   exercises beneath. Tinted background + larger heading make it impossible
+   to confuse with the per-exercise cards above and below it. */
+.wb-section-group {
+  background: linear-gradient(135deg, #f5efe0 0%, #ece1c4 100%);
+  border-color: var(--gold);
+  border-left: 6px solid var(--gold);
+  padding: 1.75rem 2rem 1.5rem;
+  margin-top: 2rem;
+}
+.wb-section-group:first-child { margin-top: 0; }
+.wb-section-group-title {
+  margin: 0 0 0.25rem;
+  padding: 0;
+  border: none;
+  color: var(--midnight);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.wb-section-group .wb-prose { font-size: 0.95rem; }
+
 .wb-prose {
   margin: 0.75rem 0;
   line-height: 1.55;

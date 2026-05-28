@@ -23,6 +23,30 @@
   font-size: 1.1rem;
 }
 
+/* Group-section (Word H1) styling in the structural editor pane — tinted
+   border + badge so authors see the document hierarchy without opening the
+   participant preview. */
+.editor-section-group {
+  background: linear-gradient(135deg, #f5efe0 0%, #ece1c4 100%);
+  border-color: var(--gold);
+  border-left: 6px solid var(--gold);
+  margin-top: 1.75rem;
+}
+.editor-section-group .editor-section-title { font-size: 1.25rem; }
+.editor-section-group-badge {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  background: var(--gold);
+  color: var(--midnight);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
 .block-list {
   display: flex;
   flex-direction: column;
@@ -159,6 +183,14 @@ button.danger:hover { background: #a83838; }
   font-size: 0.95rem;
   color: var(--midnight);
 }
+.import-section-preview.group {
+  margin-top: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  background: linear-gradient(90deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.02) 100%);
+  border-left: 4px solid var(--gold);
+  border-radius: 4px;
+}
+.import-section-preview.group h3 { font-size: 1rem; font-weight: 700; }
 .import-section-preview ul {
   list-style: none;
   padding: 0;

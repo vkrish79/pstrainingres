@@ -38,36 +38,81 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
   const root = doc.body.firstChild;
 
+  const tocLookup = buildTocLookup(root);
+
+  // Pre-pass: count H1s and harvest the workbook title from the
+  // "Document Information" table's `Document title` row (if present).
+  // ≥2 H1s → "hierarchy mode": every H1 becomes a group section above its
+  // H2/exercise children, pre-section content is preserved as Cover + Document
+  // Information. Single-H1 docs (e.g. ARDW) keep the legacy "first H1 =
+  // workbook title" behavior, so the smoke-test import is unchanged.
+  const elements = Array.from(root.childNodes).filter(n => n.nodeType === 1);
+  let h1Count = 0;
+  let docInfoTitle = null;
+  for (const n of elements) {
+    const tg = n.tagName.toLowerCase();
+    if (tg === 'h1') h1Count += 1;
+    else if (tg === 'table' && isMetadataTable(n)) {
+      const t = extractDocumentTitleFromTable(n);
+      if (t && !docInfoTitle) docInfoTitle = t;
+    }
+  }
+  const hierarchyMode = h1Count >= 2;
+
   let title = null;
   let description = null;
   const sections = [];
   let current = null;
-  const tocLookup = buildTocLookup(root);
+  // Tracks whether we've consumed pre-H1 content into a Cover/Doc-Info section.
+  let coverEmitted = false;
+  let docInfoEmitted = false;
+  let sawFirstHeading = false;
 
   function ensureSection() {
     if (!current) {
-      current = { title: 'Untitled section', blocks: [] };
+      current = { title: 'Untitled section', blocks: [], kind: 'exercise' };
       sections.push(current);
     }
     return current;
   }
 
-  for (const node of Array.from(root.childNodes)) {
-    if (node.nodeType !== 1) continue;
+  // Hierarchy mode: lazily create the Cover group when the first pre-heading
+  // content appears, so a doc with no front matter doesn't get an empty Cover.
+  function ensureCoverSection() {
+    if (!coverEmitted) {
+      current = { title: 'Cover', blocks: [], kind: 'group' };
+      sections.push(current);
+      coverEmitted = true;
+    }
+    return current;
+  }
+
+  for (const node of elements) {
     const tag = node.tagName.toLowerCase();
 
     if (tag === 'h1' || tag === 'h2') {
-      // Word auto-numbered headings (e.g. "Exercise 1") often arrive as an
-      // empty heading element whose only content is anchor `<a id="_Toc...">`
-      // tags. Recover the visible text from the matching TOC entry.
       const headText = resolveHeadingText(node, tocLookup);
-      // If an h1 looks like a section header (e.g. "Exercise 3"), treat it as one.
+
+      if (hierarchyMode) {
+        // In hierarchy mode every H1 is a group section, every H2 is an
+        // exercise. The workbook title comes from the pre-pass (Doc Info)
+        // or falls back to the filename; H1 is never consumed as the title.
+        sawFirstHeading = true;
+        if (headText) {
+          const kind = tag === 'h1' ? 'group' : 'exercise';
+          current = { title: headText, blocks: [], kind };
+          sections.push(current);
+        }
+        continue;
+      }
+
+      // Legacy mode (single-H1 docs like ARDW): unchanged behavior.
       if (tag === 'h1' && !title && !SECTION_HEADER_RE.test(headText)) {
         if (headText) title = headText;
         continue;
       }
       if (headText) {
-        current = { title: headText, blocks: [] };
+        current = { title: headText, blocks: [], kind: 'exercise' };
         sections.push(current);
       }
       continue;
@@ -85,39 +130,66 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
       // Skip Word TOC paragraphs (e.g. "<p><a href='#_Toc...'>Exercise 1\t4</a></p>")
       if (isTocParagraph(node)) continue;
 
-      // No h1 in the doc? Use the first bold short paragraph as the title.
-      if (!title && !current && isAllBold(node) && text.length < 80) {
+      // No h1 in the doc? Use the first bold short paragraph as the title
+      // (legacy behavior — hierarchy mode never enters this branch because
+      // the title is sourced from the Doc Info table / filename instead).
+      if (!hierarchyMode && !title && !current && isAllBold(node) && text.length < 80) {
         title = text;
         continue;
       }
 
       // Heuristic section header (e.g. "Exercise 1", "Module 3 – Booking")
       if (looksLikeSectionHeader(node, text)) {
-        current = { title: text, blocks: [] };
+        current = { title: text, blocks: [], kind: 'exercise' };
         sections.push(current);
+        sawFirstHeading = true;
         continue;
       }
 
       const field = parseFieldMarker(text);
       if (field) {
-        ensureSection().blocks.push({ block_type: 'field', config: field });
+        const host = hierarchyMode && !sawFirstHeading ? ensureCoverSection() : ensureSection();
+        host.blocks.push({ block_type: 'field', config: field });
         continue;
       }
 
-      // Capture the description if it's the first plain paragraph before any section
-      if (!current && !description && title) {
+      // Legacy: first plain pre-section paragraph → description.
+      if (!hierarchyMode && !current && !description && title) {
         description = text;
         continue;
       }
+
+      // Hierarchy mode: pre-heading paragraphs go into the Cover group so
+      // the front-matter page is preserved exactly as written.
+      if (hierarchyMode && !sawFirstHeading) {
+        ensureCoverSection().blocks.push(prose(node.outerHTML));
+        continue;
+      }
+
       ensureSection().blocks.push(prose(node.outerHTML));
       continue;
     }
 
     if (tag === 'table') {
-      // Pre-section "Document information" / "Revision information" tables —
-      // Word boilerplate. Skip them so they don't become an Untitled section.
-      if (!current && isMetadataTable(node)) continue;
-      const sec = ensureSection();
+      const isMeta = isMetadataTable(node);
+
+      if (hierarchyMode && isMeta && !sawFirstHeading) {
+        // Bundle metadata tables under a single "Document Information" group.
+        if (!docInfoEmitted) {
+          current = { title: 'Document Information', blocks: [], kind: 'group' };
+          sections.push(current);
+          docInfoEmitted = true;
+        }
+        current.blocks.push(tableBlockFromHtml(node));
+        continue;
+      }
+
+      // Legacy mode preserves prior behavior: we don't trust the metadata-table
+      // detector here, so these tables fall through as ordinary table blocks
+      // (which is what the older heading-text regex did in practice for ARDW).
+      // The detector is still used to harvest the workbook title in the pre-pass.
+
+      const sec = hierarchyMode && !sawFirstHeading ? ensureCoverSection() : ensureSection();
       const choice = tryChoiceFieldFromTable(node);
       if (choice) { sec.blocks.push(choice); continue; }
       const matrix = tryMatrixFieldsFromTable(node);
@@ -131,11 +203,37 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
     }
   }
 
+  const resolvedTitle = hierarchyMode
+    ? (docInfoTitle || fallbackName.replace(/\.docx?$/i, ''))
+    : (title || fallbackName.replace(/\.docx?$/i, ''));
+
   return {
-    title: title || fallbackName.replace(/\.docx?$/i, ''),
+    title: resolvedTitle,
     description,
     sections,
   };
+}
+
+// Pull the value from a "Document title" labelled row inside a Document
+// Information table. Tries common label variants so workbooks authored with
+// slightly different wording still surface a title.
+function extractDocumentTitleFromTable(tableEl) {
+  const rows = Array.from(tableEl.querySelectorAll('tr'));
+  for (let i = 0; i < rows.length; i++) {
+    const cells = Array.from(rows[i].children);
+    for (let j = 0; j < cells.length; j++) {
+      const label = (cells[j].textContent || '').trim().toLowerCase();
+      if (label === 'document title' || label === 'title' || label === 'workbook title') {
+        // Value can be the next cell in the same row, or the cell directly
+        // below (Word "label above, value below" layouts).
+        const nextInRow = cells[j + 1];
+        if (nextInRow && nextInRow.textContent.trim()) return nextInRow.textContent.trim();
+        const below = rows[i + 1]?.children?.[j];
+        if (below && below.textContent.trim()) return below.textContent.trim();
+      }
+    }
+  }
+  return null;
 }
 
 function prose(html) {
@@ -281,10 +379,39 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const METADATA_TABLE_RE = /\b(document|revision)\s+information\b/i;
+// "Document information" / "Revision information" boilerplate tables are
+// detected by their distinctive first-column labels rather than the heading
+// paragraph (which sits OUTSIDE the table in most exports). A table qualifies
+// if ≥2 of its first-column cells match this label set.
+const METADATA_ROW_LABELS = new Set([
+  'document title',
+  'document owner',
+  'business approval by',
+  'version №',
+  'version no',
+  'version no.',
+  'version date',
+  'revised by',
+  'revision approved by',
+  'revision date',
+  'revision №',
+  'revision no',
+  'revision no.',
+  'effective date',
+  'next review date',
+]);
 
 function isMetadataTable(tableEl) {
-  return METADATA_TABLE_RE.test(tableEl.textContent || '');
+  const rows = Array.from(tableEl.querySelectorAll('tr'));
+  if (rows.length < 2) return false;
+  let hits = 0;
+  for (const tr of rows) {
+    const first = tr.querySelector('td, th');
+    if (!first) continue;
+    const txt = (first.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (METADATA_ROW_LABELS.has(txt)) hits += 1;
+  }
+  return hits >= 2;
 }
 
 // Inline-choice row: a single row inside an otherwise normal data table
@@ -614,13 +741,14 @@ function detectInputType(text) {
 
 // Counts to show in the import preview
 export function countsOf(parsed) {
-  let prose = 0, field = 0, table = 0;
+  let prose = 0, field = 0, table = 0, groups = 0;
   for (const s of parsed.sections) {
+    if (s.kind === 'group') groups += 1;
     for (const b of s.blocks) {
       if (b.block_type === 'prose') prose += 1;
       else if (b.block_type === 'field') field += 1;
       else if (b.block_type === 'table') table += 1;
     }
   }
-  return { sections: parsed.sections.length, prose, field, table };
+  return { sections: parsed.sections.length, groups, prose, field, table };
 }

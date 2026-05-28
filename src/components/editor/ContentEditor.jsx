@@ -15,10 +15,11 @@ export default function ContentEditor({ sections, blocks, onSaveBlock }) {
         const secBlocks = blocks
           .filter(b => b.section_id === sec.id)
           .sort((a, b) => a.order_index - b.order_index);
+        const isGroup = sec.kind === 'group';
         return (
-          <section key={sec.id} className="wb-section ce-section">
-            <h2>{sec.title}</h2>
-            {secBlocks.length === 0 && <p className="muted">No content in this exercise.</p>}
+          <section key={sec.id} className={`wb-section ce-section${isGroup ? ' wb-section-group' : ''}`}>
+            {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
+            {secBlocks.length === 0 && !isGroup && <p className="muted">No content in this exercise.</p>}
             {secBlocks.map(b => (
               <div key={b.id} className="wb-block">
                 <EditableBlock block={b} onSave={config => onSaveBlock(b.id, { config })} />

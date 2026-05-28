@@ -137,7 +137,7 @@ export default function ParticipantWorkbookPage() {
       const fillable = sBlocks.filter(isFillableBlock);
       const answered = fillable.reduce((n, b) => n + (isAnswered(b, answers[b.id]) ? 1 : 0), 0);
       const pct = fillable.length ? Math.round((answered / fillable.length) * 100) : 0;
-      return { id: sec.id, title: sec.title, total: fillable.length, answered, pct };
+      return { id: sec.id, title: sec.title, kind: sec.kind || 'exercise', total: fillable.length, answered, pct };
     });
   }, [sections, blocks, answers]);
 
@@ -304,8 +304,8 @@ export default function ParticipantWorkbookPage() {
             >
               <option value={ALL_KEY}>All exercises</option>
               {sectionStats.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.title} — {s.pct}%
+                <option key={s.id} value={s.id} disabled={s.kind === 'group'}>
+                  {s.kind === 'group' ? `— ${s.title} —` : `${s.title} — ${s.pct}%`}
                 </option>
               ))}
             </select>
@@ -339,6 +339,30 @@ export default function ParticipantWorkbookPage() {
                 <li className="exresp-sidebar-empty">No exercises match “{exFilter.trim()}”</li>
               )}
               {filteredStats.map(s => {
+                // Group sections (Word H1) are non-clickable divider banners
+                // that visually group the exercises that follow them.
+                if (s.kind === 'group') {
+                  // Click jumps to the banner in the "All" view rather than
+                  // filtering to just the group (which would show an empty
+                  // page — groups carry no exercise blocks of their own).
+                  return (
+                    <li key={s.id} className="exresp-sidebar-group-li">
+                      <button
+                        className="exresp-sidebar-group"
+                        onClick={() => {
+                          setSelectedSectionId(ALL_KEY);
+                          requestAnimationFrame(() => {
+                            const el = sectionRefs.current[s.id];
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          });
+                        }}
+                        title="Jump to this section"
+                      >
+                        {s.title}
+                      </button>
+                    </li>
+                  );
+                }
                 const barClass = s.pct === 0 ? 'none' : s.pct === 100 ? 'full' : 'partial';
                 const isActive = selectedSectionId === s.id;
                 const noteWords = notesByCount[s.id] || 0;
@@ -384,14 +408,15 @@ export default function ParticipantWorkbookPage() {
             {visibleSections.map(sec => {
               const noteText = sectionNotes[sec.id]?.note || '';
               const prepText = sectionPrep[sec.id]?.content || '';
+              const isGroup = sec.kind === 'group';
               return (
                 <section
                   key={sec.id}
-                  className="wb-section"
+                  className={`wb-section${isGroup ? ' wb-section-group' : ''}`}
                   data-section-id={sec.id}
                   ref={el => { sectionRefs.current[sec.id] = el; }}
                 >
-                  <h2>{sec.title}</h2>
+                  {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
                   {prepText && (
                     <div className="participant-prep-callout">
                       <span className="participant-prep-callout-label">Pre-work from your trainer</span>

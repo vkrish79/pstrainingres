@@ -57,10 +57,14 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
           (Array.isArray(wb?.prep_template) ? wb.prep_template : [])
             .map(e => e?.section_id).filter(Boolean),
         );
-        const { data: secs, error: e1 } = await supabase
-          .from('sections').select('id, title, order_index').eq('workbook_id', sourceId).order('order_index');
+        const { data: secsAll, error: e1 } = await supabase
+          .from('sections').select('id, title, order_index, kind').eq('workbook_id', sourceId).order('order_index');
         if (e1) throw e1;
-        const ids = (secs || []).map(s => s.id);
+        // Group sections (Word H1 banners) are visual separators, not
+        // exercises — hide them from the picker so trainers can't tick a
+        // section that holds no copyable content.
+        const secs = (secsAll || []).filter(s => s.kind !== 'group');
+        const ids = secs.map(s => s.id);
         const { data: blks, error: e2 } = ids.length
           ? await supabase.from('blocks').select('id, section_id, block_type, config, order_index').in('section_id', ids).order('order_index')
           : { data: [], error: null };

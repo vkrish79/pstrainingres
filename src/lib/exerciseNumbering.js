@@ -11,12 +11,13 @@ const EX_PATTERN = /^\s*(?:exercise|ex)\s*\d+\s*$/i;
 // number. Returns how many titles changed.
 export async function renumberExercises(workbookId) {
   const { data: secs, error } = await supabase
-    .from('sections').select('id, title, order_index')
+    .from('sections').select('id, title, order_index, kind')
     .eq('workbook_id', workbookId).order('order_index');
   if (error || !secs) return 0;
   let rank = 0;
   const updates = [];
   for (const s of secs) {
+    if (s.kind === 'group') continue;
     if (!EX_PATTERN.test(s.title || '')) continue;
     rank += 1;
     const want = `Exercise ${rank}`;

@@ -88,7 +88,7 @@ export default function NotesDrawer({
           One note per exercise. Select text and use <strong>B</strong> / <em>I</em> / • to format. Saved when you close.
         </p>
         <div className="notes-drawer-body">
-          {sections.map(sec => (
+          {sections.filter(sec => sec.kind !== 'group').map(sec => (
             <NoteCard
               key={sec.id}
               section={sec}
