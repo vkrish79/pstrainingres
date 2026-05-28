@@ -8,7 +8,7 @@ import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 // entirely by sessions.closed_summary (the snapshot saved at close time)
 // since the live participants/answers tables are wiped on close.
 
-export default function ClosedSessionView({ snapshot }) {
+export default function ClosedSessionView({ snapshot, onDelete, deleteModal = null }) {
   const { session, participants = [], closed_at, closed_by, trainer_notes = [] } = snapshot;
 
   // Snapshots store block.type, but blockHelpers (isFillableBlock/isAnswered/
@@ -187,6 +187,9 @@ export default function ClosedSessionView({ snapshot }) {
           <div className="page-hero-actions">
             <button type="button" className="ghost no-print" onClick={() => window.print()}>↓ Print / Download PDF</button>
             <button type="button" className="ghost no-print" onClick={downloadJson}>↓ Download JSON</button>
+            {onDelete && (
+              <button type="button" className="ghost-link danger no-print" onClick={onDelete}>🗑 Delete session</button>
+            )}
           </div>
         </section>
 
@@ -259,6 +262,7 @@ export default function ClosedSessionView({ snapshot }) {
           ))}
         </div>
       </main>
+      {deleteModal}
     </>
   );
 }

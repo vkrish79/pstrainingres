@@ -284,5 +284,28 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession };
+  async function deleteSession() {
+    const { data: { session: authSess } } = await supabase.auth.getSession();
+    if (!authSess) return { error: new Error('Not authenticated') };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-session`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authSess.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      return { error: new Error(msg) };
+    }
+    const data = await res.json();
+    return { data };
+  }
+
+  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession };
 }

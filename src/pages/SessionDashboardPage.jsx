@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
@@ -42,9 +42,10 @@ function formatDateRange(start, end) {
 
 export default function SessionDashboardPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const {
     loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled,
-    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession,
+    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession,
   } = useSessionDashboard(id);
   const { session: authSession, profile } = useAuth();
   const canChangeTrainer = isVendorManagerOrAbove(profile?.role);
@@ -69,6 +70,8 @@ export default function SessionDashboardPage() {
   const [deleteError, setDeleteError] = useState({}); // { [participantId]: msg }
   const [confirmClose, setConfirmClose] = useState(false);
   const [closeError, setCloseError] = useState('');
+  const [confirmDeleteSession, setConfirmDeleteSession] = useState(false);
+  const [deleteSessionError, setDeleteSessionError] = useState('');
   const [confirmReset, setConfirmReset] = useState(null);
   const [resetResult, setResetResult] = useState({}); // { [participantId]: { temp_password } | { error } }
   const [busy, setBusy] = useState(false);
@@ -95,6 +98,14 @@ export default function SessionDashboardPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [confirmClose, busy]);
+
+  useBodyScrollLock(confirmDeleteSession);
+  useEffect(() => {
+    if (!confirmDeleteSession) return undefined;
+    function onKey(e) { if (e.key === 'Escape' && !busy) setConfirmDeleteSession(false); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmDeleteSession, busy]);
 
   // A participant "needs prep" when the workbook expects prep but they have no
   // section prep rows yet (un-allocated, or enrolled while the pool was empty).
@@ -345,10 +356,38 @@ export default function SessionDashboardPage() {
   if (loading) return <><TopBar /><div className="loading">Loading session…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
 
+  async function doDeleteSession() {
+    setBusy(true);
+    setDeleteSessionError('');
+    const { error: err } = await deleteSession();
+    setBusy(false);
+    if (err) { setDeleteSessionError(err.message); return; }
+    setConfirmDeleteSession(false);
+    navigate('/trainer');
+  }
+
   // Once closed, render the snapshot view instead of the live dashboard —
-  // participants and answers are gone from the live tables.
+  // participants and answers are gone from the live tables. Trainers still
+  // need a way to permanently discard a closed session, so the snapshot view
+  // gets the same delete control (and confirm modal) wired through.
   if (session?.closed_at && session?.closed_summary) {
-    return <ClosedSessionView snapshot={session.closed_summary} />;
+    return (
+      <ClosedSessionView
+        snapshot={session.closed_summary}
+        onDelete={() => { setDeleteSessionError(''); setConfirmDeleteSession(true); }}
+        deleteModal={confirmDeleteSession ? (
+          <DeleteSessionModal
+            sessionName={session?.name}
+            participantCount={null /* unknown post-close; the cascade handles whatever's left */}
+            isClosed={true}
+            error={deleteSessionError}
+            busy={busy}
+            onConfirm={doDeleteSession}
+            onCancel={() => setConfirmDeleteSession(false)}
+          />
+        ) : null}
+      />
+    );
   }
 
   async function doClose() {
@@ -404,6 +443,9 @@ export default function SessionDashboardPage() {
             </button>
             <button className="ghost-link danger" onClick={() => { setCloseError(''); setConfirmClose(true); }}>
               ✕ Close session
+            </button>
+            <button className="ghost-link danger" onClick={() => { setDeleteSessionError(''); setConfirmDeleteSession(true); }}>
+              🗑 Delete session
             </button>
           </div>
         </section>
@@ -707,6 +749,55 @@ export default function SessionDashboardPage() {
           </div>
         </div>
       )}
+      {confirmDeleteSession && (
+        <DeleteSessionModal
+          sessionName={session?.name}
+          participantCount={participants.length}
+          isClosed={false}
+          error={deleteSessionError}
+          busy={busy}
+          onConfirm={doDeleteSession}
+          onCancel={() => setConfirmDeleteSession(false)}
+        />
+      )}
     </>
+  );
+}
+
+// Shared confirm modal for permanently deleting a session. Used on both the
+// live dashboard and the closed-snapshot view — the wording adapts to
+// whichever the trainer is staring at, but the action (and irreversibility)
+// is the same: every session-scoped row + the clone workbook + remaining
+// participant accounts are wiped.
+function DeleteSessionModal({ sessionName, participantCount, isClosed, error, busy, onConfirm, onCancel }) {
+  return (
+    <div className="modal-backdrop visible" onClick={() => { if (!busy) onCancel(); }}>
+      <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+        <header className="modal-head">
+          <h2>Delete this session?</h2>
+          <button className="icon-btn" onClick={onCancel} disabled={busy} aria-label="Close">×</button>
+        </header>
+        <div className="modal-body">
+          <p>Permanently deleting <strong>{sessionName}</strong> will:</p>
+          <ul className="confirm-list">
+            {isClosed ? (
+              <li><strong>Discard the saved summary</strong> of this session — answers, notes, and analytics are gone forever.</li>
+            ) : (
+              <>
+                <li><strong>Permanently delete</strong> all {participantCount} participant{participantCount === 1 ? '' : 's'} and their accounts.</li>
+                <li><strong>Wipe</strong> every answer, note, and prep entry for this session.</li>
+              </>
+            )}
+            <li>Remove the session’s workbook copy.</li>
+          </ul>
+          <p className="muted"><strong>This cannot be undone.</strong> The session will not appear in any list afterwards.</p>
+          {error && <p className="error">{error}</p>}
+        </div>
+        <footer className="modal-foot">
+          <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button className="danger" onClick={onConfirm} disabled={busy}>{busy ? 'Deleting…' : 'Yes, delete session'}</button>
+        </footer>
+      </div>
+    </div>
   );
 }
