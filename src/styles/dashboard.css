@@ -500,9 +500,11 @@
 
 /* Group-section divider in the sidebar — bold, tinted, and visually anchored
    to the exercises that follow it. Clickable (jumps to the banner) but no
-   progress bar (group sections hold no fillable blocks). */
+   progress bar (group sections hold no fillable blocks).
+   Doubled class on every rule below beats the global `button:hover:not
+   (:disabled)` specificity — without it the navy hover would invert the row. */
 .exresp-sidebar-group-li { border-bottom: none !important; }
-.exresp-sidebar-group {
+.exresp-sidebar-group.exresp-sidebar-group {
   display: block;
   width: 100%;
   background: linear-gradient(90deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.04) 100%);
@@ -521,7 +523,10 @@
   line-height: 1.3;
 }
 .exresp-sidebar-list li:first-child .exresp-sidebar-group { margin-top: 0; }
-.exresp-sidebar-group:hover { background: linear-gradient(90deg, rgba(212,175,55,0.28) 0%, rgba(212,175,55,0.06) 100%); }
+.exresp-sidebar-group.exresp-sidebar-group:hover {
+  background: linear-gradient(90deg, rgba(212,175,55,0.32) 0%, rgba(212,175,55,0.08) 100%);
+  color: var(--midnight);
+}
 /* Live cohort-spread badge: how many participants are on this exercise now. */
 /* Live cohort badge — a standalone button anchored bottom-right of the row
    (sibling of the select button), so it's independently focusable/clickable.
