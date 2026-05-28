@@ -2,11 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTrainerPractice } from '../../hooks/useTrainerPractice.js';
 import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
 import { useSessionFocus } from '../../hooks/useSessionFocus.js';
-import { useSlides, loadViewMode, saveViewMode } from '../../hooks/useSlides.js';
 import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 import Block from '../blocks/Block.jsx';
 import { EditableBlock } from '../editor/ContentEditor.jsx';
-import SlidesDeck from '../SlidesDeck.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
 import MonitorDrawer from './MonitorDrawer.jsx';
 import '../../styles/workbook.css';
@@ -45,22 +43,6 @@ export default function TrainerPracticeView({
   const [editMode, setEditMode] = useState(false);
   const barRef = useRef(null);
   const layoutRef = useRef(null);
-
-  // Slide-deck mode (separate localStorage slot from the participant view so
-  // each role keeps its own preference). Slides are disabled while editMode
-  // is on — clicking text to edit and animated slides don't mix.
-  const [viewMode, setViewModeRaw] = useState(() => loadViewMode('trainer-practice'));
-  const setViewMode = (m) => { setViewModeRaw(m); saveViewMode('trainer-practice', m); };
-  const effectiveMode = editMode ? 'scroll' : viewMode;
-  const {
-    slideIdx, slideDir, animKey, currentSection: currentSlideSection,
-    goSlide, jumpSlide, seedTo,
-    onTouchStart, onTouchEnd,
-  } = useSlides({
-    sections,
-    viewMode: effectiveMode,
-    blockedByDrawer: monitorOpen || prepOpen,
-  });
 
   // Toggle content-edit mode. Entering it closes the right drawers so the
   // editable canvas isn't pushed under one.
@@ -253,24 +235,6 @@ export default function TrainerPracticeView({
         )}
         <div className="presenter-bar-right">
           <button
-            className="ghost"
-            onClick={() => {
-              const next = viewMode === 'slides' ? 'scroll' : 'slides';
-              setViewMode(next);
-              if (next === 'slides') {
-                const seedId = selectedSectionId !== ALL_KEY ? selectedSectionId : null;
-                const seedIdx = seedId ? sections.findIndex(s => s.id === seedId) : 0;
-                seedTo(seedIdx >= 0 ? seedIdx : 0);
-              }
-            }}
-            disabled={editMode}
-            title={editMode
-              ? 'Finish editing to change view'
-              : (viewMode === 'slides' ? 'Switch back to one scrolling page' : 'Page through one exercise at a time')}
-          >
-            {viewMode === 'slides' ? '📜 Scroll' : '📖 Slides'}
-          </button>
-          <button
             className={`ghost ${editMode ? 'active' : ''}`}
             onClick={toggleEdit}
             disabled={monitorOpen}
@@ -290,48 +254,6 @@ export default function TrainerPracticeView({
       </div>
       {drawMsg && <p className="prep-notice">{drawMsg}</p>}
 
-      {effectiveMode === 'slides' && currentSlideSection && (
-        <SlidesDeck
-          sections={sections}
-          sectionStats={sectionStats}
-          slideIdx={slideIdx}
-          slideDir={slideDir}
-          animKey={animKey}
-          jumpSlide={jumpSlide}
-          goSlide={goSlide}
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-          currentSection={currentSlideSection}
-          renderSection={(sec) => {
-            const isGroup = sec.kind === 'group';
-            return (
-              <section className={`wb-section${isGroup ? ' wb-section-group' : ''} slides-card`}>
-                {isGroup
-                  ? <h1 className="wb-section-group-title">{sec.title}</h1>
-                  : <h2>{sec.title}</h2>}
-                {prep[sec.id]?.content && (
-                  <div className="participant-prep-callout">
-                    <span className="participant-prep-callout-label">Prep</span>
-                    {prep[sec.id].content}
-                  </div>
-                )}
-                {blocks
-                  .filter(b => b.section_id === sec.id)
-                  .map(b => (
-                    <Block
-                      key={b.id}
-                      block={b}
-                      value={answers[b.id]}
-                      onChange={v => saveAnswer(b.id, v)}
-                    />
-                  ))}
-              </section>
-            );
-          }}
-        />
-      )}
-
-      {effectiveMode === 'scroll' && (
       <div className="exresp-layout" ref={layoutRef}>
         <div className="exresp-mobile-nav">
           <select
@@ -450,7 +372,6 @@ export default function TrainerPracticeView({
           ))}
         </div>
       </div>
-      )}
 
       <PrepDrawer
         className="prep-drawer--track"

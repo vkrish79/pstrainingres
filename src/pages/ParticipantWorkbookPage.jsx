@@ -7,9 +7,7 @@ import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
-import { useSlides, loadViewMode, saveViewMode } from '../hooks/useSlides.js';
 import Block from '../components/blocks/Block.jsx';
-import SlidesDeck from '../components/SlidesDeck.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
@@ -19,7 +17,6 @@ import '../styles/print.css';
 import '../styles/drawer.css';
 
 const ALL_KEY = '__all__';
-const VIEW_MODE_KEY = 'participant';
 
 export default function ParticipantWorkbookPage() {
   const { session: authSession } = useAuth();
@@ -32,11 +29,6 @@ export default function ParticipantWorkbookPage() {
   const [exFilter, setExFilter] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
-
-  // Slide-deck vs scroll mode. Persists per-browser (participant slot) so the
-  // participant's last preference sticks across reloads. Default = scroll.
-  const [viewMode, setViewModeRaw] = useState(() => loadViewMode(VIEW_MODE_KEY));
-  const setViewMode = (m) => { setViewModeRaw(m); saveViewMode(VIEW_MODE_KEY, m); };
 
   // Live presence: tell the trainer which exercise this participant is looking
   // at. The fill view defaults to one scrolling page (`__all__`), so the
@@ -208,26 +200,6 @@ export default function ParticipantWorkbookPage() {
     return () => observer.disconnect();
   }, [loading, selectedSectionId, sections]);
 
-  // Slide-deck state lives in a shared hook so the trainer's "My copy" gets
-  // the same paging behavior. `blockedByDrawer` tells the hook to ignore the
-  // arrow keys while Notes / Prep are open (those drawers have their own
-  // keyboard interactions). MUST be called before any early return so React
-  // sees the same hook order on every render (loading → loaded transition).
-  const {
-    slideIdx, slideDir, animKey, currentSection: currentSlideSection,
-    goSlide, jumpSlide, seedTo,
-    onTouchStart, onTouchEnd,
-  } = useSlides({ sections, viewMode, blockedByDrawer: notesOpen || prepOpen });
-
-  // Broadcast the slide section as the participant's "on now" cursor so the
-  // trainer sees an accurate position even in slides mode. The scroll-spy
-  // below covers scroll mode.
-  useEffect(() => {
-    if (viewMode === 'slides' && currentSlideSection) {
-      setCurrentSectionId(currentSlideSection.id);
-    }
-  }, [viewMode, currentSlideSection?.id]);
-
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) {
     return (
@@ -292,25 +264,6 @@ export default function ParticipantWorkbookPage() {
             <button
               type="button"
               className="ghost no-print"
-              onClick={() => {
-                const next = viewMode === 'slides' ? 'scroll' : 'slides';
-                setViewMode(next);
-                if (next === 'slides') {
-                  // Seed slide position from the currently-selected section
-                  // (or the scroll-spy's current section) so toggling doesn't
-                  // jump to the cover.
-                  const seedId = selectedSectionId !== ALL_KEY ? selectedSectionId : currentSectionId;
-                  const seedIdx = sections.findIndex(s => s.id === seedId);
-                  seedTo(seedIdx >= 0 ? seedIdx : 0);
-                }
-              }}
-              title={viewMode === 'slides' ? 'Switch back to one long scrolling page' : 'Page through one exercise at a time, like flipping pages'}
-            >
-              {viewMode === 'slides' ? '📜 Scroll mode' : '📖 Slides mode'}
-            </button>
-            <button
-              type="button"
-              className="ghost no-print"
               onClick={() => window.print()}
               title="Open the print dialog. Choose 'Save as PDF' to download."
             >
@@ -342,48 +295,6 @@ export default function ParticipantWorkbookPage() {
           </div>
         )}
 
-        {viewMode === 'slides' && currentSlideSection && (
-          <SlidesDeck
-            sections={sections}
-            sectionStats={sectionStats}
-            slideIdx={slideIdx}
-            slideDir={slideDir}
-            animKey={animKey}
-            jumpSlide={jumpSlide}
-            goSlide={goSlide}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-            currentSection={currentSlideSection}
-            renderSection={(sec) => {
-              const isGroup = sec.kind === 'group';
-              const prepText = sectionPrep[sec.id]?.content || '';
-              return (
-                <section className={`wb-section${isGroup ? ' wb-section-group' : ''} slides-card`}>
-                  {isGroup
-                    ? <h1 className="wb-section-group-title">{sec.title}</h1>
-                    : <h2>{sec.title}</h2>}
-                  {prepText && (
-                    <div className="participant-prep-callout">
-                      <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-                      {prepText}
-                    </div>
-                  )}
-                  {blocks.filter(b => b.section_id === sec.id).map(b => (
-                    <Block
-                      key={b.id}
-                      block={b}
-                      value={answers[b.id]}
-                      onChange={v => saveAnswer(b.id, v)}
-                      recentlyUpdated={!!recentlyUpdated[b.id]}
-                    />
-                  ))}
-                </section>
-              );
-            }}
-          />
-        )}
-
-        {viewMode === 'scroll' && (
         <div className="exresp-layout">
           <div className="exresp-mobile-nav">
             <select
@@ -537,7 +448,6 @@ export default function ParticipantWorkbookPage() {
             })}
           </div>
         </div>
-        )}
       </main>
       <NotesDrawer
         open={notesOpen}
