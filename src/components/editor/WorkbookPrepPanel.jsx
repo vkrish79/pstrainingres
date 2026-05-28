@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { parseSheetFile } from '../../lib/sheetParse.js';
 import { matchSection } from '../../lib/prepColumns.js';
@@ -15,6 +16,7 @@ import '../../styles/prep.css';
 // one-off prep EXTRACTION: pull N participants' prep from the source super pools
 // into this workbook's own pool. See docs/compose-prep-extraction-next.md.
 export default function WorkbookPrepPanel({ workbook, sections, profile }) {
+  const { run: runBusy } = useBusyOverlay();
   const [structure, setStructure] = useState([]);
   const [sourceTitles, setSourceTitles] = useState({}); // source_workbook_id -> title
   const [extractSources, setExtractSources] = useState(null); // populated once extracted
@@ -94,7 +96,10 @@ export default function WorkbookPrepPanel({ workbook, sections, profile }) {
     const n = parseInt(nInput, 10);
     if (!n || n < 1) { setExtractWarn(true); setExtractMsg('Enter a participant count of 1 or more.'); return; }
     setExtracting(true); setExtractMsg(''); setExtractWarn(false);
-    const { data, error: e } = await supabase.rpc('extract_prep_to_workbook', { p_workbook_id: workbook.id, p_count: n });
+    const { data, error: e } = await runBusy(
+      'Extracting prep kits…',
+      () => supabase.rpc('extract_prep_to_workbook', { p_workbook_id: workbook.id, p_count: n }),
+    );
     setExtracting(false);
     if (e) { setExtractWarn(true); setExtractMsg(e.message); return; }
     const { extracted = 0, requested = n, short = false, sources = [] } = data || {};
@@ -116,7 +121,10 @@ export default function WorkbookPrepPanel({ workbook, sections, profile }) {
     const n = returnN.trim() ? Math.min(parseInt(returnN, 10) || 0, avail) : avail;
     if (!n || n < 1) { setExtractWarn(true); setExtractMsg('Nothing unused to return.'); return; }
     setReturning(true); setExtractMsg(''); setExtractWarn(false);
-    const { data, error: e } = await supabase.rpc('return_prep_to_pool', { p_workbook_id: workbook.id, p_count: n });
+    const { data, error: e } = await runBusy(
+      'Returning prep kits…',
+      () => supabase.rpc('return_prep_to_pool', { p_workbook_id: workbook.id, p_count: n }),
+    );
     setReturning(false);
     if (e) { setExtractWarn(true); setExtractMsg(e.message); return; }
     const { returned = 0 } = data || {};

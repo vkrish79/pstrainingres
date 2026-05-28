@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
 import { buildParticipantCsvTemplate, downloadCsv, parseParticipantCsv } from '../../lib/csv.js';
 import {
   buildAllInvitesText, buildHandoutHtml, buildInviteText, formatDateRange, isShareable,
@@ -25,6 +26,7 @@ function enrichWithNames(results, inputRows) {
 }
 
 export default function AddSessionParticipants({ onAdd, onCancel, session, joinUrl }) {
+  const { run: runBusy } = useBusyOverlay();
   const [mode, setMode] = useState('direct');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -71,7 +73,7 @@ export default function AddSessionParticipants({ onAdd, onCancel, session, joinU
     setError(''); setResults(null); setBusy(true);
     const trimmed = username.trim();
     const inputRows = [{ username: trimmed, full_name: fullName.trim() }];
-    const { data, error: err } = await onAdd(inputRows);
+    const { data, error: err } = await runBusy('Adding participant…', () => onAdd(inputRows));
     setBusy(false);
     if (err) { setError(err.message); return; }
     setResults(enrichWithNames(data, inputRows));
@@ -100,7 +102,10 @@ export default function AddSessionParticipants({ onAdd, onCancel, session, joinU
   async function submitCsv() {
     if (csvRows.length === 0) { setError('Nothing to upload.'); return; }
     setError(''); setResults(null); setBusy(true);
-    const { data, error: err } = await onAdd(csvRows);
+    const { data, error: err } = await runBusy(
+      `Adding ${csvRows.length} participant${csvRows.length === 1 ? '' : 's'}…`,
+      () => onAdd(csvRows),
+    );
     setBusy(false);
     if (err) { setError(err.message); return; }
     setResults(enrichWithNames(data, csvRows));

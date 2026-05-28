@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useStaff } from '../hooks/useStaff.js';
 import { useVendors } from '../hooks/useVendors.js';
@@ -14,6 +15,7 @@ import '../styles/editor.css';
 export default function NewSessionPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { run: runBusy } = useBusyOverlay();
   const { staff } = useStaff();
   const { vendors } = useVendors();
   const { types: sessionTypes } = useSessionTypes(); // active only
@@ -111,23 +113,26 @@ export default function NewSessionPage() {
     setBusy(true);
     // RPC clones the chosen template workbook + creates the session pointing
     // at the clone, atomically. Returns the new session id.
-    const { data: newSessionId, error: rpcErr } = await supabase.rpc(
-      'create_session_with_workbook_clone',
-      {
-        p_template_id: workbookId,
-        p_name: name.trim(),
-        p_starts_at: startsAt || null,
-        p_ends_at: endsAt || null,
-        p_city_code: cityCode || null,
-        p_session_type_id: sessionTypeId || null,
-        // null = "assign to caller". RPC re-validates: vendor_manager can't
-        // pick outside their vendor; vendor_trainer can't pick anyone but
-        // themselves. Super self-delivering also passes null.
-        p_trainer_id:
-          (isSuper && superSelfDeliver) ? null :
-          canPickTrainer ? trainerId :
-          null,
-      }
+    const { data: newSessionId, error: rpcErr } = await runBusy(
+      'Creating session…',
+      () => supabase.rpc(
+        'create_session_with_workbook_clone',
+        {
+          p_template_id: workbookId,
+          p_name: name.trim(),
+          p_starts_at: startsAt || null,
+          p_ends_at: endsAt || null,
+          p_city_code: cityCode || null,
+          p_session_type_id: sessionTypeId || null,
+          // null = "assign to caller". RPC re-validates: vendor_manager can't
+          // pick outside their vendor; vendor_trainer can't pick anyone but
+          // themselves. Super self-delivering also passes null.
+          p_trainer_id:
+            (isSuper && superSelfDeliver) ? null :
+            canPickTrainer ? trainerId :
+            null,
+        }
+      )
     );
     setBusy(false);
     if (rpcErr) { setError(rpcErr.message); return; }

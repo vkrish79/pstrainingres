@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
@@ -48,6 +49,7 @@ export default function SessionDashboardPage() {
     addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession,
   } = useSessionDashboard(id);
   const { session: authSession, profile } = useAuth();
+  const { run: runBusy } = useBusyOverlay();
   const canChangeTrainer = isVendorManagerOrAbove(profile?.role);
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
@@ -303,7 +305,7 @@ export default function SessionDashboardPage() {
 
   async function doDelete(pid) {
     setBusy(true);
-    const { error: err } = await deleteParticipant(pid);
+    const { error: err } = await runBusy('Deleting participant…', () => deleteParticipant(pid));
     setBusy(false);
     setConfirmDelete(null);
     if (err) {
@@ -315,7 +317,7 @@ export default function SessionDashboardPage() {
 
   async function doResetPassword(pid) {
     setBusy(true);
-    const { data, error: err } = await resetParticipantPassword(pid);
+    const { data, error: err } = await runBusy('Resetting password…', () => resetParticipantPassword(pid));
     setBusy(false);
     setConfirmReset(null);
     setResetResult(prev => ({
@@ -327,7 +329,7 @@ export default function SessionDashboardPage() {
   async function doAllocateAll() {
     setAllocating(true);
     setAllocateMsg('');
-    const { data, error: err } = await allocateSessionPrep();
+    const { data, error: err } = await runBusy('Allocating prep…', () => allocateSessionPrep());
     setAllocating(false);
     if (err) { setAllocateMsg(err.message); return; }
     await refreshPrep();
@@ -359,7 +361,7 @@ export default function SessionDashboardPage() {
   async function doDeleteSession() {
     setBusy(true);
     setDeleteSessionError('');
-    const { error: err } = await deleteSession();
+    const { error: err } = await runBusy('Deleting session…', () => deleteSession());
     setBusy(false);
     if (err) { setDeleteSessionError(err.message); return; }
     setConfirmDeleteSession(false);
@@ -393,7 +395,7 @@ export default function SessionDashboardPage() {
   async function doClose() {
     setBusy(true);
     setCloseError('');
-    const { error: err } = await closeSession();
+    const { error: err } = await runBusy('Closing session…', () => closeSession());
     setBusy(false);
     if (err) { setCloseError(err.message); return; } // keep the modal open to show it
     setConfirmClose(false);

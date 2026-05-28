@@ -398,3 +398,58 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   font-weight: 500;
 }
 .auth-link:hover { text-decoration: underline; }
+
+/* === Busy overlay (global "something is happening" affordance) ===
+   Fullscreen, dims the page, intercepts every pointer / focus event so the
+   user can't double-click during a long async action (import, session
+   create/delete, etc.). Always on top — z-index sits above modals (1000)
+   and toast notifications. */
+.busy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(30, 60, 90, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: busy-overlay-fade-in 120ms ease-out;
+}
+@keyframes busy-overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.busy-overlay-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
+  padding: 1.4rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 220px;
+  max-width: 90vw;
+}
+.busy-overlay-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(181, 152, 90, 0.25); /* gold @ 25% */
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: busy-overlay-spin 720ms linear infinite;
+  flex-shrink: 0;
+}
+@keyframes busy-overlay-spin {
+  to { transform: rotate(360deg); }
+}
+.busy-overlay-label {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .busy-overlay { animation: none; }
+  .busy-overlay-spinner { animation-duration: 1800ms; }
+}

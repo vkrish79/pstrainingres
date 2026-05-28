@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { parseDocxToWorkbook, countsOf } from '../lib/docxImport.js';
 import TopBar from '../components/TopBar.jsx';
@@ -10,6 +11,7 @@ import '../styles/editor.css';
 export default function ImportWorkbookPage() {
   const navigate = useNavigate();
   const { session: authSession } = useAuth();
+  const { run: runBusy } = useBusyOverlay();
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState(null);
   const [titleDraft, setTitleDraft] = useState('');
@@ -27,7 +29,7 @@ export default function ImportWorkbookPage() {
     }
     setParsing(true);
     try {
-      const result = await parseDocxToWorkbook(file);
+      const result = await runBusy('Reading workbook…', () => parseDocxToWorkbook(file));
       setParsed(result);
       setTitleDraft(result.title);
     } catch (err) {
@@ -42,40 +44,42 @@ export default function ImportWorkbookPage() {
     setImporting(true);
     setError('');
     try {
-      const { data: wb, error: e1 } = await supabase
-        .from('workbooks')
-        .insert({
-          title: titleDraft.trim() || parsed.title,
-          description: parsed.description || null,
-          is_template: true,
-          vendor_visible: vendorVisible,
-          created_by: authSession.user.id,
-        })
-        .select()
-        .single();
-      if (e1) throw e1;
-
-      for (let si = 0; si < parsed.sections.length; si++) {
-        const sec = parsed.sections[si];
-        const { data: secRow, error: e2 } = await supabase
-          .from('sections')
-          .insert({ workbook_id: wb.id, title: sec.title, order_index: si, kind: sec.kind || 'exercise' })
+      const newWbId = await runBusy('Importing workbook…', async () => {
+        const { data: wb, error: e1 } = await supabase
+          .from('workbooks')
+          .insert({
+            title: titleDraft.trim() || parsed.title,
+            description: parsed.description || null,
+            is_template: true,
+            vendor_visible: vendorVisible,
+            created_by: authSession.user.id,
+          })
           .select()
           .single();
-        if (e2) throw e2;
+        if (e1) throw e1;
 
-        if (sec.blocks.length === 0) continue;
-        const rows = sec.blocks.map((b, bi) => ({
-          section_id: secRow.id,
-          order_index: bi,
-          block_type: b.block_type,
-          config: b.config,
-        }));
-        const { error: e3 } = await supabase.from('blocks').insert(rows);
-        if (e3) throw e3;
-      }
+        for (let si = 0; si < parsed.sections.length; si++) {
+          const sec = parsed.sections[si];
+          const { data: secRow, error: e2 } = await supabase
+            .from('sections')
+            .insert({ workbook_id: wb.id, title: sec.title, order_index: si, kind: sec.kind || 'exercise' })
+            .select()
+            .single();
+          if (e2) throw e2;
 
-      navigate(`/trainer/workbooks/${wb.id}`);
+          if (sec.blocks.length === 0) continue;
+          const rows = sec.blocks.map((b, bi) => ({
+            section_id: secRow.id,
+            order_index: bi,
+            block_type: b.block_type,
+            config: b.config,
+          }));
+          const { error: e3 } = await supabase.from('blocks').insert(rows);
+          if (e3) throw e3;
+        }
+        return wb.id;
+      });
+      navigate(`/trainer/workbooks/${newWbId}`);
     } catch (err) {
       setError('Import failed: ' + err.message);
       setImporting(false);

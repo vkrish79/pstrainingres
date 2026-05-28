@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import Block from '../blocks/Block.jsx';
@@ -10,6 +11,7 @@ import '../../styles/workbook.css';
 // carrying each exercise's prep as a reference to the source's pool. Re-openable
 // per source so a workbook can be built from several sources.
 export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded }) {
+  const { run: runBusy } = useBusyOverlay();
   useBodyScrollLock();
 
   const [templates, setTemplates] = useState([]);
@@ -97,13 +99,19 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
     setBusy(true); setError(''); setNotice('');
     const ids = sections.filter(s => selected.has(s.id)).map(s => s.id); // preserve source order
     const srcTitle = templates.find(t => t.id === sourceId)?.title || '';
-    const { data, error: e } = await supabase.rpc('add_exercises_to_workbook', {
-      p_target_workbook_id: currentWorkbookId,
-      p_source_section_ids: ids,
-    });
-    if (e) { setBusy(false); setError(e.message); return; }
-    await renumberExercises(currentWorkbookId);
+    const { data, error: e } = await runBusy(
+      `Adding ${ids.length} exercise${ids.length === 1 ? '' : 's'}…`,
+      async () => {
+        const r = await supabase.rpc('add_exercises_to_workbook', {
+          p_target_workbook_id: currentWorkbookId,
+          p_source_section_ids: ids,
+        });
+        if (!r.error) await renumberExercises(currentWorkbookId);
+        return r;
+      },
+    );
     setBusy(false);
+    if (e) { setError(e.message); return; }
     setNotice(`Added ${data} exercise${data === 1 ? '' : 's'} from "${srcTitle}". Pick more or close.`);
     setSelected(new Set());
     await onAdded?.();

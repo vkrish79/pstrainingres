@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useWorkbookEditor } from '../hooks/useWorkbookEditor.js';
 import { renumberExercises } from '../lib/exerciseNumbering.js';
@@ -19,6 +20,7 @@ export default function WorkbookEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { run: runBusy } = useBusyOverlay();
   const {
     loading, error, workbook, sections, blocks,
     updateWorkbookTitle, updateVendorVisible, createBlock, updateBlock, deleteBlock, moveBlock,
@@ -143,7 +145,7 @@ export default function WorkbookEditorPage() {
 
   async function handleDeleteWorkbook() {
     setDelErr('');
-    const { error: e } = await deleteWorkbook();
+    const { error: e } = await runBusy('Deleting workbook…', () => deleteWorkbook());
     if (e) { setDelErr(e.message); return; }
     navigate('/trainer');
   }

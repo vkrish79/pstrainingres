@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -9,6 +10,7 @@ import '../styles/editor.css';
 export default function NewWorkbookPage() {
   const navigate = useNavigate();
   const { session: authSession } = useAuth();
+  const { run: runBusy } = useBusyOverlay();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [vendorVisible, setVendorVisible] = useState(false);
@@ -18,22 +20,29 @@ export default function NewWorkbookPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(''); setBusy(true);
-    const { data: wb, error: wbErr } = await supabase
-      .from('workbooks')
-      .insert({
-        title: title.trim(),
-        description: description.trim() || null,
-        is_template: true,
-        vendor_visible: vendorVisible,
-        created_by: authSession.user.id,
-      })
-      .select()
-      .single();
-    if (wbErr) { setError(wbErr.message); setBusy(false); return; }
-
-    // Seed an empty first section so the editor isn't blank.
-    await supabase.from('sections').insert({ workbook_id: wb.id, title: 'Section 1', order_index: 0 });
-    navigate(`/trainer/workbooks/${wb.id}`);
+    try {
+      const newId = await runBusy('Creating workbook…', async () => {
+        const { data: wb, error: wbErr } = await supabase
+          .from('workbooks')
+          .insert({
+            title: title.trim(),
+            description: description.trim() || null,
+            is_template: true,
+            vendor_visible: vendorVisible,
+            created_by: authSession.user.id,
+          })
+          .select()
+          .single();
+        if (wbErr) throw wbErr;
+        // Seed an empty first section so the editor isn't blank.
+        await supabase.from('sections').insert({ workbook_id: wb.id, title: 'Section 1', order_index: 0 });
+        return wb.id;
+      });
+      navigate(`/trainer/workbooks/${newId}`);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
   }
 
   return (
