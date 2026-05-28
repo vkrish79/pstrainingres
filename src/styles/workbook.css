@@ -224,3 +224,200 @@
 }
 .spotlight-dismiss.spotlight-dismiss:hover { background: #f3e2c4; }
 @media print { .spotlight-banner { display: none !important; } }
+
+/* ============================================================
+   Slide-deck mode — one exercise per "page", with prev/next chrome,
+   keyboard / swipe navigation, and a horizontal slide-in animation.
+   Toggled from the page-hero "📖 Slides mode" button. Print never
+   uses this layout (scroll mode is the print-friendly fallback).
+   ============================================================ */
+.slides-deck {
+  max-width: 900px;
+  margin: 0.75rem auto 2rem;
+  user-select: none;
+}
+.slides-deck input, .slides-deck textarea, .slides-deck label, .slides-deck p,
+.slides-deck h1, .slides-deck h2, .slides-deck h3, .slides-deck h4,
+.slides-deck .wb-prose, .slides-deck .wb-table, .slides-deck td, .slides-deck th {
+  user-select: text;
+}
+
+/* === Top progress strip === */
+.slides-progress {
+  position: sticky;
+  top: 60px;
+  z-index: 5;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 70%, rgba(248, 247, 244, 0) 100%);
+  padding: 0.85rem 0.25rem 1rem;
+  margin-bottom: 0.25rem;
+}
+.slides-progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+.slides-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold) 0%, var(--gold-dark) 100%);
+  transition: width 380ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slides-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 0.45rem;
+}
+.slides-progress-count { color: var(--text); font-weight: 600; }
+.slides-progress-count .muted { font-weight: 400; color: var(--muted); }
+.slides-progress-pct { color: var(--gold-dark); font-weight: 600; }
+
+/* Dot navigator — clickable per-section indicators. Group sections get a
+   wider, gold-tinted dot so the document's structure is visible at a glance. */
+.slides-progress-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding-top: 0.15rem;
+}
+.slides-dot {
+  flex: 1 1 auto;
+  min-width: 6px;
+  max-width: 22px;
+  height: 7px;
+  background: var(--border);
+  border: none;
+  border-radius: 2px;
+  padding: 0;
+  cursor: pointer;
+  transition: background 160ms, transform 160ms;
+}
+.slides-dot.past { background: rgba(181, 152, 90, 0.55); }
+.slides-dot.active.slides-dot {
+  background: var(--gold-dark);
+  transform: scaleY(1.6);
+  border-radius: 3px;
+}
+.slides-dot.group { min-width: 10px; background: rgba(181, 152, 90, 0.4); border-radius: 3px; }
+.slides-dot.group.past { background: var(--gold); }
+.slides-dot.group.active.slides-dot { background: var(--midnight); }
+.slides-dot.slides-dot:hover:not(.active) { background: var(--muted); }
+
+/* === Stage: edge arrows + animated card === */
+.slides-stage {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  min-height: 50vh;
+}
+.slides-edge {
+  flex-shrink: 0;
+  width: 44px;
+  background: transparent;
+  border: none;
+  font-size: 2.4rem;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 8px;
+  align-self: stretch;
+  padding: 0;
+  transition: background 140ms, color 140ms, transform 140ms;
+}
+.slides-edge.slides-edge:hover:not(:disabled) {
+  background: rgba(181, 152, 90, 0.12);
+  color: var(--gold-dark);
+  transform: scale(1.05);
+}
+.slides-edge:disabled { opacity: 0.2; cursor: not-allowed; }
+.slides-edge-prev { margin-right: 0.25rem; }
+.slides-edge-next { margin-left: 0.25rem; }
+
+/* The animated card wrapper. Keying it forces a remount on every advance,
+   so the keyframe re-fires. The two directions slide in from opposite sides
+   so the motion always matches the gesture. */
+.slides-card-wrap {
+  flex: 1;
+  min-width: 0;
+  animation-duration: 360ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.slides-card-wrap.dir-forward  { animation-name: slide-in-from-right; }
+.slides-card-wrap.dir-backward { animation-name: slide-in-from-left; }
+@keyframes slide-in-from-right {
+  from { opacity: 0; transform: translate3d(40px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-in-from-left {
+  from { opacity: 0; transform: translate3d(-40px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slides-card-wrap { animation: none; }
+}
+.slides-card { margin-bottom: 0; }
+
+/* === Bottom navigation bar — sticky so it stays reachable while filling
+   long forms. Mirrors the prev / next edge arrows for clarity. === */
+.slides-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.06);
+}
+.slides-foot-title {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  color: var(--midnight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.95rem;
+}
+.slides-foot-btn {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms, border-color 140ms, transform 140ms;
+}
+.slides-foot-btn.slides-foot-btn:hover:not(:disabled) {
+  background: rgba(181, 152, 90, 0.1);
+  border-color: var(--gold);
+  color: var(--text);
+}
+.slides-foot-btn.primary {
+  background: var(--midnight);
+  color: #fff;
+  border-color: var(--midnight);
+}
+.slides-foot-btn.primary.slides-foot-btn:hover:not(:disabled) {
+  background: var(--midnight-hover);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.slides-foot-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@media (max-width: 700px) {
+  .slides-edge { display: none; }
+  .slides-foot-title { display: none; }
+  .slides-progress { top: 56px; }
+}
+@media print { .slides-deck { display: none !important; } }
