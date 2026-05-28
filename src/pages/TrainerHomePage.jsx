@@ -58,7 +58,7 @@ function SuperHome({ userId, role }) {
     <>
       {!msl && superSessions.length > 0 && (
         <>
-          <SectionHeader title="Super trainer sessions" />
+          <SectionHeader title="PS training sessions" />
           <div className="session-grid">
             {superSessions.map(s => <SessionCard key={s.id} session={s} showTrainer />)}
           </div>
