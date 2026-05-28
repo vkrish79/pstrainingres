@@ -7,7 +7,9 @@ import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
+import { useSlides, loadViewMode, saveViewMode } from '../hooks/useSlides.js';
 import Block from '../components/blocks/Block.jsx';
+import SlidesDeck from '../components/SlidesDeck.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
@@ -17,7 +19,7 @@ import '../styles/print.css';
 import '../styles/drawer.css';
 
 const ALL_KEY = '__all__';
-const VIEW_MODE_KEY = 'pstrainingres.wb.viewMode';
+const VIEW_MODE_KEY = 'participant';
 
 export default function ParticipantWorkbookPage() {
   const { session: authSession } = useAuth();
@@ -31,24 +33,10 @@ export default function ParticipantWorkbookPage() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
 
-  // Slide-deck vs scroll mode. Persists per-browser so the participant's last
-  // preference sticks across reloads. Default = scroll (current behavior).
-  const [viewMode, setViewModeRaw] = useState(() => {
-    try { return localStorage.getItem(VIEW_MODE_KEY) === 'slides' ? 'slides' : 'scroll'; }
-    catch { return 'scroll'; }
-  });
-  const setViewMode = (m) => {
-    setViewModeRaw(m);
-    try { localStorage.setItem(VIEW_MODE_KEY, m); } catch { /* private mode */ }
-  };
-  // Slide index into sections[] when in slides mode. Direction drives the
-  // enter animation (slide-in from right when going forward, from left when
-  // going back). Bumping animKey forces React to remount the slide content
-  // so the CSS animation fires every time, even when stepping to the same
-  // direction repeatedly.
-  const [slideIdx, setSlideIdx] = useState(0);
-  const [slideDir, setSlideDir] = useState('forward');
-  const [animKey, setAnimKey] = useState(0);
+  // Slide-deck vs scroll mode. Persists per-browser (participant slot) so the
+  // participant's last preference sticks across reloads. Default = scroll.
+  const [viewMode, setViewModeRaw] = useState(() => loadViewMode(VIEW_MODE_KEY));
+  const setViewMode = (m) => { setViewModeRaw(m); saveViewMode(VIEW_MODE_KEY, m); };
 
   // Live presence: tell the trainer which exercise this participant is looking
   // at. The fill view defaults to one scrolling page (`__all__`), so the
@@ -241,80 +229,24 @@ export default function ParticipantWorkbookPage() {
     ? sections
     : sections.filter(s => s.id === selectedSectionId);
 
-  // ===== Slide-deck mode wiring =====
-  // Clamp slide index to a valid range whenever sections change (workbook
-  // edits live-broadcast new sections in / removed sections out).
-  useEffect(() => {
-    if (viewMode !== 'slides') return;
-    if (slideIdx >= sections.length) setSlideIdx(Math.max(0, sections.length - 1));
-  }, [viewMode, sections.length, slideIdx]);
+  // Slide-deck state lives in a shared hook so the trainer's "My copy" gets
+  // the same paging behavior. `blockedByDrawer` tells the hook to ignore the
+  // arrow keys while Notes / Prep are open (those drawers have their own
+  // keyboard interactions).
+  const {
+    slideIdx, slideDir, animKey, currentSection: currentSlideSection,
+    goSlide, jumpSlide, seedTo,
+    onTouchStart, onTouchEnd,
+  } = useSlides({ sections, viewMode, blockedByDrawer: notesOpen || prepOpen });
 
-  const currentSlideSection = viewMode === 'slides' ? sections[slideIdx] : null;
   // Broadcast the slide section as the participant's "on now" cursor so the
-  // trainer sees an accurate position. The scroll-spy below handles scroll mode.
+  // trainer sees an accurate position even in slides mode. The scroll-spy
+  // below covers scroll mode.
   useEffect(() => {
     if (viewMode === 'slides' && currentSlideSection) {
       setCurrentSectionId(currentSlideSection.id);
     }
   }, [viewMode, currentSlideSection?.id]);
-
-  const goSlide = (delta) => {
-    setSlideIdx(prev => {
-      const next = Math.min(sections.length - 1, Math.max(0, prev + delta));
-      if (next !== prev) {
-        setSlideDir(delta > 0 ? 'forward' : 'backward');
-        setAnimKey(k => k + 1);
-      }
-      return next;
-    });
-  };
-  const jumpSlide = (targetIdx) => {
-    if (targetIdx < 0 || targetIdx >= sections.length) return;
-    setSlideIdx(prev => {
-      if (targetIdx === prev) return prev;
-      setSlideDir(targetIdx > prev ? 'forward' : 'backward');
-      setAnimKey(k => k + 1);
-      return targetIdx;
-    });
-  };
-
-  // Keyboard: ←/→ pages the deck. Skip while typing in a field, while a
-  // drawer is open, or while a modifier is held (real browser shortcuts).
-  useEffect(() => {
-    if (viewMode !== 'slides') return undefined;
-    function onKey(e) {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (notesOpen || prepOpen) return;
-      const t = e.target;
-      const tag = t?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable) return;
-      if (e.key === 'ArrowLeft') { e.preventDefault(); goSlide(-1); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); goSlide(1); }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, notesOpen, prepOpen, sections.length]);
-
-  // Touch swipe (mobile). Track horizontal delta; trigger paging at
-  // ≥ 50px with the swipe gesture's dominant axis being horizontal.
-  const touchRef = useRef(null);
-  function onTouchStart(e) {
-    const t = e.touches[0];
-    touchRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
-  }
-  function onTouchEnd(e) {
-    const start = touchRef.current;
-    touchRef.current = null;
-    if (!start) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    if (Math.abs(dx) < 50) return;
-    if (Math.abs(dx) < Math.abs(dy) * 1.2) return; // mostly vertical → scroll
-    if (Date.now() - start.t > 800) return; // too slow to be a swipe
-    goSlide(dx < 0 ? 1 : -1);
-  }
 
   return (
     <>
@@ -368,8 +300,7 @@ export default function ParticipantWorkbookPage() {
                   // jump to the cover.
                   const seedId = selectedSectionId !== ALL_KEY ? selectedSectionId : currentSectionId;
                   const seedIdx = sections.findIndex(s => s.id === seedId);
-                  setSlideIdx(seedIdx >= 0 ? seedIdx : 0);
-                  setAnimKey(k => k + 1);
+                  seedTo(seedIdx >= 0 ? seedIdx : 0);
                 }
               }}
               title={viewMode === 'slides' ? 'Switch back to one long scrolling page' : 'Page through one exercise at a time, like flipping pages'}
@@ -422,11 +353,32 @@ export default function ParticipantWorkbookPage() {
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
             currentSection={currentSlideSection}
-            blocks={blocks}
-            answers={answers}
-            saveAnswer={saveAnswer}
-            recentlyUpdated={recentlyUpdated}
-            sectionPrep={sectionPrep}
+            renderSection={(sec) => {
+              const isGroup = sec.kind === 'group';
+              const prepText = sectionPrep[sec.id]?.content || '';
+              return (
+                <section className={`wb-section${isGroup ? ' wb-section-group' : ''} slides-card`}>
+                  {isGroup
+                    ? <h1 className="wb-section-group-title">{sec.title}</h1>
+                    : <h2>{sec.title}</h2>}
+                  {prepText && (
+                    <div className="participant-prep-callout">
+                      <span className="participant-prep-callout-label">Pre-work from your trainer</span>
+                      {prepText}
+                    </div>
+                  )}
+                  {blocks.filter(b => b.section_id === sec.id).map(b => (
+                    <Block
+                      key={b.id}
+                      block={b}
+                      value={answers[b.id]}
+                      onChange={v => saveAnswer(b.id, v)}
+                      recentlyUpdated={!!recentlyUpdated[b.id]}
+                    />
+                  ))}
+                </section>
+              );
+            }}
           />
         )}
 
@@ -613,123 +565,3 @@ function formatDateRange(start, end) {
   return '';
 }
 
-// Slide-deck view of the workbook: one section at a time, with a top progress
-// strip + edge arrows + keyboard / swipe navigation. The animation lives in
-// CSS — keying the inner card with animKey forces React to remount it, so
-// the slide-in keyframe fires on every advance even when stepping the same
-// direction repeatedly.
-function SlidesDeck({
-  sections, sectionStats, slideIdx, slideDir, animKey,
-  jumpSlide, goSlide, onTouchStart, onTouchEnd,
-  currentSection, blocks, answers, saveAnswer, recentlyUpdated, sectionPrep,
-}) {
-  const isFirst = slideIdx === 0;
-  const isLast = slideIdx >= sections.length - 1;
-  const isGroup = currentSection.kind === 'group';
-  const prepText = sectionPrep[currentSection.id]?.content || '';
-  const stats = sectionStats[slideIdx];
-
-  return (
-    <div
-      className="slides-deck"
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
-      <div className="slides-progress">
-        <div className="slides-progress-bar">
-          <div
-            className="slides-progress-fill"
-            style={{ width: `${((slideIdx + 1) / sections.length) * 100}%` }}
-          />
-        </div>
-        <div className="slides-progress-meta">
-          <span className="slides-progress-count">
-            {slideIdx + 1} <span className="muted">/ {sections.length}</span>
-          </span>
-          {stats && stats.kind !== 'group' && stats.total > 0 && (
-            <span className="slides-progress-pct">{stats.pct}% answered</span>
-          )}
-        </div>
-        <div className="slides-progress-dots" role="tablist" aria-label="Section navigator">
-          {sections.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              role="tab"
-              aria-selected={i === slideIdx}
-              aria-label={s.title}
-              title={s.title}
-              className={`slides-dot ${s.kind === 'group' ? 'group' : ''} ${i === slideIdx ? 'active' : ''} ${i < slideIdx ? 'past' : ''}`}
-              onClick={() => jumpSlide(i)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="slides-stage">
-        <button
-          type="button"
-          className="slides-edge slides-edge-prev"
-          onClick={() => goSlide(-1)}
-          disabled={isFirst}
-          aria-label="Previous exercise"
-        >
-          ‹
-        </button>
-
-        <div className={`slides-card-wrap dir-${slideDir}`} key={animKey}>
-          <section className={`wb-section${isGroup ? ' wb-section-group' : ''} slides-card`}>
-            {isGroup
-              ? <h1 className="wb-section-group-title">{currentSection.title}</h1>
-              : <h2>{currentSection.title}</h2>}
-            {prepText && (
-              <div className="participant-prep-callout">
-                <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-                {prepText}
-              </div>
-            )}
-            {blocks.filter(b => b.section_id === currentSection.id).map(b => (
-              <Block
-                key={b.id}
-                block={b}
-                value={answers[b.id]}
-                onChange={v => saveAnswer(b.id, v)}
-                recentlyUpdated={!!recentlyUpdated[b.id]}
-              />
-            ))}
-          </section>
-        </div>
-
-        <button
-          type="button"
-          className="slides-edge slides-edge-next"
-          onClick={() => goSlide(1)}
-          disabled={isLast}
-          aria-label="Next exercise"
-        >
-          ›
-        </button>
-      </div>
-
-      <div className="slides-foot">
-        <button
-          type="button"
-          className="slides-foot-btn"
-          onClick={() => goSlide(-1)}
-          disabled={isFirst}
-        >
-          ‹ Previous
-        </button>
-        <div className="slides-foot-title">{currentSection.title}</div>
-        <button
-          type="button"
-          className="slides-foot-btn primary"
-          onClick={() => goSlide(1)}
-          disabled={isLast}
-        >
-          Next ›
-        </button>
-      </div>
-    </div>
-  );
-}
