@@ -17,7 +17,7 @@ export default function PrepDrawer({ open, onClose, sections, prep, standalone =
       aria-hidden={!open}
     >
       <header className="prep-drawer-head">
-        <h2>🎯 Your prep</h2>
+        <span className="prep-drawer-head-label">Prep</span>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close prep">×</button>
       </header>
       <div className="prep-drawer-body">

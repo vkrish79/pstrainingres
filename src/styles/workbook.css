@@ -224,3 +224,66 @@
 }
 .spotlight-dismiss.spotlight-dismiss:hover { background: #f3e2c4; }
 @media print { .spotlight-banner { display: none !important; } }
+
+/* ============================================================
+   Participant UI — visual refresh (2026-05-30)
+   Scoped under .workbook so the trainer dashboard / editor copies that
+   share .wb-section / .exresp-* / .page-hero are left untouched.
+   ============================================================ */
+
+/* Hero: lift the flat compact card into a soft banner with a warm gradient,
+   gold-tinted edge, and gentle elevation. */
+.workbook .page-hero.compact {
+  background: linear-gradient(180deg, #ffffff 0%, #fbf7ee 100%);
+  border-color: #e8dec6;
+  box-shadow: 0 1px 3px rgba(15, 22, 38, 0.05);
+  padding: 1.4rem 1.65rem;
+}
+.workbook .page-hero.compact .page-hero-text h1 {
+  font-size: 1.45rem;
+  letter-spacing: -0.015em;
+}
+.workbook .page-hero.compact .page-hero-text p { font-size: 0.95rem; }
+.workbook .page-hero.compact .session-dates { color: var(--muted); }
+
+/* Sticky actions bar: a floating toolbar rather than a flat strip — rounded,
+   softly elevated, translucent + blurred so exercise content reads cleanly as
+   it scrolls beneath. Buttons become consistent pills. */
+.participant-actions-bar {
+  background: rgba(253, 249, 241, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #e3dccb;
+  border-radius: 12px;
+  padding: 0.45rem 0.6rem;
+  box-shadow: 0 2px 12px rgba(15, 22, 38, 0.06);
+}
+.participant-actions-bar .ghost {
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+}
+.participant-actions-bar .ghost:hover:not(:disabled) { background: #f1ebdc; }
+/* Save indicator drifts to the left edge; the action buttons stay grouped right. */
+.participant-actions-bar .wb-save-indicator { margin-right: auto; }
+
+/* Exercise cards: a hint of elevation so each reads as its own surface, and a
+   clear "this is the one you're filling" emphasis on focus. */
+.workbook .wb-section {
+  border-color: #e6e9ef;
+  box-shadow: 0 1px 3px rgba(15, 22, 38, 0.04);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.workbook .wb-section:focus-within {
+  border-color: #d9cfb4;
+  box-shadow: 0 3px 14px rgba(15, 22, 38, 0.07);
+}
+/* Keep the tinted group banners as-is (their own gradient shouldn't get a card shadow). */
+.workbook .wb-section.wb-section-group { box-shadow: none; }
+
+/* Sidebar: warm gold tint on the active/hovered exercise to match the accent,
+   and a slightly bolder progress track. */
+.workbook .exresp-sidebar-item.exresp-sidebar-item:hover { background: #faf5ea; }
+.workbook .exresp-sidebar-item.exresp-sidebar-item.active { background: #fdf6e3; }
+.workbook .exresp-sidebar-bar { height: 6px; }

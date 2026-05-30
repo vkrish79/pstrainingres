@@ -106,28 +106,29 @@ export default function ParticipantWorkbookPage() {
     return () => document.body.classList.remove('prep-drawer-pushed');
   }, [prepOpen]);
 
-  // Sync the prep drawer's top to the exercise sidebar's rect.top so the drawer
-  // sits below the page-hero + materials when scrolled to top, and pins to
-  // sidebar's sticky position (80px) once those scroll past.
+  // Keep the prep drawer pixel-locked to the exercise sidebar's top so it tucks
+  // under the sticky bar exactly like the nav panel does. A per-frame rAF loop
+  // (only while the drawer is open) re-reads the sidebar's live top every frame,
+  // so no layout shift — scroll, sticky pin/unpin, or async reflow (materials
+  // thumbnails loading) — can ever knock the two out of alignment. We only write
+  // the CSS var when the value actually changes, so it's cheap.
   useEffect(() => {
     if (!prepOpen) return undefined;
     let raf = 0;
-    const sync = () => {
-      raf = 0;
+    let last = null;
+    const loop = () => {
       const el = sidebarRef.current;
-      if (!el) return;
-      const top = Math.max(60, Math.round(el.getBoundingClientRect().top));
-      document.body.style.setProperty('--page-prep-top', `${top}px`);
+      if (el) {
+        const top = Math.max(60, Math.round(el.getBoundingClientRect().top));
+        if (top !== last) {
+          last = top;
+          document.body.style.setProperty('--page-prep-top', `${top}px`);
+        }
+      }
+      raf = requestAnimationFrame(loop);
     };
-    const schedule = () => { if (!raf) raf = requestAnimationFrame(sync); };
-    sync();
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-      window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
-    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
   }, [prepOpen]);
 
   // Keyboard shortcut: "N" toggles the drawer. Skip when typing in an input,
