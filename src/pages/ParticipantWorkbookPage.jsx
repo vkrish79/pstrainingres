@@ -1,13 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
 import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
+import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
+import MaterialsList from '../components/MaterialsList.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
@@ -19,11 +22,13 @@ import '../styles/drawer.css';
 const ALL_KEY = '__all__';
 
 export default function ParticipantWorkbookPage() {
+  const navigate = useNavigate();
   const { session: authSession } = useAuth();
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
   const { prep: sectionPrep, standalone: standalonePrep } = useParticipantPrep(session?.id, authSession?.user.id);
+  const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(session?.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
   const [exFilter, setExFilter] = useState('');
@@ -35,6 +40,8 @@ export default function ParticipantWorkbookPage() {
   // current section comes from a scroll-spy (below) rather than the selector.
   const [currentSectionId, setCurrentSectionId] = useState(null);
   const sectionRefs = useRef({}); // sectionId -> DOM node
+  const sidebarRef = useRef(null);
+  const actionsBarRef = useRef(null);
   useSessionCursor(session?.id, {
     selfId: authSession?.user.id,
     track: true,
@@ -74,11 +81,53 @@ export default function ParticipantWorkbookPage() {
     [sectionPrep, standalonePrep]
   );
 
+  // Publish the sticky actions-bar height as --page-actions-h so the exercise
+  // sidebar's sticky top can stack below it without overlapping.
+  useEffect(() => {
+    const el = actionsBarRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      document.body.style.setProperty('--page-actions-h', `${h}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.body.style.removeProperty('--page-actions-h');
+    };
+  }, []);
+
   // Push the page canvas left while the prep drawer is open (desktop). The
   // fixed drawer fills the gap. Cleaned up on close / unmount.
   useEffect(() => {
     document.body.classList.toggle('prep-drawer-pushed', prepOpen);
     return () => document.body.classList.remove('prep-drawer-pushed');
+  }, [prepOpen]);
+
+  // Sync the prep drawer's top to the exercise sidebar's rect.top so the drawer
+  // sits below the page-hero + materials when scrolled to top, and pins to
+  // sidebar's sticky position (80px) once those scroll past.
+  useEffect(() => {
+    if (!prepOpen) return undefined;
+    let raf = 0;
+    const sync = () => {
+      raf = 0;
+      const el = sidebarRef.current;
+      if (!el) return;
+      const top = Math.max(60, Math.round(el.getBoundingClientRect().top));
+      document.body.style.setProperty('--page-prep-top', `${top}px`);
+    };
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(sync); };
+    sync();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
   }, [prepOpen]);
 
   // Keyboard shortcut: "N" toggles the drawer. Skip when typing in an input,
@@ -239,38 +288,55 @@ export default function ParticipantWorkbookPage() {
             </p>
             {workbook.description && <p className="muted">{workbook.description}</p>}
           </div>
-          <div className="page-hero-actions">
-            {overallStatus && (
-              <span className={`wb-save-indicator ${overallStatus}`}>
-                {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed' : 'All changes saved'}
-              </span>
-            )}
-            <button
-              type="button"
-              className="ghost no-print"
-              onClick={() => setNotesOpen(true)}
-              title="Open your notes (press N)"
-            >
-              📝 Notes{totalNoteWords > 0 ? ` (${totalNoteWords})` : ''}
-            </button>
-            <button
-              type="button"
-              className="ghost no-print"
-              onClick={() => setPrepOpen(true)}
-              title="View your pre-work from the trainer"
-            >
-              🎯 Prep{prepCount > 0 ? ` (${prepCount})` : ''}
-            </button>
-            <button
-              type="button"
-              className="ghost no-print"
-              onClick={() => window.print()}
-              title="Open the print dialog. Choose 'Save as PDF' to download."
-            >
-              ↓ Print / Download PDF
-            </button>
-          </div>
         </section>
+
+        <MaterialsList
+          materials={materials}
+          signedUrlFor={materialUrlFor}
+          loading={materialsLoading}
+        />
+
+        <div className="participant-actions-bar no-print" ref={actionsBarRef}>
+          {overallStatus && (
+            <span className={`wb-save-indicator ${overallStatus}`}>
+              {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed' : 'All changes saved'}
+            </span>
+          )}
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setNotesOpen(true)}
+            title="Open your notes (press N)"
+          >
+            📝 Notes{totalNoteWords > 0 ? ` (${totalNoteWords})` : ''}
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setPrepOpen(true)}
+            title="View your pre-work from the trainer"
+          >
+            🎯 Prep{prepCount > 0 ? ` (${prepCount})` : ''}
+          </button>
+          {session?.assessment_id && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => navigate(`/assessment?session=${session.id}`)}
+              title={session.assessment_unlocked_at ? 'Take the assessment for this program' : 'Locked — your trainer will unlock when ready'}
+            >
+              {session.assessment_unlocked_at ? '📝 Assessment' : '🔒 Assessment'}
+            </button>
+          )}
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => window.print()}
+            title="Open the print dialog. Choose 'Save as PDF' to download."
+          >
+            ↓ Print / Download PDF
+          </button>
+        </div>
 
         {showSpotlight && (
           <div className="spotlight-banner" role="status">
@@ -311,7 +377,7 @@ export default function ParticipantWorkbookPage() {
             </select>
           </div>
 
-          <aside className="exresp-sidebar">
+          <aside className="exresp-sidebar" ref={sidebarRef}>
             <div className="exresp-sidebar-head">Exercises</div>
             <input
               type="text"
@@ -463,6 +529,7 @@ export default function ParticipantWorkbookPage() {
         sections={sections}
         prep={sectionPrep}
         standalone={standalonePrep}
+        className="prep-drawer--track-page"
       />
     </>
   );

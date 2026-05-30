@@ -18,7 +18,13 @@ import ClosedSessionsPage from './pages/ClosedSessionsPage.jsx';
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'));
 import StaffAdminPage from './pages/StaffAdminPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import ProgramsListPage from './pages/ProgramsListPage.jsx';
+import ProgramEditorPage from './pages/ProgramEditorPage.jsx';
+import AssessmentsListPage from './pages/AssessmentsListPage.jsx';
+import AssessmentEditorPage from './pages/AssessmentEditorPage.jsx';
+import ImportAssessmentPage from './pages/ImportAssessmentPage.jsx';
 import ParticipantWorkbookPage from './pages/ParticipantWorkbookPage.jsx';
+import ParticipantAssessmentPage from './pages/ParticipantAssessmentPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function App() {
@@ -71,8 +77,26 @@ export default function App() {
       <Route path="/trainer/settings" element={
         <ProtectedRoute role="super"><SettingsPage /></ProtectedRoute>
       } />
+      <Route path="/trainer/programs" element={
+        <ProtectedRoute role="super"><ProgramsListPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/programs/:id" element={
+        <ProtectedRoute role="super"><ProgramEditorPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/assessments" element={
+        <ProtectedRoute role="super"><AssessmentsListPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/assessments/import" element={
+        <ProtectedRoute role="super"><ImportAssessmentPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/assessments/:id" element={
+        <ProtectedRoute role="super"><AssessmentEditorPage /></ProtectedRoute>
+      } />
       <Route path="/workbook" element={
         <ProtectedRoute role="participant"><ParticipantWorkbookPage /></ProtectedRoute>
+      } />
+      <Route path="/assessment" element={
+        <ProtectedRoute role="participant"><ParticipantAssessmentPage /></ProtectedRoute>
       } />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

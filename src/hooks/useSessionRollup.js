@@ -24,9 +24,9 @@ export function useSessionRollup() {
       try {
         const [s, a, c] = await Promise.all([
           supabase.from('sessions').select(`
-            id, vendor_id, trainer_id, session_type_id, city_code, closed_at, created_at, starts_at,
+            id, vendor_id, trainer_id, program_id, city_code, closed_at, created_at, starts_at,
             vendors ( id, name ),
-            session_type:session_types ( id, name ),
+            program:programs ( id, program_type_id, program_type:program_types ( id, name ) ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name, role ),
             session_participants ( count )
           `),
@@ -61,8 +61,8 @@ export function useSessionRollup() {
             trainerId: row.trainer_id,
             trainerName: row.trainer?.full_name || null,
             isSuperTrainer: SUPER_ROLES.has(row.trainer?.role),
-            typeId: row.session_type_id ?? null,
-            typeName: row.session_type?.name || null,
+            typeId: row.program?.program_type_id ?? null,
+            typeName: row.program?.program_type?.name || null,
             cityCode: code,
             cityName: code ? (cityName.get(code) || code) : null,
           };

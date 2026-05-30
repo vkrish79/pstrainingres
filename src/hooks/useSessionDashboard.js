@@ -23,10 +23,10 @@ export function useSessionDashboard(sessionId) {
         const { data: sess, error: e1 } = await supabase
           .from('sessions')
           .select(`
-            id, name, workbook_id, created_at, starts_at, ends_at, city_code, join_code,
-            closed_at, closed_by, closed_summary, trainer_id, vendor_id, session_type_id,
+            id, name, workbook_id, assessment_id, assessment_unlocked_at, assessment_deadline_at, program_id, created_at, starts_at, ends_at, city_code, join_code,
+            closed_at, closed_by, closed_summary, trainer_id, vendor_id,
             workbooks ( id, title, description, template_id ),
-            session_type:session_types ( id, name ),
+            program:programs ( id, title, program_type:program_types ( id, name ) ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name ),
             session_participants ( participant_id, profiles ( id, full_name ) )
           `)
@@ -78,7 +78,12 @@ export function useSessionDashboard(sessionId) {
           join_code: sess.join_code,
           closed_at: sess.closed_at, closed_by: sess.closed_by, closed_summary: sess.closed_summary,
           trainer_id: sess.trainer_id, vendor_id: sess.vendor_id, trainer: sess.trainer || null,
-          session_type_id: sess.session_type_id, session_type: sess.session_type || null,
+          program_id: sess.program_id, program: sess.program || null,
+          assessment_id: sess.assessment_id,
+          assessment_unlocked_at: sess.assessment_unlocked_at,
+          assessment_deadline_at: sess.assessment_deadline_at,
+          // Back-compat for components still reading session.session_type.
+          session_type: sess.program?.program_type || null,
         });
         setWorkbook(wb);
         setSections(secs || []);
@@ -307,5 +312,42 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession };
+  // durationMinutes is optional: a positive number stamps a session-wide
+  // deadline now()+N min; null/0 unlocks untimed (open until re-locked).
+  async function setAssessmentUnlocked(unlocked, durationMinutes = null) {
+    const mins = unlocked && durationMinutes && durationMinutes > 0 ? Math.round(durationMinutes) : null;
+    const { data, error: e } = await supabase.rpc('set_assessment_unlocked', {
+      p_session_id: sessionId,
+      p_unlocked: !!unlocked,
+      p_duration_minutes: mins,
+    });
+    if (e) return { error: new Error(e.message) };
+    // data is { unlocked_at, deadline_at } jsonb.
+    setSession(prev => prev ? {
+      ...prev,
+      assessment_unlocked_at: data?.unlocked_at ?? null,
+      assessment_deadline_at: data?.deadline_at ?? null,
+    } : prev);
+    return { data };
+  }
+
+  // Add minutes to the live deadline (greatest(now, deadline) + N). Reopens an
+  // already-expired timer for N fresh minutes. Requires the assessment unlocked.
+  async function extendAssessmentDeadline(addMinutes) {
+    const mins = Math.round(Number(addMinutes));
+    if (!Number.isFinite(mins) || mins <= 0) return { error: new Error('Enter a positive number of minutes') };
+    const { data, error: e } = await supabase.rpc('extend_assessment_deadline', {
+      p_session_id: sessionId,
+      p_add_minutes: mins,
+    });
+    if (e) return { error: new Error(e.message) };
+    setSession(prev => prev ? {
+      ...prev,
+      assessment_unlocked_at: data?.unlocked_at ?? prev.assessment_unlocked_at,
+      assessment_deadline_at: data?.deadline_at ?? null,
+    } : prev);
+    return { data };
+  }
+
+  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
 }

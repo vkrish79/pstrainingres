@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js';
 
 export const CITY_CODE_PATTERN = /^[A-Z0-9]{2,6}$/;
 
-// The city/venue controlled vocabulary, mirroring useSessionTypes. Writes are
+// The city/venue controlled vocabulary, mirroring useProgramTypes. Writes are
 // RLS-gated to super-tier; reads are open to any signed-in user (the creation
 // dropdown and analytics labels need them). The `code` is the value stored on
 // sessions.city_code, so it's immutable after creation (only name/active/order

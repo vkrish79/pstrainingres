@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useSessionTypes } from '../hooks/useSessionTypes.js';
+import { useProgramTypes } from '../hooks/useProgramTypes.js';
 import CitiesSettings from '../components/settings/CitiesSettings.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -10,7 +10,7 @@ import '../styles/editor.css';
 // app-level settings sections can be added here as plain <section> cards.
 export default function SettingsPage() {
   const { loading, error, types, createType, renameType, setActive, moveType } =
-    useSessionTypes({ includeInactive: true });
+    useProgramTypes({ includeInactive: true });
 
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,14 +65,14 @@ export default function SettingsPage() {
         </section>
 
         <section className="editor-card">
-          <h2 className="section-title" style={{ marginTop: 0 }}>Session types</h2>
+          <h2 className="section-title" style={{ marginTop: 0 }}>Program types</h2>
           <p className="muted" style={{ marginTop: '-0.25rem' }}>
-            Chosen when a session is created and reported on in Analytics. Deactivate a type to
-            hide it from the picker while keeping it on the sessions that already used it.
+            Chosen when a program is created and reported on in Analytics. Deactivate a type to
+            hide it from the picker while keeping it on the programs and sessions that already used it.
           </p>
 
           <form onSubmit={handleCreate} className="add-person-form" style={{ marginTop: '1rem' }}>
-            <label className="form-label">Add a session type</label>
+            <label className="form-label">Add a program type</label>
             <div className="form-grid">
               <input
                 className="form-input"
@@ -94,7 +94,7 @@ export default function SettingsPage() {
           {loading && <div className="loading">Loading…</div>}
           {error && <p className="error">{error}</p>}
           {!loading && !error && types.length === 0 && (
-            <p className="muted">No session types yet. Add the first one above.</p>
+            <p className="muted">No program types yet. Add the first one above.</p>
           )}
           {!loading && types.length > 0 && (
             <table className="participants-table" style={{ marginTop: '1rem' }}>

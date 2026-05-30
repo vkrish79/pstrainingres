@@ -106,10 +106,16 @@ Deno.serve(async (req: Request) => {
   // plus a per-source breakdown. We surface the overall status ('allocated' |
   // 'partial' | 'exhausted' | 'none' | 'error') and the ids of any pools that ran
   // dry, so the UI can name them. Never fails the enrolment.
+  //
+  // If the session has an attached assessment, claim its kit in parallel. PR3
+  // collapses to a single overall status: the WORKBOOK side drives reporting;
+  // assessment errors are absorbed silently (their own pool fills, kit-tracked).
   async function claimPrep(pid: string): Promise<{ status: string; missing: string[] }> {
-    const { data, error } = await admin.rpc('claim_prep_kit', {
-      p_session_id: session_id, p_participant_id: pid,
-    });
+    const [{ data, error }] = await Promise.all([
+      admin.rpc('claim_prep_kit', { p_session_id: session_id, p_participant_id: pid }),
+      // Harmless when sess.assessment_id is null — RPC short-circuits to {status:'none'}.
+      admin.rpc('claim_prep_kit_assessment', { p_session_id: session_id, p_participant_id: pid }),
+    ]);
     if (error) return { status: 'error', missing: [] };
     const status = (data as { status?: string } | null)?.status || 'none';
     const sources = ((data as { sources?: Array<{ workbook_id: string; status: string }> } | null)?.sources) || [];

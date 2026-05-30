@@ -3,14 +3,32 @@ import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import Block from '../blocks/Block.jsx';
-import { renumberExercises } from '../../lib/exerciseNumbering.js';
+import {
+  renumberExercisesIn,
+  WORKBOOK_CONTENT_KIND,
+} from '../../lib/exerciseNumbering.js';
 import '../../styles/workbook.css';
 
-// Compose-from-existing picker. Pick a source workbook, preview its exercises
-// (sections), multi-select, and add the chosen ones to the current workbook —
-// carrying each exercise's prep as a reference to the source's pool. Re-openable
-// per source so a workbook can be built from several sources.
-export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded }) {
+// Compose-from-existing picker. Pick a same-kind source (workbook→workbook
+// or assessment→assessment), preview its exercises (sections), multi-select,
+// and add the chosen ones to the current parent. Re-openable per source so a
+// parent can be built from several sources.
+//
+// Defaults to workbook for backwards compatibility — WorkbookEditorPage's
+// existing call site needs no changes.
+export default function AddExercisesModal({
+  currentParentId,
+  currentWorkbookId, // legacy alias
+  onClose,
+  onAdded,
+  kindConfig = WORKBOOK_CONTENT_KIND,
+}) {
+  const targetId = currentParentId ?? currentWorkbookId;
+  const {
+    parentTable, sectionsTable, blocksTable, parentFK,
+    prepTemplateCol, addRpc, addRpcParams, label,
+  } = kindConfig;
+
   const { run: runBusy } = useBusyOverlay();
   useBodyScrollLock();
 
@@ -32,20 +50,20 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Source workbooks = all templates except the one being edited.
+  // Source parents = all templates of the same kind except the one being edited.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { data } = await supabase
-        .from('workbooks')
-        .select('id, title, prep_template')
+        .from(parentTable)
+        .select(`id, title, ${prepTemplateCol}`)
         .eq('is_template', true)
         .order('title');
       if (cancelled) return;
-      setTemplates((data || []).filter(w => w.id !== currentWorkbookId));
+      setTemplates((data || []).filter(w => w.id !== targetId));
     })();
     return () => { cancelled = true; };
-  }, [currentWorkbookId]);
+  }, [targetId, parentTable, prepTemplateCol]);
 
   // Load the chosen source's sections + blocks + which sections carry prep.
   useEffect(() => {
@@ -55,12 +73,12 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
       setLoadingSrc(true); setError(''); setSelected(new Set()); setExpanded(new Set());
       try {
         const wb = templates.find(t => t.id === sourceId);
+        const tpl = wb?.[prepTemplateCol];
         const prepped = new Set(
-          (Array.isArray(wb?.prep_template) ? wb.prep_template : [])
-            .map(e => e?.section_id).filter(Boolean),
+          (Array.isArray(tpl) ? tpl : []).map(e => e?.section_id).filter(Boolean),
         );
         const { data: secsAll, error: e1 } = await supabase
-          .from('sections').select('id, title, order_index, kind').eq('workbook_id', sourceId).order('order_index');
+          .from(sectionsTable).select('id, title, order_index, kind').eq(parentFK, sourceId).order('order_index');
         if (e1) throw e1;
         // Group sections (Word H1 banners) are visual separators, not
         // exercises — hide them from the picker so trainers can't tick a
@@ -68,7 +86,7 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
         const secs = (secsAll || []).filter(s => s.kind !== 'group');
         const ids = secs.map(s => s.id);
         const { data: blks, error: e2 } = ids.length
-          ? await supabase.from('blocks').select('id, section_id, block_type, config, order_index').in('section_id', ids).order('order_index')
+          ? await supabase.from(blocksTable).select('id, section_id, block_type, config, order_index').in('section_id', ids).order('order_index')
           : { data: [], error: null };
         if (e2) throw e2;
         if (cancelled) return;
@@ -82,7 +100,7 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
       }
     })();
     return () => { cancelled = true; };
-  }, [sourceId, templates]);
+  }, [sourceId, templates, sectionsTable, blocksTable, parentFK, prepTemplateCol]);
 
   const blocksBySection = useMemo(() => {
     const m = new Map();
@@ -97,16 +115,13 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
   async function handleAdd() {
     if (selected.size === 0) return;
     setBusy(true); setError(''); setNotice('');
-    const ids = sections.filter(s => selected.has(s.id)).map(s => s.id); // preserve source order
+    const ids = sections.filter(s => selected.has(s.id)).map(s => s.id);
     const srcTitle = templates.find(t => t.id === sourceId)?.title || '';
     const { data, error: e } = await runBusy(
       `Adding ${ids.length} exercise${ids.length === 1 ? '' : 's'}…`,
       async () => {
-        const r = await supabase.rpc('add_exercises_to_workbook', {
-          p_target_workbook_id: currentWorkbookId,
-          p_source_section_ids: ids,
-        });
-        if (!r.error) await renumberExercises(currentWorkbookId);
+        const r = await supabase.rpc(addRpc, addRpcParams(targetId, ids));
+        if (!r.error) await renumberExercisesIn({ sectionsTable, parentFK }, targetId);
         return r;
       },
     );
@@ -123,13 +138,13 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
     <div className="modal-backdrop visible" onClick={onClose}>
       <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '760px', width: '92vw' }}>
         <header className="modal-head">
-          <h2>➕ Add exercises from another workbook</h2>
+          <h2>➕ Add exercises from another {label}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </header>
         <div className="modal-body">
-          <label className="form-label">Source workbook</label>
+          <label className="form-label">Source {label}</label>
           <select className="form-input" value={sourceId} onChange={e => setSourceId(e.target.value)}>
-            <option value="">Select a workbook…</option>
+            <option value="">Select a {label}…</option>
             {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
           </select>
 
@@ -139,14 +154,14 @@ export default function AddExercisesModal({ currentWorkbookId, onClose, onAdded 
           {sourceId && (
             <p className="muted" style={{ marginTop: '0.75rem' }}>
               Tick the exercises to copy. Ones marked <span className="type-tag">prep</span> will draw their prep
-              from <strong>{sourceTitle}</strong>’s pool when this workbook runs.
+              from <strong>{sourceTitle}</strong>’s pool when this {label} runs.
             </p>
           )}
 
           {loadingSrc && <div className="loading">Loading…</div>}
 
           {!loadingSrc && sourceId && sections.length === 0 && (
-            <p className="muted">This workbook has no exercises.</p>
+            <p className="muted">This {label} has no exercises.</p>
           )}
 
           {!loadingSrc && sections.length > 0 && (

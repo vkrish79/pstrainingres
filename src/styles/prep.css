@@ -94,6 +94,27 @@
    middle, primary actions pinned in the footer (so they never scroll away). */
 .prep-upload-modal { max-width: 660px; width: 92vw; }
 .prep-upload-modal .modal-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.prep-kind-tabs { display: flex; gap: 0.25rem; padding: 0.75rem 1.25rem 0; border-bottom: 1px solid var(--border); }
+.prep-kind-tabs .prep-kind-tab,
+.prep-kind-tabs .prep-kind-tab:hover,
+.prep-kind-tabs .prep-kind-tab:focus,
+.prep-kind-tabs .prep-kind-tab:hover:not(:disabled),
+.prep-kind-tabs .prep-kind-tab.active {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-family: inherit;
+  transform: none;
+}
+.prep-kind-tabs .prep-kind-tab { color: var(--muted, #6b7280); font-weight: 500; }
+.prep-kind-tabs .prep-kind-tab:hover { color: var(--text, #111827); }
+.prep-kind-tabs .prep-kind-tab.active { color: var(--text, #111827); border-bottom-color: currentColor; font-weight: 600; }
 .prep-upload-modal .prep-pickers { padding: 1rem 1.25rem 0.85rem; margin: 0; }
 .prep-scroll { flex: 1; overflow-y: auto; padding: 0 1.25rem 1rem; }
 .prep-modal-foot { flex-wrap: wrap; gap: 0.5rem; }
@@ -138,32 +159,23 @@
 
 .prep-drawer-body { flex: 1; overflow-y: auto; padding: 0.85rem 1rem; }
 
-/* Desktop: push the whole page left so the drawer gets its own strip. The
-   fixed drawer stays at the viewport edge and fills the gap; centered content
-   re-centers in the narrower space. The sticky TopBar is exempted — a matching
-   negative margin-right keeps it spanning the full viewport so only the content
-   below the header reflows. */
+/* Desktop: only the exercise canvas (sidebar + main, via .exresp-layout)
+   shrinks to make room for the fixed drawer. Page hero, view tabs, presenter
+   bars, the materials list, and the TopBar all stay put — no body push, no
+   negative-margin exemptions, no transition flicker on those elements. */
 @media (min-width: 900px) {
-  body { transition: margin-right 0.3s ease; }
   /* 218 drawer + 12 right inset. */
-  body.prep-drawer-pushed { margin-right: min(230px, 100vw); }
-  .topbar { transition: margin-right 0.3s ease; }
+  .exresp-layout { transition: margin-right 0.3s ease; }
+  body.prep-drawer-pushed .exresp-layout { margin-right: min(230px, 100vw); }
 
   /* Trainer "My copy": align with the exercise row (level with the monitor
      drawer), below the full-width presenter bar — reuses --monitor-bar-bottom
-     (the exercise-row top synced by the parent). Participant view (no --track)
-     keeps the base top: 60px. */
+     (the exercise-row top synced by the parent). */
   .prep-drawer.prep-drawer--track { top: var(--monitor-bar-bottom, 110px); }
-
-  /* Keep the session header card, tabs AND presenter bar full-width above the
-     drawer (their negative margin cancels the body push, in lockstep). */
-  .dashboard .page-hero { transition: margin-right 0.3s ease; }
-  body.prep-drawer-pushed .topbar,
-  body.prep-drawer-pushed .dashboard .page-hero,
-  body.prep-drawer-pushed .dashboard .view-tabs,
-  body.prep-drawer-pushed .practice-view .presenter-bar {
-    margin-right: calc(-1 * min(230px, 100vw));
-  }
+  /* Participant view: track the sticky exercise sidebar so the drawer sits
+     below the page-hero + materials when scrolled to top, and pins level with
+     the sidebar (top: 80px) once those scroll out of view. */
+  .prep-drawer.prep-drawer--track-page { top: var(--page-prep-top, 80px); }
 }
 
 /* Narrow screens: bottom sheet; don't push. */

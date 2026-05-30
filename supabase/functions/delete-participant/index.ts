@@ -86,7 +86,11 @@ Deno.serve(async (req: Request) => {
 
   // Return any prep kit this participant held back to the pool before deleting
   // them (individual delete frees the kit; session-close keeps it consumed).
-  await admin.rpc('release_prep_kit', { p_session_id: session_id, p_participant_id: participant_id });
+  await Promise.all([
+    admin.rpc('release_prep_kit', { p_session_id: session_id, p_participant_id: participant_id }),
+    // Harmless when the session has no assessment kit allocated.
+    admin.rpc('release_prep_kit_assessment', { p_session_id: session_id, p_participant_id: participant_id }),
+  ]);
 
   // auth.users delete cascades to profiles → session_participants → answers.
   const { error: ae } = await admin.auth.admin.deleteUser(participant_id);

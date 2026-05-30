@@ -5,7 +5,6 @@ import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useStaff } from '../hooks/useStaff.js';
 import { useVendors } from '../hooks/useVendors.js';
-import { useSessionTypes } from '../hooks/useSessionTypes.js';
 import { useCities } from '../hooks/useCities.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../lib/roles.js';
 import TopBar from '../components/TopBar.jsx';
@@ -18,50 +17,45 @@ export default function NewSessionPage() {
   const { run: runBusy } = useBusyOverlay();
   const { staff } = useStaff();
   const { vendors } = useVendors();
-  const { types: sessionTypes } = useSessionTypes(); // active only
   const { cities } = useCities(); // active only
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   // vendor_manager OR super — anyone who needs to *pick* the trainer.
   const canPickTrainer = isVendorManagerOrAbove(profile?.role);
 
-  const [workbooks, setWorkbooks] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [name, setName] = useState('');
-  const [workbookId, setWorkbookId] = useState('');
+  const [programId, setProgramId] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [cityCode, setCityCode] = useState('');
-  const [sessionTypeId, setSessionTypeId] = useState('');
   // Super-tier picks the vendor first; the trainer dropdown then filters to
   // that vendor. Vendor_manager has no vendor picker — their vendor is implied
   // and RLS already scopes the staff list to it.
   const [vendorId, setVendorId] = useState('');
   const [trainerId, setTrainerId] = useState('');
   // Super-only: when true, no vendor/trainer pickers — session is assigned
-  // to the super themselves (vendor_id resolves to whatever the super has,
-  // usually null). When false, vendor + trainer pickers appear and are required.
+  // to the super themselves. When false, vendor + trainer pickers appear.
   const [superSelfDeliver, setSuperSelfDeliver] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // Published programs only — the publish toggle on the program editor is the
+  // gate for session creation. RLS opens vendor read access to published rows.
   useEffect(() => {
     (async () => {
-      let q = supabase
-        .from('workbooks')
-        .select('id, title')
-        .eq('is_template', true)
+      const { data } = await supabase
+        .from('programs')
+        .select(`
+          id, title,
+          program_type:program_types ( id, name )
+        `)
+        .eq('status', 'published')
         .order('updated_at', { ascending: false });
-      // Vendor-tier only sees vendor-visible templates; super sees all.
-      if (!isSuper) q = q.eq('vendor_visible', true);
-      const { data } = await q;
-      setWorkbooks(data || []);
-      if (data?.length) setWorkbookId(data[0].id);
+      setPrograms(data || []);
+      if (data?.length) setProgramId(data[0].id);
     })();
-  }, [isSuper]);
+  }, []);
 
-  // Trainers a vendor_manager / super can assign sessions to. Includes
-  // vendor_managers themselves (they can run sessions too). RLS already
-  // filters `staff` by vendor for non-super; for super we filter client-side
-  // by the picked vendor.
   const trainerOptions = useMemo(() => {
     const assignableRoles = new Set([ROLES.VENDOR_MANAGER, ROLES.VENDOR_TRAINER, 'trainer']);
     return staff
@@ -70,7 +64,6 @@ export default function NewSessionPage() {
       .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
   }, [staff, isSuper, vendorId]);
 
-  // Reset the trainer pick when the vendor changes (super-tier flow only).
   useEffect(() => {
     if (isSuper && trainerId && !trainerOptions.find(t => t.id === trainerId)) {
       setTrainerId('');
@@ -78,16 +71,12 @@ export default function NewSessionPage() {
   }, [trainerOptions, trainerId, isSuper]);
 
   function validate() {
-    // Only enforce the freeform 3-letter rule when there's no managed city list
-    // (the dropdown supplies a valid registry code).
     if (cities.length === 0 && cityCode && !/^[A-Z]{3}$/.test(cityCode)) {
       return 'City code must be three uppercase letters (e.g. AUH).';
     }
     if (startsAt && endsAt && endsAt < startsAt) {
       return 'End date cannot be before start date.';
     }
-    // Vendor manager always picks a trainer (themselves or someone in their team).
-    // Super only when they've chosen to assign rather than self-deliver.
     const trainerRequired =
       profile?.role === ROLES.VENDOR_MANAGER ||
       (isSuper && !superSelfDeliver);
@@ -96,11 +85,6 @@ export default function NewSessionPage() {
     }
     if (isSuper && !superSelfDeliver && !vendorId) {
       return 'Pick a vendor.';
-    }
-    // Required only when types have been configured — keeps creation unblocked
-    // before any are set up, while ensuring clean by-type analytics once they are.
-    if (sessionTypes.length > 0 && !sessionTypeId) {
-      return 'Pick a session type.';
     }
     return null;
   }
@@ -111,19 +95,18 @@ export default function NewSessionPage() {
     const v = validate();
     if (v) { setError(v); return; }
     setBusy(true);
-    // RPC clones the chosen template workbook + creates the session pointing
-    // at the clone, atomically. Returns the new session id.
+    // RPC clones the program's workbook (and assessment if any) and creates
+    // the session atomically. Returns the new session id.
     const { data: newSessionId, error: rpcErr } = await runBusy(
       'Creating session…',
       () => supabase.rpc(
-        'create_session_with_workbook_clone',
+        'create_session_from_program',
         {
-          p_template_id: workbookId,
+          p_program_id: programId,
           p_name: name.trim(),
           p_starts_at: startsAt || null,
           p_ends_at: endsAt || null,
           p_city_code: cityCode || null,
-          p_session_type_id: sessionTypeId || null,
           // null = "assign to caller". RPC re-validates: vendor_manager can't
           // pick outside their vendor; vendor_trainer can't pick anyone but
           // themselves. Super self-delivering also passes null.
@@ -147,17 +130,28 @@ export default function NewSessionPage() {
           <div className="page-hero-text">
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>New session</h1>
-            <p>Pick a workbook, name your cohort, and set the dates and location. You'll add participants on the next screen.</p>
+            <p>Pick a published program, name your cohort, and set the dates and location. You'll add participants on the next screen.</p>
           </div>
         </section>
 
         <section className="editor-card">
           <form onSubmit={handleSubmit}>
-            <label className="form-label">Workbook</label>
-            <select className="form-input" value={workbookId} onChange={e => setWorkbookId(e.target.value)} required>
+            <label className="form-label">Program</label>
+            <select className="form-input" value={programId} onChange={e => setProgramId(e.target.value)} required>
               <option value="" disabled>Select…</option>
-              {workbooks.map(w => <option key={w.id} value={w.id}>{w.title}</option>)}
+              {programs.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.title}{p.program_type?.name ? ` — ${p.program_type.name}` : ''}
+                </option>
+              ))}
             </select>
+            {programs.length === 0 && (
+              <p className="muted" style={{ marginTop: '0.25rem' }}>
+                No published programs yet. {isSuper
+                  ? <>Publish one from <Link to="/trainer/programs">Programs</Link>.</>
+                  : 'Ask a super trainer to publish a program.'}
+              </p>
+            )}
 
             {isSuper && (
               <label className="form-checkbox" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.75rem 0' }}>
@@ -212,23 +206,6 @@ export default function NewSessionPage() {
             <label className="form-label">Session name</label>
             <input className="form-input" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. ARDW — Cohort 2026-05" />
 
-            {sessionTypes.length > 0 && (
-              <>
-                <label className="form-label">Session type</label>
-                <select
-                  className="form-input"
-                  value={sessionTypeId}
-                  onChange={e => setSessionTypeId(e.target.value)}
-                  required
-                >
-                  <option value="" disabled>Select…</option>
-                  {sessionTypes.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </>
-            )}
-
             <div className="form-grid">
               <div>
                 <label className="form-label">From date</label>
@@ -260,7 +237,7 @@ export default function NewSessionPage() {
 
             {error && <p className="error">{error}</p>}
             <div className="form-actions">
-              <button type="submit" disabled={busy || !workbookId || !name.trim()}>
+              <button type="submit" disabled={busy || !programId || !name.trim()}>
                 {busy ? 'Creating…' : 'Create session'}
               </button>
             </div>

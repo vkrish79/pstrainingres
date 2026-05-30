@@ -27,6 +27,8 @@ export default function TrainerHomePage() {
           <div className="page-hero-actions">
             {isSuper && (
               <>
+                <Link to="/trainer/programs" className="ghost-link">Programs</Link>
+                <Link to="/trainer/assessments" className="ghost-link">Assessments</Link>
                 <Link to="/trainer/workbooks/new" className="ghost-link">+ New workbook</Link>
                 <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>
               </>

@@ -207,9 +207,9 @@ Deno.serve(async (req: Request) => {
     .from('sessions')
     .select(`
       id, name, city_code, starts_at, ends_at, join_code,
-      vendor_id, trainer_id, workbook_id, closed_at, session_type_id,
+      vendor_id, trainer_id, workbook_id, assessment_id, program_id, closed_at,
       vendors ( id, code, name ),
-      session_type:session_types ( id, name ),
+      program:programs ( id, title, program_type:program_types ( id, name ) ),
       trainer:profiles!sessions_trainer_id_fkey ( id, full_name, email )
     `)
     .eq('id', session_id)
@@ -336,7 +336,10 @@ Deno.serve(async (req: Request) => {
       ends_at: sess.ends_at,
       join_code: sess.join_code,
       vendor: sess.vendors || null,
-      session_type: sess.session_type || null,
+      program: sess.program || null,
+      // Back-compat for older snapshot consumers — surface program.program_type
+      // under the legacy session_type key in the snapshot too.
+      session_type: sess.program?.program_type || null,
       trainer: sess.trainer || null,
     },
     workbook: workbook ? {
@@ -384,6 +387,9 @@ Deno.serve(async (req: Request) => {
   // Mark this session's prep kits permanently used (closed sessions never
   // return kits to the pool). The snapshot above already captured prep content.
   const { error: prepMarkErr } = await admin.rpc('mark_prep_kits_used', { p_session_id: session_id });
+  // Assessment kit lifecycle is symmetric; harmless no-op when the session has
+  // no assessment_id (the RPC short-circuits on no rows).
+  const { error: prepMarkErrAsmt } = await admin.rpc('mark_prep_kits_used_assessment', { p_session_id: session_id });
 
   // ---- 6.5 Lightweight analytics rows (non-fatal — the snapshot is the
   // record of truth; analytics is a derived reporting layer). Upserted so a
@@ -420,6 +426,7 @@ Deno.serve(async (req: Request) => {
     participants_deleted: participantIds.length - deleteErrors.length,
     delete_errors: deleteErrors,
     prep_mark_used_error: prepMarkErr?.message || null,
+    prep_mark_used_error_assessment: prepMarkErrAsmt?.message || null,
     analytics_error: analyticsError,
   });
 });

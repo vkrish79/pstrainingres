@@ -999,6 +999,21 @@
 }
 .change-trainer .error, .change-trainer .muted { font-size: 0.8rem; }
 
+/* Assessment lock + timer control in the session hero, and the participant-side
+   countdown chip. */
+.assessment-lock-control { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.assessment-minutes-input { width: auto; min-width: 9rem; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+.assessment-timer {
+  display: inline-flex; align-items: center;
+  font-size: 0.85rem; font-variant-numeric: tabular-nums;
+  font-weight: 600; color: var(--text);
+  background: #eef2f7; border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem; border-radius: 999px; white-space: nowrap;
+}
+.assessment-timer.warning { background: #fff4e0; border-color: #e0b24d; color: #8a5a00; }
+.assessment-timer.expired { background: #f6e3e3; border-color: #d99; color: #a13a3a; }
+.assessment-lock-error { font-size: 0.8rem; color: #a13a3a; max-width: 18rem; }
+
 /* Read-only prep callout — used on the trainer dashboard + the
    participant workbook + the closed session view. */
 .participant-prep-callout {
@@ -1233,3 +1248,134 @@
 /* Consequence list inside the close-session confirm modal */
 .confirm-list { margin: 0.5rem 0 0.75rem; padding-left: 1.25rem; }
 .confirm-list li { margin: 0.3rem 0; line-height: 1.45; }
+
+/* Program materials thumbnails (shared by participant + trainer views) */
+.materials-list { margin: 1rem 0; }
+.materials-list-title { margin: 0 0 0.5rem; font-size: 0.95rem; }
+.materials-thumbs {
+  list-style: none; padding: 0; margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 130px));
+  gap: 0.6rem;
+}
+.material-thumb {
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.5rem;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #d6dee9);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.material-thumb:hover:not(:disabled) {
+  border-color: var(--accent, #2e60c5);
+  box-shadow: 0 4px 14px rgba(15, 22, 38, 0.08);
+  transform: translateY(-1px);
+}
+.material-thumb:disabled { opacity: 0.6; cursor: progress; }
+.material-thumb-canvas {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(180deg, #fbfcfe 0%, #eef1f6 100%);
+  border: 1px solid var(--border, #d6dee9);
+  border-radius: 4px;
+  overflow: hidden;
+  padding: 0.55rem 0.5rem;
+  display: flex; flex-direction: column; gap: 0.35rem;
+}
+.material-thumb-page { display: flex; flex-direction: column; gap: 0.35rem; }
+.material-thumb-line {
+  height: 4px; border-radius: 2px;
+  background: rgba(46, 96, 197, 0.18);
+}
+.material-thumb-line.short { width: 65%; }
+.material-thumb-corner {
+  position: absolute; bottom: 4px; right: 4px;
+  font-size: 0.6rem; font-weight: 700;
+  color: var(--accent, #2e60c5);
+  background: rgba(255,255,255,0.85);
+  padding: 1px 4px; border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+.material-thumb-meta { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.material-thumb-kind {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted);
+}
+.material-thumb-kind-handout { color: #2e60c5; }
+.material-thumb-kind-quick_ref { color: #b8770d; }
+.material-thumb-label {
+  font-size: 0.82rem; font-weight: 500;
+  line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(0.82rem * 1.25 * 2);
+}
+
+/* Modal preview */
+.material-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15, 22, 38, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  padding: 2rem;
+}
+.material-modal {
+  width: min(960px, 100%);
+  height: min(85vh, 100%);
+  background: var(--card, #fff);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.material-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: #fafbfd;
+  gap: 0.75rem;
+}
+.material-modal-title { font-weight: 600; font-size: 0.95rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.material-modal-actions { display: flex; gap: 0.4rem; align-items: center; flex-shrink: 0; }
+.material-modal-actions .icon-btn {
+  background: transparent; border: none; font-size: 1.4rem;
+  padding: 0.1rem 0.6rem; border-radius: 4px; cursor: pointer; color: var(--text);
+}
+.material-modal-actions .icon-btn:hover { background: var(--border); }
+.material-modal-frame {
+  flex: 1; width: 100%; border: none; background: #f3f5f8;
+}
+
+/* Participant workbook: sticky actions bar that pins below TopBar once the
+   hero + materials scroll past. Background is opaque so content scrolling
+   underneath doesn't bleed through. The prep drawer only pushes
+   .exresp-layout, so this bar stays full-width when the drawer opens. */
+.participant-actions-bar {
+  position: sticky;
+  top: 60px;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  margin: 0 0 0.75rem;
+  background: var(--bg, #f5efe4);
+  border-bottom: 1px solid var(--border, #d6dee9);
+}
+
+/* Stack the exercise sidebar below the sticky actions bar so they don't
+   overlap when both are pinned. Other pages that don't set --page-actions-h
+   keep the default 80px. The trainer .practice-view rule still overrides. */
+.workbook .exresp-sidebar { top: calc(80px + var(--page-actions-h, 0px)); }
+
+
+/* Assessment prep panel (participant assessment page) */
+.assessment-prep-panel { margin: 0.5rem 0 1rem; }

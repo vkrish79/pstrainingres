@@ -6,20 +6,24 @@ import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
+import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
 import { sanitizeNotesHtml } from '../lib/notesRichText.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
+import AssessmentLockControl from '../components/dashboard/AssessmentLockControl.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
 import { buildAllInvitesText, buildHandoutHtml, buildInviteText } from '../lib/participantInvite.js';
 import Block from '../components/blocks/Block.jsx';
+import MaterialsList from '../components/MaterialsList.jsx';
 import ExerciseResponses from '../components/dashboard/ExerciseResponses.jsx';
 import NoteRow from '../components/dashboard/NoteRow.jsx';
 import TrainerPracticeView from '../components/dashboard/TrainerPracticeView.jsx';
+import TrainerAssessmentPreview from '../components/dashboard/TrainerAssessmentPreview.jsx';
 import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -46,7 +50,7 @@ export default function SessionDashboardPage() {
   const navigate = useNavigate();
   const {
     loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled,
-    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession,
+    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
   } = useSessionDashboard(id);
   const { session: authSession, profile } = useAuth();
   const { run: runBusy } = useBusyOverlay();
@@ -54,6 +58,7 @@ export default function SessionDashboardPage() {
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
   const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
+  const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(id);
   // Live cursors: where each participant is looking right now. Read-only here.
   const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
 
@@ -417,12 +422,9 @@ export default function SessionDashboardPage() {
               {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}
               {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
             </h1>
-            <p>
-              {workbook?.title}
-              {(session?.starts_at || session?.ends_at) && (
-                <span className="session-dates"> · {formatDateRange(session.starts_at, session.ends_at)}</span>
-              )}
-            </p>
+            {(session?.starts_at || session?.ends_at) && (
+              <p><span className="session-dates">{formatDateRange(session.starts_at, session.ends_at)}</span></p>
+            )}
             {session?.join_code && (
               <p className="join-code-row">
                 Join URL: <a href={joinUrl} className="mono">{joinUrl}</a>
@@ -440,6 +442,15 @@ export default function SessionDashboardPage() {
                 onChange={setSessionTrainer}
               />
             )}
+            {session?.assessment_id && (
+              <AssessmentLockControl
+                unlockedAt={session.assessment_unlocked_at}
+                deadlineAt={session.assessment_deadline_at}
+                onUnlock={(mins) => setAssessmentUnlocked(true, mins)}
+                onLock={() => setAssessmentUnlocked(false)}
+                onExtend={(mins) => extendAssessmentDeadline(mins)}
+              />
+            )}
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
             </button>
@@ -452,10 +463,19 @@ export default function SessionDashboardPage() {
           </div>
         </section>
 
+        <MaterialsList
+          materials={materials}
+          signedUrlFor={materialUrlFor}
+          loading={materialsLoading}
+        />
+
         <div className="view-tabs">
           <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>
           <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => setView('exercise')}>By exercise</button>
           <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>▶ My copy</button>
+          {session?.assessment_id && (
+            <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>📝 Assessment</button>
+          )}
         </div>
 
         {view === 'participants' && (
@@ -716,6 +736,10 @@ export default function SessionDashboardPage() {
             participantAnswers={answers}
             liveBySection={liveBySection}
           />
+        )}
+
+        {view === 'assessment' && (
+          <TrainerAssessmentPreview assessmentId={session?.assessment_id} />
         )}
       </main>
       <PrepEditor

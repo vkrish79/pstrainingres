@@ -18,11 +18,10 @@ export default function SessionCard({ session, showTrainer = false }) {
     <Link to={`/trainer/sessions/${session.id}`} className={`session-card ${closed ? 'closed' : ''}`}>
       <div className="session-card-head">
         <h3>{session.name}</h3>
-        {session.session_type?.name && <span className="type-tag">{session.session_type.name}</span>}
+        {session.program?.program_type?.name && <span className="type-tag">{session.program.program_type.name}</span>}
         {session.city_code && <span className="city-tag">{session.city_code}</span>}
         {closed && <span className="closed-pill small">Closed</span>}
       </div>
-      <p className="session-card-workbook">{session.workbooks?.title}</p>
       {(session.starts_at || session.ends_at) && (
         <p className="session-card-dates">{formatDateRange(session.starts_at, session.ends_at)}</p>
       )}

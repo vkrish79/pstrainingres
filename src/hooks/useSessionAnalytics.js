@@ -23,7 +23,7 @@ export function useSessionAnalytics() {
             total_slots, answered_slots, completion_pct,
             fully_completed_count, not_started_count,
             flagged_count, trainer_noted_count, section_note_count, prepped_participant_count,
-            session_type:session_types ( id, name ),
+            session_type:program_types ( id, name ),
             sessions (
               name, city_code, starts_at, closed_at,
               workbooks ( id, title ),

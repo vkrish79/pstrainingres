@@ -2,25 +2,50 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { useVendors } from '../../hooks/useVendors.js';
-import { useWorkbookPrep } from '../../hooks/useWorkbookPrep.js';
-import { useWorkbookPrepBalances } from '../../hooks/useWorkbookPrepBalances.js';
+import {
+  useContentPrep,
+  WORKBOOK_PREP_KIND,
+  ASSESSMENT_PREP_KIND,
+} from '../../hooks/useContentPrep.js';
+import { useContentPrepBalances } from '../../hooks/useContentPrepBalances.js';
 import { parseSheetFile } from '../../lib/sheetParse.js';
 import { downloadEmptyPrepTemplate } from '../../lib/prepTemplate.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
 import '../../styles/prep.css';
 
-// The "Prep" tab modal (opened from the TopBar). Pick a workbook → (super) pick
-// a pool → download the empty template, fill it, upload to append kits, and see
-// the balance. Super uploads only to the shared super pool; selecting a vendor
-// pool is balance-only. Vendor-tier is locked to their own pool.
+// Per-kind static config for the modal — which prep tables, which template
+// container table, and the label terms shown to the trainer.
+const KINDS = {
+  workbook: {
+    label: 'workbook',
+    labelPlural: 'workbooks',
+    parentTable: 'workbooks',
+    prepKind: WORKBOOK_PREP_KIND,
+  },
+  assessment: {
+    label: 'assessment',
+    labelPlural: 'assessments',
+    parentTable: 'assessments',
+    prepKind: ASSESSMENT_PREP_KIND,
+  },
+};
+
+// The "Prep" tab modal (opened from the TopBar). Pick a kind (workbook /
+// assessment), pick a parent → (super) pick a pool → download the empty
+// template, fill it, upload to append kits, see the balance. Super uploads
+// only to the shared super pool; selecting a vendor pool is balance-only.
+// Vendor-tier is locked to their own pool.
 export default function PrepUploadModal({ onClose, profile }) {
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   useBodyScrollLock();
   const { vendors } = useVendors();
 
+  const [kind, setKind] = useState('workbook');
+  const cfg = KINDS[kind];
+
   const [templates, setTemplates] = useState([]);
   const [tplLoading, setTplLoading] = useState(true);
-  const [selectedWorkbookId, setSelectedWorkbookId] = useState('');
+  const [selectedParentId, setSelectedParentId] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState(''); // '' = super pool
 
   const [parsing, setParsing] = useState(false);
@@ -31,11 +56,13 @@ export default function PrepUploadModal({ onClose, profile }) {
   const [notice, setNotice] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
 
+  // Load templates whenever the kind changes — same query shape across kinds.
   useEffect(() => {
     let cancelled = false;
+    setTplLoading(true);
     (async () => {
       const { data } = await supabase
-        .from('workbooks')
+        .from(cfg.parentTable)
         .select('id, title, prep_template')
         .eq('is_template', true)
         .order('title');
@@ -44,7 +71,7 @@ export default function PrepUploadModal({ onClose, profile }) {
       setTplLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [cfg.parentTable]);
 
   // Esc closes the modal.
   useEffect(() => {
@@ -53,17 +80,17 @@ export default function PrepUploadModal({ onClose, profile }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const selectedWorkbook = templates.find(t => t.id === selectedWorkbookId) || null;
-  const structure = Array.isArray(selectedWorkbook?.prep_template) ? selectedWorkbook.prep_template : [];
+  const selectedParent = templates.find(t => t.id === selectedParentId) || null;
+  const structure = Array.isArray(selectedParent?.prep_template) ? selectedParent.prep_template : [];
 
   const partitionVendorId = isSuper ? (selectedVendorId || null) : (profile?.vendor_id || null);
   const canWrite = isSuper ? (partitionVendorId == null) : !!profile?.vendor_id;
 
   const { balance, loading: balLoading, appendKits, clearUnconsumed } =
-    useWorkbookPrep(selectedWorkbookId || null, partitionVendorId);
+    useContentPrep(cfg.prepKind, selectedParentId || null, partitionVendorId);
 
-  // Balances for every workbook in the selected pool — the overview landing.
-  const { byWorkbook, loading: overviewLoading } = useWorkbookPrepBalances(partitionVendorId);
+  // Balances for every parent of this kind in the selected pool.
+  const { byParent, loading: overviewLoading } = useContentPrepBalances(cfg.prepKind, partitionVendorId);
 
   // normalized uploaded header -> canonical template header (the payload key)
   const headerCanon = useMemo(() => {
@@ -73,7 +100,13 @@ export default function PrepUploadModal({ onClose, profile }) {
   }, [structure]);
 
   function resetUpload() { setParseError(''); setParsed(null); setSubmitError(''); }
-  function changeWorkbook(id) { setSelectedWorkbookId(id); resetUpload(); setNotice(''); setConfirmClear(false); }
+  function changeParent(id) { setSelectedParentId(id); resetUpload(); setNotice(''); setConfirmClear(false); }
+  function changeKind(nextKind) {
+    if (nextKind === kind) return;
+    setKind(nextKind);
+    setSelectedParentId('');
+    resetUpload(); setNotice(''); setConfirmClear(false);
+  }
 
   async function handleFile(e) {
     resetUpload(); setNotice('');
@@ -142,6 +175,21 @@ export default function PrepUploadModal({ onClose, profile }) {
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </header>
         <div className="modal-body">
+          <div className="prep-kind-tabs" role="tablist" aria-label="Prep kind">
+            {Object.entries(KINDS).map(([k, c]) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={kind === k}
+                className={`prep-kind-tab ${kind === k ? 'active' : ''}`}
+                onClick={() => changeKind(k)}
+              >
+                {c.labelPlural[0].toUpperCase() + c.labelPlural.slice(1)}
+              </button>
+            ))}
+          </div>
+
           {isSuper && (
             <div className="prep-pickers">
               <label className="form-label">
@@ -155,27 +203,27 @@ export default function PrepUploadModal({ onClose, profile }) {
           )}
 
           <div className="prep-scroll">
-          {!selectedWorkbookId ? (
+          {!selectedParentId ? (
             <div className="prep-overview">
               <p className="muted prep-overview-hint">
                 {isSuper ? `Showing the ${selectedVendorId ? (vendors.find(v => v.id === selectedVendorId)?.name || 'vendor') : 'Super (shared)'} pool. ` : ''}
-                Click a workbook to upload or manage its kits.
+                Click {cfg.label === 'assessment' ? 'an' : 'a'} {cfg.label} to upload or manage its kits.
               </p>
               {(tplLoading || overviewLoading) ? (
                 <p className="muted">Loading…</p>
               ) : templates.length === 0 ? (
-                <p className="muted">No workbooks yet.</p>
+                <p className="muted">No {cfg.labelPlural} yet.</p>
               ) : (
                 <ul className="prep-overview-list">
                   {templates.map(t => {
                     const hasTpl = Array.isArray(t.prep_template) && t.prep_template.length > 0;
-                    const b = byWorkbook[t.id] || { total: 0, fullyPreppable: 0 };
+                    const b = byParent[t.id] || { total: 0, fullyPreppable: 0 };
                     const fp = b.fullyPreppable ?? 0;
                     const pct = b.total ? Math.round((fp / b.total) * 100) : 0;
                     const cls = fp === 0 ? 'none' : (fp <= b.total * 0.25 ? 'low' : 'ok');
                     return (
                       <li key={t.id}>
-                        <button type="button" className="prep-overview-row" onClick={() => changeWorkbook(t.id)}>
+                        <button type="button" className="prep-overview-row" onClick={() => changeParent(t.id)}>
                           <span className="prep-overview-title">{t.title}</span>
                           {b.total > 0 ? (
                             <>
@@ -197,11 +245,11 @@ export default function PrepUploadModal({ onClose, profile }) {
             </div>
           ) : (
             <>
-              <button type="button" className="prep-back" onClick={() => changeWorkbook('')}>← All workbooks</button>
-              <h3 className="prep-detail-title">{selectedWorkbook?.title}</h3>
+              <button type="button" className="prep-back" onClick={() => changeParent('')}>← All {cfg.labelPlural}</button>
+              <h3 className="prep-detail-title">{selectedParent?.title}</h3>
               {structure.length === 0 ? (
             <>
-              <p className="prep-warn">No prep template set up for this workbook yet — ask a super trainer to set it up from the workbook’s editor.</p>
+              <p className="prep-warn">No prep template set up for this {cfg.label} yet — ask a super trainer to set it up from the {cfg.label}’s editor.</p>
               {!balLoading && balance.total > 0 && (
                 <div className="prep-balance"><div className="prep-balance-meta muted">{balance.total} kit(s) in this pool · {balance.available} available</div></div>
               )}
@@ -245,7 +293,7 @@ export default function PrepUploadModal({ onClose, profile }) {
                 <div className="prep-preview">
                   <h3>Preview</h3>
                   {matchedHeaders === 0 ? (
-                    <p className="error">No columns matched this workbook’s prep template. Use the “Download template” button below and fill that exact file.</p>
+                    <p className="error">No columns matched this {cfg.label}’s prep template. Use the “Download template” button below and fill that exact file.</p>
                   ) : (
                     <>
                       <p className="prep-preview-count"><strong>{payloadRows.length}</strong> kit{payloadRows.length === 1 ? '' : 's'} will be added.</p>
@@ -270,9 +318,9 @@ export default function PrepUploadModal({ onClose, profile }) {
           </div>
         </div>
 
-        {selectedWorkbookId && structure.length > 0 && (
+        {selectedParentId && structure.length > 0 && (
           <footer className="modal-foot prep-modal-foot">
-            <button type="button" className="ghost" onClick={() => downloadEmptyPrepTemplate(selectedWorkbook.title, structure)}>
+            <button type="button" className="ghost" onClick={() => downloadEmptyPrepTemplate(selectedParent.title, structure)}>
               ↓ Download template
             </button>
             {canWrite && (
