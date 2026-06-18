@@ -10,6 +10,7 @@ import {
 } from '../../hooks/useContentPrep.js';
 import { useContentPrepBalances } from '../../hooks/useContentPrepBalances.js';
 import PrepGrid from './PrepGrid.jsx';
+import PrepPasteGrid from './PrepPasteGrid.jsx';
 import { parseSheetFile } from '../../lib/sheetParse.js';
 import { downloadEmptyPrepTemplate } from '../../lib/prepTemplate.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
@@ -60,6 +61,7 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   const [submitError, setSubmitError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
+  const [pasteMode, setPasteMode] = useState(false);
 
   // Load templates whenever the kind changes — same query shape across kinds.
   useEffect(() => {
@@ -116,12 +118,12 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   }, [structure]);
 
   function resetUpload() { setParseError(''); setParsed(null); setSubmitError(''); }
-  function changeParent(id) { setSelectedParentId(id); resetUpload(); setNotice(''); setConfirmClear(false); }
+  function changeParent(id) { setSelectedParentId(id); resetUpload(); setNotice(''); setConfirmClear(false); setPasteMode(false); }
   function changeKind(nextKind) {
     if (nextKind === kind) return;
     setKind(nextKind);
     setSelectedParentId('');
-    resetUpload(); setNotice(''); setConfirmClear(false);
+    resetUpload(); setNotice(''); setConfirmClear(false); setPasteMode(false);
   }
 
   async function handleFile(e) {
@@ -172,6 +174,17 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
     if (error) { setSubmitError(error.message); return; }
     resetUpload();
     setNotice(`Added ${count} kit${count === 1 ? '' : 's'} to the pool.`);
+  }
+
+  // In-app paste-grid entry: same append path as the upload, just a different UI.
+  async function handlePasteSubmit(payloadRows) {
+    setSubmitting(true);
+    const { error, count } = await appendKits(payloadRows);
+    setSubmitting(false);
+    if (error) return { error };
+    setPasteMode(false);
+    setNotice(`Added ${count} kit${count === 1 ? '' : 's'} to the pool.`);
+    return {};
   }
 
   async function handleClear() {
@@ -266,6 +279,15 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
             </>
           ) : (
             <>
+              {pasteMode ? (
+                <PrepPasteGrid
+                  structure={structure}
+                  busy={submitting}
+                  onCancel={() => setPasteMode(false)}
+                  onSubmit={handlePasteSubmit}
+                />
+              ) : (
+              <>
               {balLoading ? <p className="muted">Loading pool…</p> : (
                 <div className="prep-balance">
                   <div className="prep-balance-headline">
@@ -326,6 +348,8 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
                   )}
                 </div>
               )}
+              </>
+              )}
             </>
               )}
             </>
@@ -334,9 +358,14 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
     </>
   );
 
-  const showFooter = selectedParentId && structure.length > 0;
+  const showFooter = selectedParentId && structure.length > 0 && !pasteMode;
   const footerActions = (
     <>
+      {canWrite && (
+        <button type="button" className="ghost prep-paste-btn" onClick={() => setPasteMode(true)}>
+          ✏️ Enter prep in-app
+        </button>
+      )}
       <button type="button" className="ghost" onClick={() => downloadEmptyPrepTemplate(selectedParent.title, structure)}>
         ↓ Download template
       </button>

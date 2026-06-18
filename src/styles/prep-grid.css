@@ -146,3 +146,16 @@ thead .pg-rowhead { z-index: 3; }
 }
 .pg-restock-msg { font-size: 0.78rem; color: #15803d; margin: 0.45rem 0 0; }
 .pg-restock-actions { margin-top: 0.5rem; }
+
+/* ── in-app paste-grid entry (PrepPasteGrid) ── */
+.pg-editcell { padding: 0; }
+.pg-edit {
+  width: 100%; min-width: 110px; border: none; background: transparent;
+  font: inherit; font-size: 0.78rem; font-weight: 600; color: #0f172a;
+  padding: 6px 9px; outline: none; box-sizing: border-box;
+}
+.pg-editcell:focus-within { box-shadow: inset 0 0 0 2px #93c5fd; background: #eff6ff; }
+.prep-paste-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.7rem; }
+.prep-paste-rownum { color: #94a3b8; font-weight: 500; text-align: right; min-width: 34px; }
+.prep-paste-foot { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; flex-wrap: wrap; }
+.prep-paste-count { font-size: 0.85rem; color: #0f172a; }
