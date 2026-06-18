@@ -87,6 +87,31 @@ thead .pg-rowhead { z-index: 3; }
 .pg-table tbody tr:hover td.pg-cell { filter: brightness(0.975) saturate(1.08); }
 .pg-table tbody tr:hover .pg-rowhead { background: linear-gradient(180deg, #f8fafc, #eef4fb); }
 
+/* ── session prep grid (SessionPrepGrid) — click a heading to replace a column ── */
+.pg-edit-hint { font-size: 0.8rem; color: #64748b; margin: 0 0 0.6rem; }
+.pg-col-th { padding: 0; }
+.pg-col-replace {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  font: inherit; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.03em; color: #475569; padding: 7px 11px;
+}
+.pg-col-replace:hover { color: #0f172a; background: #eef4fb; }
+.pg-col-icon { color: #2563eb; opacity: 0; }
+.pg-col-replace:hover .pg-col-icon { opacity: 1; }
+
+/* replace-a-column modal */
+.prep-replace-modal { max-width: 580px; width: 92vw; }
+.prep-replace-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; align-items: start; }
+.prep-replace-names { list-style: none; margin: 0; padding: 0; font-size: 0.8rem; }
+.prep-replace-names li { display: flex; align-items: center; gap: 0.5rem; padding: 4px 0; border-bottom: 1px solid #f1f5f9; }
+.prep-replace-rank { width: 16px; color: #94a3b8; font-size: 0.7rem; text-align: right; }
+.prep-replace-name { flex: 1; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prep-replace-cur { color: #94a3b8; font-variant-numeric: tabular-nums; }
+.prep-replace-text {
+  width: 100%; box-sizing: border-box; border: 1px solid #d7dee7; border-radius: 8px;
+  padding: 8px 10px; font: inherit; font-size: 0.82rem; resize: vertical; min-height: 140px;
+}
+
 /* ── group divider rows (status-tinted, accent bar) ──
    The cell spans every column, so it can't be sticky itself; the label is a
    sticky inner span so it stays pinned at the left while you scroll right. */
@@ -101,3 +126,23 @@ thead .pg-rowhead { z-index: 3; }
   font-size: 0.66rem; font-weight: 700; color: #475569;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
+
+/* ── pool re-stock a column ── */
+.pg-restock { margin-bottom: 0.6rem; }
+.pg-restock-open {
+  font-size: 0.78rem; color: #475569; background: #fff;
+  border: 1px solid #d7dee7; border-radius: 6px; padding: 4px 10px; cursor: pointer;
+}
+.pg-restock-open:hover { border-color: #94a3b8; color: #0f172a; }
+.pg-restock--open {
+  border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.7rem 0.8rem; background: #f8fafc;
+}
+.pg-restock-head { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: #475569; }
+.pg-restock-head select { margin-left: 0.3rem; padding: 3px 6px; border: 1px solid #d7dee7; border-radius: 5px; }
+.pg-restock-x { margin-left: auto; border: none; background: none; font-size: 1.1rem; color: #94a3b8; cursor: pointer; line-height: 1; }
+.pg-restock--open textarea {
+  width: 100%; box-sizing: border-box; border: 1px solid #d7dee7; border-radius: 6px;
+  padding: 7px 9px; font: inherit; font-size: 0.78rem; resize: vertical;
+}
+.pg-restock-msg { font-size: 0.78rem; color: #15803d; margin: 0.45rem 0 0; }
+.pg-restock-actions { margin-top: 0.5rem; }

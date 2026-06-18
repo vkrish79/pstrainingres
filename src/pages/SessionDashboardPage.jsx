@@ -453,6 +453,11 @@ export default function SessionDashboardPage() {
                 onExtend={(mins) => extendAssessmentDeadline(mins)}
               />
             )}
+            {prepEnabled && (
+              <button className="ghost-link" onClick={() => navigate(`/trainer/sessions/${id}/prep`)}>
+                🗂 Manage prep
+              </button>
+            )}
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
               ↓ Export CSV
             </button>

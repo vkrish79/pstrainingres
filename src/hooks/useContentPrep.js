@@ -128,7 +128,36 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
     return {};
   }, [kitsTable, refresh]);
 
-  return { kits, balance, loading, refresh, appendKits, clearUnconsumed, setKitStatus };
+  // Re-stock one exercise column across the UNUSED (available) kits — used when a
+  // whole exercise's prep goes bad. `values` are fresh PNRs (one per kit, in
+  // kit_index order); overwrites payload[header] on as many available kits as
+  // there are values. Pool-level fix; allocated participants are handled
+  // separately on the session prep grid.
+  const restockColumn = useCallback(async (header, values) => {
+    if (!parentId || !header || !values?.length) return { count: 0 };
+    let q = supabase
+      .from(kitsTable)
+      .select('id, payload, kit_index')
+      .eq(parentFK, parentId)
+      .eq('status', 'available')
+      .order('kit_index');
+    q = vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
+    const { data: avail, error } = await q;
+    if (error) return { error };
+    const n = Math.min(values.length, (avail || []).length);
+    for (let i = 0; i < n; i++) {
+      const kit = avail[i];
+      const { error: e } = await supabase
+        .from(kitsTable)
+        .update({ payload: { ...(kit.payload || {}), [header]: values[i] } })
+        .eq('id', kit.id);
+      if (e) return { error: e };
+    }
+    await refresh();
+    return { count: n, available: (avail || []).length };
+  }, [parentId, vendorId, kitsTable, parentFK, refresh]);
+
+  return { kits, balance, loading, refresh, appendKits, clearUnconsumed, setKitStatus, restockColumn };
 }
 
 // Kind configs exported for wrappers and other prep consumers (low-prep, etc).

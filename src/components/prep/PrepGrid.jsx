@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { usePrepConsumedRefs } from '../../hooks/usePrepConsumedRefs.js';
 import { usePrepConsumption } from '../../hooks/usePrepConsumption.js';
 import '../../styles/prep-grid.css';
@@ -19,7 +19,7 @@ const GROUP_LABEL = {
 };
 const STATUS_CLASS = { available: 'pg-pool', allocated: 'pg-alloc', used: 'pg-spent' };
 
-export default function PrepGrid({ kits = [], structure = [], kind = 'workbook', onMarkKit = null }) {
+export default function PrepGrid({ kits = [], structure = [], kind = 'workbook', onMarkKit = null, onRestock = null }) {
   const { participantsById, sessionsById } = usePrepConsumedRefs(kits);
   const consumed = usePrepConsumption(kits, structure, kind); // { [kitId]: Set<header in use> }
   const inUseKits = Object.keys(consumed).length;
@@ -73,6 +73,10 @@ export default function PrepGrid({ kits = [], structure = [], kind = 'workbook',
         <span><i className="pg-sw pg-spent" />{counts.used} spent</span>
         <span className="pg-legend-total">{total} kits total</span>
       </div>
+
+      {onRestock && counts.available > 0 && (
+        <RestockControl columns={columns} availableCount={counts.available} onRestock={onRestock} />
+      )}
 
       <div className="pg-scroll">
         <table className="pg-table">
@@ -130,5 +134,55 @@ function GroupRows({ group, columns, rowLabel, statusClass, consumed, onMarkKit 
         );
       })}
     </>
+  );
+}
+
+// Pool-level "re-stock a column": paste fresh values for one exercise; they
+// overwrite that column across the unused (available) kits, in order.
+function RestockControl({ columns, availableCount, onRestock }) {
+  const [open, setOpen] = useState(false);
+  const [col, setCol] = useState(columns[0] || '');
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const willApply = Math.min(lines.length, availableCount);
+
+  async function apply() {
+    setBusy(true); setMsg('');
+    const { error, count } = await onRestock(col, lines);
+    setBusy(false);
+    if (error) { setMsg(`Error: ${error.message}`); return; }
+    setMsg(`Replaced ${count} unused “${col}” value${count === 1 ? '' : 's'}.`);
+    setText('');
+  }
+
+  if (!open) {
+    return (
+      <div className="pg-restock">
+        <button type="button" className="pg-restock-open" onClick={() => setOpen(true)}>↻ Restock a column</button>
+      </div>
+    );
+  }
+  return (
+    <div className="pg-restock pg-restock--open">
+      <div className="pg-restock-head">
+        <label>Exercise{' '}
+          <select value={col} onChange={e => { setCol(e.target.value); setMsg(''); }}>
+            {columns.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <span className="muted">{availableCount} unused kit{availableCount === 1 ? '' : 's'} in the pool</span>
+        <button type="button" className="pg-restock-x" onClick={() => { setOpen(false); setText(''); setMsg(''); }} aria-label="Close">×</button>
+      </div>
+      <textarea rows={4} value={text} onChange={e => setText(e.target.value)}
+        placeholder={`Paste fresh ${col} values — one per line. They overwrite the unused kits in order.`} />
+      {msg && <p className="pg-restock-msg">{msg}</p>}
+      <div className="pg-restock-actions">
+        <button type="button" disabled={busy || !lines.length} onClick={apply}>
+          {busy ? 'Applying…' : `Apply to ${willApply} unused`}
+        </button>
+      </div>
+    </div>
   );
 }
