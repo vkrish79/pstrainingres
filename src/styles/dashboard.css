@@ -362,6 +362,30 @@
   border-bottom-color: var(--gold);
 }
 
+/* Assessment tab sub-toggle: Live responses / Preview. Lighter than the main
+   view tabs (pill-style) so it reads as a sub-level control. */
+.assessment-subtabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.assessment-subtabs .view-subtab {
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.assessment-subtabs .view-subtab:hover { color: var(--text); background: transparent; }
+.assessment-subtabs .view-subtab.active {
+  color: var(--midnight);
+  border-color: var(--gold);
+  background: #fdf6e3;
+}
+
 /* ===== Exercise responses (by exercise) ===== */
 .exresp-layout {
   display: grid;
@@ -760,6 +784,27 @@
 .exresp-progress-pill.none { background: #f0f3f7; color: var(--muted); }
 .exresp-progress-pill.partial { background: #fff7d6; color: #856404; }
 .exresp-progress-pill.full { background: #e8f5ec; color: #2a7a3d; }
+
+/* Auto-mark score pill (assessment Live-responses tiles). */
+.exresp-score-pill {
+  font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.55rem;
+  border-radius: 999px; white-space: nowrap; border: 1px solid transparent;
+}
+.exresp-score-pill.none { background: #f6e3e3; color: #a13a3a; border-color: #e6c4c4; }
+.exresp-score-pill.partial { background: #fff4e0; color: #8a5a00; border-color: #e9d4a8; }
+.exresp-score-pill.full { background: #e8f5ec; color: #2a7a3d; border-color: #bfe3cb; }
+
+/* Per-question correct/incorrect/blank mark inside a tile. */
+.exresp-mark {
+  align-self: flex-start;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem; border-radius: 999px;
+}
+.exresp-mark-correct { background: #e8f5ec; color: #2a7a3d; }
+.exresp-mark-wrong { background: #f6e3e3; color: #a13a3a; }
+.exresp-mark-blank { background: #f0f3f7; color: var(--muted); }
+.exresp-block-correct { border-left: 3px solid #6dbf85; padding-left: 0.6rem; }
+.exresp-block-wrong { border-left: 3px solid #d99; padding-left: 0.6rem; }
 
 .exresp-tile-body {
   padding: 0.6rem 0.95rem 0.85rem;

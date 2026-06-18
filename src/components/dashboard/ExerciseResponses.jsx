@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
+import { isInteractiveBlock } from '../../lib/interactiveBlocks.js';
+import { scoreBlock, scoreBlocks } from '../../lib/assessmentScoring.js';
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
+import Block from '../blocks/Block.jsx';
 import NoteRow from './NoteRow.jsx';
 
 // Layout: sidebar nav (one row per exercise, with cohort progress) → tile grid
@@ -16,6 +19,11 @@ const AUTO_COLLAPSE_THRESHOLD = 8;
 export default function ExerciseResponses({
   sections, blocks, participants, answers,
   notes = {}, participantNotes = {}, prepBy = {}, liveBySection = {}, onSaveNote, onDeleteNote,
+  showNotes = true, emptyLabel = 'No fillable blocks in this workbook.', answerKey = null,
+  // Optional { [blockId]: questionNumber }. When supplied (assessment view),
+  // each answer row is prefixed "Q{n}" so it matches the flat editor/participant
+  // numbering. Omitted for the workbook view, which keeps plain labels.
+  questionNumbers = null,
 }) {
   const sectionsWithFillable = useMemo(() => {
     return sections
@@ -109,7 +117,7 @@ export default function ExerciseResponses({
   }, [popover?.pinned]);
 
   if (sectionsWithFillable.length === 0) {
-    return <p className="muted">No fillable blocks in this workbook.</p>;
+    return <p className="muted">{emptyLabel}</p>;
   }
   if (participants.length === 0) {
     return <p className="muted">No participants enrolled.</p>;
@@ -274,6 +282,9 @@ export default function ExerciseResponses({
               onToggle={() => toggleTile(s.participant.id)}
               onSaveNote={onSaveNote}
               onDeleteNote={onDeleteNote}
+              showNotes={showNotes}
+              answerKey={answerKey}
+              questionNumbers={questionNumbers}
             />
           ))}
         </div>
@@ -316,11 +327,14 @@ export default function ExerciseResponses({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, questionNumbers = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
   const lastLabel = lastTs ? relativeTime(lastTs) : 'No activity yet';
+  // Auto-mark score for this section's scorable blocks (assessment view only).
+  const score = answerKey ? scoreBlocks(blocks, answerKey, answersForP) : null;
+  const scoreClass = score == null ? '' : score.pct === 100 ? 'full' : score.pct === 0 ? 'none' : 'partial';
 
   return (
     <div id={`exresp-tile-${participant.id}`} className={`exresp-tile ${expanded ? 'expanded' : 'collapsed'} ${flaggedCount > 0 ? 'has-flag' : ''}`}>
@@ -333,6 +347,11 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
         </div>
         <div className="exresp-tile-head-right">
           <span className="exresp-tile-meta">{lastLabel}</span>
+          {score && score.scorable > 0 && (
+            <span className={`exresp-score-pill ${scoreClass}`} title={`${score.correct} correct of ${score.scorable} auto-marked`}>
+              {score.correct}/{score.scorable} correct{score.pct != null ? ` · ${score.pct}%` : ''}
+            </span>
+          )}
           <span className={`exresp-progress-pill ${progressClass}`}>{answered} / {total} ({pct}%)</span>
         </div>
       </button>
@@ -359,6 +378,9 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
               participantId={participant.id}
               onSaveNote={onSaveNote}
               onDeleteNote={onDeleteNote}
+              showNotes={showNotes}
+              answerKey={answerKey}
+              questionNumber={questionNumbers ? questionNumbers[b.id] : null}
             />
           ))}
           {blocks.length === 0 && <p className="muted" style={{ margin: 0 }}>No questions in this exercise.</p>}
@@ -368,21 +390,39 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   );
 }
 
-function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote }) {
+function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, questionNumber = null }) {
   const value = entry?.value;
-  const label = labelOf(block);
+  const baseLabel = labelOf(block);
+  const label = questionNumber != null ? `Q${questionNumber}. ${baseLabel}` : baseLabel;
+  const key = answerKey ? answerKey[block.id] : null;
+  const mark = key != null ? scoreBlock(block, key, value) : null; // 'correct' | 'wrong' | 'blank' | null
 
   return (
-    <div className="exresp-block">
+    <div className={`exresp-block ${mark ? `exresp-block-${mark}` : ''}`}>
+      {mark && (
+        <span className={`exresp-mark exresp-mark-${mark}`}>
+          {mark === 'correct' ? '✓ Correct' : mark === 'wrong' ? '✗ Incorrect' : '— Blank'}
+        </span>
+      )}
       {block.block_type === 'field' && <FieldRender label={label} value={value} />}
       {block.block_type === 'table' && <TableRender block={block} label={label} value={value} />}
-      <NoteRow
-        note={note}
-        participantId={participantId}
-        blockId={block.id}
-        onSaveNote={onSaveNote}
-        onDeleteNote={onDeleteNote}
-      />
+      {isInteractiveBlock(block) && (
+        <div className={`exresp-answer ${isAnswered(block, value) ? '' : 'is-blank'}`}>
+          <div className="exresp-answer-label">{label}</div>
+          {isAnswered(block, value)
+            ? <Block block={block} value={value} onChange={() => {}} readOnly />
+            : <div className="exresp-answer-value">—</div>}
+        </div>
+      )}
+      {showNotes && (
+        <NoteRow
+          note={note}
+          participantId={participantId}
+          blockId={block.id}
+          onSaveNote={onSaveNote}
+          onDeleteNote={onDeleteNote}
+        />
+      )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ import ExerciseResponses from '../components/dashboard/ExerciseResponses.jsx';
 import NoteRow from '../components/dashboard/NoteRow.jsx';
 import TrainerPracticeView from '../components/dashboard/TrainerPracticeView.jsx';
 import TrainerAssessmentPreview from '../components/dashboard/TrainerAssessmentPreview.jsx';
+import AssessmentResponses from '../components/dashboard/AssessmentResponses.jsx';
 import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -71,6 +72,7 @@ export default function SessionDashboardPage() {
   }, []);
 
   const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
+  const [assessmentSubView, setAssessmentSubView] = useState('responses'); // 'responses' | 'preview'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -739,7 +741,31 @@ export default function SessionDashboardPage() {
         )}
 
         {view === 'assessment' && (
-          <TrainerAssessmentPreview assessmentId={session?.assessment_id} />
+          <div className="assessment-view">
+            <div className="assessment-subtabs">
+              <button
+                className={`view-subtab ${assessmentSubView === 'responses' ? 'active' : ''}`}
+                onClick={() => setAssessmentSubView('responses')}
+              >
+                Live responses
+              </button>
+              <button
+                className={`view-subtab ${assessmentSubView === 'preview' ? 'active' : ''}`}
+                onClick={() => setAssessmentSubView('preview')}
+              >
+                Preview
+              </button>
+            </div>
+            {assessmentSubView === 'responses' ? (
+              <AssessmentResponses
+                sessionId={session?.id}
+                assessmentId={session?.assessment_id}
+                participants={participants}
+              />
+            ) : (
+              <TrainerAssessmentPreview assessmentId={session?.assessment_id} />
+            )}
+          </div>
         )}
       </main>
       <PrepEditor

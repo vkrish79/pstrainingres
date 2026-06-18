@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import BlockListItem from './BlockListItem.jsx';
 import Block from '../blocks/Block.jsx';
+import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
+import { questionNumbers } from '../../lib/blockHelpers.js';
 
 // Shared sections-and-blocks editor (editor pane + live participant preview
 // with scroll-sync). Powers both the workbook editor and the assessment
@@ -24,6 +26,11 @@ export default function ContentEditorScaffold({
   showPreview,
   previewTitle,
   extraAddSectionActions = null,
+  allowInteractive = false,
+  // Flat mode (assessments): no section chrome — render every block as one
+  // running list of numbered questions. Sections still exist in the data (we
+  // add new blocks to the last one), they're just invisible here.
+  flat = false,
 }) {
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
@@ -96,6 +103,34 @@ export default function ContentEditorScaffold({
     ? blocks.find(b => b.id === activeBlockId)?.section_id || null
     : null;
 
+  // Flat mode: every block across sections, in document order, with running
+  // question numbers. New questions append to the last section.
+  const orderedBlocks = sections.flatMap(sec =>
+    blocks.filter(b => b.section_id === sec.id).sort((a, b) => a.order_index - b.order_index)
+  );
+  const qNums = flat ? questionNumbers(orderedBlocks) : {};
+  const addTargetSectionId = sections.length ? sections[sections.length - 1].id : null;
+
+  // The add-question button row (prose/field/table + optional interactive).
+  function addBlockRow(sectionId) {
+    return (
+      <div className="add-block-row">
+        <button className="ghost" onClick={() => handleAdd(sectionId, 'prose')}>+ Add prose</button>
+        <button className="ghost" onClick={() => handleAdd(sectionId, 'field')}>+ Add field</button>
+        <button className="ghost" onClick={() => handleAdd(sectionId, 'table')}>+ Add table</button>
+        {allowInteractive && (
+          <>
+            <span className="add-block-divider" aria-hidden />
+            <button className="ghost" onClick={() => handleAdd(sectionId, 'fill_blank')}>+ Fill-in-the-blank</button>
+            <button className="ghost" onClick={() => handleAdd(sectionId, 'card_sort')}>+ Card sort</button>
+            <button className="ghost" onClick={() => handleAdd(sectionId, 'match_pairs')}>+ Match pairs</button>
+            <button className="ghost" onClick={() => handleAdd(sectionId, 'reorder')}>+ Reorder</button>
+          </>
+        )}
+      </div>
+    );
+  }
+
   function startEditingSection(sec) {
     setEditingSectionId(sec.id);
     setSectionTitleDraft(sec.title);
@@ -118,12 +153,60 @@ export default function ContentEditorScaffold({
         [{ kind: 'static', text: 'Row label' }, { kind: 'input', id: `c_${Date.now()}_1`, input_type: 'short_text' }],
       ],
     };
+    else if (type === 'fill_blank') {
+      const text = 'Type your sentence here with a {{}} to fill in.';
+      const { parts, blanks } = parseFillBlank(text);
+      defaultConfig = { text, parts, blanks };
+    }
+    else if (type === 'card_sort') defaultConfig = {
+      prompt: 'Sort each card into the right category',
+      cards: [{ id: newItemId('card'), text: 'Card 1' }, { id: newItemId('card'), text: 'Card 2' }],
+      buckets: [{ id: newItemId('bkt'), label: 'Category A' }, { id: newItemId('bkt'), label: 'Category B' }],
+    };
+    else if (type === 'match_pairs') defaultConfig = {
+      prompt: 'Match each item on the left to the right',
+      left: [{ id: newItemId('l'), text: 'Term 1' }, { id: newItemId('l'), text: 'Term 2' }],
+      right: [{ id: newItemId('r'), text: 'Match 1' }, { id: newItemId('r'), text: 'Match 2' }],
+    };
+    else if (type === 'reorder') defaultConfig = {
+      prompt: 'Put these in the correct order',
+      items: [{ id: newItemId(), text: 'First' }, { id: newItemId(), text: 'Second' }, { id: newItemId(), text: 'Third' }],
+    };
     await onCreateBlock(sectionId, type, defaultConfig);
   }
 
   return (
     <div className={`editor-layout ${showPreview ? 'with-preview' : ''}`}>
       <div className="editor-pane">
+        {flat ? (
+          <>
+            {orderedBlocks.length === 0 && <p className="muted">No questions yet — add one below.</p>}
+            <div className="block-list">
+              {orderedBlocks.map((b, i) => (
+                <div
+                  key={b.id}
+                  data-block-id={b.id}
+                  ref={el => { editorBlockRefs.current[b.id] = el; }}
+                >
+                  <BlockListItem
+                    block={b}
+                    questionNumber={qNums[b.id] ?? null}
+                    isFirst={i === 0}
+                    isLast={i === orderedBlocks.length - 1}
+                    onSave={(blockId, patch) => onUpdateBlock(blockId, patch)}
+                    onDelete={(blockId) => onDeleteBlock(blockId)}
+                    onDuplicate={(blockId) => onDuplicateBlock(blockId)}
+                    onMoveUp={() => onMoveBlock(b.id, 'up')}
+                    onMoveDown={() => onMoveBlock(b.id, 'down')}
+                    onLocate={locateBlockInPreview}
+                  />
+                </div>
+              ))}
+            </div>
+            {addTargetSectionId && addBlockRow(addTargetSectionId)}
+          </>
+        ) : (
+        <>
         {sections.map(sec => {
           const sectionBlocks = blocks
             .filter(b => b.section_id === sec.id)
@@ -194,6 +277,15 @@ export default function ContentEditorScaffold({
                 <button className="ghost" onClick={() => handleAdd(sec.id, 'prose')}>+ Add prose</button>
                 <button className="ghost" onClick={() => handleAdd(sec.id, 'field')}>+ Add field</button>
                 <button className="ghost" onClick={() => handleAdd(sec.id, 'table')}>+ Add table</button>
+                {allowInteractive && (
+                  <>
+                    <span className="add-block-divider" aria-hidden />
+                    <button className="ghost" onClick={() => handleAdd(sec.id, 'fill_blank')}>+ Fill-in-the-blank</button>
+                    <button className="ghost" onClick={() => handleAdd(sec.id, 'card_sort')}>+ Card sort</button>
+                    <button className="ghost" onClick={() => handleAdd(sec.id, 'match_pairs')}>+ Match pairs</button>
+                    <button className="ghost" onClick={() => handleAdd(sec.id, 'reorder')}>+ Reorder</button>
+                  </>
+                )}
               </div>
             </section>
           );
@@ -203,6 +295,8 @@ export default function ContentEditorScaffold({
           <button className="ghost" onClick={() => onCreateSection('New section')}>+ Add section</button>
           {extraAddSectionActions}
         </div>
+        </>
+        )}
       </div>
 
       {showPreview && (
@@ -213,6 +307,19 @@ export default function ContentEditorScaffold({
           </div>
           <div className="preview-pane-body">
             <h1 className="preview-workbook-title">{previewTitle || 'Untitled'}</h1>
+            {flat ? (
+              orderedBlocks.map(b => (
+                <div
+                  key={b.id}
+                  className={`preview-block-wrap ${selectedBlockId === b.id ? 'selected' : ''} ${pulseBlockId === b.id ? 'pulse' : ''}`}
+                  ref={el => { previewBlockRefs.current[b.id] = el; }}
+                >
+                  {qNums[b.id] != null && <div className="question-number">Question {qNums[b.id]}</div>}
+                  <Block block={b} value={undefined} onChange={() => {}} />
+                </div>
+              ))
+            ) : (
+            <>
             {sections.length === 0 && <p className="muted">No sections yet.</p>}
             {sections.map(sec => {
               const secBlocks = blocks
@@ -238,6 +345,8 @@ export default function ContentEditorScaffold({
                 </section>
               );
             })}
+            </>
+            )}
           </div>
         </aside>
       )}

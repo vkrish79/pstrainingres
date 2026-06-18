@@ -7,6 +7,9 @@ dist
 .DS_Store
 *.log
 .claude
+# Local-only Playwright verification harness — contains a plaintext password
+# and live auth tokens. Never commit.
+.verify/
 workbook-source/*
 !workbook-source/.gitkeep
 

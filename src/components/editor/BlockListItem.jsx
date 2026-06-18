@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import BlockForm from './BlockForm.jsx';
+import { labelOf } from '../../lib/blockHelpers.js';
 
-export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast, canEdit = true }) {
+export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast, canEdit = true, questionNumber = null }) {
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -13,6 +14,7 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
   return (
     <div className="block-row">
       <div className="block-row-head">
+        {questionNumber != null && <span className="block-qnum">Q{questionNumber}</span>}
         <span
           className={`block-type-tag tag-${block.block_type}`}
           onClick={() => onLocate?.(block.id)}
@@ -68,7 +70,7 @@ function previewOf(block) {
   }
   if (block.block_type === 'field') return block.config?.label || '(no label)';
   if (block.block_type === 'table') return tableLabel(block);
-  return '';
+  return labelOf(block);
 }
 
 function tableLabel(block) {

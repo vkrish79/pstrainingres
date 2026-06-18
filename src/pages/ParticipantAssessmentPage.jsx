@@ -3,13 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useParticipantAssessment } from '../hooks/useParticipantAssessment.js';
 import { useParticipantAssessmentPrep } from '../hooks/useParticipantAssessmentPrep.js';
-import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
+import { questionNumbers } from '../lib/blockHelpers.js';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
-
-const ALL_KEY = '__all__';
 
 export default function ParticipantAssessmentPage() {
   const { session: authSession } = useAuth();
@@ -22,7 +20,15 @@ export default function ParticipantAssessmentPage() {
     session?.id, authSession?.user.id, session?.assessment_id
   );
 
-  const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
+  // Assessments are a flat list of numbered questions — no sections shown.
+  // Flatten all blocks in document order and number the fillable ones.
+  const orderedBlocks = useMemo(
+    () => sections.flatMap(sec =>
+      blocks.filter(b => b.section_id === sec.id).sort((a, b) => a.order_index - b.order_index)
+    ),
+    [sections, blocks]
+  );
+  const qNums = useMemo(() => questionNumbers(orderedBlocks), [orderedBlocks]);
 
   // Session-wide timer. assessment_deadline_at is null when the assessment was
   // unlocked untimed. Tick once a second until the deadline passes, then freeze:
@@ -64,22 +70,6 @@ export default function ParticipantAssessmentPage() {
     if (statuses.length) return 'saved';
     return null;
   }, [savingMap]);
-
-  const sectionStats = useMemo(() => {
-    return sections.map(sec => {
-      const sBlocks = blocks.filter(b => b.section_id === sec.id);
-      const fillable = sBlocks.filter(isFillableBlock);
-      const answered = fillable.reduce((n, b) => n + (isAnswered(b, answers[b.id]) ? 1 : 0), 0);
-      const pct = fillable.length ? Math.round((answered / fillable.length) * 100) : 0;
-      return { id: sec.id, title: sec.title, kind: sec.kind || 'exercise', total: fillable.length, answered, pct };
-    });
-  }, [sections, blocks, answers]);
-
-  useEffect(() => {
-    if (selectedSectionId !== ALL_KEY && !sections.find(s => s.id === selectedSectionId)) {
-      setSelectedSectionId(ALL_KEY);
-    }
-  }, [sections, selectedSectionId]);
 
   if (loading) return <><TopBar /><div className="loading">Loading assessment…</div></>;
   if (error) {
@@ -157,10 +147,6 @@ export default function ParticipantAssessmentPage() {
     );
   }
 
-  const visibleSections = selectedSectionId === ALL_KEY
-    ? sections
-    : sections.filter(s => s.id === selectedSectionId);
-
   return (
     <>
       <TopBar />
@@ -201,98 +187,26 @@ export default function ParticipantAssessmentPage() {
           </section>
         )}
 
-        <div className="exresp-layout">
-          <div className="exresp-mobile-nav">
-            <select
-              className="form-input"
-              value={selectedSectionId}
-              onChange={e => setSelectedSectionId(e.target.value)}
-            >
-              <option value={ALL_KEY}>All questions</option>
-              {sectionStats.map(s => (
-                <option key={s.id} value={s.id} disabled={s.kind === 'group'}>
-                  {s.kind === 'group' ? `— ${s.title} —` : `${s.title} — ${s.pct}%`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <aside className="exresp-sidebar">
-            <div className="exresp-sidebar-head">Sections</div>
-            <ul className="exresp-sidebar-list">
-              <li>
-                <button
-                  className={`exresp-sidebar-item ${selectedSectionId === ALL_KEY ? 'active' : ''}`}
-                  onClick={() => setSelectedSectionId(ALL_KEY)}
-                >
-                  <div className="exresp-sidebar-row">
-                    <span className="exresp-sidebar-title">All questions</span>
-                  </div>
-                </button>
-              </li>
-              {sectionStats.map(s => {
-                if (s.kind === 'group') {
-                  return (
-                    <li key={s.id} className="exresp-sidebar-group-li">
-                      <button className="exresp-sidebar-group" onClick={() => setSelectedSectionId(ALL_KEY)}>
-                        {s.title}
-                      </button>
-                    </li>
-                  );
-                }
-                const barClass = s.pct === 0 ? 'none' : s.pct === 100 ? 'full' : 'partial';
-                const isActive = selectedSectionId === s.id;
-                return (
-                  <li key={s.id}>
-                    <button
-                      className={`exresp-sidebar-item ${isActive ? 'active' : ''}`}
-                      onClick={() => setSelectedSectionId(s.id)}
-                    >
-                      <div className="exresp-sidebar-row">
-                        <span className="exresp-sidebar-title">{s.title}</span>
-                        <span className="exresp-sidebar-pct">{s.pct}%</span>
-                      </div>
-                      <div className={`exresp-sidebar-bar ${barClass}`}>
-                        <div className="exresp-sidebar-bar-fill" style={{ width: `${s.pct}%` }} />
-                      </div>
-                      <div className="exresp-sidebar-meta">{s.answered}/{s.total} answered</div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </aside>
-
-          <div className="exresp-main">
-            {visibleSections.map(sec => {
-              const isGroup = sec.kind === 'group';
-              return (
-                <section
-                  key={sec.id}
-                  className={`wb-section${isGroup ? ' wb-section-group' : ''}`}
-                  data-section-id={sec.id}
-                >
-                  {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
-                  {sectionPrep[sec.id]?.content && (
-                    <div className="participant-prep-callout">
-                      <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-                      {sectionPrep[sec.id].content}
-                    </div>
-                  )}
-                  {blocks.filter(b => b.section_id === sec.id).map(b => (
-                    <Block
-                      key={b.id}
-                      block={b}
-                      value={answers[b.id]}
-                      onChange={v => saveAnswer(b.id, v)}
-                      readOnly={expired}
-                      recentlyUpdated={!!recentlyUpdated[b.id]}
-                    />
-                  ))}
-                </section>
-              );
-            })}
-          </div>
+        <div className="assessment-questions">
+          {/* Any trainer pre-work callouts (formerly per-section) surface once at the top. */}
+          {sections.map(sec => sectionPrep[sec.id]?.content && (
+            <div key={sec.id} className="participant-prep-callout">
+              <span className="participant-prep-callout-label">Pre-work from your trainer</span>
+              {sectionPrep[sec.id].content}
+            </div>
+          ))}
+          {orderedBlocks.map(b => (
+            <section key={b.id} className="wb-section" data-block-id={b.id}>
+              {qNums[b.id] != null && <div className="question-number">Question {qNums[b.id]}</div>}
+              <Block
+                block={b}
+                value={answers[b.id]}
+                onChange={v => saveAnswer(b.id, v)}
+                readOnly={expired}
+                recentlyUpdated={!!recentlyUpdated[b.id]}
+              />
+            </section>
+          ))}
         </div>
       </main>
     </>

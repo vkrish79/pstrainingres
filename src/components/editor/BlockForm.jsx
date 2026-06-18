@@ -1,9 +1,15 @@
 import { useState } from 'react';
+import '../../styles/interactive.css';
+import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
 
 export default function BlockForm({ block, onSave, onCancel }) {
   if (block.block_type === 'prose') return <ProseForm block={block} onSave={onSave} onCancel={onCancel} />;
   if (block.block_type === 'field') return <FieldForm block={block} onSave={onSave} onCancel={onCancel} />;
   if (block.block_type === 'table') return <TableForm block={block} onSave={onSave} onCancel={onCancel} />;
+  if (block.block_type === 'fill_blank') return <FillBlankForm block={block} onSave={onSave} onCancel={onCancel} />;
+  if (block.block_type === 'card_sort') return <CardSortForm block={block} onSave={onSave} onCancel={onCancel} />;
+  if (block.block_type === 'match_pairs') return <MatchPairsForm block={block} onSave={onSave} onCancel={onCancel} />;
+  if (block.block_type === 'reorder') return <ReorderForm block={block} onSave={onSave} onCancel={onCancel} />;
   return null;
 }
 
@@ -245,6 +251,175 @@ function FieldForm({ block, onSave, onCancel }) {
 
       <div className="form-actions">
         <button onClick={save} disabled={busy || !label.trim()}>{busy ? 'Saving…' : 'Save'}</button>
+        <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Interactive question editors ──────────────────────────────────────────
+// These edit the question's *content* only. Correct answers are set in the
+// Answer key panel (kept out of config so participants can't read them).
+
+// A small reusable editor for an ordered list of {id, text} entries.
+function ItemRowsEditor({ items, setItems, textKey = 'text', placeholder = 'Item', allowReorder = true }) {
+  const setText = (i, v) => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, [textKey]: v } : it));
+  const add = () => setItems(prev => [...prev, { id: newItemId(), [textKey]: '' }]);
+  const remove = (i) => setItems(prev => prev.filter((_, idx) => idx !== i));
+  const move = (i, dir) => setItems(prev => {
+    const next = [...prev];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return prev;
+    [next[i], next[j]] = [next[j], next[i]];
+    return next;
+  });
+  return (
+    <div className="options-editor">
+      {items.map((it, i) => (
+        <div key={it.id} className="option-row">
+          {allowReorder && <span className="muted" style={{ minWidth: '1.4rem', textAlign: 'right' }}>{i + 1}.</span>}
+          <input className="form-input" value={it[textKey] || ''} placeholder={placeholder} onChange={e => setText(i, e.target.value)} />
+          {allowReorder && (
+            <>
+              <button className="icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+              <button className="icon-btn" onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Move down">↓</button>
+            </>
+          )}
+          <button className="ghost danger" onClick={() => remove(i)} aria-label="Remove">×</button>
+        </div>
+      ))}
+      <button className="ghost" onClick={add}>+ Add</button>
+    </div>
+  );
+}
+
+function FillBlankForm({ block, onSave, onCancel }) {
+  const cfg = block.config || {};
+  const [prompt, setPrompt] = useState(cfg.prompt || '');
+  const [text, setText] = useState(cfg.text || '');
+  const [busy, setBusy] = useState(false);
+  const { parts, blanks } = parseFillBlank(text, cfg.blanks || []);
+  const blankCount = blanks.length;
+
+  async function save() {
+    setBusy(true);
+    await onSave({ config: { prompt: prompt.trim() || undefined, text, parts, blanks } });
+    setBusy(false);
+  }
+
+  return (
+    <div className="block-form">
+      <label className="form-label">Instruction (optional)</label>
+      <input className="form-input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Complete the sentence" />
+
+      <label className="form-label" style={{ marginTop: '0.6rem' }}>Sentence with blanks</label>
+      <textarea
+        className="form-textarea"
+        rows="3"
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="The capital of France is {{}} and of Japan is {{}}."
+      />
+      <p className="hint">Type <code>{'{{}}'}</code> wherever you want a blank. Detected blanks: <strong>{blankCount}</strong>. Set the correct answers in the <strong>Answer key</strong> panel above.</p>
+      <p className="hint" style={{ color: 'var(--gold-dark)' }}>⚠ Blanks are matched by position. If you add or remove a blank after setting the answer key, re-check the key so each answer still lines up.</p>
+
+      <div className="form-actions">
+        <button onClick={save} disabled={busy || blankCount === 0}>{busy ? 'Saving…' : 'Save'}</button>
+        <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ReorderForm({ block, onSave, onCancel }) {
+  const cfg = block.config || {};
+  const [prompt, setPrompt] = useState(cfg.prompt || '');
+  const [items, setItems] = useState(Array.isArray(cfg.items) && cfg.items.length ? cfg.items : [{ id: newItemId(), text: '' }]);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const clean = items.filter(it => (it.text || '').trim());
+    await onSave({ config: { prompt: prompt.trim() || undefined, items: clean } });
+    setBusy(false);
+  }
+  return (
+    <div className="block-form">
+      <label className="form-label">Instruction</label>
+      <input className="form-input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Put the steps in the correct order" />
+      <label className="form-label" style={{ marginTop: '0.6rem' }}>Items (enter them in the correct order)</label>
+      <ItemRowsEditor items={items} setItems={setItems} placeholder="Step" />
+      <p className="hint">Participants see these shuffled and arrange them. Set the correct order in the <strong>Answer key</strong> panel.</p>
+      <div className="form-actions">
+        <button onClick={save} disabled={busy || items.filter(it => (it.text || '').trim()).length < 2}>{busy ? 'Saving…' : 'Save'}</button>
+        <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function CardSortForm({ block, onSave, onCancel }) {
+  const cfg = block.config || {};
+  const [prompt, setPrompt] = useState(cfg.prompt || '');
+  const [cards, setCards] = useState(Array.isArray(cfg.cards) && cfg.cards.length ? cfg.cards : [{ id: newItemId('card'), text: '' }]);
+  const [buckets, setBuckets] = useState(Array.isArray(cfg.buckets) && cfg.buckets.length ? cfg.buckets : [{ id: newItemId('bkt'), label: '' }, { id: newItemId('bkt'), label: '' }]);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const cleanCards = cards.filter(c => (c.text || '').trim());
+    const cleanBuckets = buckets.filter(b => (b.label || '').trim());
+    await onSave({ config: { prompt: prompt.trim() || undefined, cards: cleanCards, buckets: cleanBuckets } });
+    setBusy(false);
+  }
+  return (
+    <div className="block-form">
+      <label className="form-label">Instruction</label>
+      <input className="form-input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Sort each behaviour into the right column" />
+      <label className="form-label" style={{ marginTop: '0.6rem' }}>Categories (buckets)</label>
+      <ItemRowsEditor items={buckets} setItems={setBuckets} textKey="label" placeholder="Category name" allowReorder={false} />
+      <label className="form-label" style={{ marginTop: '0.6rem' }}>Cards</label>
+      <ItemRowsEditor items={cards} setItems={setCards} placeholder="Card text" allowReorder={false} />
+      <p className="hint">Set which category each card belongs in via the <strong>Answer key</strong> panel.</p>
+      <div className="form-actions">
+        <button onClick={save} disabled={busy || cards.filter(c => (c.text || '').trim()).length === 0 || buckets.filter(b => (b.label || '').trim()).length < 2}>{busy ? 'Saving…' : 'Save'}</button>
+        <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function MatchPairsForm({ block, onSave, onCancel }) {
+  const cfg = block.config || {};
+  const [prompt, setPrompt] = useState(cfg.prompt || '');
+  const [left, setLeft] = useState(Array.isArray(cfg.left) && cfg.left.length ? cfg.left : [{ id: newItemId('l'), text: '' }]);
+  const [right, setRight] = useState(Array.isArray(cfg.right) && cfg.right.length ? cfg.right : [{ id: newItemId('r'), text: '' }]);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const cleanLeft = left.filter(l => (l.text || '').trim());
+    const cleanRight = right.filter(r => (r.text || '').trim());
+    await onSave({ config: { prompt: prompt.trim() || undefined, left: cleanLeft, right: cleanRight } });
+    setBusy(false);
+  }
+  return (
+    <div className="block-form">
+      <label className="form-label">Instruction</label>
+      <input className="form-input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Match each term to its definition" />
+      <div className="matchpairs-form-cols">
+        <div>
+          <label className="form-label">Left (prompts)</label>
+          <ItemRowsEditor items={left} setItems={setLeft} placeholder="Term" allowReorder={false} />
+        </div>
+        <div>
+          <label className="form-label">Right (choices)</label>
+          <ItemRowsEditor items={right} setItems={setRight} placeholder="Match" allowReorder={false} />
+        </div>
+      </div>
+      <p className="hint">Add extra right-hand choices as distractors if you like. Set the correct match for each left item in the <strong>Answer key</strong> panel.</p>
+      <div className="form-actions">
+        <button onClick={save} disabled={busy || left.filter(l => (l.text || '').trim()).length === 0 || right.filter(r => (r.text || '').trim()).length === 0}>{busy ? 'Saving…' : 'Save'}</button>
         <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
       </div>
     </div>

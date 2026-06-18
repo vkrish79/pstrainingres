@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -6,6 +6,7 @@ import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
 import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
 import AssessmentPrepPanel from '../components/editor/AssessmentPrepPanel.jsx';
+import AssessmentAnswerKeyPanel from '../components/editor/AssessmentAnswerKeyPanel.jsx';
 import {
   renumberExercisesIn,
   ASSESSMENT_CONTENT_KIND,
@@ -34,6 +35,18 @@ export default function AssessmentEditorPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState('');
   const [showAddExercises, setShowAddExercises] = useState(false);
+
+  // Assessments are a flat list of numbered questions — no section UI. Keep a
+  // single backing section so the block/clone/scoring model is unchanged; create
+  // it once if the assessment has none (new assessments, or a freshly emptied one).
+  const ensuredSectionRef = useRef(false);
+  useEffect(() => {
+    if (loading || error || !assessment) return;
+    if (sections.length === 0 && !ensuredSectionRef.current) {
+      ensuredSectionRef.current = true;
+      createSection('Questions');
+    }
+  }, [loading, error, assessment, sections.length, createSection]);
 
   if (loading) return <><TopBar /><div className="loading">Loading assessment…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
@@ -77,7 +90,7 @@ export default function AssessmentEditorPage() {
             </button>
             {confirmDelete ? (
               <>
-                <span className="confirm-text">Delete assessment &amp; all sections/blocks?</span>
+                <span className="confirm-text">Delete assessment &amp; all questions?</span>
                 <button className="danger" onClick={handleDelete}>Yes</button>
                 <button className="ghost" onClick={() => { setConfirmDelete(false); setDelErr(''); }}>No</button>
               </>
@@ -108,6 +121,8 @@ export default function AssessmentEditorPage() {
 
         <AssessmentPrepPanel assessment={assessment} sections={sections} profile={profile} />
 
+        <AssessmentAnswerKeyPanel sections={sections} blocks={blocks} />
+
         <ContentEditorScaffold
           sections={sections}
           blocks={blocks}
@@ -121,6 +136,8 @@ export default function AssessmentEditorPage() {
           onDeleteSection={deleteSection}
           showPreview={showPreview}
           previewTitle={title || 'Untitled assessment'}
+          allowInteractive
+          flat
           extraAddSectionActions={
             <>
               <button className="ghost" onClick={() => setShowAddExercises(true)}>➕ Add exercises from another assessment</button>

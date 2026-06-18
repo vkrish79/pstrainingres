@@ -2,6 +2,17 @@
 
 .workbook .muted { color: var(--muted); margin: 0.25rem 0 0; font-size: 0.9rem; }
 
+/* Per-question label for the flat assessment view (preview, participant,
+   trainer responses) — replaces the section heading. */
+.question-number {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gold-dark, #8a5a00);
+  margin: 0 0 0.4rem;
+}
+
 .wb-section {
   background: var(--card);
   border: 1px solid var(--border);
