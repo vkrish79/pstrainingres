@@ -102,7 +102,7 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   const partitionVendorId = isSuper ? (selectedVendorId || null) : (profile?.vendor_id || null);
   const canWrite = isSuper ? (partitionVendorId == null) : !!profile?.vendor_id;
 
-  const { kits, balance, loading: balLoading, appendKits, clearUnconsumed } =
+  const { kits, balance, loading: balLoading, appendKits, clearUnconsumed, setKitStatus } =
     useContentPrep(cfg.prepKind, selectedParentId || null, partitionVendorId);
 
   // Balances for every parent of this kind in the selected pool.
@@ -292,7 +292,7 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
               )}
 
               {!balLoading && balance.total > 0 && (
-                <PrepGrid kits={kits} structure={structure} />
+                <PrepGrid kits={kits} structure={structure} kind={kind} onMarkKit={canWrite ? setKitStatus : null} />
               )}
 
               {!canWrite && (

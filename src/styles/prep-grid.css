@@ -26,6 +26,7 @@
 }
 .pg-sw.pg-pool  { background: linear-gradient(180deg, #86efac, #4ade80); }
 .pg-sw.pg-alloc { background: linear-gradient(180deg, #fed7aa, #fb923c); }
+.pg-sw.pg-use   { background: linear-gradient(180deg, #fdac63, #f0851f); }
 .pg-sw.pg-spent { background: linear-gradient(180deg, #fca5a5, #ef4444); }
 
 /* ── the grid card ── */
@@ -63,12 +64,23 @@
 }
 thead .pg-rowhead { z-index: 3; }
 .pg-rowhead small { display: block; font-weight: 500; color: #94a3b8; font-size: 0.66rem; margin-top: 1px; }
+.pg-mark-btn {
+  margin-left: 0.5rem; font-size: 0.62rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.03em;
+  color: #64748b; background: #fff; border: 1px solid #d7dee7;
+  border-radius: 5px; padding: 1px 6px; cursor: pointer;
+  opacity: 0.5; transition: opacity 0.12s, border-color 0.12s, color 0.12s;
+}
+.pg-table tbody tr:hover .pg-mark-btn { opacity: 1; }
+.pg-mark-btn:hover { color: #0f172a; border-color: #94a3b8; }
 
 /* ── state cells (subtle vertical gradient per status) ── */
 .pg-cell { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: 0.01em; }
 .pg-cell.pg-pool  { background: linear-gradient(180deg, #ecfdf3 0%, #d6f7e1 100%); color: #15803d; }
 .pg-cell.pg-alloc { background: linear-gradient(180deg, #fff7ed 0%, #ffe7cc 100%); color: #9a3412; }
 .pg-cell.pg-spent { background: linear-gradient(180deg, #fff1f1 0%, #fcdede 100%); color: #b91c1c; }
+/* in use 🔶 — allocated AND the participant has worked this exercise (deeper) */
+.pg-cell.pg-use { background: linear-gradient(180deg, #fdac63 0%, #f0851f 100%); color: #5b2402; }
 .pg-cell.pg-empty { font-weight: 500; opacity: 0.4; }
 
 /* gentle row emphasis on hover */

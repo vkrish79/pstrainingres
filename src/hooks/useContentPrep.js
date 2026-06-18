@@ -116,7 +116,19 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
     return {};
   }, [parentId, vendorId, refresh, kitsTable, parentFK]);
 
-  return { kits, balance, loading, refresh, appendKits, clearUnconsumed };
+  // Manually flip a kit's status — trainer "withdraw" (available → used, for a
+  // PNR consumed off-system) and "restore" (used → available). Pool-write only.
+  const setKitStatus = useCallback(async (kitId, nextStatus) => {
+    const patch = nextStatus === 'used'
+      ? { status: 'used', consumed_at: new Date().toISOString() }
+      : { status: nextStatus, consumed_at: null };
+    const { error } = await supabase.from(kitsTable).update(patch).eq('id', kitId);
+    if (error) return { error };
+    await refresh();
+    return {};
+  }, [kitsTable, refresh]);
+
+  return { kits, balance, loading, refresh, appendKits, clearUnconsumed, setKitStatus };
 }
 
 // Kind configs exported for wrappers and other prep consumers (low-prep, etc).

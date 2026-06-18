@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { usePrepConsumedRefs } from '../../hooks/usePrepConsumedRefs.js';
+import { usePrepConsumption } from '../../hooks/usePrepConsumption.js';
 import '../../styles/prep-grid.css';
 
 // Excel-like, colour-coded view of a prep pool. Rows = kits (→ participant once
@@ -18,8 +19,10 @@ const GROUP_LABEL = {
 };
 const STATUS_CLASS = { available: 'pg-pool', allocated: 'pg-alloc', used: 'pg-spent' };
 
-export default function PrepGrid({ kits = [], structure = [] }) {
+export default function PrepGrid({ kits = [], structure = [], kind = 'workbook', onMarkKit = null }) {
   const { participantsById, sessionsById } = usePrepConsumedRefs(kits);
+  const consumed = usePrepConsumption(kits, structure, kind); // { [kitId]: Set<header in use> }
+  const inUseKits = Object.keys(consumed).length;
 
   // Columns: prefer the template order; fall back to the union of payload keys.
   const columns = useMemo(() => {
@@ -47,6 +50,8 @@ export default function PrepGrid({ kits = [], structure = [] }) {
 
   function rowLabel(k) {
     if (k.status === 'available') return { main: `Kit #${k.kit_index}`, sub: null };
+    // used with no session = a manual trainer withdrawal (not a closed class)
+    if (k.status === 'used' && !k.consumed_session_id) return { main: `Kit #${k.kit_index}`, sub: 'withdrawn' };
     const p = k.consumed_participant_id ? participantsById[k.consumed_participant_id] : null;
     const s = k.consumed_session_id ? sessionsById[k.consumed_session_id] : null;
     const main = p?.full_name || s?.name || `Kit #${k.kit_index}`;
@@ -64,6 +69,7 @@ export default function PrepGrid({ kits = [], structure = [] }) {
       <div className="pg-legend">
         <span><i className="pg-sw pg-pool" />{counts.available} unused</span>
         <span><i className="pg-sw pg-alloc" />{counts.allocated} allocated</span>
+        {inUseKits > 0 && <span><i className="pg-sw pg-use" />{inUseKits} in use</span>}
         <span><i className="pg-sw pg-spent" />{counts.used} spent</span>
         <span className="pg-legend-total">{total} kits total</span>
       </div>
@@ -80,7 +86,7 @@ export default function PrepGrid({ kits = [], structure = [] }) {
             {groups.map(g => (
               <GroupRows
                 key={g.status} group={g} columns={columns}
-                rowLabel={rowLabel} statusClass={STATUS_CLASS[g.status]}
+                rowLabel={rowLabel} statusClass={STATUS_CLASS[g.status]} consumed={consumed} onMarkKit={onMarkKit}
               />
             ))}
           </tbody>
@@ -90,7 +96,7 @@ export default function PrepGrid({ kits = [], structure = [] }) {
   );
 }
 
-function GroupRows({ group, columns, rowLabel, statusClass }) {
+function GroupRows({ group, columns, rowLabel, statusClass, consumed, onMarkKit }) {
   return (
     <>
       <tr className="pg-divider"><td colSpan={columns.length + 1}><span className="pg-divider-label">{GROUP_LABEL[group.status]}</span></td></tr>
@@ -98,12 +104,24 @@ function GroupRows({ group, columns, rowLabel, statusClass }) {
         const { main, sub } = rowLabel(k);
         return (
           <tr key={k.id}>
-            <td className="pg-rowhead">{main}{sub && <small>{sub}</small>}</td>
+            <td className="pg-rowhead">
+              {main}
+              {onMarkKit && k.status === 'available' && (
+                <button type="button" className="pg-mark-btn" title="Mark withdrawn / spent (consumed off-system)"
+                  onClick={() => onMarkKit(k.id, 'used')}>withdraw</button>
+              )}
+              {onMarkKit && k.status === 'used' && !k.consumed_session_id && (
+                <button type="button" className="pg-mark-btn" title="Return this kit to the pool"
+                  onClick={() => onMarkKit(k.id, 'available')}>restore</button>
+              )}
+              {sub && <small>{sub}</small>}
+            </td>
             {columns.map((h, i) => {
               const v = k.payload?.[h];
               const empty = v == null || String(v).trim() === '';
+              const cls = group.status === 'allocated' && consumed?.[k.id]?.has(h) ? 'pg-use' : statusClass;
               return (
-                <td key={i} className={`pg-cell ${statusClass} ${empty ? 'pg-empty' : ''}`}>
+                <td key={i} className={`pg-cell ${cls} ${empty ? 'pg-empty' : ''}`}>
                   {empty ? '—' : String(v)}
                 </td>
               );
