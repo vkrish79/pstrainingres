@@ -23,6 +23,7 @@ import ProgramEditorPage from './pages/ProgramEditorPage.jsx';
 import AssessmentsListPage from './pages/AssessmentsListPage.jsx';
 import AssessmentEditorPage from './pages/AssessmentEditorPage.jsx';
 import ImportAssessmentPage from './pages/ImportAssessmentPage.jsx';
+import PrepPage from './pages/PrepPage.jsx';
 import ParticipantWorkbookPage from './pages/ParticipantWorkbookPage.jsx';
 import ParticipantAssessmentPage from './pages/ParticipantAssessmentPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -57,6 +58,9 @@ export default function App() {
       } />
       <Route path="/trainer/archive" element={
         <ProtectedRoute role="trainer"><ClosedSessionsPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/prep" element={
+        <ProtectedRoute role="trainer"><PrepPage /></ProtectedRoute>
       } />
       <Route path="/trainer/analytics" element={
         <ProtectedRoute role="trainer">

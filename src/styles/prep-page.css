@@ -1,0 +1,16 @@
+/* Full-page variant of the prep manager (PrepUploadModal variant="page").
+   Same component as the TopBar modal, rendered with room for the wide grid. */
+.prep-page .prep-page-card { padding: 1.1rem 1.4rem; }
+
+/* On the page there's no fixed-height modal body — let content flow. */
+.prep-scroll--page { max-height: none; overflow: visible; }
+
+/* modal header actions (Full page + close sit together) */
+.prep-head-actions { display: flex; align-items: center; gap: 0.4rem; }
+.prep-fullpage-btn { font-size: 0.82rem; white-space: nowrap; }
+
+/* page footer actions (download / upload / clear) flow inline, not pinned */
+.prep-page-foot {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  margin-top: 1rem;
+}

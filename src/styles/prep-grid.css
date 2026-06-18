@@ -1,0 +1,91 @@
+/* Colour-coded prep pool grid (PrepGrid.jsx). Mirrors the uploaded sheet:
+   rows = kits, columns = prep-template exercises, cell = PNR/ticket text.
+   Subtle gradients give each state depth without shouting. */
+.prep-grid { margin-top: 1.1rem; }
+
+/* ── stacked status bar (pill, gradient segments) ── */
+.pg-bar {
+  height: 18px; border-radius: 999px; overflow: hidden; display: flex;
+  background: #eef2f6; box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.1);
+  margin-bottom: 0.55rem;
+}
+.pg-seg { height: 100%; transition: width 0.35s ease; }
+.pg-seg-pool  { background: linear-gradient(180deg, #86efac, #4ade80); }
+.pg-seg-alloc { background: linear-gradient(180deg, #fed7aa, #fb923c); }
+.pg-seg-spent { background: linear-gradient(180deg, #fca5a5, #ef4444); }
+
+.pg-legend {
+  display: flex; gap: 1.1rem; align-items: center;
+  font-size: 0.8rem; color: #475569; margin-bottom: 0.7rem;
+}
+.pg-legend-total { margin-left: auto; color: #94a3b8; }
+.pg-sw {
+  display: inline-block; width: 12px; height: 12px; border-radius: 4px;
+  margin-right: 0.4rem; vertical-align: -2px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 1px 1.5px rgba(15, 23, 42, 0.15);
+}
+.pg-sw.pg-pool  { background: linear-gradient(180deg, #86efac, #4ade80); }
+.pg-sw.pg-alloc { background: linear-gradient(180deg, #fed7aa, #fb923c); }
+.pg-sw.pg-spent { background: linear-gradient(180deg, #fca5a5, #ef4444); }
+
+/* ── the grid card ── */
+.pg-scroll {
+  overflow-x: auto; background: #fff;
+  border: 1px solid #e6ebf1; border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 28px -16px rgba(15, 23, 42, 0.22);
+}
+.pg-table {
+  border-collapse: separate; border-spacing: 0;
+  font-size: 0.78rem; width: max-content; min-width: 100%;
+}
+.pg-table th, .pg-table td {
+  padding: 7px 11px; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid #eef2f6; border-right: 1px solid #f1f5f9;
+}
+.pg-table th:last-child, .pg-table td:last-child { border-right: none; }
+.pg-table tbody tr:last-child td { border-bottom: none; }
+
+/* sticky header */
+.pg-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: linear-gradient(180deg, #f9fbfd, #eef2f6);
+  color: #475569; font-weight: 600;
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+
+/* sticky first column (row label), lifted with an edge shadow */
+.pg-rowhead {
+  position: sticky; left: 0; z-index: 1;
+  background: linear-gradient(180deg, #ffffff, #fafcff);
+  font-weight: 600; color: #0f172a; max-width: 200px;
+  box-shadow: 7px 0 8px -7px rgba(15, 23, 42, 0.18);
+}
+thead .pg-rowhead { z-index: 3; }
+.pg-rowhead small { display: block; font-weight: 500; color: #94a3b8; font-size: 0.66rem; margin-top: 1px; }
+
+/* ── state cells (subtle vertical gradient per status) ── */
+.pg-cell { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: 0.01em; }
+.pg-cell.pg-pool  { background: linear-gradient(180deg, #ecfdf3 0%, #d6f7e1 100%); color: #15803d; }
+.pg-cell.pg-alloc { background: linear-gradient(180deg, #fff7ed 0%, #ffe7cc 100%); color: #9a3412; }
+.pg-cell.pg-spent { background: linear-gradient(180deg, #fff1f1 0%, #fcdede 100%); color: #b91c1c; }
+.pg-cell.pg-empty { font-weight: 500; opacity: 0.4; }
+
+/* gentle row emphasis on hover */
+.pg-table tbody tr:hover td.pg-cell { filter: brightness(0.975) saturate(1.08); }
+.pg-table tbody tr:hover .pg-rowhead { background: linear-gradient(180deg, #f8fafc, #eef4fb); }
+
+/* ── group divider rows (status-tinted, accent bar) ──
+   The cell spans every column, so it can't be sticky itself; the label is a
+   sticky inner span so it stays pinned at the left while you scroll right. */
+.pg-divider td {
+  padding: 0;
+  background: linear-gradient(180deg, #f3f6fa, #e9eef4);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 #e2e8f0;
+}
+.pg-divider-label {
+  position: sticky; left: 0;
+  display: inline-block; padding: 4px 11px;
+  font-size: 0.66rem; font-weight: 700; color: #475569;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}

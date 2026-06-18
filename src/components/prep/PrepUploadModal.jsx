@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { useVendors } from '../../hooks/useVendors.js';
@@ -8,10 +9,12 @@ import {
   ASSESSMENT_PREP_KIND,
 } from '../../hooks/useContentPrep.js';
 import { useContentPrepBalances } from '../../hooks/useContentPrepBalances.js';
+import PrepGrid from './PrepGrid.jsx';
 import { parseSheetFile } from '../../lib/sheetParse.js';
 import { downloadEmptyPrepTemplate } from '../../lib/prepTemplate.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
 import '../../styles/prep.css';
+import '../../styles/prep-page.css';
 
 // Per-kind static config for the modal — which prep tables, which template
 // container table, and the label terms shown to the trainer.
@@ -35,18 +38,20 @@ const KINDS = {
 // template, fill it, upload to append kits, see the balance. Super uploads
 // only to the shared super pool; selecting a vendor pool is balance-only.
 // Vendor-tier is locked to their own pool.
-export default function PrepUploadModal({ onClose, profile }) {
+export default function PrepUploadModal({ onClose, profile, variant = 'modal', initialKind, initialVendorId, initialParentId }) {
+  const isPage = variant === 'page';
   const isSuper = isSuperTrainerOrAbove(profile?.role);
-  useBodyScrollLock();
+  const navigate = useNavigate();
+  useBodyScrollLock(!isPage);
   const { vendors } = useVendors();
 
-  const [kind, setKind] = useState('workbook');
+  const [kind, setKind] = useState(initialKind === 'assessment' ? 'assessment' : 'workbook');
   const cfg = KINDS[kind];
 
   const [templates, setTemplates] = useState([]);
   const [tplLoading, setTplLoading] = useState(true);
-  const [selectedParentId, setSelectedParentId] = useState('');
-  const [selectedVendorId, setSelectedVendorId] = useState(''); // '' = super pool
+  const [selectedParentId, setSelectedParentId] = useState(initialParentId || '');
+  const [selectedVendorId, setSelectedVendorId] = useState(initialVendorId || ''); // '' = super pool
 
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState('');
@@ -73,12 +78,23 @@ export default function PrepUploadModal({ onClose, profile }) {
     return () => { cancelled = true; };
   }, [cfg.parentTable]);
 
-  // Esc closes the modal.
+  // Esc closes the modal (no-op on the full-page variant).
   useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    if (isPage) return undefined;
+    function onKey(e) { if (e.key === 'Escape') onClose?.(); }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, isPage]);
+
+  // Modal → full page: carry the current selection across via query params.
+  function goFullPage() {
+    const params = new URLSearchParams();
+    params.set('kind', kind);
+    if (selectedVendorId) params.set('vendor', selectedVendorId);
+    if (selectedParentId) params.set('parent', selectedParentId);
+    onClose?.();
+    navigate(`/trainer/prep?${params.toString()}`);
+  }
 
   const selectedParent = templates.find(t => t.id === selectedParentId) || null;
   const structure = Array.isArray(selectedParent?.prep_template) ? selectedParent.prep_template : [];
@@ -86,7 +102,7 @@ export default function PrepUploadModal({ onClose, profile }) {
   const partitionVendorId = isSuper ? (selectedVendorId || null) : (profile?.vendor_id || null);
   const canWrite = isSuper ? (partitionVendorId == null) : !!profile?.vendor_id;
 
-  const { balance, loading: balLoading, appendKits, clearUnconsumed } =
+  const { kits, balance, loading: balLoading, appendKits, clearUnconsumed } =
     useContentPrep(cfg.prepKind, selectedParentId || null, partitionVendorId);
 
   // Balances for every parent of this kind in the selected pool.
@@ -167,15 +183,9 @@ export default function PrepUploadModal({ onClose, profile }) {
 
   const maxPerSection = Math.max(1, ...Object.values(balance.perSection).map(p => p.total));
 
-  return (
-    <div className="modal-backdrop visible" onClick={onClose}>
-      <div className="modal-card prep-upload-modal" onClick={e => e.stopPropagation()}>
-        <header className="modal-head">
-          <h2>🎯 Prep — balance &amp; upload</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
-        </header>
-        <div className="modal-body">
-          <div className="prep-kind-tabs" role="tablist" aria-label="Prep kind">
+  const inner = (
+    <>
+      <div className="prep-kind-tabs" role="tablist" aria-label="Prep kind">
             {Object.entries(KINDS).map(([k, c]) => (
               <button
                 key={k}
@@ -202,7 +212,7 @@ export default function PrepUploadModal({ onClose, profile }) {
             </div>
           )}
 
-          <div className="prep-scroll">
+          <div className={`prep-scroll${isPage ? ' prep-scroll--page' : ''}`}>
           {!selectedParentId ? (
             <div className="prep-overview">
               <p className="muted prep-overview-hint">
@@ -281,6 +291,10 @@ export default function PrepUploadModal({ onClose, profile }) {
                 </div>
               )}
 
+              {!balLoading && balance.total > 0 && (
+                <PrepGrid kits={kits} structure={structure} />
+              )}
+
               {!canWrite && (
                 <p className="muted">Viewing this vendor’s balance (read-only). You can upload only to the <strong>Super (shared)</strong> pool.</p>
               )}
@@ -316,34 +330,63 @@ export default function PrepUploadModal({ onClose, profile }) {
             </>
           )}
           </div>
-        </div>
+    </>
+  );
 
-        {selectedParentId && structure.length > 0 && (
-          <footer className="modal-foot prep-modal-foot">
-            <button type="button" className="ghost" onClick={() => downloadEmptyPrepTemplate(selectedParent.title, structure)}>
-              ↓ Download template
-            </button>
-            {canWrite && (
-              <label className="ghost prep-upload-btn">
-                ↑ Upload filled template
-                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} disabled={parsing || submitting} hidden />
-              </label>
-            )}
-            {canWrite && balance.available > 0 && (
-              <span className="prep-foot-clear">
-                {confirmClear ? (
-                  <>
-                    <span className="confirm-text">Delete {balance.available} unconsumed kit{balance.available === 1 ? '' : 's'}?</span>
-                    <button type="button" className="danger" onClick={handleClear}>Yes</button>
-                    <button type="button" className="ghost" onClick={() => setConfirmClear(false)}>No</button>
-                  </>
-                ) : (
-                  <button type="button" className="ghost danger" onClick={() => setConfirmClear(true)}>Clear unconsumed</button>
-                )}
-              </span>
-            )}
-          </footer>
-        )}
+  const showFooter = selectedParentId && structure.length > 0;
+  const footerActions = (
+    <>
+      <button type="button" className="ghost" onClick={() => downloadEmptyPrepTemplate(selectedParent.title, structure)}>
+        ↓ Download template
+      </button>
+      {canWrite && (
+        <label className="ghost prep-upload-btn">
+          ↑ Upload filled template
+          <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} disabled={parsing || submitting} hidden />
+        </label>
+      )}
+      {canWrite && balance.available > 0 && (
+        <span className="prep-foot-clear">
+          {confirmClear ? (
+            <>
+              <span className="confirm-text">Delete {balance.available} unconsumed kit{balance.available === 1 ? '' : 's'}?</span>
+              <button type="button" className="danger" onClick={handleClear}>Yes</button>
+              <button type="button" className="ghost" onClick={() => setConfirmClear(false)}>No</button>
+            </>
+          ) : (
+            <button type="button" className="ghost danger" onClick={() => setConfirmClear(true)}>Clear unconsumed</button>
+          )}
+        </span>
+      )}
+    </>
+  );
+
+  if (isPage) {
+    return (
+      <main className="page prep-page">
+        <section className="page-hero compact">
+          <div className="page-hero-text">
+            <Link to="/trainer" className="back-link">← Back</Link>
+            <h1>🎯 Prep — balance &amp; upload</h1>
+          </div>
+        </section>
+        <section className="editor-card prep-page-card">{inner}</section>
+        {showFooter && <div className="prep-page-foot">{footerActions}</div>}
+      </main>
+    );
+  }
+  return (
+    <div className="modal-backdrop visible" onClick={onClose}>
+      <div className="modal-card prep-upload-modal" onClick={e => e.stopPropagation()}>
+        <header className="modal-head">
+          <h2>🎯 Prep — balance &amp; upload</h2>
+          <div className="prep-head-actions">
+            <button type="button" className="ghost prep-fullpage-btn" onClick={goFullPage}>⤢ Full page</button>
+            <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
+          </div>
+        </header>
+        <div className="modal-body">{inner}</div>
+        {showFooter && <footer className="modal-foot prep-modal-foot">{footerActions}</footer>}
       </div>
     </div>
   );
