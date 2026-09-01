@@ -159,3 +159,23 @@ thead .pg-rowhead { z-index: 3; }
 .prep-paste-rownum { color: #94a3b8; font-weight: 500; text-align: right; min-width: 34px; }
 .prep-paste-foot { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; flex-wrap: wrap; }
 .prep-paste-count { font-size: 0.85rem; color: #0f172a; }
+
+/* ── click-to-edit kit cells (PrepGrid, pool + allocated rows) ── */
+.pg-cell-editable { padding: 0; }
+.pg-cell-btn {
+  display: block; width: 100%; text-align: left; border: none; background: none;
+  font: inherit; color: inherit; padding: 6px 9px; cursor: text; border-radius: 0;
+}
+.pg-cell-btn:hover { box-shadow: inset 0 0 0 1px #94a3b8; }
+.pg-cell-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #2563eb; }
+.pg-cell-err { display: block; padding: 0 9px 5px; font-size: 0.68rem; color: #b91c1c; }
+.pg-cell-confirm { padding: 5px 8px; }
+.pg-confirm-text { display: block; font-size: 0.68rem; font-weight: 600; color: #92400e; }
+.pg-confirm-actions { display: flex; gap: 0.35rem; margin-top: 0.3rem; }
+.pg-confirm-actions button {
+  font: inherit; font-size: 0.68rem; padding: 2px 7px; border-radius: 5px;
+  border: 1px solid #d7dee7; background: #fff; cursor: pointer;
+}
+.pg-confirm-yes { border-color: #b45309; color: #b45309; font-weight: 600; }
+.pg-confirm-no { color: #64748b; }
+.pg-confirm-actions button:disabled { opacity: 0.55; cursor: default; }

@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { mirrorWorkbookKitCell } from '../lib/prepMirror.js';
 
 // Trainer-side hook for a master parent's (workbook or assessment) prep
 // repository, scoped to ONE vendor partition. `vendorId` is the partition
 // selector: a vendor uuid, or `null` for the shared super pool.
 //
-// kindConfig: { kitsTable, parentFK, channelPrefix }
+// kindConfig: { kitsTable, parentFK, channelPrefix, mirrorsParticipantPrep }
 //   kitsTable     — 'workbook_prep_kits' | 'assessment_prep_kits'
 //   parentFK      — 'workbook_id' | 'assessment_id'
 //   channelPrefix — realtime channel name prefix, e.g. 'wpk' | 'apk'
+//   mirrorsParticipantPrep — true when the claim COPIES the payload out to the
+//                   participant (workbooks), so an allocated-kit edit has to be
+//                   mirrored into participant_prep too
 //
 // Exposes the loaded kits, a computed balance, append (upload), and
 // clear-unconsumed — identical surface to the legacy useWorkbookPrep.
 export function useContentPrep(kindConfig, parentId, vendorId) {
-  const { kitsTable, parentFK, channelPrefix } = kindConfig;
+  const { kitsTable, parentFK, channelPrefix, mirrorsParticipantPrep } = kindConfig;
 
   const [kits, setKits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +132,33 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
     return {};
   }, [kitsTable, refresh]);
 
+  // Edit ONE cell of ONE existing kit — the per-kit fix for a single bad value,
+  // as opposed to restockColumn's whole-column sweep. Allowed on kits in the
+  // pool (available) and on kits already drawn by a live class (allocated); a
+  // spent kit is left alone because close-session has already snapshotted it.
+  // An empty value DELETES the key, so the balance stops counting it.
+  // `structure` is the master's prep_template — needed only for the mirror.
+  const editKitCell = useCallback(async (kit, header, value, structure = []) => {
+    if (!kit?.id || !header) return {};
+    if (kit.status !== 'available' && kit.status !== 'allocated') {
+      return { error: new Error('Only kits in the pool or allocated to a live class can be edited.') };
+    }
+    const content = String(value ?? '').trim();
+    const payload = { ...(kit.payload || {}) };
+    if (content) payload[header] = content; else delete payload[header];
+
+    const { error } = await supabase.from(kitsTable).update({ payload }).eq('id', kit.id);
+    if (error) return { error };
+
+    // Allocated workbook kit → keep the participant's own copy in step.
+    if (mirrorsParticipantPrep && kit.status === 'allocated') {
+      const { error: mirrorError } = await mirrorWorkbookKitCell({ kit, header, content, structure });
+      if (mirrorError) { await refresh(); return { error: mirrorError }; }
+    }
+    await refresh();
+    return {};
+  }, [kitsTable, mirrorsParticipantPrep, refresh]);
+
   // Re-stock one exercise column across the UNUSED (available) kits — used when a
   // whole exercise's prep goes bad. `values` are fresh PNRs (one per kit, in
   // kit_index order); overwrites payload[header] on as many available kits as
@@ -157,7 +188,10 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
     return { count: n, available: (avail || []).length };
   }, [parentId, vendorId, kitsTable, parentFK, refresh]);
 
-  return { kits, balance, loading, refresh, appendKits, clearUnconsumed, setKitStatus, restockColumn };
+  return {
+    kits, balance, loading, refresh,
+    appendKits, clearUnconsumed, setKitStatus, restockColumn, editKitCell,
+  };
 }
 
 // Kind configs exported for wrappers and other prep consumers (low-prep, etc).
@@ -165,9 +199,12 @@ export const WORKBOOK_PREP_KIND = {
   kitsTable: 'workbook_prep_kits',
   parentFK: 'workbook_id',
   channelPrefix: 'wpk',
+  mirrorsParticipantPrep: true,
 };
 export const ASSESSMENT_PREP_KIND = {
   kitsTable: 'assessment_prep_kits',
   parentFK: 'assessment_id',
   channelPrefix: 'apk',
+  // Participants read their allocated assessment kit row directly — no copy.
+  mirrorsParticipantPrep: false,
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
@@ -104,8 +104,15 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   const partitionVendorId = isSuper ? (selectedVendorId || null) : (profile?.vendor_id || null);
   const canWrite = isSuper ? (partitionVendorId == null) : !!profile?.vendor_id;
 
-  const { kits, balance, loading: balLoading, appendKits, clearUnconsumed, setKitStatus, restockColumn } =
+  const { kits, balance, loading: balLoading, appendKits, clearUnconsumed, setKitStatus, restockColumn, editKitCell } =
     useContentPrep(cfg.prepKind, selectedParentId || null, partitionVendorId);
+
+  // Per-cell kit edit — the grid only knows (kit, header, value); the mirror into
+  // an allocated participant's prep needs the parent's template, so bind it here.
+  const saveKitCell = useCallback(
+    (kit, header, value) => editKitCell(kit, header, value, structure),
+    [editKitCell, structure],
+  );
 
   // Balances for every parent of this kind in the selected pool.
   const { byParent, loading: overviewLoading } = useContentPrepBalances(cfg.prepKind, partitionVendorId);
@@ -315,7 +322,8 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
 
               {!balLoading && balance.total > 0 && (
                 <PrepGrid kits={kits} structure={structure} kind={kind}
-                  onMarkKit={canWrite ? setKitStatus : null} onRestock={canWrite ? restockColumn : null} />
+                  onMarkKit={canWrite ? setKitStatus : null} onRestock={canWrite ? restockColumn : null}
+                  onEditCell={canWrite ? saveKitCell : null} />
               )}
 
               {!canWrite && (
