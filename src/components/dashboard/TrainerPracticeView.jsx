@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTrainerPractice } from '../../hooks/useTrainerPractice.js';
 import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
+import { useTrainerNotes } from '../../hooks/useTrainerNotes.js';
 import { useSessionFocus } from '../../hooks/useSessionFocus.js';
 import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
 import Block from '../blocks/Block.jsx';
 import { EditableBlock } from '../editor/ContentEditor.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
+import NotesDrawer from '../participant/NotesDrawer.jsx';
 import MonitorDrawer from './MonitorDrawer.jsx';
 import '../../styles/workbook.css';
+
+const TRAINER_PROMPTS = [
+  "What tripped people up here?",
+  "Timing — how long did this actually take?",
+  "A better way to explain this next time…",
+  "Question the room asked that you want an answer ready for.",
+  "What worked well enough to repeat?",
+  "Anything to fix in the exercise itself?",
+  "Follow up with someone after the class?",
+];
 
 const ALL_KEY = '__all__';
 
@@ -31,6 +43,14 @@ export default function TrainerPracticeView({
     loading, error, sections, blocks, answers, saveAnswer, updateBlockConfig,
   } = useTrainerPractice(sessionId, trainerId);
   const { prep, standalone, hasPrep, drawPrep } = useTrainerPrep(sessionId);
+  const { notes: trainerNotes, saveNote } = useTrainerNotes(sessionId, trainerId);
+
+  // Badge counts exercises that actually have something written, not words —
+  // the trainer wants to know how much of the workbook they have annotated.
+  const noteCount = useMemo(
+    () => Object.values(trainerNotes).filter(n => (n?.note || '').replace(/<[^>]*>/g, '').trim()).length,
+    [trainerNotes],
+  );
   const { focus, spotlight, clear: clearSpotlight } = useSessionFocus(sessionId, trainerId);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
@@ -38,6 +58,7 @@ export default function TrainerPracticeView({
   const [drawing, setDrawing] = useState(false);
   const [drawMsg, setDrawMsg] = useState('');
   const [prepOpen, setPrepOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [monitorOpen, setMonitorOpen] = useState(false);
   const [monitorWide, setMonitorWide] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -55,8 +76,9 @@ export default function TrainerPracticeView({
   }
 
   // Prep and Monitor are both right push-drawers; keep at most one open.
-  function openPrep() { setMonitorOpen(false); setPrepOpen(true); }
-  function openMonitor() { setPrepOpen(false); setEditMode(false); setMonitorOpen(true); }
+  function openNotes() { setPrepOpen(false); setMonitorOpen(false); setNotesOpen(true); }
+  function openPrep() { setMonitorOpen(false); setNotesOpen(false); setPrepOpen(true); }
+  function openMonitor() { setPrepOpen(false); setNotesOpen(false); setEditMode(false); setMonitorOpen(true); }
 
   // Push the page canvas left while a right drawer is open (no overlay); the
   // fixed drawer fills the gap. Mirrors the participant workbook view. One body
@@ -116,11 +138,11 @@ export default function TrainerPracticeView({
 
   // Esc closes whichever drawer is open.
   useEffect(() => {
-    if (!prepOpen && !monitorOpen) return undefined;
-    function onKey(e) { if (e.key === 'Escape') { setPrepOpen(false); setMonitorOpen(false); } }
+    if (!prepOpen && !monitorOpen && !notesOpen) return undefined;
+    function onKey(e) { if (e.key === 'Escape') { setPrepOpen(false); setMonitorOpen(false); setNotesOpen(false); } }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [prepOpen, monitorOpen]);
+  }, [prepOpen, monitorOpen, notesOpen]);
 
   async function handleDrawPrep() {
     setDrawing(true);
@@ -250,6 +272,9 @@ export default function TrainerPracticeView({
           {hasPrep && (
             <button className="ghost" onClick={openPrep} disabled={editMode}>🎯 Prep</button>
           )}
+          <button className={`ghost ${notesOpen ? 'active' : ''}`} onClick={openNotes} disabled={editMode}>
+            📝 My notes{noteCount > 0 ? ` (${noteCount})` : ''}
+          </button>
         </div>
       </div>
       {drawMsg && <p className="prep-notice">{drawMsg}</p>}
@@ -380,6 +405,15 @@ export default function TrainerPracticeView({
         sections={sections}
         prep={prep}
         standalone={standalone}
+      />
+      <NotesDrawer
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        sections={sections}
+        notes={trainerNotes}
+        saveNote={saveNote}
+        currentSectionId={selectedSectionId === ALL_KEY ? sections[0]?.id : selectedSectionId}
+        prompts={TRAINER_PROMPTS}
       />
       <MonitorDrawer
         className="monitor-drawer--track"

@@ -3,7 +3,7 @@ import { sanitizeNotesHtml, wordCountHtml } from '../../lib/notesRichText.js';
 
 // Rotating placeholders so participants who don't know what to write get a
 // nudge. Deterministically picked per section so it doesn't shuffle.
-const PROMPTS = [
+export const PARTICIPANT_PROMPTS = [
   "Why did this exercise matter?",
   "What's the rule of thumb here?",
   "Anything the trainer said that you want to remember?",
@@ -13,10 +13,10 @@ const PROMPTS = [
   "A question to follow up on later…",
 ];
 
-function promptFor(sectionId) {
+function promptFor(sectionId, prompts) {
   let h = 0;
   for (let i = 0; i < sectionId.length; i++) h = (h * 31 + sectionId.charCodeAt(i)) | 0;
-  return PROMPTS[Math.abs(h) % PROMPTS.length];
+  return prompts[Math.abs(h) % prompts.length];
 }
 
 function formatSavedAt(updatedAt) {
@@ -28,7 +28,7 @@ function formatSavedAt(updatedAt) {
 }
 
 export default function NotesDrawer({
-  open, onClose, sections, notes, saveNote, currentSectionId,
+  open, onClose, sections, notes, saveNote, currentSectionId, prompts = PARTICIPANT_PROMPTS,
 }) {
   // Per-section expand/collapse. `currentSectionId` is opened by default
   // when the drawer opens; toggleSet tracks user overrides.
@@ -99,6 +99,7 @@ export default function NotesDrawer({
               isCurrent={sec.id === currentSectionId}
               register={register}
               unregister={unregister}
+              prompts={prompts}
             />
           ))}
         </div>
@@ -107,7 +108,7 @@ export default function NotesDrawer({
   );
 }
 
-function NoteCard({ section, note, expanded, onToggle, onFlush, isCurrent, register, unregister }) {
+function NoteCard({ section, note, expanded, onToggle, onFlush, isCurrent, register, unregister, prompts }) {
   const count = wordCountHtml(note?.note || '');
   return (
     <div className={`notes-card ${expanded ? 'expanded' : 'collapsed'} ${isCurrent ? 'current' : ''}`}>
@@ -130,6 +131,7 @@ function NoteCard({ section, note, expanded, onToggle, onFlush, isCurrent, regis
           onFlush={onFlush}
           register={register}
           unregister={unregister}
+          prompts={prompts}
         />
       )}
     </div>
@@ -139,7 +141,7 @@ function NoteCard({ section, note, expanded, onToggle, onFlush, isCurrent, regis
 // Uncontrolled contentEditable: React never owns its children. Initial HTML is
 // set once via ref on mount; we read it back (sanitized) only on flush. This is
 // what keeps typing responsive — no per-keystroke state/save.
-function NoteEditor({ section, savedHtml, updatedAt, isCurrent, onFlush, register, unregister }) {
+function NoteEditor({ section, savedHtml, updatedAt, isCurrent, onFlush, register, unregister, prompts }) {
   const editorRef = useRef(null);
 
   // Mount: seed the editor and focus the current section's note.
@@ -194,7 +196,7 @@ function NoteEditor({ section, savedHtml, updatedAt, isCurrent, onFlush, registe
         role="textbox"
         aria-multiline="true"
         aria-label={`Notes for ${section.title}`}
-        data-placeholder={promptFor(section.id)}
+        data-placeholder={promptFor(section.id, prompts)}
         onBlur={flush}
       />
       <div className="notes-card-status">
