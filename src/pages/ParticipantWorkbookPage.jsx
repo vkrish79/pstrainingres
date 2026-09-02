@@ -27,7 +27,7 @@ export default function ParticipantWorkbookPage() {
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
-  const { prep: sectionPrep, standalone: standalonePrep } = useParticipantPrep(session?.id, authSession?.user.id);
+  const { prep: sectionPrep, standalone: standalonePrep, expected: expectedPrep } = useParticipantPrep(session?.id, authSession?.user.id);
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(session?.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
@@ -530,6 +530,7 @@ export default function ParticipantWorkbookPage() {
         sections={sections}
         prep={sectionPrep}
         standalone={standalonePrep}
+        expected={expectedPrep}
         className="prep-drawer--track-page"
       />
     </>

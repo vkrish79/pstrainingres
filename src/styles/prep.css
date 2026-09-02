@@ -230,3 +230,10 @@
 .prep-extract-row .form-label { display: flex; flex-direction: column; gap: 0.25rem; margin: 0; font-size: 0.85rem; }
 .prep-extract-row .form-input.compact { width: 7rem; }
 .prep-warn { color: #9a6a00; font-size: 0.9rem; margin: 0.4rem 0 0; }
+
+/* ── prep awaiting a value: listed, but visibly not yet assigned ── */
+.prep-modal-item--pending { opacity: 0.78; }
+.prep-modal-pending {
+  font-size: 0.82rem; font-style: italic; color: #94a3b8;
+  border: 1px dashed #d7dee7; border-radius: 6px; padding: 6px 9px;
+}
