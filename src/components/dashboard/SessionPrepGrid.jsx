@@ -75,21 +75,28 @@ function ReplaceColumnModal({ section, participants, prep, onClose, onSave }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [poolWarning, setPoolWarning] = useState('');
   const lines = text.split('\n').map(s => s.trim());
   const filled = lines.filter(Boolean).length;
 
   async function submit() {
-    setBusy(true); setErr('');
+    setBusy(true); setErr(''); setPoolWarning('');
+    // Local, not state: state set inside this loop is not readable until re-render.
+    let warned = '';
     for (let i = 0; i < participants.length; i++) {
       const content = (lines[i] || '').trim();
       if (!content) continue; // skip blanks — don't wipe a participant's prep
       const current = prep[participants[i].id]?.[section.id]?.content || '';
       if (content === current) continue;
-      const { error } = await onSave({ participantId: participants[i].id, sectionId: section.id, content });
+      const { error, poolWarning: warn } = await onSave({ participantId: participants[i].id, sectionId: section.id, content });
       if (error) { setBusy(false); setErr(error.message); return; }
+      // Secondary write only — the prep itself landed, so keep going.
+      if (warn) warned = warn;
     }
     setBusy(false);
-    onClose();
+    setPoolWarning(warned);
+    // Stay open if the pool copy lagged, so the warning is actually read.
+    if (!warned) onClose();
   }
 
   return (
@@ -121,6 +128,7 @@ function ReplaceColumnModal({ section, participants, prep, onClose, onSave }) {
           </div>
           <p className="muted">{filled} value{filled === 1 ? '' : 's'} pasted for {participants.length} participant{participants.length === 1 ? '' : 's'}.</p>
           {err && <p className="error">{err}</p>}
+          {poolWarning && <p className="prep-warn">⚠ {poolWarning}</p>}
         </div>
         <footer className="modal-foot">
           <button type="button" disabled={busy || !filled} onClick={submit}>{busy ? 'Replacing…' : `Replace ${section.title} prep`}</button>

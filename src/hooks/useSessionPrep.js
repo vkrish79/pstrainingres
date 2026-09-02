@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { createPrepWriteBack } from '../lib/prepWriteBack.js';
 
 // Trainer-side hook: load all prep rows for a session, expose batch upsert
 // (used by the upload flow), per-row upsert + delete (used by the per-
 // participant editor). Shape: prep[participantId][sectionId] = { id, content, updated_at }.
+//
+// saveOne also writes the value BACK into the kit it came from (prepWriteBack),
+// so a session-level fix is reflected in the prep pool instead of leaving the
+// pool grid showing a value the participant no longer holds. That write-back is
+// secondary: it can report a `poolWarning`, but never fails the prep save.
 export function useSessionPrep(sessionId) {
   const [prep, setPrep] = useState({});
   const [standalone, setStandalone] = useState({}); // [participantId] = [{label, content}]
@@ -56,6 +62,9 @@ export function useSessionPrep(sessionId) {
     return () => { supabase.removeChannel(channel); };
   }, [sessionId, refresh]);
 
+  // Rebuilt per session; caches the section/template lookups, not the payload.
+  const writeBack = useMemo(() => createPrepWriteBack(sessionId), [sessionId]);
+
   const saveOne = useCallback(async ({ participantId, sectionId, content }) => {
     if (!content || !content.trim()) {
       // Treat empty as delete.
@@ -65,8 +74,9 @@ export function useSessionPrep(sessionId) {
         .eq('session_id', sessionId)
         .eq('participant_id', participantId)
         .eq('section_id', sectionId);
+      const cleared = await writeBack.write({ participantId, sectionId, content: '' });
       await refresh();
-      return {};
+      return cleared.warning ? { poolWarning: cleared.warning } : {};
     }
     const { error } = await supabase
       .from('participant_prep')
@@ -75,12 +85,18 @@ export function useSessionPrep(sessionId) {
         { onConflict: 'session_id,participant_id,section_id' },
       );
     if (error) return { error };
+    const back = await writeBack.write({ participantId, sectionId, content });
     await refresh();
-    return {};
-  }, [sessionId, refresh]);
+    return back.warning ? { poolWarning: back.warning } : {};
+  }, [sessionId, refresh, writeBack]);
 
   // Batch upsert used by the upload flow. `rows` is an array of
   // { participantId, sectionId, content }.
+  //
+  // No pool write-back here: nothing currently calls this (both live session
+  // surfaces go through saveOne). If it is wired up again, it needs the same
+  // writeBack.write() call per row or session edits made through it will drift
+  // from the pool.
   const saveMany = useCallback(async (rows) => {
     if (!rows?.length) return { count: 0 };
     const payload = rows.map(r => ({

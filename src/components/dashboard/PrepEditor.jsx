@@ -16,6 +16,8 @@ export default function PrepEditor({
   const [savingId, setSavingId] = useState(null);
   const [allocating, setAllocating] = useState(false);
   const [allocateMsg, setAllocateMsg] = useState('');
+  // Set when the prep saved but its pool kit could not be updated.
+  const [poolWarning, setPoolWarning] = useState('');
 
   useBodyScrollLock(open && !!participant);
 
@@ -27,6 +29,9 @@ export default function PrepEditor({
     }
     setDrafts(seed);
     setAllocateMsg('');
+    // Must clear too — the editor is reused across participants, and a warning
+    // left over from the last save would be read as belonging to this one.
+    setPoolWarning('');
   }, [open, sections, prepForParticipant]);
 
   if (!open || !participant) return null;
@@ -35,12 +40,14 @@ export default function PrepEditor({
 
   async function commit(sectionId) {
     setSavingId(sectionId);
-    await saveOne({
+    const { poolWarning } = await saveOne({
       participantId: participant.id,
       sectionId,
       content: drafts[sectionId] || '',
     });
     setSavingId(null);
+    // The prep saved either way; this only reports the pool copy lagging.
+    setPoolWarning(poolWarning || '');
   }
 
   async function handleAllocate() {
@@ -77,6 +84,7 @@ export default function PrepEditor({
             </div>
           )}
           {allocateMsg && <p className="prep-notice">{allocateMsg}</p>}
+          {poolWarning && <p className="prep-warn">⚠ {poolWarning}</p>}
           {sections.length === 0 && <p className="muted">No exercises in this workbook yet.</p>}
           {sections.map(sec => (
             <div className="prep-editor-row" key={sec.id}>
