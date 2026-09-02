@@ -8,6 +8,7 @@ import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { progressOf } from '../lib/blockHelpers.js';
+import { useJustCompleted } from '../hooks/useJustCompleted.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
 import MaterialsList from '../components/MaterialsList.jsx';
@@ -191,6 +192,13 @@ export default function ParticipantWorkbookPage() {
     });
   }, [sections, blocks, answers]);
 
+  // Completion is marked two ways: a lasting tick on any finished exercise,
+  // and a one-off wash on the one that just crossed the line.
+  const statById = useMemo(
+    () => Object.fromEntries(sectionStats.map(st => [st.id, st])),
+    [sectionStats],
+  );
+  const justCompleted = useJustCompleted(sectionStats);
 
   // Exercise-jump filter: narrows the sidebar to exercises whose title contains
   // the typed text. Titles already carry the exercise number ("Exercise 18"), so
@@ -480,11 +488,18 @@ export default function ParticipantWorkbookPage() {
               return (
                 <section
                   key={sec.id}
-                  className={`wb-section${isGroup ? ' wb-section-group' : ''}`}
+                  className={`wb-section${isGroup ? ' wb-section-group' : ''}${justCompleted.has(sec.id) ? ' wb-section--just-complete' : ''}`}
                   data-section-id={sec.id}
                   ref={el => { sectionRefs.current[sec.id] = el; }}
                 >
-                  {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
+                  {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : (
+                    <h2>
+                      {sec.title}
+                      {statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100 && (
+                        <span className="wb-section-done" aria-label="Exercise complete">✓</span>
+                      )}
+                    </h2>
+                  )}
                   {prepText && (
                     <div className="participant-prep-callout">
                       <span className="participant-prep-callout-label">Pre-work from your trainer</span>

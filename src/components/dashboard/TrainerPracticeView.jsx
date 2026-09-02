@@ -4,6 +4,7 @@ import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
 import { useTrainerNotes } from '../../hooks/useTrainerNotes.js';
 import { useSessionFocus } from '../../hooks/useSessionFocus.js';
 import { progressOf } from '../../lib/blockHelpers.js';
+import { useJustCompleted } from '../../hooks/useJustCompleted.js';
 import Block from '../blocks/Block.jsx';
 import { EditableBlock } from '../editor/ContentEditor.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
@@ -171,6 +172,13 @@ export default function TrainerPracticeView({
     });
   }, [sections, blocks, answers]);
 
+  // Same completion treatment as the participant copy, so what the trainer
+  // rehearses with is what the room will see.
+  const statById = useMemo(
+    () => Object.fromEntries(sectionStats.map(st => [st.id, st])),
+    [sectionStats],
+  );
+  const justCompleted = useJustCompleted(sectionStats);
 
   // Exercise-jump filter: narrows the sidebar to exercises whose title contains
   // the typed text. Titles already carry the exercise number ("Exercise 18"), so
@@ -372,8 +380,15 @@ export default function TrainerPracticeView({
             <p className="ce-hint">✎ Editing content — click any text to change its wording. Answer boxes and the layout are locked, and edits show to enrolled participants live. Press <strong>Done editing</strong> when finished.</p>
           )}
           {visibleSections.map(sec => (
-            <section key={sec.id} className={`wb-section${sec.kind === 'group' ? ' wb-section-group' : ''}`}>
-              {sec.kind === 'group' ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
+            <section key={sec.id} className={`wb-section${sec.kind === 'group' ? ' wb-section-group' : ''}${justCompleted.has(sec.id) ? ' wb-section--just-complete' : ''}`}>
+              {sec.kind === 'group' ? <h1 className="wb-section-group-title">{sec.title}</h1> : (
+                <h2>
+                  {sec.title}
+                  {statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100 && (
+                    <span className="wb-section-done" aria-label="Exercise complete">✓</span>
+                  )}
+                </h2>
+              )}
               {prep[sec.id]?.content && (
                 <div className="participant-prep-callout">
                   <span className="participant-prep-callout-label">Prep</span>

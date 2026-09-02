@@ -298,3 +298,40 @@
 .workbook .exresp-sidebar-item.exresp-sidebar-item:hover { background: #faf5ea; }
 .workbook .exresp-sidebar-item.exresp-sidebar-item.active { background: #fdf6e3; }
 .workbook .exresp-sidebar-bar { height: 6px; }
+
+/* ── finishing an exercise ───────────────────────────────────────────────────
+   Two markers, doing different jobs: a one-off wash for the MOMENT of
+   completion, and a tick that stays so a finished exercise still reads as
+   finished later. Gold, matching the brand accent, and quiet enough not to
+   interrupt someone mid-workbook. */
+@keyframes wb-complete-wash {
+  0%   { background-color: transparent; }
+  30%  { background-color: rgba(181, 152, 90, 0.15); }
+  100% { background-color: transparent; }
+}
+
+.wb-section--just-complete {
+  border-radius: 10px;
+  animation: wb-complete-wash 900ms ease-in-out 1;
+}
+
+@keyframes wb-done-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: none; }
+}
+
+.wb-section-done {
+  display: inline-block;
+  margin-left: 0.45rem;
+  color: var(--gold-dark);
+  font-size: 0.85em;
+  vertical-align: middle;
+  animation: wb-done-in 400ms ease-out 1;
+}
+
+/* Someone who has asked for less motion still gets the tick — it is the
+   information; the movement is only decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .wb-section--just-complete { animation: none; }
+  .wb-section-done { animation: none; }
+}
