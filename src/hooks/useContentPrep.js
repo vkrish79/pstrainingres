@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { mirrorWorkbookKitCell } from '../lib/prepMirror.js';
+import { mirrorWorkbookKitCells } from '../lib/prepMirror.js';
 
 // Trainer-side hook for a master parent's (workbook or assessment) prep
 // repository, scoped to ONE vendor partition. `vendorId` is the partition
@@ -132,65 +132,69 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
     return {};
   }, [kitsTable, refresh]);
 
-  // Edit ONE cell of ONE existing kit — the per-kit fix for a single bad value,
-  // as opposed to restockColumn's whole-column sweep. Allowed on kits in the
-  // pool (available) and on kits already drawn by a live class (allocated); a
-  // spent kit is left alone because close-session has already snapshotted it.
-  // An empty value DELETES the key, so the balance stops counting it.
-  // `structure` is the master's prep_template — needed only for the mirror.
-  const editKitCell = useCallback(async (kit, header, value, structure = []) => {
-    if (!kit?.id || !header) return {};
-    if (kit.status !== 'available' && kit.status !== 'allocated') {
-      return { error: new Error('Only kits in the pool or allocated to a live class can be edited.') };
-    }
-    const content = String(value ?? '').trim();
-    const payload = { ...(kit.payload || {}) };
-    if (content) payload[header] = content; else delete payload[header];
+  // The ONLY writer of kit payloads, driving the bulk edit sheet: many cells
+  // across many kits in one go. Writes one UPDATE per kit (not per cell), mirrors
+  // the allocated workbook cells in one batch, and refreshes ONCE at the end.
+  //
+  // `changes` is [{ kitId, header, value }]. The new payload is merged onto the
+  // kit's CURRENT payload rather than a snapshot the caller holds, so a
+  // concurrent edit to a different column of the same kit survives.
+  //
+  // Returns { count, failed: [{ kitId, header, message }] } — a batch can
+  // half-succeed, and the caller needs to say which cells landed.
+  const editKitCells = useCallback(async (changes, structure = []) => {
+    if (!changes?.length) return { count: 0, failed: [] };
+    const byId = new Map(kits.map(k => [k.id, k]));
+    const failed = [];
 
-    const { error } = await supabase.from(kitsTable).update({ payload }).eq('id', kit.id);
-    if (error) return { error };
-
-    // Allocated workbook kit → keep the participant's own copy in step.
-    if (mirrorsParticipantPrep && kit.status === 'allocated') {
-      const { error: mirrorError } = await mirrorWorkbookKitCell({ kit, header, content, structure });
-      if (mirrorError) { await refresh(); return { error: mirrorError }; }
+    // Group by kit so each row is a single UPDATE.
+    const groups = new Map();
+    for (const c of changes) {
+      const kit = byId.get(c.kitId);
+      if (!kit) { failed.push({ ...c, message: 'This kit no longer exists — reload the pool.' }); continue; }
+      if (kit.status !== 'available' && kit.status !== 'allocated') {
+        failed.push({
+          ...c,
+          message: "This kit has been spent — its class closed while you were editing, and a closed session's prep is already snapshotted.",
+        });
+        continue;
+      }
+      if (!groups.has(kit.id)) groups.set(kit.id, { kit, cells: [] });
+      groups.get(kit.id).cells.push({ header: c.header, content: String(c.value ?? '').trim() });
     }
+
+    let count = 0;
+    const toMirror = [];
+    for (const { kit, cells } of groups.values()) {
+      const payload = { ...(kit.payload || {}) };
+      for (const { header, content } of cells) {
+        if (content) payload[header] = content; else delete payload[header];
+      }
+      const { error } = await supabase.from(kitsTable).update({ payload }).eq('id', kit.id);
+      if (error) {
+        cells.forEach(({ header }) => failed.push({ kitId: kit.id, header, message: error.message }));
+        continue;
+      }
+      count += cells.length;
+      if (mirrorsParticipantPrep && kit.status === 'allocated') {
+        cells.forEach(({ header, content }) => toMirror.push({ kit, header, content }));
+      }
+    }
+
+    if (toMirror.length) {
+      const { failed: mirrorFailed } = await mirrorWorkbookKitCells({ items: toMirror, structure });
+      for (const f of mirrorFailed) {
+        failed.push({ kitId: f.kit.id, header: f.header, message: `Kit updated, but the participant's copy was not: ${f.message}` });
+      }
+    }
+
     await refresh();
-    return {};
-  }, [kitsTable, mirrorsParticipantPrep, refresh]);
-
-  // Re-stock one exercise column across the UNUSED (available) kits — used when a
-  // whole exercise's prep goes bad. `values` are fresh PNRs (one per kit, in
-  // kit_index order); overwrites payload[header] on as many available kits as
-  // there are values. Pool-level fix; allocated participants are handled
-  // separately on the session prep grid.
-  const restockColumn = useCallback(async (header, values) => {
-    if (!parentId || !header || !values?.length) return { count: 0 };
-    let q = supabase
-      .from(kitsTable)
-      .select('id, payload, kit_index')
-      .eq(parentFK, parentId)
-      .eq('status', 'available')
-      .order('kit_index');
-    q = vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
-    const { data: avail, error } = await q;
-    if (error) return { error };
-    const n = Math.min(values.length, (avail || []).length);
-    for (let i = 0; i < n; i++) {
-      const kit = avail[i];
-      const { error: e } = await supabase
-        .from(kitsTable)
-        .update({ payload: { ...(kit.payload || {}), [header]: values[i] } })
-        .eq('id', kit.id);
-      if (e) return { error: e };
-    }
-    await refresh();
-    return { count: n, available: (avail || []).length };
-  }, [parentId, vendorId, kitsTable, parentFK, refresh]);
+    return { count, failed };
+  }, [kits, kitsTable, mirrorsParticipantPrep, refresh]);
 
   return {
     kits, balance, loading, refresh,
-    appendKits, clearUnconsumed, setKitStatus, restockColumn, editKitCell,
+    appendKits, clearUnconsumed, setKitStatus, editKitCells,
   };
 }
 

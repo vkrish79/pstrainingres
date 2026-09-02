@@ -11,6 +11,7 @@ import {
 import { useContentPrepBalances } from '../../hooks/useContentPrepBalances.js';
 import PrepGrid from './PrepGrid.jsx';
 import PrepPasteGrid from './PrepPasteGrid.jsx';
+import PrepEditGrid from './PrepEditGrid.jsx';
 import { parseSheetFile } from '../../lib/sheetParse.js';
 import { downloadEmptyPrepTemplate } from '../../lib/prepTemplate.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
@@ -62,6 +63,7 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   const [notice, setNotice] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
   const [pasteMode, setPasteMode] = useState(false);
+  const [editMode, setEditMode] = useState(false); // bulk edit of existing kits
 
   // Load templates whenever the kind changes — same query shape across kinds.
   useEffect(() => {
@@ -104,14 +106,15 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   const partitionVendorId = isSuper ? (selectedVendorId || null) : (profile?.vendor_id || null);
   const canWrite = isSuper ? (partitionVendorId == null) : !!profile?.vendor_id;
 
-  const { kits, balance, loading: balLoading, appendKits, clearUnconsumed, setKitStatus, restockColumn, editKitCell } =
+  const { kits, balance, loading: balLoading, appendKits, clearUnconsumed, setKitStatus, editKitCells } =
     useContentPrep(cfg.prepKind, selectedParentId || null, partitionVendorId);
 
-  // Per-cell kit edit — the grid only knows (kit, header, value); the mirror into
-  // an allocated participant's prep needs the parent's template, so bind it here.
-  const saveKitCell = useCallback(
-    (kit, header, value) => editKitCell(kit, header, value, structure),
-    [editKitCell, structure],
+  // The bulk edit sheet is the ONLY writer of kit payloads. It knows
+  // (kit, header, value); the mirror into an allocated participant's prep needs
+  // the parent's prep_template, so bind it here.
+  const saveKitCells = useCallback(
+    (changes) => editKitCells(changes, structure),
+    [editKitCells, structure],
   );
 
   // Balances for every parent of this kind in the selected pool.
@@ -125,12 +128,12 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   }, [structure]);
 
   function resetUpload() { setParseError(''); setParsed(null); setSubmitError(''); }
-  function changeParent(id) { setSelectedParentId(id); resetUpload(); setNotice(''); setConfirmClear(false); setPasteMode(false); }
+  function changeParent(id) { setSelectedParentId(id); resetUpload(); setNotice(''); setConfirmClear(false); setPasteMode(false); setEditMode(false); }
   function changeKind(nextKind) {
     if (nextKind === kind) return;
     setKind(nextKind);
     setSelectedParentId('');
-    resetUpload(); setNotice(''); setConfirmClear(false); setPasteMode(false);
+    resetUpload(); setNotice(''); setConfirmClear(false); setPasteMode(false); setEditMode(false);
   }
 
   async function handleFile(e) {
@@ -192,6 +195,15 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
     setPasteMode(false);
     setNotice(`Added ${count} kit${count === 1 ? '' : 's'} to the pool.`);
     return {};
+  }
+
+  // Bulk edit save — the sheet reports its own outcome, so pass the result back
+  // rather than swallowing it into the modal-level notice.
+  async function handleBulkEdit(changes) {
+    setSubmitting(true);
+    const result = await saveKitCells(changes);
+    setSubmitting(false);
+    return result;
   }
 
   async function handleClear() {
@@ -293,6 +305,15 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
                   onCancel={() => setPasteMode(false)}
                   onSubmit={handlePasteSubmit}
                 />
+              ) : editMode ? (
+                <PrepEditGrid
+                  kits={kits}
+                  structure={structure}
+                  kind={kind}
+                  busy={submitting}
+                  onCancel={() => setEditMode(false)}
+                  onSubmit={handleBulkEdit}
+                />
               ) : (
               <>
               {balLoading ? <p className="muted">Loading pool…</p> : (
@@ -322,8 +343,8 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
 
               {!balLoading && balance.total > 0 && (
                 <PrepGrid kits={kits} structure={structure} kind={kind}
-                  onMarkKit={canWrite ? setKitStatus : null} onRestock={canWrite ? restockColumn : null}
-                  onEditCell={canWrite ? saveKitCell : null} />
+                  onMarkKit={canWrite ? setKitStatus : null}
+                  onBulkEdit={canWrite ? () => setEditMode(true) : null} />
               )}
 
               {!canWrite && (
@@ -366,7 +387,7 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
     </>
   );
 
-  const showFooter = selectedParentId && structure.length > 0 && !pasteMode;
+  const showFooter = selectedParentId && structure.length > 0 && !pasteMode && !editMode;
   const footerActions = (
     <>
       {canWrite && (

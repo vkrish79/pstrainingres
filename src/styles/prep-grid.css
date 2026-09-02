@@ -128,24 +128,6 @@ thead .pg-rowhead { z-index: 3; }
 }
 
 /* ── pool re-stock a column ── */
-.pg-restock { margin-bottom: 0.6rem; }
-.pg-restock-open {
-  font-size: 0.78rem; color: #475569; background: #fff;
-  border: 1px solid #d7dee7; border-radius: 6px; padding: 4px 10px; cursor: pointer;
-}
-.pg-restock-open:hover { border-color: #94a3b8; color: #0f172a; }
-.pg-restock--open {
-  border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.7rem 0.8rem; background: #f8fafc;
-}
-.pg-restock-head { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: #475569; }
-.pg-restock-head select { margin-left: 0.3rem; padding: 3px 6px; border: 1px solid #d7dee7; border-radius: 5px; }
-.pg-restock-x { margin-left: auto; border: none; background: none; font-size: 1.1rem; color: #94a3b8; cursor: pointer; line-height: 1; }
-.pg-restock--open textarea {
-  width: 100%; box-sizing: border-box; border: 1px solid #d7dee7; border-radius: 6px;
-  padding: 7px 9px; font: inherit; font-size: 0.78rem; resize: vertical;
-}
-.pg-restock-msg { font-size: 0.78rem; color: #15803d; margin: 0.45rem 0 0; }
-.pg-restock-actions { margin-top: 0.5rem; }
 
 /* ── in-app paste-grid entry (PrepPasteGrid) ── */
 .pg-editcell { padding: 0; }
@@ -154,28 +136,41 @@ thead .pg-rowhead { z-index: 3; }
   font: inherit; font-size: 0.78rem; font-weight: 600; color: #0f172a;
   padding: 6px 9px; outline: none; box-sizing: border-box;
 }
-.pg-editcell:focus-within { box-shadow: inset 0 0 0 2px #93c5fd; background: #eff6ff; }
+.pg-editcell:focus-within { box-shadow: inset 0 0 0 2px var(--gold-dark); background: #fffdf7; }
 .prep-paste-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.7rem; }
 .prep-paste-rownum { color: #94a3b8; font-weight: 500; text-align: right; min-width: 34px; }
 .prep-paste-foot { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; flex-wrap: wrap; }
 .prep-paste-count { font-size: 0.85rem; color: #0f172a; }
 
-/* ── click-to-edit kit cells (PrepGrid, pool + allocated rows) ── */
-.pg-cell-editable { padding: 0; }
-.pg-cell-btn {
-  display: block; width: 100%; text-align: left; border: none; background: none;
-  font: inherit; color: inherit; padding: 6px 9px; cursor: text; border-radius: 0;
+
+/* ── bulk edit sheet (PrepEditGrid) ── */
+.prep-edit-grid .pg-readonly { opacity: 0.72; }
+.pg-changed { box-shadow: inset 3px 0 0 0 var(--gold-dark); font-weight: 700; }
+.pg-changed .pg-edit { font-weight: 700; }
+.prep-edit-confirm {
+  display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
+  margin-top: 0.7rem; padding: 0.6rem 0.8rem;
+  border: 1px solid #fcd34d; background: #fffbeb; border-radius: 7px;
 }
-.pg-cell-btn:hover { box-shadow: inset 0 0 0 1px #94a3b8; }
-.pg-cell-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #2563eb; }
-.pg-cell-err { display: block; padding: 0 9px 5px; font-size: 0.68rem; color: #b91c1c; }
-.pg-cell-confirm { padding: 5px 8px; }
-.pg-confirm-text { display: block; font-size: 0.68rem; font-weight: 600; color: #92400e; }
-.pg-confirm-actions { display: flex; gap: 0.35rem; margin-top: 0.3rem; }
-.pg-confirm-actions button {
-  font: inherit; font-size: 0.68rem; padding: 2px 7px; border-radius: 5px;
-  border: 1px solid #d7dee7; background: #fff; cursor: pointer;
+.prep-edit-confirm-text { margin: 0; flex: 1; min-width: 240px; font-size: 0.8rem; color: #92400e; }
+.prep-edit-confirm-actions { display: flex; gap: 0.4rem; }
+
+/* ── grid toolbar: bulk edit sits beside restock, where the trainer already is ── */
+.pg-tools { display: flex; align-items: flex-start; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.pg-bulk-btn {
+  border: 1px solid var(--gold); background: #fdfaf3; color: var(--gold-dark);
+  font: inherit; font-size: 0.78rem; font-weight: 600;
+  padding: 5px 11px; border-radius: 6px; cursor: pointer;
 }
-.pg-confirm-yes { border-color: #b45309; color: #b45309; font-weight: 600; }
-.pg-confirm-no { color: #64748b; }
-.pg-confirm-actions button:disabled { opacity: 0.55; cursor: default; }
+.pg-bulk-btn:hover { background: #f7efdf; border-color: var(--gold-dark); }
+
+/* ── spreadsheet selection (PrepEditGrid) ── */
+.pg-sheet:focus { outline: none; }
+.pg-sheet .pg-cell { cursor: cell; user-select: none; }
+.pg-cell-blank { color: #cbd5e1; }
+/* Selection tint sits over the status colour, so the pool/allocated/spent
+   banding still reads through a highlighted block. */
+.pg-sel { box-shadow: inset 0 0 0 9999px rgba(181, 152, 90, 0.20); }
+.pg-changed.pg-sel { box-shadow: inset 3px 0 0 0 var(--gold-dark), inset 0 0 0 9999px rgba(181, 152, 90, 0.20); }
+.pg-active { box-shadow: inset 0 0 0 2px var(--gold-dark), inset 0 0 0 9999px rgba(181, 152, 90, 0.20); }
+.pg-sheet .pg-readonly { cursor: not-allowed; }
