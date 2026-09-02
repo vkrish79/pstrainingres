@@ -7,7 +7,7 @@ import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
-import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
+import { progressOf } from '../lib/blockHelpers.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
 import MaterialsList from '../components/MaterialsList.jsx';
@@ -184,12 +184,13 @@ export default function ParticipantWorkbookPage() {
   const sectionStats = useMemo(() => {
     return sections.map(sec => {
       const sBlocks = blocks.filter(b => b.section_id === sec.id);
-      const fillable = sBlocks.filter(isFillableBlock);
-      const answered = fillable.reduce((n, b) => n + (isAnswered(b, answers[b.id]) ? 1 : 0), 0);
-      const pct = fillable.length ? Math.round((answered / fillable.length) * 100) : 0;
-      return { id: sec.id, title: sec.title, kind: sec.kind || 'exercise', total: fillable.length, answered, pct };
+      // Counts INPUTS, not blocks: a 10-cell table is ten things to fill, so
+      // 100% means every radio, field and cell is done.
+      const { total, filled, pct } = progressOf(sBlocks, id => answers[id]);
+      return { id: sec.id, title: sec.title, kind: sec.kind || 'exercise', total, answered: filled, pct };
     });
   }, [sections, blocks, answers]);
+
 
   // Exercise-jump filter: narrows the sidebar to exercises whose title contains
   // the typed text. Titles already carry the exercise number ("Exercise 18"), so

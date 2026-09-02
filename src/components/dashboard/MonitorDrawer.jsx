@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Block from '../blocks/Block.jsx';
-import { isFillableBlock, isAnswered } from '../../lib/blockHelpers.js';
+import { isFillableBlock, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 
 // Right push-in drawer for the trainer's "My copy": a live monitor of the
 // cohort on the currently-SELECTED exercise. Driven by the sidebar selection
@@ -25,13 +25,14 @@ export default function MonitorDrawer({
   const sectionBlocks = section
     ? blocks.filter(b => b.section_id === section.id && isFillableBlock(b))
     : [];
-  const total = sectionBlocks.length;
+  // Inputs, not blocks — "done" must mean every input on the exercise.
+  const total = sectionBlocks.reduce((n, b) => n + expectedInputs(b), 0);
   const hereIds = new Set(liveHere.map(p => p.id));
 
   const rows = participants.map(p => {
     const pa = participantAnswers[p.id] || {};
     let answered = 0;
-    for (const b of sectionBlocks) if (isAnswered(b, pa[b.id]?.value)) answered += 1;
+    for (const b of sectionBlocks) answered += filledInputs(b, pa[b.id]?.value);
     const status = total > 0 && answered === total ? 'done' : answered > 0 ? 'partial' : 'none';
     return { p, answered, status, here: hereIds.has(p.id) };
   });

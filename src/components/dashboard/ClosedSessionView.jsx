@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import TopBar from '../TopBar.jsx';
-import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
+import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 
 // Read-only summary view rendered when sessions.closed_at is set. Driven
@@ -35,7 +35,8 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
     () => (workbook?.sections || []).flatMap(s => (s.blocks || []).filter(isFillableBlock)),
     [workbook],
   );
-  const totalFillable = fillable.length;
+  // Inputs, not blocks: a partly-filled table used to score as fully answered.
+  const totalFillable = fillable.reduce((n, b) => n + expectedInputs(b), 0);
 
   // Trainer notes indexed by [participant][block] for fast lookup in cards.
   const notesByParticipant = useMemo(() => {
@@ -59,7 +60,7 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
       let a = 0;
       for (const b of fillable) {
         const entry = p.answers?.[b.id];
-        if (entry && isAnswered(b, entry.value)) a += 1;
+        a += filledInputs(b, entry?.value);
         const ts = entry?.updated_at ? new Date(entry.updated_at).getTime() : NaN;
         if (!Number.isNaN(ts)) {
           if (firstAct == null || ts < firstAct) firstAct = ts;
@@ -103,9 +104,9 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
         const fb = (s.blocks || []).filter(isFillableBlock);
         let answered = 0;
         for (const p of participants) for (const b of fb) {
-          if (isAnswered(b, p.answers?.[b.id]?.value)) answered += 1;
+          answered += filledInputs(b, p.answers?.[b.id]?.value);
         }
-        const total = fb.length * pc;
+        const total = fb.reduce((n, b) => n + expectedInputs(b), 0) * pc;
         return {
           id: s.id,
           title: s.title,
@@ -269,10 +270,11 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
 
 function ParticipantRecord({ participant, workbook, fillable, notesForP, expanded, onToggle }) {
   const answered = fillable.reduce(
-    (n, b) => n + (isAnswered(b, participant.answers?.[b.id]?.value) ? 1 : 0),
+    (n, b) => n + filledInputs(b, participant.answers?.[b.id]?.value),
     0,
   );
-  const pct = fillable.length ? Math.round((answered / fillable.length) * 100) : 0;
+  const totalInputs = fillable.reduce((n, b) => n + expectedInputs(b), 0);
+  const pct = totalInputs ? Math.round((answered / totalInputs) * 100) : 0;
   const flagCount = Object.values(notesForP).filter(n => n.flag).length;
   const noteCount = Object.values(notesForP).filter(n => n.note).length;
   const sectionNoteCount = Object.keys(participant.section_notes || {}).length;
@@ -290,7 +292,7 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, expande
         {flagCount > 0 && <span className="exresp-flag-badge">🚩 {flagCount}</span>}
         {noteCount > 0 && <span className="exresp-note-badge">💬 {noteCount}</span>}
         {sectionNoteCount > 0 && <span className="exresp-note-badge" title="Section notes">📝 {sectionNoteCount}</span>}
-        <span className="exresp-progress-pill">{answered} / {fillable.length} ({pct}%)</span>
+        <span className="exresp-progress-pill">{answered} / {totalInputs} ({pct}%)</span>
       </button>
       {expanded && (
         <div className="closed-record-body">

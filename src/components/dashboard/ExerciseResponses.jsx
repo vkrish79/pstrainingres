@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { isFillableBlock, isAnswered, labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
+import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { isInteractiveBlock } from '../../lib/interactiveBlocks.js';
 import { scoreBlock, scoreBlocks } from '../../lib/assessmentScoring.js';
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
@@ -30,19 +30,19 @@ export default function ExerciseResponses({
       .filter(sec => blocks.some(b => b.section_id === sec.id && isFillableBlock(b)))
       .map(sec => {
         const sBlocks = blocks.filter(b => b.section_id === sec.id && isFillableBlock(b));
-        const totalSlots = sBlocks.length * participants.length;
+        // Slots are INPUTS x participants, not blocks x participants: a 10-cell
+        // table is ten things each participant has to fill.
+        const inputsPerParticipant = sBlocks.reduce((n, b) => n + expectedInputs(b), 0);
+        const totalSlots = inputsPerParticipant * participants.length;
         let answered = 0;
         let participantsDone = 0;
         for (const p of participants) {
           let pAnswered = 0;
           for (const b of sBlocks) {
-            const a = answers[p.id]?.[b.id];
-            if (a && isAnswered(b, a.value)) {
-              answered += 1;
-              pAnswered += 1;
-            }
+            pAnswered += filledInputs(b, answers[p.id]?.[b.id]?.value);
           }
-          if (sBlocks.length > 0 && pAnswered === sBlocks.length) participantsDone += 1;
+          answered += pAnswered;
+          if (inputsPerParticipant > 0 && pAnswered === inputsPerParticipant) participantsDone += 1;
         }
         const pct = totalSlots ? Math.round((answered / totalSlots) * 100) : 0;
         return { ...sec, _stats: { pct, answered, totalSlots, participantsDone, blocksCount: sBlocks.length } };
@@ -127,6 +127,8 @@ export default function ExerciseResponses({
   const fillableInSection = blocks
     .filter(b => b.section_id === selectedSection.id && isFillableBlock(b))
     .sort((a, b) => a.order_index - b.order_index);
+  // Denominator in INPUTS, matching how `answered` is now counted.
+  const inputsInSection = fillableInSection.reduce((n, b) => n + expectedInputs(b), 0);
 
   const stats = participants.map(p => {
     const pAns = answers[p.id] || {};
@@ -137,7 +139,7 @@ export default function ExerciseResponses({
     let noteCount = 0;
     for (const b of fillableInSection) {
       const a = pAns[b.id];
-      if (a && isAnswered(b, a.value)) answered += 1;
+      answered += filledInputs(b, a?.value);
       if (a?.updated_at) {
         const t = new Date(a.updated_at).getTime();
         if (t > lastTs) lastTs = t;
@@ -148,7 +150,7 @@ export default function ExerciseResponses({
         if (n.note?.trim()) noteCount += 1;
       }
     }
-    return { participant: p, answered, total: fillableInSection.length, lastTs, flaggedCount, noteCount };
+    return { participant: p, answered, total: inputsInSection, lastTs, flaggedCount, noteCount };
   });
 
   const q = query.trim().toLowerCase();

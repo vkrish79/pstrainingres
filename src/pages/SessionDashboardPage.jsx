@@ -15,7 +15,7 @@ import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.j
 import AssessmentLockControl from '../components/dashboard/AssessmentLockControl.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
-import { isFillableBlock, isAnswered } from '../lib/blockHelpers.js';
+import { isFillableBlock, expectedInputs, filledInputs } from '../lib/blockHelpers.js';
 import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
 import { buildAllInvitesText, buildHandoutHtml, buildInviteText } from '../lib/participantInvite.js';
 import Block from '../components/blocks/Block.jsx';
@@ -237,14 +237,15 @@ export default function SessionDashboardPage() {
   }
 
   const fillableBlocks = useMemo(() => blocks.filter(isFillableBlock), [blocks]);
-  const totalFillable = fillableBlocks.length;
+  // Inputs, not blocks — the cohort roster must agree with the exercise views.
+  const totalFillable = fillableBlocks.reduce((n, b) => n + expectedInputs(b), 0);
 
   function progressFor(participantId) {
     const ans = answers[participantId] || {};
     let answered = 0; let lastTs = null;
     for (const b of fillableBlocks) {
       const a = ans[b.id];
-      if (a && isAnswered(b, a.value)) answered += 1;
+      answered += filledInputs(b, a?.value);
       if (a?.updated_at && (!lastTs || a.updated_at > lastTs)) lastTs = a.updated_at;
     }
     return { answered, total: totalFillable, lastTs };
