@@ -1,0 +1,269 @@
+/* ===== Session-edit heat map =====
+   Markers on the MASTER workbook editor showing where the field has been
+   rewording things. Intensity = how many distinct sessions changed it.
+
+   Deliberately monochrome gold rather than a green-to-red ramp: a trainer
+   rewording an exercise is information, not an error, and a red block would
+   read as one. Four bands only — more would be false precision. */
+
+.heat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--gold-dark, #8b7342);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.5;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.heat-chip:hover {
+  background: rgba(181, 152, 90, 0.12);
+}
+.heat-chip:focus-visible {
+  outline: 2px solid var(--gold-dark, #8b7342);
+  outline-offset: 2px;
+}
+
+.heat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+/* The four bands. Only the dot and the fill deepen — the chip stays the same
+   size so a busy exercise doesn't reflow the layout around it. */
+.heat-l1 .heat-dot { background: rgba(181, 152, 90, 0.45); }
+.heat-l2 .heat-dot { background: rgba(181, 152, 90, 0.70); }
+.heat-l3 .heat-dot { background: var(--gold); }
+.heat-l4 .heat-dot { background: var(--gold-dark, #8b7342); }
+
+.heat-chip.heat-l3 { background: rgba(181, 152, 90, 0.10); }
+.heat-chip.heat-l4 {
+  background: rgba(181, 152, 90, 0.18);
+  border-color: var(--gold-dark, #8b7342);
+}
+
+.heat-chip--section { margin-left: 0.25rem; }
+
+/* Per-block marker: an inset rail on the block's own left edge. Inset shadow
+   rather than a positioned pseudo-element so it cannot land off-canvas or be
+   clipped by an ancestor — the same pattern prep-grid.css uses for changed
+   cells. The chip itself rides in BlockListItem's head slot, in normal flex
+   flow, so it can't collide with the action buttons. */
+.heat-wrap .block-row {
+  box-shadow: inset 3px 0 0 0 rgba(181, 152, 90, 0.45);
+}
+.heat-wrap.heat-l1 .block-row { box-shadow: inset 3px 0 0 0 rgba(181, 152, 90, 0.30); }
+.heat-wrap.heat-l2 .block-row { box-shadow: inset 3px 0 0 0 rgba(181, 152, 90, 0.55); }
+.heat-wrap.heat-l3 .block-row { box-shadow: inset 3px 0 0 0 var(--gold); }
+.heat-wrap.heat-l4 .block-row { box-shadow: inset 3px 0 0 0 var(--gold-dark, #8b7342); }
+
+/* ===== Drill-down modal ===== */
+
+.eh-card { max-width: 780px; }
+
+.eh-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #6b7280);
+}
+
+.eh-summary {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(181, 152, 90, 0.10);
+  border-left: 3px solid var(--gold);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.eh-entry {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.eh-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.eh-session { font-weight: 700; color: var(--midnight); }
+.eh-chip {
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+  background: var(--border);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.eh-when {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--muted, #6b7280);
+}
+.eh-meta {
+  margin: 0.15rem 0 0.6rem;
+  font-size: 0.8rem;
+}
+
+.eh-diffs { list-style: none; margin: 0; padding: 0; }
+.eh-diff + .eh-diff { margin-top: 0.6rem; }
+.eh-diff-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #6b7280);
+  margin-bottom: 0.25rem;
+}
+
+/* Before above, after below, rather than side by side: session wording is
+   often a full sentence, and two narrow columns make it unreadable. */
+.eh-diff-pair {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+.eh-was, .eh-now {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+}
+.eh-was { background: #f4f5f7; }
+.eh-now { background: rgba(181, 152, 90, 0.12); }
+.eh-tag {
+  flex: 0 0 3.5rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #6b7280);
+}
+
+.eh-formatting, .eh-nodiff {
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.eh-foot-hint { font-size: 0.75rem; margin-left: auto; }
+
+@media (max-width: 640px) {
+  .eh-when { margin-left: 0; width: 100%; }
+  .eh-foot-hint { display: none; }
+}
+
+/* Hero note on the master editor — the entry point that tells a super trainer
+   there is anything here at all. */
+.wb-heat-note {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--gold-dark, #8b7342);
+  font-weight: 600;
+}
+.wb-heat-note .heat-dot { flex: 0 0 auto; }
+
+/* Badge on a workbook card in the library list. */
+.wb-card-heat {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gold-dark, #8b7342);
+}
+.wb-card-heat .heat-dot { flex: 0 0 auto; }
+
+/* ===== Review state ===== */
+
+/* Everything reviewed: the marker goes quiet but stays clickable, because the
+   history has to remain reachable after you have finished with it. */
+.heat-chip--done {
+  border-color: var(--border);
+  color: var(--muted, #8a8a8a);
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+}
+.heat-chip--done:hover {
+  background: var(--border);
+}
+
+.eh-pill {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.eh-pill + .eh-pill { margin-left: 0.35rem; }
+.eh-pill--adopted { background: rgba(181, 152, 90, 0.20); color: var(--gold-dark, #8b7342); }
+.eh-pill--notneeded { background: #eceef2; color: #5b6472; }
+
+.eh-tally { margin: 0.5rem 0 0; }
+
+.eh-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.eh-bulk, .eh-bulk-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+.eh-bulk button, .eh-bulk-actions button { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+.eh-bulk-confirm { flex-direction: column; align-items: stretch; }
+.eh-bulk-actions { display: flex; gap: 0.4rem; }
+.eh-note-input { font-size: 0.82rem; }
+
+/* A resolved entry recedes but stays legible — it is the record, not clutter. */
+.eh-entry--resolved {
+  background: #fafbfc;
+  opacity: 0.85;
+}
+
+.eh-entry-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.eh-entry-actions button { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+
+.eh-review-meta {
+  margin: 0.6rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted, #8a8a8a);
+}
+.eh-review-note {
+  display: block;
+  margin-top: 0.2rem;
+  font-style: italic;
+  color: var(--text, #222);
+}

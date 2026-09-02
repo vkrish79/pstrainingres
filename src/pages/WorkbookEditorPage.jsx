@@ -8,6 +8,8 @@ import WorkbookPrepPanel from '../components/editor/WorkbookPrepPanel.jsx';
 import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
 import ContentEditor from '../components/editor/ContentEditor.jsx';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
+import EditHeatModal from '../components/editor/EditHeatModal.jsx';
+import { useWorkbookEditHeat } from '../hooks/useWorkbookEditHeat.js';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -15,6 +17,7 @@ import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import '../styles/editor.css';
 import '../styles/workbook.css';
 import '../styles/dashboard.css';
+import '../styles/edit-heat.css';
 
 export default function WorkbookEditorPage() {
   const { id } = useParams();
@@ -35,6 +38,14 @@ export default function WorkbookEditorPage() {
   const [delErr, setDelErr] = useState('');
   const [showPreview, setShowPreview] = useState(true);
   const [showAddExercises, setShowAddExercises] = useState(false);
+  const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
+
+  // Only a master workbook has session clones to compare against, and only
+  // super-tier can read the log. Vendor trainers reach this page through the
+  // read-only branch below; firing a query for them would come back empty and
+  // look broken. Sits above the early returns to keep hook order stable.
+  const heatEnabled = workbook?.is_template === true && isSuperTrainerOrAbove(profile?.role);
+  const { bySection, byBlock, openSections, refresh: refreshHeat } = useWorkbookEditHeat(id, heatEnabled);
 
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
@@ -172,6 +183,13 @@ export default function WorkbookEditorPage() {
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>Workbook editor</h1>
             <p>Edits broadcast live to enrolled participants. Their answers stay attached to stable block IDs, so renames and reorders don't lose data.</p>
+            {openSections > 0 && (
+              <p className="wb-heat-note">
+                <span className="heat-dot heat-l3" aria-hidden />
+                {openSections} exercise{openSections === 1 ? '' : 's'} reworded in sessions and not yet reviewed —
+                open a marker to decide.
+              </p>
+            )}
           </div>
           <div className="page-hero-actions">
             <button className="ghost" onClick={() => setShowPreview(p => !p)}>
@@ -241,6 +259,8 @@ export default function WorkbookEditorPage() {
           onDeleteSection={deleteSection}
           showPreview={showPreview}
           previewTitle={title || 'Untitled workbook'}
+          heat={heatEnabled ? { bySection, byBlock } : null}
+          onOpenHeat={heatEnabled ? setHeatFocus : null}
           extraAddSectionActions={
             <>
               <button className="ghost" onClick={() => setShowAddExercises(true)}>➕ Add exercises from another workbook</button>
@@ -249,6 +269,17 @@ export default function WorkbookEditorPage() {
           }
         />
       </main>
+      {heatFocus && (
+        <EditHeatModal
+          workbookId={id}
+          sectionId={heatFocus.sectionId}
+          sectionTitle={heatFocus.sectionTitle}
+          blockId={heatFocus.blockId}
+          blockLabel={heatFocus.blockLabel}
+          onClose={() => setHeatFocus(null)}
+          onResolved={refreshHeat}
+        />
+      )}
       {showAddExercises && (
         <AddExercisesModal
           currentWorkbookId={id}

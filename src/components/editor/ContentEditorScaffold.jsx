@@ -3,6 +3,7 @@ import BlockListItem from './BlockListItem.jsx';
 import Block from '../blocks/Block.jsx';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
 import { questionNumbers } from '../../lib/blockHelpers.js';
+import { heatLevel } from '../../lib/configDiff.js';
 
 // Shared sections-and-blocks editor (editor pane + live participant preview
 // with scroll-sync). Powers both the workbook editor and the assessment
@@ -27,6 +28,11 @@ export default function ContentEditorScaffold({
   previewTitle,
   extraAddSectionActions = null,
   allowInteractive = false,
+  // Session-edit heat: { bySection, byBlock } keyed by master section/block id,
+  // plus a click handler. Null for the assessment editor, which renders exactly
+  // as it did before.
+  heat = null,
+  onOpenHeat = null,
   // Flat mode (assessments): no section chrome — render every block as one
   // running list of numbered questions. Sections still exist in the data (we
   // add new blocks to the last one), they're just invisible here.
@@ -143,6 +149,49 @@ export default function ContentEditorScaffold({
     setSectionTitleDraft('');
   }
 
+  // A heat marker. Intensity comes from DISTINCT SESSIONS still awaiting a
+  // decision, not the raw edit count — one trainer fiddling with a paragraph is
+  // noise; five cohorts independently rewording the same line is the signal.
+  //
+  // Once everything is resolved the marker goes quiet but does NOT disappear:
+  // it becomes a tick that still opens the history. Removing it entirely would
+  // make the record unreachable the moment you finished reviewing it.
+  function heatChip(entry, onClick, extraClass = '') {
+    if (!onOpenHeat || !entry) return null;
+    const openCount = entry.openSessions || 0;
+    const total = entry.totalSessions || 0;
+    if (!openCount && !total) return null;
+
+    const cls = extraClass ? ` ${extraClass}` : '';
+    if (!openCount) {
+      return (
+        <button
+          type="button"
+          className={`heat-chip heat-chip--done${cls}`}
+          onClick={onClick}
+          aria-label={`Reviewed — show the ${total} recorded session change${total === 1 ? '' : 's'}`}
+        >
+          ✓
+        </button>
+      );
+    }
+
+    const label =
+      `${openCount} session${openCount === 1 ? '' : 's'} reworded this`
+      + ` (${entry.openTrainers} trainer${entry.openTrainers === 1 ? '' : 's'}) — review the changes`;
+    return (
+      <button
+        type="button"
+        className={`heat-chip heat-l${heatLevel(openCount)}${cls}`}
+        onClick={onClick}
+        aria-label={label}
+      >
+        <span className="heat-dot" aria-hidden />
+        {openCount}
+      </button>
+    );
+  }
+
   async function handleAdd(sectionId, type) {
     let defaultConfig;
     if (type === 'prose') defaultConfig = { html: '<p>New prose block</p>' };
@@ -236,6 +285,11 @@ export default function ContentEditorScaffold({
                     {sec.title}
                   </h2>
                 )}
+                {heatChip(
+                  heat?.bySection?.get(sec.id),
+                  () => onOpenHeat({ sectionId: sec.id, sectionTitle: sec.title, blockId: null }),
+                  'heat-chip--section',
+                )}
                 <div className="editor-section-actions">
                   {!isEditingTitle && (
                     <button className="ghost" onClick={() => startEditingSection(sec)}>Rename</button>
@@ -253,13 +307,25 @@ export default function ContentEditorScaffold({
               </div>
               {sectionBlocks.length === 0 && <p className="muted">No blocks yet.</p>}
               <div className="block-list">
-                {sectionBlocks.map((b, i) => (
+                {sectionBlocks.map((b, i) => {
+                  const bHeat = heat?.byBlock?.get(b.id);
+                  return (
                   <div
                     key={b.id}
                     data-block-id={b.id}
                     ref={el => { editorBlockRefs.current[b.id] = el; }}
+                    className={bHeat?.openSessions ? `heat-wrap heat-l${heatLevel(bHeat.openSessions)}` : undefined}
                   >
                     <BlockListItem
+                      headExtra={heatChip(
+                        bHeat,
+                        () => onOpenHeat({
+                          sectionId: sec.id,
+                          sectionTitle: sec.title,
+                          blockId: b.id,
+                          blockLabel: `Block ${i + 1}`,
+                        }),
+                      )}
                       block={b}
                       isFirst={i === 0}
                       isLast={i === sectionBlocks.length - 1}
@@ -271,7 +337,8 @@ export default function ContentEditorScaffold({
                       onLocate={locateBlockInPreview}
                     />
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="add-block-row">
                 <button className="ghost" onClick={() => handleAdd(sec.id, 'prose')}>+ Add prose</button>

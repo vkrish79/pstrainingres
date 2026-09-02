@@ -2,7 +2,7 @@ import { useState } from 'react';
 import BlockForm from './BlockForm.jsx';
 import { labelOf } from '../../lib/blockHelpers.js';
 
-export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast, canEdit = true, questionNumber = null }) {
+export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast, canEdit = true, questionNumber = null, headExtra = null }) {
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -31,6 +31,10 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
         >
           {previewOf(block)}
         </span>
+        {/* Optional slot in the head row — used for the session-edit heat marker.
+            Inside the flex flow rather than floated, so it cannot collide with
+            the action buttons or be clipped. Null everywhere else. */}
+        {headExtra}
         {canEdit && (
           <div className="block-actions">
             <button className="icon-btn" onClick={onMoveUp} disabled={isFirst} aria-label="Move up">↑</button>

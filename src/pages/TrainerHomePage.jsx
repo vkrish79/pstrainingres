@@ -4,10 +4,13 @@ import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import { useVendors } from '../hooks/useVendors.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../lib/roles.js';
+import { heatLevel } from '../lib/configDiff.js';
 import SessionCard from '../components/dashboard/SessionCard.jsx';
 import LowPrepBanner from '../components/dashboard/LowPrepBanner.jsx';
 import TopBar from '../components/TopBar.jsx';
+import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
 import '../styles/dashboard.css';
+import '../styles/edit-heat.css';
 
 export default function TrainerHomePage() {
   const { profile, session: authSession } = useAuth();
@@ -187,6 +190,11 @@ function SectionHeader({ title, topGap = false }) {
 }
 
 function WorkbookLibrary({ loading, workbooks }) {
+  // Read the role here rather than threading it through three call sites.
+  // Non-super trainers make no call at all — they cannot read the log.
+  const { profile } = useAuth();
+  const heatTotals = useEditHeatTotals(isSuperTrainerOrAbove(profile?.role));
+
   return (
     <>
       <SectionHeader title="Workbooks" topGap />
@@ -199,6 +207,12 @@ function WorkbookLibrary({ loading, workbooks }) {
               <h3>{w.title}</h3>
               {w.description && <p className="session-card-workbook">{w.description}</p>}
               <p className="session-card-meta">Updated {new Date(w.updated_at).toLocaleDateString()}</p>
+              {heatTotals.get(w.id) && (
+                <p className="wb-card-heat">
+                  <span className={`heat-dot heat-l${heatLevel(heatTotals.get(w.id).sessionCount)}`} aria-hidden />
+                  {heatTotals.get(w.id).sectionCount} to review
+                </p>
+              )}
             </Link>
           ))}
         </div>
