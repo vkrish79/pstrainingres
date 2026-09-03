@@ -88,6 +88,64 @@ export function diffConfigs(blockType, before, after) {
   }).filter(d => (d.before ?? '') !== (d.after ?? ''));
 }
 
+// ===== Adopting one line into the master =====
+//
+// A diff line's key encodes where the text lives in the config, so the same
+// key that labels a line can address it. Reading and writing go through this
+// one pair, so a key that can be shown can always be applied — and adopting
+// touches ONLY that field, leaving everything else in the master block alone.
+
+// The current value of one line, or undefined if that path isn't there any
+// more (the master block was restructured since the session edited it).
+export function getLineValue(blockType, config, key) {
+  const cfg = config || {};
+  if (key === 'html') return cfg.html;
+  if (key === 'label') return cfg.label;
+  if (key === 'caption') return cfg.caption;
+
+  const [kind, a, b] = key.split(':');
+  if (kind === 'opt') return cfg.options?.[Number(a)];
+  if (kind === 'hdr') return cfg.headers?.[Number(a)];
+  if (kind === 'cell') {
+    const cell = cfg.rows?.[Number(a)]?.[Number(b)];
+    // Answer cells carry no authored text and must never be written through.
+    return cell?.kind === 'static' ? cell.text : undefined;
+  }
+  return undefined;
+}
+
+// A copy of the config with one line set. Returns null when the path no longer
+// exists — the caller reports that rather than inventing structure, because
+// growing a table back to fit an old edit is not adopting a change.
+export function setLineValue(blockType, config, key, value) {
+  const next = JSON.parse(JSON.stringify(config || {}));
+
+  if (key === 'html') { next.html = value; return next; }
+  if (key === 'label') { next.label = value; return next; }
+  if (key === 'caption') { next.caption = value; return next; }
+
+  const [kind, a, b] = key.split(':');
+  const i = Number(a);
+  if (kind === 'opt') {
+    if (!Array.isArray(next.options) || i >= next.options.length) return null;
+    next.options[i] = value;
+    return next;
+  }
+  if (kind === 'hdr') {
+    if (!Array.isArray(next.headers) || i >= next.headers.length) return null;
+    next.headers[i] = value;
+    return next;
+  }
+  if (kind === 'cell') {
+    const j = Number(b);
+    const cell = next.rows?.[i]?.[j];
+    if (!cell || cell.kind !== 'static') return null;
+    cell.text = value;
+    return next;
+  }
+  return null;
+}
+
 // Heat bands. Driven by how many DISTINCT SESSIONS changed a thing, never by
 // the raw edit count: one trainer fiddling with a paragraph is not the same
 // signal as eight cohorts independently rewording it.

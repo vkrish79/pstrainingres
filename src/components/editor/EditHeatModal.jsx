@@ -1,30 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import {
-  fetchEditDetail, resolveChangeGroup, resolveSectionChanges,
+  fetchEditDetail, resolveChangeGroup, resolveSectionChanges, fetchLineDecisions,
 } from '../../hooks/useWorkbookEditHeat.js';
-import { diffConfigs } from '../../lib/configDiff.js';
+import ChangeEntry, { keyOf } from './ChangeEntry.jsx';
 import '../../styles/edit-heat.css';
-
-const STATUS_LABEL = {
-  adopted: 'Adopted into the master',
-  not_needed: 'Not needed in the master',
-};
-
-function formatWhen(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
-
-// A group's identity, matching the key the RPCs use. NULLs are meaningful
-// (an edit whose block could not be mapped), so they are kept, not defaulted.
-function keyOf(r) {
-  return `${r.master_block_id || '-'}|${r.session_id || '-'}|${r.actor_id || '-'}`;
-}
 
 // What the field changed, behind one heat marker, and what to do about it.
 // One entry per (session, trainer, block) showing the NET change — a trainer
@@ -34,6 +14,7 @@ export default function EditHeatModal({
   workbookId, sectionId, sectionTitle, blockId, blockLabel, onClose, onResolved,
 }) {
   const [rows, setRows] = useState([]);
+  const [lines, setLines] = useState(() => new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showResolved, setShowResolved] = useState(false);
@@ -44,9 +25,13 @@ export default function EditHeatModal({
   useBodyScrollLock();
 
   const load = useCallback(async () => {
-    const { rows: r, error: e } = await fetchEditDetail(workbookId, sectionId, blockId || null);
+    const [{ rows: r, error: e }, { byGroup }] = await Promise.all([
+      fetchEditDetail(workbookId, sectionId, blockId || null),
+      fetchLineDecisions(workbookId),
+    ]);
     if (e) setError(e);
     setRows(r);
+    setLines(byGroup);
     setLoading(false);
   }, [workbookId, sectionId, blockId]);
 
@@ -132,8 +117,8 @@ export default function EditHeatModal({
                   <p>
                     <strong>{open.length}</strong> change{open.length === 1 ? '' : 's'} waiting
                     on a decision, from <strong>{openSessions}</strong> session
-                    {openSessions === 1 ? '' : 's'}. Deciding here changes nothing in any
-                    workbook — it records what you concluded so the marker stops asking.
+                    {openSessions === 1 ? '' : 's'}. Adopting a line writes it into the master;
+                    dismissing one only records that you decided against it.
                   </p>
                 ) : (
                   <p>Everything here has been reviewed.</p>
@@ -150,7 +135,7 @@ export default function EditHeatModal({
                 bulkFor ? (
                   <div className="eh-bulk-confirm">
                     <span>
-                      Mark all {open.length} as <strong>{bulkFor === 'adopted' ? 'adopted' : 'not needed'}</strong>?
+                      Mark all {open.length} as <strong>not needed</strong>?
                     </span>
                     <input
                       className="form-input eh-note-input"
@@ -176,10 +161,10 @@ export default function EditHeatModal({
                   </div>
                 ) : (
                   <div className="eh-bulk">
-                    <span className="muted">Clear the whole exercise:</span>
-                    <button type="button" className="ghost" onClick={() => setBulkFor('adopted')}>
-                      ✓ All adopted
-                    </button>
+                    {/* Dismissing in bulk is safe — it writes nothing. There is
+                        deliberately no "all adopted" here: adopting edits the
+                        master, and that should be a line you have looked at. */}
+                    <span className="muted">Dismiss the whole exercise:</span>
                     <button type="button" className="ghost" onClick={() => setBulkFor('not_needed')}>
                       ✕ All not needed
                     </button>
@@ -200,95 +185,18 @@ export default function EditHeatModal({
             </>
           )}
 
-          {shown.map(r => {
-            const k = keyOf(r);
-            const diffs = diffConfigs(r.block_type, r.before_config, r.after_config);
-            const busy = busyKey === k;
-            return (
-              <article className={`eh-entry${r.is_open ? '' : ' eh-entry--resolved'}`} key={k}>
-                <header className="eh-entry-head">
-                  <span className="eh-session">{r.session_name || 'Deleted session'}</span>
-                  {r.city_code && <span className="eh-chip">{r.city_code}</span>}
-                  {!r.is_open && (
-                    <span className={`eh-pill eh-pill--${r.status === 'adopted' ? 'adopted' : 'notneeded'}`}>
-                      {r.status === 'adopted' ? '✓ Adopted' : '✕ Not needed'}
-                    </span>
-                  )}
-                  <span className="eh-when">{formatWhen(r.last_changed_at)}</span>
-                </header>
-                <div className="eh-meta">
-                  <span>{r.actor_name || 'Unknown trainer'}</span>
-                  {Number(r.edit_count) > 1 && (
-                    <span className="muted"> · {r.edit_count} saves, net change shown</span>
-                  )}
-                </div>
-
-                {diffs.length === 0 ? (
-                  <p className="muted eh-nodiff">Changed outside the editable text.</p>
-                ) : (
-                  <ul className="eh-diffs">
-                    {diffs.map(d => (
-                      <li key={d.key} className="eh-diff">
-                        <span className="eh-diff-label">{d.label}</span>
-                        {d.formattingOnly ? (
-                          <span className="eh-formatting">Formatting only — same wording</span>
-                        ) : (
-                          <div className="eh-diff-pair">
-                            {/* "Before" rather than "Master": if two trainers
-                                edited the same clone block, the second one's
-                                starting point was the first one's wording. */}
-                            <div className="eh-was">
-                              <span className="eh-tag">Before</span>
-                              <span>{d.beforeShown || <em className="muted">(empty)</em>}</span>
-                            </div>
-                            <div className="eh-now">
-                              <span className="eh-tag">After</span>
-                              <span>{d.afterShown || <em className="muted">(empty)</em>}</span>
-                            </div>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {!r.is_open && (
-                  <p className="eh-review-meta">
-                    {STATUS_LABEL[r.status] || r.status}
-                    {r.reviewed_by_name ? ` by ${r.reviewed_by_name}` : ''}
-                    {r.reviewed_at ? ` · ${formatWhen(r.reviewed_at)}` : ''}
-                    {r.note ? <span className="eh-review-note">“{r.note}”</span> : null}
-                  </p>
-                )}
-
-                <div className="eh-entry-actions">
-                  {r.is_open ? (
-                    <>
-                      <button
-                        type="button" className="ghost" disabled={busy}
-                        onClick={() => resolveOne(r, 'adopted')}
-                      >
-                        {busy ? 'Saving…' : '✓ Adopted'}
-                      </button>
-                      <button
-                        type="button" className="ghost" disabled={busy}
-                        onClick={() => resolveOne(r, 'not_needed')}
-                      >
-                        ✕ Not needed
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button" className="ghost" disabled={busy}
-                      onClick={() => resolveOne(r, 'open')}
-                    >
-                      {busy ? 'Saving…' : '↩ Reopen'}
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
+          {shown.map(r => (
+            <ChangeEntry
+              key={keyOf(r)}
+              row={r}
+              busy={busyKey === keyOf(r)}
+              onResolve={resolveOne}
+              workbookId={workbookId}
+              sectionId={sectionId}
+              lineDecisions={lines.get(keyOf(r)) || {}}
+              onChanged={() => { setDirty(true); load(); onResolved?.(); }}
+            />
+          ))}
 
           {!loading && rows.length > 0 && shown.length === 0 && (
             <p className="muted">Nothing open. Tick “show resolved” to see the history.</p>
@@ -298,7 +206,7 @@ export default function EditHeatModal({
         <footer className="modal-foot">
           <button type="button" className="ghost" onClick={close}>Close</button>
           <span className="muted eh-foot-hint">
-            Nothing here edits a workbook. To adopt a change for real, edit the master above.
+            Adopting writes that line into the master workbook, live to enrolled participants.
           </span>
         </footer>
       </div>

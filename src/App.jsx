@@ -18,6 +18,7 @@ import ClosedSessionsPage from './pages/ClosedSessionsPage.jsx';
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'));
 import StaffAdminPage from './pages/StaffAdminPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import ChangeLogPage from './pages/ChangeLogPage.jsx';
 import ProgramsListPage from './pages/ProgramsListPage.jsx';
 import ProgramEditorPage from './pages/ProgramEditorPage.jsx';
 import AssessmentsListPage from './pages/AssessmentsListPage.jsx';
@@ -84,6 +85,9 @@ export default function App() {
       } />
       <Route path="/trainer/settings" element={
         <ProtectedRoute role="super"><SettingsPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/changes" element={
+        <ProtectedRoute role="super"><ChangeLogPage /></ProtectedRoute>
       } />
       <Route path="/trainer/programs" element={
         <ProtectedRoute role="super"><ProgramsListPage /></ProtectedRoute>

@@ -34,6 +34,7 @@ export default function TopBar() {
                 <>
                   <NavLink to="/trainer/vendors" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Vendors</NavLink>
                   <NavLink to="/trainer/staff" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Staff</NavLink>
+                  <NavLink to="/trainer/changes" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Session changes</NavLink>
                   <NavLink to="/trainer/settings" className={({ isActive }) => `topbar-nav-link ${isActive ? 'active' : ''}`}>Settings</NavLink>
                 </>
               )}

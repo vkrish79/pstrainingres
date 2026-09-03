@@ -267,3 +267,166 @@
   font-style: italic;
   color: var(--text, #222);
 }
+
+/* ===== The change log page =====
+   Same entries as the marker modal, in a page instead of a dialog. Grouping is
+   the point here: workbook, then exercise, so the page answers "what does this
+   master need" rather than just "what happened lately". */
+
+.cl-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 1.25rem;
+}
+
+.cl-tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.cl-tab {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted, #8a8a8a);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cl-tab:hover { background: #fafbfc; }
+.cl-tab--active {
+  border-color: var(--gold);
+  background: rgba(181, 152, 90, 0.12);
+  color: var(--gold-dark, #8b7342);
+}
+.cl-tab-count {
+  margin-left: 0.3rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.cl-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.cl-filters .form-input { min-width: 15rem; font-size: 0.85rem; }
+
+.cl-workbook { margin: 0 0 2rem; }
+.cl-workbook-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--gold);
+}
+.cl-workbook-head h2 { margin: 0; font-size: 1.1rem; }
+.cl-open-pill {
+  background: rgba(181, 152, 90, 0.15);
+  color: var(--gold-dark, #8b7342);
+}
+.cl-open-link {
+  margin-left: auto;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Indented under its workbook so the two levels stay legible when a page is
+   mostly one workbook's worth of changes. */
+.cl-section { margin: 1rem 0 0; padding-left: 0.9rem; border-left: 2px solid var(--border); }
+.cl-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.cl-section-head h3 { margin: 0; font-size: 0.95rem; }
+.cl-section-bulk { display: flex; gap: 0.4rem; margin-left: auto; }
+.cl-section-bulk button { font-size: 0.75rem; padding: 0.2rem 0.55rem; }
+
+/* Which block inside the exercise. Muted rather than gold — the city chip
+   beside it is the one worth spotting at a glance. */
+.eh-chip--block {
+  background: #f4f5f7;
+  border-color: var(--border);
+  color: var(--muted, #8a8a8a);
+}
+
+/* ===== The header entry point =====
+   Same note as before, now a button: the way into every change in the workbook
+   without scrolling to find a marker. */
+
+.wb-heat-btn {
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: rgba(181, 152, 90, 0.08);
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.wb-heat-btn:hover { background: rgba(181, 152, 90, 0.18); }
+.wb-heat-btn:focus-visible {
+  outline: 2px solid var(--gold-dark, #8b7342);
+  outline-offset: 2px;
+}
+/* Nothing open: the entry point stays, quietly. */
+.wb-heat-btn .heat-l0 { background: var(--border); }
+
+/* The whole workbook's changes need more room than one exercise's. */
+.eh-card--wide { max-width: 940px; }
+
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--gold-dark, #8b7342);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.eh-foot-link { font-size: 0.8rem; }
+
+/* Where you landed after "Go to exercise". Fades out on its own — a permanent
+   highlight would be one more thing to dismiss. */
+@keyframes sectionFlash {
+  from { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.55); }
+  to   { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0); }
+}
+.section-flash { animation: sectionFlash 1.6s ease-out; border-radius: 6px; }
+
+/* ===== Deciding one line at a time =====
+   Each diff line carries its own answer, because one block edit is usually
+   several unrelated changes. Adopting a line writes it into the master, so its
+   button is the only destructive control in this feature — it gets a confirm
+   step whenever the master has moved on. */
+
+.eh-line-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+.eh-line-actions button { font-size: 0.72rem; padding: 0.15rem 0.5rem; }
+
+.eh-line-decided {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  font-size: 0.74rem;
+}
+/* A decided line recedes so the ones still needing an answer stand out. */
+.eh-diff--decided { opacity: 0.72; }
+
+.eh-line-error { margin: 0.4rem 0 0; font-size: 0.78rem; }
+
+/* The master moved on. Deliberately loud — this is the one place where a click
+   can discard someone else's wording. */
+.eh-conflict {
+  margin-top: 0.45rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #c9974a;
+  border-left-width: 3px;
+  border-radius: 4px;
+  background: #fdf6e9;
+}
+.eh-conflict p { margin: 0 0 0.4rem; font-size: 0.76rem; line-height: 1.45; }

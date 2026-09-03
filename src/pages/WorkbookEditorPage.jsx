@@ -9,6 +9,7 @@ import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
 import ContentEditor from '../components/editor/ContentEditor.jsx';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
 import EditHeatModal from '../components/editor/EditHeatModal.jsx';
+import WorkbookChangesModal from '../components/editor/WorkbookChangesModal.jsx';
 import { useWorkbookEditHeat } from '../hooks/useWorkbookEditHeat.js';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
@@ -39,13 +40,39 @@ export default function WorkbookEditorPage() {
   const [showPreview, setShowPreview] = useState(true);
   const [showAddExercises, setShowAddExercises] = useState(false);
   const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
+  const [showAllChanges, setShowAllChanges] = useState(false);
+
+  // Adopting a line writes straight to the blocks table, so the editor's own
+  // copy is stale the moment it lands. Reload the content as well as the heat,
+  // or the page goes on showing the wording that was just replaced.
+  function refreshAfterReview() {
+    refreshHeat();
+    reload();
+  }
+
+  // Jump from the all-changes modal to the exercise itself. The scaffold
+  // already stamps data-section-id on every section for the preview
+  // scroll-sync, so there is nothing new to thread through.
+  function scrollToSection(sectionId) {
+    // One frame, so the modal has unmounted and the layout has settled before
+    // we measure where to scroll to.
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-section-id="${sectionId}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.classList.add('section-flash');
+      setTimeout(() => el.classList.remove('section-flash'), 1600);
+    });
+  }
 
   // Only a master workbook has session clones to compare against, and only
   // super-tier can read the log. Vendor trainers reach this page through the
   // read-only branch below; firing a query for them would come back empty and
   // look broken. Sits above the early returns to keep hook order stable.
   const heatEnabled = workbook?.is_template === true && isSuperTrainerOrAbove(profile?.role);
-  const { bySection, byBlock, openSections, refresh: refreshHeat } = useWorkbookEditHeat(id, heatEnabled);
+  const {
+    bySection, byBlock, openSections, totalSections, refresh: refreshHeat,
+  } = useWorkbookEditHeat(id, heatEnabled);
 
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
@@ -183,12 +210,21 @@ export default function WorkbookEditorPage() {
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>Workbook editor</h1>
             <p>Edits broadcast live to enrolled participants. Their answers stay attached to stable block IDs, so renames and reorders don't lose data.</p>
-            {openSections > 0 && (
-              <p className="wb-heat-note">
-                <span className="heat-dot heat-l3" aria-hidden />
-                {openSections} exercise{openSections === 1 ? '' : 's'} reworded in sessions and not yet reviewed —
-                open a marker to decide.
-              </p>
+            {/* The way in that needs no scrolling. Shown whenever this workbook
+                has ANY recorded change, not just open ones — otherwise the
+                entry point vanishes the moment you finish reviewing, which is
+                the trap the grey tick on each marker exists to avoid. */}
+            {heatEnabled && totalSections > 0 && (
+              <button
+                type="button"
+                className="wb-heat-note wb-heat-btn"
+                onClick={() => setShowAllChanges(true)}
+              >
+                <span className={`heat-dot heat-l${openSections > 0 ? 3 : 0}`} aria-hidden />
+                {openSections > 0
+                  ? `${openSections} exercise${openSections === 1 ? '' : 's'} reworded in sessions and not yet reviewed — review them all`
+                  : `Reworded in ${totalSections} exercise${totalSections === 1 ? '' : 's'}, all reviewed — see the history`}
+              </button>
             )}
           </div>
           <div className="page-hero-actions">
@@ -269,6 +305,15 @@ export default function WorkbookEditorPage() {
           }
         />
       </main>
+      {showAllChanges && (
+        <WorkbookChangesModal
+          workbookId={id}
+          workbookTitle={title || 'Untitled workbook'}
+          onClose={() => setShowAllChanges(false)}
+          onResolved={refreshAfterReview}
+          onJumpToSection={scrollToSection}
+        />
+      )}
       {heatFocus && (
         <EditHeatModal
           workbookId={id}
@@ -277,7 +322,7 @@ export default function WorkbookEditorPage() {
           blockId={heatFocus.blockId}
           blockLabel={heatFocus.blockLabel}
           onClose={() => setHeatFocus(null)}
-          onResolved={refreshHeat}
+          onResolved={refreshAfterReview}
         />
       )}
       {showAddExercises && (
