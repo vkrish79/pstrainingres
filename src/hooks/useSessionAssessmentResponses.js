@@ -18,7 +18,8 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [answers, setAnswers] = useState({});
-  const [answerKey, setAnswerKey] = useState({}); // { [assessment_block_id]: key }
+  const [answerKey, setAnswerKey] = useState({});       // { [assessment_block_id]: key }
+  const [answerPoints, setAnswerPoints] = useState({}); // { [assessment_block_id]: marks }
 
   useEffect(() => {
     if (!sessionId || !assessmentId) { setLoading(false); return undefined; }
@@ -53,17 +54,22 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
         const blockIds = (blks || []).map(b => b.id);
         const { data: keys, error: e6 } = blockIds.length
           ? await supabase.from('assessment_answer_keys')
-              .select('assessment_block_id, key').in('assessment_block_id', blockIds)
+              .select('assessment_block_id, key, points').in('assessment_block_id', blockIds)
           : { data: [], error: null };
         if (e6) throw e6;
         const keyMap = {};
-        (keys || []).forEach(k => { keyMap[k.assessment_block_id] = k.key; });
+        const pointsMap = {};
+        (keys || []).forEach(k => {
+          keyMap[k.assessment_block_id] = k.key;
+          pointsMap[k.assessment_block_id] = Number(k.points) || 1;
+        });
 
         if (cancelled) return;
         setSections(secs || []);
         setBlocks(blks || []);
         setAnswers(ansMap);
         setAnswerKey(keyMap);
+        setAnswerPoints(pointsMap);
         setLoading(false);
       } catch (err) {
         if (!cancelled) { setError(err.message || String(err)); setLoading(false); }
@@ -112,5 +118,5 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
     return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
 
-  return { loading, error, sections, blocks, answers, answerKey };
+  return { loading, error, sections, blocks, answers, answerKey, answerPoints };
 }

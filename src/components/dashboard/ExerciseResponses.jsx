@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { isInteractiveBlock } from '../../lib/interactiveBlocks.js';
-import { scoreBlock, scoreBlocks } from '../../lib/assessmentScoring.js';
+import { scoreBlocks, earnedFor, pointsFor } from '../../lib/assessmentScoring.js';
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import Block from '../blocks/Block.jsx';
 import NoteRow from './NoteRow.jsx';
@@ -19,7 +19,7 @@ const AUTO_COLLAPSE_THRESHOLD = 8;
 export default function ExerciseResponses({
   sections, blocks, participants, answers,
   notes = {}, participantNotes = {}, prepBy = {}, liveBySection = {}, onSaveNote, onDeleteNote,
-  showNotes = true, emptyLabel = 'No fillable blocks in this workbook.', answerKey = null,
+  showNotes = true, emptyLabel = 'No fillable blocks in this workbook.', answerKey = null, answerPoints = null,
   // Optional { [blockId]: questionNumber }. When supplied (assessment view),
   // each answer row is prefixed "Q{n}" so it matches the flat editor/participant
   // numbering. Omitted for the workbook view, which keeps plain labels.
@@ -286,6 +286,7 @@ export default function ExerciseResponses({
               onDeleteNote={onDeleteNote}
               showNotes={showNotes}
               answerKey={answerKey}
+              answerPoints={answerPoints}
               questionNumbers={questionNumbers}
             />
           ))}
@@ -329,13 +330,15 @@ export default function ExerciseResponses({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, questionNumbers = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
   const lastLabel = lastTs ? relativeTime(lastTs) : 'No activity yet';
   // Auto-mark score for this section's scorable blocks (assessment view only).
-  const score = answerKey ? scoreBlocks(blocks, answerKey, answersForP) : null;
+  // In marks, not questions: a 4-mark matching question answered three-quarters
+  // right contributes 3.
+  const score = answerKey ? scoreBlocks(blocks, answerKey, answersForP, answerPoints) : null;
   const scoreClass = score == null ? '' : score.pct === 100 ? 'full' : score.pct === 0 ? 'none' : 'partial';
 
   return (
@@ -349,9 +352,12 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
         </div>
         <div className="exresp-tile-head-right">
           <span className="exresp-tile-meta">{lastLabel}</span>
-          {score && score.scorable > 0 && (
-            <span className={`exresp-score-pill ${scoreClass}`} title={`${score.correct} correct of ${score.scorable} auto-marked`}>
-              {score.correct}/{score.scorable} correct{score.pct != null ? ` · ${score.pct}%` : ''}
+          {score && score.possible > 0 && (
+            <span
+              className={`exresp-score-pill ${scoreClass}`}
+              title={`${score.earned} of ${score.possible} marks across ${score.marked} auto-marked question${score.marked === 1 ? '' : 's'}`}
+            >
+              {score.earned}/{score.possible} marks{score.pct != null ? ` · ${score.pct}%` : ''}
             </span>
           )}
           <span className={`exresp-progress-pill ${progressClass}`}>{answered} / {total} ({pct}%)</span>
@@ -382,6 +388,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
               onDeleteNote={onDeleteNote}
               showNotes={showNotes}
               answerKey={answerKey}
+              answerPoints={answerPoints}
               questionNumber={questionNumbers ? questionNumbers[b.id] : null}
             />
           ))}
@@ -392,18 +399,28 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   );
 }
 
-function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, questionNumber = null }) {
+function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null }) {
   const value = entry?.value;
   const baseLabel = labelOf(block);
   const label = questionNumber != null ? `Q${questionNumber}. ${baseLabel}` : baseLabel;
   const key = answerKey ? answerKey[block.id] : null;
-  const mark = key != null ? scoreBlock(block, key, value) : null; // 'correct' | 'wrong' | 'blank' | null
+  // { state, fraction, earned, possible } — or null when this question isn't
+  // auto-marked at all.
+  const mark = key != null
+    ? earnedFor(block, key, value, pointsFor(block.id, answerPoints))
+    : null;
 
   return (
-    <div className={`exresp-block ${mark ? `exresp-block-${mark}` : ''}`}>
+    <div className={`exresp-block ${mark ? `exresp-block-${mark.state}` : ''}`}>
       {mark && (
-        <span className={`exresp-mark exresp-mark-${mark}`}>
-          {mark === 'correct' ? '✓ Correct' : mark === 'wrong' ? '✗ Incorrect' : '— Blank'}
+        <span className={`exresp-mark exresp-mark-${mark.state}`}>
+          {mark.state === 'correct' ? '✓ Correct'
+            : mark.state === 'partial' ? '◐ Partly right'
+              : mark.state === 'wrong' ? '✗ Incorrect' : '— Blank'}
+          {/* The marks matter most where they aren't all-or-nothing. */}
+          <span className="exresp-mark-score">
+            {Math.round(mark.earned * 10) / 10}/{mark.possible}
+          </span>
         </span>
       )}
       {block.block_type === 'field' && <FieldRender label={label} value={value} />}

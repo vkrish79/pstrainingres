@@ -1424,3 +1424,42 @@
 
 /* Assessment prep panel (participant assessment page) */
 .assessment-prep-panel { margin: 0.5rem 0 1rem; }
+
+/* Marks on an auto-marked answer. Partial credit means a question can land
+   between right and wrong, so the score sits next to the verdict rather than
+   the verdict standing alone. */
+.exresp-mark-partial {
+  background: #fdf6e9;
+  color: #8a6d3b;
+  border-color: #c9974a;
+}
+.exresp-block-partial { border-left-color: #c9974a; }
+.exresp-mark-score {
+  margin-left: 0.35rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+/* What the whole assessment is out of, beside the keyed count. */
+.answer-key-total {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted, #8a8a8a);
+}
+
+/* Per-question marks box in the answer-key panel. */
+.answer-key-points {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--muted, #8a8a8a);
+}
+.answer-key-points input {
+  width: 4rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.78rem;
+  text-align: right;
+}

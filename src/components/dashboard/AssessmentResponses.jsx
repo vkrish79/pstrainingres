@@ -9,7 +9,9 @@ import ExerciseResponses from './ExerciseResponses.jsx';
 // either on the assessment surface). Because trainer read on assessment_answers
 // is not deadline-gated, this also shows the frozen final answers post-buzzer.
 export default function AssessmentResponses({ sessionId, assessmentId, participants }) {
-  const { loading, error, sections, blocks, answers, answerKey } = useSessionAssessmentResponses(sessionId, assessmentId);
+  const {
+    loading, error, sections, blocks, answers, answerKey, answerPoints,
+  } = useSessionAssessmentResponses(sessionId, assessmentId);
 
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
@@ -31,6 +33,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
       participants={participants}
       answers={answers}
       answerKey={answerKey}
+      answerPoints={answerPoints}
       showNotes={false}
       emptyLabel="No questions in this assessment yet."
       questionNumbers={qNums}

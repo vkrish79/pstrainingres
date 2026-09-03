@@ -11,11 +11,17 @@ import { labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
 // never read these keys.
 export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
   const blockIds = useMemo(() => blocks.map(b => b.id), [blocks]);
-  const { keys, setKey, clearKey, error } = useAssessmentAnswerKeys(blockIds);
+  const { keys, points, setKey, setPoints, clearKey, error } = useAssessmentAnswerKeys(blockIds);
   const [open, setOpen] = useState(false);
 
   const scorable = useMemo(() => blocks.filter(isScorableBlock), [blocks]);
   const keyedCount = scorable.filter(b => keys[b.id] != null).length;
+  // What the whole assessment is out of. Only keyed questions are marked, so
+  // only they count — an unkeyed question is worth nothing because nothing
+  // decides whether it's right.
+  const totalMarks = scorable.reduce(
+    (sum, b) => sum + (keys[b.id] != null ? (Number(points[b.id]) || 1) : 0), 0,
+  );
 
   if (scorable.length === 0) {
     return (
@@ -36,6 +42,9 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
         <span className={`answer-key-count ${keyedCount === scorable.length ? 'full' : keyedCount === 0 ? 'none' : 'partial'}`}>
           {keyedCount}/{scorable.length} keyed
         </span>
+        {totalMarks > 0 && (
+          <span className="answer-key-total">{totalMarks} mark{totalMarks === 1 ? '' : 's'} total</span>
+        )}
       </button>
 
       {error && (
@@ -46,7 +55,12 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
 
       {open && (
         <div className="answer-key-body">
-          <p className="ce-hint">Set the correct answer for each objective question. Matching is case-insensitive. Leave blank to skip a question (it won't be auto-marked).</p>
+          <p className="ce-hint">
+            Set the correct answer for each objective question. Matching is case-insensitive.
+            Leave blank to skip a question (it won't be auto-marked). Marks default to 1;
+            questions with several parts award them proportionally, so 3 of 4 pairs right on a
+            4-mark question scores 3.
+          </p>
           {sections.map(sec => {
             const secBlocks = blocks.filter(b => b.section_id === sec.id && isScorableBlock(b));
             if (!secBlocks.length) return null;
@@ -58,7 +72,9 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
                     key={b.id}
                     block={b}
                     value={keys[b.id]}
+                    points={points[b.id]}
                     onChange={k => setKey(b.id, k)}
+                    onPoints={p => setPoints(b.id, p)}
                     onClear={() => clearKey(b.id)}
                   />
                 ))}
@@ -71,13 +87,29 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
   );
 }
 
-function KeyRow({ block, value, onChange, onClear }) {
+function KeyRow({ block, value, points, onChange, onPoints, onClear }) {
   const label = labelOf(block);
   const hasKey = value != null;
   return (
     <div className={`answer-key-row ${hasKey ? 'has-key' : ''}`}>
       <div className="answer-key-q">
         <span className="answer-key-q-label">{label}</span>
+        {/* Marks live on the same row as the key, so there is nothing to set
+            until the question is keyed — and an unkeyed question is not marked
+            at all, which makes its worth moot. */}
+        {hasKey && (
+          <label className="answer-key-points" title="What this question is worth">
+            <input
+              type="number"
+              min="0.5"
+              step="0.5"
+              className="form-input"
+              value={points ?? 1}
+              onChange={e => onPoints(e.target.value)}
+            />
+            <span>mark{Number(points ?? 1) === 1 ? '' : 's'}</span>
+          </label>
+        )}
         {hasKey && <button type="button" className="answer-key-clear" onClick={onClear} title="Clear key">clear</button>}
       </div>
       <div className="answer-key-control">
