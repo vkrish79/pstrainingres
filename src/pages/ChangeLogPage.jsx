@@ -40,7 +40,13 @@ function matchesQuery(r, q) {
 export default function ChangeLogPage() {
   const { profile } = useAuth();
   const isSuper = isSuperTrainerOrAbove(profile?.role);
-  const { loading, rows, error, refresh } = useAllChanges(isSuper);
+  // Workbook and assessment changes are the same feature over two content
+  // types, kept as two TABS rather than one merged list — a super trainer
+  // reviewing "what does the field keep changing" is asking about one master at
+  // a time, and the adopt target differs.
+  const [kind, setKind] = useState('workbook');
+  const { loading, rows, error, refresh } = useAllChanges(isSuper, 500, kind);
+  const isAssessment = kind === 'assessment';
 
   const [tab, setTab] = useState('open');
   const [workbookFilter, setWorkbookFilter] = useState('all');
@@ -183,15 +189,34 @@ export default function ChangeLogPage() {
             <Link to="/trainer" className="back-link">&larr; Back</Link>
             <h1>Session changes</h1>
             <p>
-              Every exercise the field has reworded in its own copy of a workbook.
-              Adopting a line writes it into the master workbook, live to enrolled
-              participants; dismissing one only records that you decided against it.
+              {isAssessment
+                ? 'Every question the field has reworded or withdrawn in its own copy of an assessment. Adopting a line writes it into the master assessment; dismissing one only records that you decided against it.'
+                : 'Every exercise the field has reworded in its own copy of a workbook. Adopting a line writes it into the master workbook, live to enrolled participants; dismissing one only records that you decided against it.'}
             </p>
           </div>
         </div>
 
         {error && <p className="error">{error}</p>}
         {actionError && <p className="error">{actionError}</p>}
+
+        {/* Content type first, review status second. Switching type resets the
+            parent filter — a workbook id means nothing on the assessment tab. */}
+        <div className="cl-kind-tabs">
+          <button
+            type="button"
+            className={`cl-kind-tab${!isAssessment ? ' cl-kind-tab--active' : ''}`}
+            onClick={() => { setKind('workbook'); setWorkbookFilter('all'); }}
+          >
+            📘 Workbooks
+          </button>
+          <button
+            type="button"
+            className={`cl-kind-tab${isAssessment ? ' cl-kind-tab--active' : ''}`}
+            onClick={() => { setKind('assessment'); setWorkbookFilter('all'); }}
+          >
+            📝 Assessments
+          </button>
+        </div>
 
         <div className="cl-controls">
           <div className="cl-tabs">
@@ -212,7 +237,7 @@ export default function ChangeLogPage() {
               value={workbookFilter}
               onChange={e => setWorkbookFilter(e.target.value)}
             >
-              <option value="all">All workbooks</option>
+              <option value="all">{isAssessment ? 'All assessments' : 'All workbooks'}</option>
               {workbooks.map(([id, title]) => (
                 <option key={id} value={id}>{title}</option>
               ))}
@@ -274,6 +299,7 @@ export default function ChangeLogPage() {
                 </div>
                 {sec.entries.map(r => (
                   <ChangeEntry
+                    blocksTable={isAssessment ? 'assessment_blocks' : 'blocks'}
                     key={keyOf(r)}
                     row={r}
                     busy={busyKey === keyOf(r)}

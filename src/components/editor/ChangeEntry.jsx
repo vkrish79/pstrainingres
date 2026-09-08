@@ -43,6 +43,10 @@ export default function ChangeEntry({
   // knows them from what was clicked, so they come in as props and the row is
   // only the fallback (the whole-workbook views do carry them).
   workbookId = null, sectionId = null,
+  // Which master table "Adopt this" writes into: 'blocks' for a workbook
+  // change, 'assessment_blocks' for an assessment one. The two carry the same
+  // block_type/config shape, so only the table name differs.
+  blocksTable = 'blocks',
 }) {
   const diffs = diffConfigs(r.block_type, r.before_config, r.after_config);
   const allKeys = diffs.map(d => d.key);
@@ -72,6 +76,7 @@ export default function ChangeEntry({
 
     if (status === 'adopted') {
       const res = await adoptLineIntoMaster({
+        table: blocksTable,
         masterBlockId: r.master_block_id,
         lineKey: d.key,
         expected: d.before,
@@ -103,6 +108,7 @@ export default function ChangeEntry({
     for (const d of diffs) {
       if (lineDecisions[d.key]) continue;
       const res = await adoptLineIntoMaster({
+        table: blocksTable,
         masterBlockId: r.master_block_id,
         lineKey: d.key,
         expected: d.before,

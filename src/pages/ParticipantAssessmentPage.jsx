@@ -3,8 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useParticipantAssessment } from '../hooks/useParticipantAssessment.js';
 import { useParticipantAssessmentPrep } from '../hooks/useParticipantAssessmentPrep.js';
-import { questionNumbers } from '../lib/blockHelpers.js';
+import { isAnswered } from '../lib/blockHelpers.js';
+import { buildQuestions } from '../lib/assessmentStructure.js';
+import { isInactiveBlock } from '../lib/assessmentScoring.js';
 import Block from '../components/blocks/Block.jsx';
+import AssessmentQuestionNav from '../components/participant/AssessmentQuestionNav.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -20,15 +23,29 @@ export default function ParticipantAssessmentPage() {
     session?.id, authSession?.user.id, session?.assessment_id
   );
 
-  // Assessments are a flat list of numbered questions — no sections shown.
-  // Flatten all blocks in document order and number the fillable ones.
-  const orderedBlocks = useMemo(
-    () => sections.flatMap(sec =>
-      blocks.filter(b => b.section_id === sec.id).sort((a, b) => a.order_index - b.order_index)
-    ),
-    [sections, blocks]
+  // A question is a section: its prose is narration, its fillable blocks are
+  // the lettered parts. See lib/assessmentStructure.js.
+  //
+  // Withdrawn questions never reach a participant — the read policy filters
+  // them out server-side (20260909000000_manual_marking.sql). Filtering again
+  // here is belt-and-braces against any path that loads blocks differently.
+  const liveBlocks = useMemo(() => blocks.filter(b => !isInactiveBlock(b)), [blocks]);
+  const { questions: qList, partLabelByBlockId } = useMemo(
+    () => buildQuestions(sections, liveBlocks),
+    [sections, liveBlocks]
   );
-  const qNums = useMemo(() => questionNumbers(orderedBlocks), [orderedBlocks]);
+
+  // Per-question progress for the navigation sidebar — parts answered out of
+  // parts total, so a half-finished scenario reads as half-finished.
+  const qProgress = useMemo(() => {
+    const out = {};
+    for (const q of qList) {
+      const total = q.parts.length;
+      const answered = q.parts.filter(p => isAnswered(p.block, answers[p.block.id])).length;
+      out[q.section.id] = { answered, total, pct: total ? Math.round((answered / total) * 100) : 0 };
+    }
+    return out;
+  }, [qList, answers]);
 
   // Session-wide timer. assessment_deadline_at is null when the assessment was
   // unlocked untimed. Tick once a second until the deadline passes, then freeze:
@@ -187,26 +204,53 @@ export default function ParticipantAssessmentPage() {
           </section>
         )}
 
-        <div className="assessment-questions">
-          {/* Any trainer pre-work callouts (formerly per-section) surface once at the top. */}
-          {sections.map(sec => sectionPrep[sec.id]?.content && (
-            <div key={sec.id} className="participant-prep-callout">
-              <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-              {sectionPrep[sec.id].content}
-            </div>
-          ))}
-          {orderedBlocks.map(b => (
-            <section key={b.id} className="wb-section" data-block-id={b.id}>
-              {qNums[b.id] != null && <div className="question-number">Question {qNums[b.id]}</div>}
-              <Block
-                block={b}
-                value={answers[b.id]}
-                onChange={v => saveAnswer(b.id, v)}
-                readOnly={expired}
-                recentlyUpdated={!!recentlyUpdated[b.id]}
-              />
-            </section>
-          ))}
+        {/* Any trainer pre-work callouts (formerly per-section) surface once at the top. */}
+        {sections.map(sec => sectionPrep[sec.id]?.content && (
+          <div key={sec.id} className="participant-prep-callout">
+            <span className="participant-prep-callout-label">Pre-work from your trainer</span>
+            {sectionPrep[sec.id].content}
+          </div>
+        ))}
+
+        <div className="assessment-body">
+          <AssessmentQuestionNav questions={qList} progress={qProgress} />
+          <div className="assessment-questions">
+            {qList.map(q => (
+              <section key={q.section.id} className="wb-section wb-question" data-section-id={q.section.id}>
+                <div className="question-number">
+                  {q.heading}
+                  {q.partCount > 1 && (
+                    <span className="question-parts-count">{q.partCount} parts</span>
+                  )}
+                </div>
+                {/* A withdrawn question arrives with none of its blocks — the read
+                    policy withholds them. The question itself still comes through,
+                    so rather than leave an unexplained gap between Question 3 and
+                    Question 5, say what happened. The trainer's internal reason is
+                    NOT shown here; only that it was withdrawn. */}
+                {q.blocks.length === 0 && (
+                  <p className="question-withdrawn-note">
+                    Withdrawn by your trainer — you don't need to answer this one, and it
+                    doesn't count towards your marks.
+                  </p>
+                )}
+                {q.blocks.map(b => (
+                  <div key={b.id} className="wb-question-block" data-block-id={b.id}>
+                    {partLabelByBlockId[b.id] && (
+                      <div className="wb-part-label">{partLabelByBlockId[b.id]}</div>
+                    )}
+                    <Block
+                      block={b}
+                      value={answers[b.id]}
+                      onChange={v => saveAnswer(b.id, v)}
+                      readOnly={expired}
+                      recentlyUpdated={!!recentlyUpdated[b.id]}
+                    />
+                  </div>
+                ))}
+              </section>
+            ))}
+          </div>
         </div>
       </main>
     </>

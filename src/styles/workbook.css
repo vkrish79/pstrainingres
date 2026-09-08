@@ -2,9 +2,13 @@
 
 .workbook .muted { color: var(--muted); margin: 0.25rem 0 0; font-size: 0.9rem; }
 
-/* Per-question label for the flat assessment view (preview, participant,
-   trainer responses) — replaces the section heading. */
+/* A question heading — editor preview, participant paper and trainer preview.
+   A question is a section; see lib/assessmentStructure.js. Flex so the
+   "N parts" count can sit beside the heading. */
 .question-number {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
   font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -334,4 +338,52 @@
 @media (prefers-reduced-motion: reduce) {
   .wb-section--just-complete { animation: none; }
   .wb-section-done { animation: none; }
+}
+
+/* ── Assessment: question with lettered parts ───────────────────────────────
+   The .question-number heading itself is defined once at the top of this file. */
+.question-parts-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.wb-question-block { position: relative; }
+.wb-question-block + .wb-question-block {
+  margin-top: 1.1rem;
+  padding-top: 1.1rem;
+  border-top: 1px dashed var(--border);
+}
+.wb-part-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--midnight);
+  margin-bottom: 0.35rem;
+}
+
+/* Participant assessment: question nav beside the paper. */
+.assessment-body {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.assessment-body .assessment-questions { min-width: 0; }
+@media (max-width: 900px) {
+  .assessment-body { grid-template-columns: minmax(0, 1fr); }
+  .assessment-body .question-nav { display: none; }
+}
+
+/* What a participant sees where a withdrawn question used to be. The internal
+   reason is deliberately not shown to them — only that it was withdrawn. */
+.question-withdrawn-note {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: #f7f6f3;
+  color: var(--muted);
+  font-size: 0.9rem;
 }

@@ -29,6 +29,7 @@ function withTimeout(promise, ms) {
 export function useAssessmentAnswerKeys(blockIds) {
   const [keys, setKeys] = useState({});       // { [blockId]: key }
   const [pointsMap, setPointsMap] = useState({}); // { [blockId]: number } — what each question is worth
+  const [modes, setModes] = useState({});         // { [blockId]: 'auto' | 'manual' }
   const [error, setError] = useState(null); // surfaced to the editor so a failed
   // load/save isn't silent (e.g. the table missing, or a write that hangs).
   const idsKey = (blockIds || []).join(',');
@@ -43,20 +44,25 @@ export function useAssessmentAnswerKeys(blockIds) {
     (async () => {
       const { data, error: loadErr } = await supabase
         .from('assessment_answer_keys')
-        .select('assessment_block_id, key, points')
+        .select('assessment_block_id, key, points, marking_mode')
         .in('assessment_block_id', ids);
       if (cancelled) return;
       if (loadErr) { setError(loadErr.message || String(loadErr)); return; }
       const m = {};
       const p = {};
+      const md = {};
       (data || []).forEach(k => {
         m[k.assessment_block_id] = k.key;
         // Older rows predate the column; a question is worth 1 unless said
         // otherwise, which is exactly how marking behaved before points.
         p[k.assessment_block_id] = Number(k.points) || 1;
+        // Rows written before manual marking existed have no mode and are all
+        // auto — which is what they already were.
+        md[k.assessment_block_id] = k.marking_mode || 'auto';
       });
       setKeys(m);
       setPointsMap(p);
+      setModes(md);
       setError(null);
     })();
     return () => { cancelled = true; };
@@ -69,9 +75,16 @@ export function useAssessmentAnswerKeys(blockIds) {
     if (!(blockId in pending.current)) return;
     const key = pending.current[blockId];
     delete pending.current[blockId];
+    // marking_mode is stated explicitly rather than left to the column default,
+    // which only applies on INSERT. Upserting a key onto a row that is currently
+    // manual would otherwise leave mode='manual' with a key present — the one
+    // combination the CHECK rejects.
     const run = supabase
       .from('assessment_answer_keys')
-      .upsert({ assessment_block_id: blockId, key }, { onConflict: 'assessment_block_id' });
+      .upsert(
+        { assessment_block_id: blockId, key, marking_mode: 'auto' },
+        { onConflict: 'assessment_block_id' },
+      );
     withTimeout(run, SAVE_TIMEOUT_MS)
       .then(({ error: saveErr }) => setError(saveErr ? (saveErr.message || String(saveErr)) : null))
       .catch((e) => setError(e.message || String(e)));
@@ -127,6 +140,55 @@ export function useAssessmentAnswerKeys(blockIds) {
     timers.current[k] = setTimeout(() => flushPoints(blockId), SAVE_DEBOUNCE_MS);
   }, [flushPoints]);
 
+  // Switch a question between automatic and by-hand marking.
+  //
+  // Written immediately, not debounced: this is one deliberate click, not
+  // typing, and the row it writes has a CHECK that the key and the mode agree
+  // (auto must have a key, manual must not). Sending it in two steps would put
+  // the row through a state the database rejects, so each direction is a single
+  // write that sets both columns at once.
+  //
+  //   -> manual : the key is dropped. A person is judging this now, so a stored
+  //               "correct answer" would be a lie waiting to be believed. The
+  //               MARKS are kept — what the question is worth doesn't change.
+  //   -> auto   : the row is deleted outright. Auto with no key is exactly what
+  //               the CHECK forbids, and "unkeyed" has always been how this
+  //               system says "not marked". The editor then offers the key
+  //               control again, and setting a key recreates the row.
+  const setMode = useCallback(async (blockId, mode) => {
+    // Any pending debounced writes for this block are now stale.
+    for (const k of [blockId, `pts:${blockId}`]) {
+      if (timers.current[k]) { clearTimeout(timers.current[k]); delete timers.current[k]; }
+      delete pending.current[k];
+    }
+
+    if (mode === 'manual') {
+      const points = Number(pointsMap[blockId]) > 0 ? Number(pointsMap[blockId]) : 1;
+      setModes(prev => ({ ...prev, [blockId]: 'manual' }));
+      setKeys(prev => { const n = { ...prev }; delete n[blockId]; return n; });
+      setPointsMap(prev => ({ ...prev, [blockId]: points }));
+      const run = supabase.from('assessment_answer_keys').upsert(
+        { assessment_block_id: blockId, key: null, points, marking_mode: 'manual' },
+        { onConflict: 'assessment_block_id' },
+      );
+      try {
+        const { error: e } = await withTimeout(run, SAVE_TIMEOUT_MS);
+        setError(e ? (e.message || String(e)) : null);
+        return { error: e };
+      } catch (e) { setError(e.message || String(e)); return { error: e }; }
+    }
+
+    setModes(prev => { const n = { ...prev }; delete n[blockId]; return n; });
+    setKeys(prev => { const n = { ...prev }; delete n[blockId]; return n; });
+    setPointsMap(prev => { const n = { ...prev }; delete n[blockId]; return n; });
+    const run = supabase.from('assessment_answer_keys').delete().eq('assessment_block_id', blockId);
+    try {
+      const { error: e } = await withTimeout(run, SAVE_TIMEOUT_MS);
+      setError(e ? (e.message || String(e)) : null);
+      return { error: e };
+    } catch (e) { setError(e.message || String(e)); return { error: e }; }
+  }, [pointsMap]);
+
   const clearKey = useCallback(async (blockId) => {
     // Drop any pending debounced save so it can't resurrect the cleared key.
     if (timers.current[blockId]) { clearTimeout(timers.current[blockId]); delete timers.current[blockId]; }
@@ -168,5 +230,5 @@ export function useAssessmentAnswerKeys(blockIds) {
     };
   }, [flushKey, flushPoints]);
 
-  return { keys, points: pointsMap, setKey, setPoints, clearKey, error };
+  return { keys, points: pointsMap, modes, setKey, setPoints, setMode, clearKey, error };
 }

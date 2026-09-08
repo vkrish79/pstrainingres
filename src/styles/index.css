@@ -294,8 +294,24 @@ button {
   font-family: inherit;
   transition: background 0.18s, transform 0.08s;
 }
-button:hover:not(:disabled) { background: var(--midnight-hover); }
-button:active:not(:disabled) { transform: translateY(1px); }
+/* :where() so these carry NO more weight than they need.
+ *
+ * Written as `button:hover:not(:disabled)` these scored (0,2,1) — the :disabled
+ * inside :not() counts. That beat every component rule written the obvious way,
+ * `.some-button:hover { background: … }` at (0,2,0), whatever the file order. So
+ * a styled button (the answer-key panel head, a tab, a card header) would paint
+ * midnight on hover and turn its own dark text unreadable.
+ *
+ * :where() contributes zero, so these are now (0,1,1): still ahead of a plain
+ * `.class { background }` with no :hover — a button that only sets a base colour
+ * keeps the default hover — but behind any `.class:hover`, which is what a
+ * component means when it states its own hover.
+ *
+ * This is why `.exresp-tile-head.exresp-tile-head:hover` and friends double their
+ * class: local escapes from this rule. They still work; they are no longer needed.
+ */
+button:hover:where(:not(:disabled)) { background: var(--midnight-hover); }
+button:active:where(:not(:disabled)) { transform: translateY(1px); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ===== Auth pages — EY-styled ===== */

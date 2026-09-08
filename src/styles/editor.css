@@ -564,3 +564,321 @@ button.ghost.compact, button.danger.compact {
 .answer-key-cells { display: flex; flex-direction: column; gap: 0.4rem; }
 .answer-key-cell { display: grid; grid-template-columns: minmax(80px, 0.8fr) 1.2fr; gap: 0.5rem; align-items: center; }
 .answer-key-cell-label { font-size: 0.8rem; color: var(--muted); }
+
+/* ── Assessment question model ──────────────────────────────────────────────
+   A section is a question; its fillable blocks are the lettered parts.
+   See lib/assessmentStructure.js. */
+
+/* The sub-question marker "(b)". Same pill as .block-qnum, distinguished so a
+   part never reads as a whole question. */
+.block-partlabel {
+  background: var(--gold, #b5985a);
+  color: #fff;
+  min-width: 2.25rem;
+}
+
+.editor-question .editor-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+/* Says the automatic number has been overridden, so a renumber that "did
+   nothing" to this question is explained rather than looking broken. */
+.editor-question-custom {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: #f0efec;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+.editor-question-parts {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Editor body: question nav on the left, the editor + preview beside it. */
+.assessment-editor-body {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.assessment-editor-main { min-width: 0; }
+@media (max-width: 900px) {
+  .assessment-editor-body { grid-template-columns: minmax(0, 1fr); }
+  .assessment-editor-body .question-nav { display: none; }
+}
+
+.question-nav { position: sticky; top: calc(var(--page-actions-h, 0px) + 70px); }
+.question-nav-total {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.question-nav-empty { color: var(--gold-dark, #8a5a00); }
+
+
+/* Sub-question letter on an answer-key row. */
+.answer-key-part {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--gold, #b5985a);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  margin-right: 0.4rem;
+}
+
+/* ── Organise questions ─────────────────────────────────────────────────────
+   Decide which blocks sit together as one question. One flat list plus
+   "starts a new question" boundaries; see lib/assessmentStructure.js. */
+.organise-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  justify-content: space-between;
+}
+.organise-presets {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1rem 0 0.25rem;
+  font-size: 0.85rem;
+}
+.organise-groups {
+  margin: 0.75rem 0;
+  max-height: 460px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+.organise-group {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold, #b5985a);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.6rem;
+  background: #fdfcfa;
+}
+.organise-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+.organise-group-head .muted { font-size: 0.78rem; }
+.organise-merge { margin-left: auto; font-size: 0.75rem; padding: 0.2rem 0.55rem; }
+
+.organise-block + .organise-block { margin-top: 0.15rem; }
+.organise-block-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+}
+/* The split control sits BETWEEN two blocks, so it reads as the seam it
+   creates rather than as an action belonging to the block below it. */
+.organise-split {
+  display: block;
+  width: 100%;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  margin: 0.35rem 0;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  background: transparent;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.organise-block:hover .organise-split { opacity: 1; }
+.organise-narration {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  background: #f0efec;
+  border-radius: 999px;
+  padding: 0.08rem 0.4rem;
+}
+.organise-note {
+  background: #f7f6f3;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  margin: 0.5rem 0 0.9rem;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+/* Full database error from a failed regroup — shown in the panel rather than
+   left in DevTools, because .message alone is often the least useful field. */
+.organise-error-detail {
+  border: 1px solid #e0b4b4;
+  background: #fdf6f6;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  margin: 0.5rem 0 0.9rem;
+  font-size: 0.8rem;
+}
+.organise-error-head {
+  font-weight: 700;
+  color: #a83838;
+  margin-bottom: 0.4rem;
+}
+.organise-error-detail table { border-collapse: collapse; width: 100%; }
+.organise-error-detail th {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.15rem 0.75rem 0.15rem 0;
+  white-space: nowrap;
+  color: var(--muted);
+  font-weight: 600;
+}
+.organise-error-detail td {
+  padding: 0.15rem 0;
+  font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+  word-break: break-word;
+}
+
+/* ── Draft save bar ─────────────────────────────────────────────────────────
+   Structural edits stage in memory; this is the only thing that commits them.
+   Sticky because the work happens far down a long paper, and a Save you have
+   to scroll back to is a Save you forget. */
+.draft-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  margin: 0 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+.draft-bar.dirty {
+  border-color: var(--gold, #b5985a);
+  background: #fdfaf3;
+}
+.draft-bar-status {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.draft-bar.dirty .draft-bar-status { color: var(--gold-dark, #8a5a00); }
+.draft-bar-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-right: auto;
+}
+@media (max-width: 700px) {
+  .draft-bar { flex-wrap: wrap; }
+  .draft-bar-hint { width: 100%; margin-right: 0; }
+}
+
+.answer-key-unsaved {
+  border-left: 3px solid var(--gold, #b5985a);
+  background: #fdfaf3;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0 6px 6px 0;
+}
+
+/* ── Marking mode: auto or by hand ──────────────────────────────────────────
+   See supabase/migrations/20260909000000_manual_marking.sql. */
+.mark-mode {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.mark-mode-btn {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 0;
+}
+.mark-mode-btn.active { background: var(--midnight); color: #fff; }
+.mark-mode-btn:not(.active):hover { background: var(--border); color: var(--text); }
+
+.mark-mode-fixed,
+.answer-key-manualcount {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold-dark, #8a5a00);
+  background: #faf3e4;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+}
+.mark-mode-enable { font-size: 0.75rem; padding: 0.2rem 0.6rem; }
+
+.answer-key-row.is-manual { border-left: 3px solid var(--gold, #b5985a); }
+.mark-manual-note { margin: 0; font-size: 0.83rem; color: var(--muted); }
+
+/* A withdrawn question — still in the editor, out of the paper. */
+.block-row-withdrawn { opacity: 0.6; background: repeating-linear-gradient(
+  45deg, transparent, transparent 8px, rgba(0,0,0,0.02) 8px, rgba(0,0,0,0.02) 16px); }
+.block-withdrawn {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8c3327;
+  background: #fbeae7;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  white-space: nowrap;
+}
+
+/* ── Withdrawing a question ─────────────────────────────────────────────────
+   Whole questions, never single parts — see lib/questionWithdrawal.js. The
+   reason is mandatory and is captured inline (this project never uses a
+   browser prompt). */
+.question-withdraw-slot { margin-left: auto; display: inline-flex; align-items: center; }
+.withdraw-open { font-size: 0.75rem; padding: 0.2rem 0.6rem; }
+
+.withdraw-state { display: inline-flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+.withdraw-badge {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: #8c3327; background: #fbeae7; border-radius: 999px; padding: 0.12rem 0.5rem;
+}
+.withdraw-reason {
+  font-size: 0.78rem; font-style: italic; color: var(--muted);
+  max-width: 26rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.withdraw-by { font-size: 0.72rem; color: var(--muted); }
+.withdraw-error { font-size: 0.75rem; }
+
+.withdraw-ask {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-left: 3px solid #8c3327;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin: 0.4rem 0;
+  background: #fdf7f6;
+}
+.withdraw-label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem; }
+.withdraw-required {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: #8c3327; background: #fbeae7; border-radius: 999px; padding: 0.05rem 0.4rem;
+}
+.withdraw-ask-row { display: flex; gap: 0.5rem; align-items: center; }
+.withdraw-ask-row .form-input { flex: 1; }
+.withdraw-hint { font-size: 0.76rem; color: var(--muted); margin: 0.45rem 0 0; }
+
+.wb-question-withdrawn { opacity: 0.65; }
+.wb-question-withdrawn .wb-question-block { filter: grayscale(1); }

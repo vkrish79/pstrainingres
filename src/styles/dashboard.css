@@ -1463,3 +1463,48 @@
   font-size: 0.78rem;
   text-align: right;
 }
+
+/* ── Marking by hand ────────────────────────────────────────────────────────
+   ✓ / ✗ are the fast path; the box is for everything between. "Not marked yet"
+   is a third state, deliberately distinct from awarding zero. */
+.exresp-manual {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: #fdfaf3;
+}
+.exresp-manual.is-marked { border-style: solid; background: #f7f9f7; }
+.exresp-mark-btn {
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.exresp-mark-btn.full.active { background: #2f6b4f; border-color: #2f6b4f; color: #fff; }
+.exresp-mark-btn.none.active { background: #8c3327; border-color: #8c3327; color: #fff; }
+.exresp-mark-btn:not(.active):hover:not(:disabled) { background: var(--border); color: var(--text); }
+
+.exresp-mark-part { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: var(--muted); }
+.exresp-mark-part .form-input { width: 3.6rem; padding: 0.2rem 0.35rem; font-size: 0.8rem; }
+.exresp-mark-undo {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 0.72rem; text-decoration: underline; padding: 0 0.3rem;
+}
+.exresp-mark-by { font-size: 0.7rem; color: var(--muted); margin-left: auto; }
+
+.exresp-mark-unmarked, .exresp-block-unmarked { border-left: 3px solid var(--gold, #b5985a); }
+.exresp-mark.exresp-mark-unmarked { background: #faf3e4; color: var(--gold-dark, #8a5a00); }
+.exresp-unmarked-pill {
+  font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+  color: var(--gold-dark, #8a5a00); background: #faf3e4;
+  border-radius: 999px; padding: 0.15rem 0.5rem;
+}

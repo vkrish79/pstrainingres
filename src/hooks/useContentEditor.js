@@ -168,6 +168,13 @@ export function useContentEditor(kindConfig, parentId) {
     return {};
   }, [parentId, parentTable]);
 
+  // No moveSection here. Workbooks never needed one — exercises stay in the
+  // order they were created — and assessments reorder questions inside their
+  // own draft (hooks/useAssessmentDraft.js), where the move is staged with
+  // everything else rather than written immediately. Adding a second
+  // implementation of the same operation here would only invite the two to
+  // disagree.
+
   const moveBlock = useCallback(async (blockId, direction) => {
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;

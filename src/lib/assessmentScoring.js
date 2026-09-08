@@ -37,6 +37,24 @@ function clamp01(n) {
   return Math.min(1, Math.max(0, n));
 }
 
+// A question withdrawn from the paper. Stored in config so it travels through
+// the content-change log and so a session's copy can differ from the master —
+// see supabase/migrations/20260909000000_manual_marking.sql.
+//
+// Participants never receive these rows at all (the read policy filters them),
+// but the trainer does, so every total on the trainer's side must exclude them
+// explicitly: out of what was earned AND out of what was available, so nobody
+// is penalised for a question that was taken away.
+export function isInactiveBlock(block) {
+  return block?.config?.inactive === true;
+}
+
+// Can a person mark this by hand? Anything answerable — including long_text,
+// which auto-marking refuses precisely because no machine can judge an essay.
+export function isManuallyMarkable(block) {
+  return isFillableBlock(block);
+}
+
 // Objective (auto-scorable) blocks. long_text is intentionally excluded.
 export function isScorableBlock(block) {
   if (!block) return false;
@@ -152,18 +170,68 @@ export function earnedFor(block, key, value, points) {
   return { ...r, earned: r.fraction * points, possible: points };
 }
 
+// Is this question marked by a person rather than by comparison?
+export function isManualQuestion(blockId, modeByBlockId) {
+  return modeByBlockId?.[blockId] === 'manual';
+}
+
+// What a participant was awarded on one manually-marked question.
+// Returns { state, earned, possible } — state is 'unmarked' until a trainer has
+// judged it. Unmarked is NOT zero: a paper nobody has finished marking must
+// read as unfinished, not as a fail.
+export function manualResultFor(blockId, points, marksForP) {
+  const rec = marksForP?.[blockId];
+  if (!rec || rec.awarded == null) {
+    return { state: 'unmarked', earned: 0, possible: points };
+  }
+  const awarded = Math.min(points, Math.max(0, Number(rec.awarded) || 0));
+  return {
+    state: awarded >= points ? 'correct' : awarded > 0 ? 'partial' : 'wrong',
+    earned: awarded,
+    possible: points,
+    markedBy: rec.marked_by_name || null,
+    markedAt: rec.marked_at || null,
+  };
+}
+
 // Aggregate a participant's score over a set of blocks.
+//
 // answersForP is { [blockId]: { value, ... } } (the trainer-view shape) or
 // { [blockId]: value }. pointsByBlockId is { [blockId]: number }; omit it and
 // every question is worth 1, which is what this returned before points existed.
+// modeByBlockId is { [blockId]: 'auto' | 'manual' } and marksForP is
+// { [blockId]: { awarded, ... } }; omit both and only auto marking happens,
+// which is what this did before manual marking existed.
 //
-// Returns { earned, possible, marked, blank, pct }.
-export function scoreBlocks(blocks, keyByBlockId, answersForP, pointsByBlockId = null) {
+// Returns { earned, possible, marked, blank, unmarked, pct }.
+//   unmarked — manual questions still awaiting a trainer's judgement. A caller
+//   showing a percentage while this is non-zero is showing an interim figure
+//   and should say so.
+export function scoreBlocks(
+  blocks, keyByBlockId, answersForP, pointsByBlockId = null,
+  modeByBlockId = null, marksForP = null,
+) {
   let earned = 0;
   let possible = 0;
   let marked = 0;
   let blank = 0;
+  let unmarked = 0;
   for (const b of blocks) {
+    // A withdrawn question is out of the paper entirely — no marks earned and
+    // none available, so it cannot penalise anyone.
+    if (isInactiveBlock(b)) continue;
+
+    const points = pointsFor(b.id, pointsByBlockId);
+
+    if (isManualQuestion(b.id, modeByBlockId)) {
+      if (!isManuallyMarkable(b)) continue;
+      const r = manualResultFor(b.id, points, marksForP);
+      possible += points;
+      earned += r.earned;
+      if (r.state === 'unmarked') unmarked += 1; else marked += 1;
+      continue;
+    }
+
     const key = keyByBlockId[b.id];
     if (!isScorableBlock(b) || key == null) continue;
     const entry = answersForP[b.id];
@@ -173,7 +241,6 @@ export function scoreBlocks(blocks, keyByBlockId, answersForP, pointsByBlockId =
     // toward the total either — otherwise a stale key silently drags the
     // percentage down with no visible reason.
     if (!r) continue;
-    const points = pointsFor(b.id, pointsByBlockId);
     marked += 1;
     possible += points;
     earned += r.fraction * points;
@@ -187,6 +254,7 @@ export function scoreBlocks(blocks, keyByBlockId, answersForP, pointsByBlockId =
     possible: round1(possible),
     marked,
     blank,
+    unmarked,
     pct: possible ? Math.round((earned / possible) * 100) : null,
   };
 }

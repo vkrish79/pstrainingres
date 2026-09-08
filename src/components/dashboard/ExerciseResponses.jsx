@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { isInteractiveBlock } from '../../lib/interactiveBlocks.js';
-import { scoreBlocks, earnedFor, pointsFor } from '../../lib/assessmentScoring.js';
+import { scoreBlocks, earnedFor, pointsFor, manualResultFor } from '../../lib/assessmentScoring.js';
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import Block from '../blocks/Block.jsx';
 import NoteRow from './NoteRow.jsx';
@@ -24,6 +24,13 @@ export default function ExerciseResponses({
   // each answer row is prefixed "Q{n}" so it matches the flat editor/participant
   // numbering. Omitted for the workbook view, which keeps plain labels.
   questionNumbers = null,
+  // Manual marking (assessment view only). answerModes says which questions a
+  // person judges; marks holds what was awarded; onMark records it. Omit them
+  // and this renders exactly as the workbook view always has.
+  answerModes = null,
+  marks = null,
+  onMark = null,
+  markingIds = null,
 }) {
   const sectionsWithFillable = useMemo(() => {
     return sections
@@ -288,6 +295,10 @@ export default function ExerciseResponses({
               answerKey={answerKey}
               answerPoints={answerPoints}
               questionNumbers={questionNumbers}
+              answerModes={answerModes}
+              marksForP={marks ? (marks[stat.participant.id] || {}) : null}
+              onMark={onMark}
+              markingIds={markingIds}
             />
           ))}
         </div>
@@ -330,7 +341,7 @@ export default function ExerciseResponses({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, markingIds = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
@@ -338,7 +349,9 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   // Auto-mark score for this section's scorable blocks (assessment view only).
   // In marks, not questions: a 4-mark matching question answered three-quarters
   // right contributes 3.
-  const score = answerKey ? scoreBlocks(blocks, answerKey, answersForP, answerPoints) : null;
+  const score = (answerKey || answerModes)
+    ? scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP)
+    : null;
   const scoreClass = score == null ? '' : score.pct === 100 ? 'full' : score.pct === 0 ? 'none' : 'partial';
 
   return (
@@ -355,9 +368,19 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
           {score && score.possible > 0 && (
             <span
               className={`exresp-score-pill ${scoreClass}`}
-              title={`${score.earned} of ${score.possible} marks across ${score.marked} auto-marked question${score.marked === 1 ? '' : 's'}`}
+              title={score.unmarked
+                ? `${score.earned} of ${score.possible} marks so far — ${score.unmarked} question${score.unmarked === 1 ? '' : 's'} still to mark by hand, so this is not the final score`
+                : `${score.earned} of ${score.possible} marks across ${score.marked} marked question${score.marked === 1 ? '' : 's'}`}
             >
               {score.earned}/{score.possible} marks{score.pct != null ? ` · ${score.pct}%` : ''}
+            </span>
+          )}
+          {/* A percentage with marking outstanding is an interim figure. Say so
+              on the tile rather than only in a tooltip — otherwise a half-marked
+              paper reads as a finished, poor one. */}
+          {score && score.unmarked > 0 && (
+            <span className="exresp-unmarked-pill" title="Questions marked by hand that nobody has judged yet">
+              ✋ {score.unmarked} to mark
             </span>
           )}
           <span className={`exresp-progress-pill ${progressClass}`}>{answered} / {total} ({pct}%)</span>
@@ -390,6 +413,10 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
               answerKey={answerKey}
               answerPoints={answerPoints}
               questionNumber={questionNumbers ? questionNumbers[b.id] : null}
+              answerModes={answerModes}
+              markForBlock={marksForP ? marksForP[b.id] : null}
+              onMark={onMark}
+              marking={markingIds ? markingIds.has(`${participant.id}:${b.id}`) : false}
             />
           ))}
           {blocks.length === 0 && <p className="muted" style={{ margin: 0 }}>No questions in this exercise.</p>}
@@ -399,16 +426,22 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   );
 }
 
-function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null }) {
+function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, marking = false }) {
   const value = entry?.value;
   const baseLabel = labelOf(block);
   const label = questionNumber != null ? `Q${questionNumber}. ${baseLabel}` : baseLabel;
   const key = answerKey ? answerKey[block.id] : null;
+  const points = pointsFor(block.id, answerPoints);
+  const manual = answerModes?.[block.id] === 'manual';
+
   // { state, fraction, earned, possible } — or null when this question isn't
-  // auto-marked at all.
-  const mark = key != null
-    ? earnedFor(block, key, value, pointsFor(block.id, answerPoints))
-    : null;
+  // marked at all. A manual question is judged by the trainer, so its result
+  // comes from what was awarded rather than from a comparison.
+  const mark = manual
+    ? { ...manualResultFor(block.id, points, markForBlock ? { [block.id]: markForBlock } : {}), possible: points }
+    : key != null
+      ? earnedFor(block, key, value, points)
+      : null;
 
   return (
     <div className={`exresp-block ${mark ? `exresp-block-${mark.state}` : ''}`}>
@@ -416,12 +449,29 @@ function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNo
         <span className={`exresp-mark exresp-mark-${mark.state}`}>
           {mark.state === 'correct' ? '✓ Correct'
             : mark.state === 'partial' ? '◐ Partly right'
-              : mark.state === 'wrong' ? '✗ Incorrect' : '— Blank'}
+              : mark.state === 'wrong' ? '✗ Incorrect'
+                : mark.state === 'unmarked' ? '✋ Not marked yet' : '— Blank'}
           {/* The marks matter most where they aren't all-or-nothing. */}
-          <span className="exresp-mark-score">
-            {Math.round(mark.earned * 10) / 10}/{mark.possible}
-          </span>
+          {mark.state !== 'unmarked' && (
+            <span className="exresp-mark-score">
+              {Math.round(mark.earned * 10) / 10}/{mark.possible}
+            </span>
+          )}
         </span>
+      )}
+
+      {/* Marking by hand. ✓ and ✗ are the fast path because most answers are
+          plainly one or the other; the box is for everything in between — a
+          booking made with meals added but no seats assigned. */}
+      {manual && onMark && (
+        <ManualMarkControls
+          points={points}
+          awarded={markForBlock?.awarded}
+          markedBy={markForBlock?.marked_by_name}
+          busy={marking}
+          onAward={n => onMark(participantId, block.id, n)}
+          onClear={() => onMark(participantId, block.id, null)}
+        />
       )}
       {block.block_type === 'field' && <FieldRender label={label} value={value} />}
       {block.block_type === 'table' && <TableRender block={block} label={label} value={value} />}
@@ -500,4 +550,69 @@ function relativeTime(ts) {
   if (diff < 3_600_000) return Math.floor(diff / 60_000) + 'm ago';
   if (diff < 86_400_000) return Math.floor(diff / 3_600_000) + 'h ago';
   return Math.floor(diff / 86_400_000) + 'd ago';
+}
+
+// The by-hand marking control: full, zero, or anything between.
+//
+// Three states, not two. A question nobody has judged yet is UNMARKED, which
+// is deliberately not the same as awarding zero — a half-marked paper must
+// read as unfinished rather than as a fail.
+function ManualMarkControls({ points, awarded, markedBy, busy, onAward, onClear }) {
+  const [draft, setDraft] = useState('');
+  const marked = awarded != null;
+
+  function commitDraft() {
+    const n = Number(draft);
+    setDraft('');
+    if (!Number.isFinite(n)) return;
+    // Clamp here rather than trusting the input: the ceiling is the question's
+    // marks, which live in another table and can be edited after the fact, so
+    // the database deliberately does not enforce it.
+    onAward(Math.min(points, Math.max(0, n)));
+  }
+
+  return (
+    <div className={`exresp-manual ${marked ? 'is-marked' : ''}`}>
+      <button
+        type="button"
+        className={`exresp-mark-btn full ${awarded === points ? 'active' : ''}`}
+        disabled={busy}
+        onClick={() => onAward(points)}
+        title={`Award all ${points} mark${points === 1 ? '' : 's'}`}
+      >
+        ✓
+      </button>
+      <button
+        type="button"
+        className={`exresp-mark-btn none ${awarded === 0 ? 'active' : ''}`}
+        disabled={busy}
+        onClick={() => onAward(0)}
+        title="Award nothing"
+      >
+        ✗
+      </button>
+      <label className="exresp-mark-part" title={`Award part marks out of ${points}`}>
+        <input
+          type="number"
+          min="0"
+          max={points}
+          step="0.5"
+          className="form-input"
+          placeholder={marked ? String(awarded) : '—'}
+          value={draft}
+          disabled={busy}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commitDraft}
+          onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+        />
+        <span>/ {points}</span>
+      </label>
+      {marked && (
+        <button type="button" className="exresp-mark-undo" disabled={busy} onClick={onClear}>
+          undo
+        </button>
+      )}
+      {markedBy && <span className="exresp-mark-by">by {markedBy}</span>}
+    </div>
+  );
 }

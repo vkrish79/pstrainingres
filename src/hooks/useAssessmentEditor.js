@@ -36,6 +36,8 @@ export function useAssessmentEditor(assessmentId) {
     deleteBlock: ce.deleteBlock,
     moveBlock: ce.moveBlock,
     duplicateBlock: ce.duplicateBlock,
+    // A section IS a question here — see lib/assessmentStructure.js. The
+    // question-shaped names are what AssessmentEditorPage reads.
     createSection: ce.createSection,
     updateSectionTitle: ce.updateSectionTitle,
     deleteSection: ce.deleteSection,

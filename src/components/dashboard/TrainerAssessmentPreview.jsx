@@ -1,43 +1,71 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 import Block from '../blocks/Block.jsx';
+import WithdrawQuestion from '../WithdrawQuestion.jsx';
+import { buildQuestions } from '../../lib/assessmentStructure.js';
+import { isWithdrawn, withdrawalOf, setQuestionWithdrawn } from '../../lib/questionWithdrawal.js';
 
-// Read-only preview of the session's cloned assessment. Trainer-tier RLS
-// (PR3) lets the trainer read assessments/sections/blocks for sessions in
-// their scope. No answer entry — the assessment surface is participant-only;
-// trainers see structure / questions / formatting only.
+// The session's copy of the assessment, as the trainer sees it.
+//
+// Read-only for CONTENT — answering is the participant's surface — but this is
+// where a question is WITHDRAWN. That is a session act by design: a trainer
+// decides mid-course that a question is not working for the cohort in front of
+// them, and takes it out for that cohort only. The master keeps it for every
+// other session.
+//
+// Backed by 20260910000000_session_assessment_withdrawal.sql, which grants the
+// session trainer their first write on assessment_blocks — config only, with a
+// trigger refusing anything structural, and every change logged so it appears
+// in Session changes.
 export default function TrainerAssessmentPreview({ assessmentId }) {
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [assessment, setAssessment] = useState(null);
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
+  const [busyId, setBusyId] = useState(null);
+  const [rowError, setRowError] = useState({});
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!assessmentId) { setLoading(false); return; }
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError('');
-      const [{ data: ass, error: e1 }, { data: secs, error: e2 }] = await Promise.all([
-        supabase.from('assessments').select('id, title, description').eq('id', assessmentId).single(),
-        supabase.from('assessment_sections').select('*').eq('assessment_id', assessmentId).order('order_index'),
-      ]);
-      if (cancelled) return;
-      if (e1 || e2) { setError((e1 || e2).message); setLoading(false); return; }
-      const sectionIds = (secs || []).map(s => s.id);
-      const { data: blks, error: e3 } = sectionIds.length
-        ? await supabase.from('assessment_blocks').select('*').in('section_id', sectionIds).order('order_index')
-        : { data: [], error: null };
-      if (cancelled) return;
-      if (e3) { setError(e3.message); setLoading(false); return; }
-      setAssessment(ass);
-      setSections(secs || []);
-      setBlocks(blks || []);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    setLoading(true);
+    setError('');
+    const [{ data: ass, error: e1 }, { data: secs, error: e2 }] = await Promise.all([
+      supabase.from('assessments').select('id, title, description').eq('id', assessmentId).single(),
+      supabase.from('assessment_sections').select('*').eq('assessment_id', assessmentId).order('order_index'),
+    ]);
+    if (e1 || e2) { setError((e1 || e2).message); setLoading(false); return; }
+    const sectionIds = (secs || []).map(s => s.id);
+    const { data: blks, error: e3 } = sectionIds.length
+      ? await supabase.from('assessment_blocks').select('*').in('section_id', sectionIds).order('order_index')
+      : { data: [], error: null };
+    if (e3) { setError(e3.message); setLoading(false); return; }
+    setAssessment(ass);
+    setSections(secs || []);
+    setBlocks(blks || []);
+    setLoading(false);
   }, [assessmentId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function apply(sectionId, questionBlocks, withdrawn, reason) {
+    setBusyId(sectionId);
+    setRowError(prev => ({ ...prev, [sectionId]: null }));
+    const res = await setQuestionWithdrawn(questionBlocks, {
+      withdrawn,
+      reason,
+      actor: { name: profile?.full_name || null },
+    });
+    setBusyId(null);
+    if (res.error) {
+      setRowError(prev => ({ ...prev, [sectionId]: res.error.message || String(res.error) }));
+      return res;
+    }
+    await load();
+    return {};
+  }
 
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
@@ -46,27 +74,53 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
   if (!assessment) return <div className="muted" style={{ padding: '1rem' }}>Assessment unavailable.</div>;
 
+  // Withdrawn questions stay in this list — a trainer must be able to see what
+  // they took out and put it back. Only the participant's copy loses them.
+  const { questions, partLabelByBlockId } = buildQuestions(sections, blocks);
+
   return (
     <div className="trainer-assessment-preview">
       <header className="trainer-assessment-preview-head">
         <h2 style={{ margin: 0 }}>{assessment.title}</h2>
         {assessment.description && <p className="muted" style={{ marginTop: '0.25rem' }}>{assessment.description}</p>}
         <p className="muted" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-          Read-only preview. Participants take this assessment when you unlock it.
+          This session's copy. You can withdraw a question from this cohort — it stays in the
+          master for every other session, and what you withdraw is recorded in Session changes.
         </p>
       </header>
-      {sections.map(sec => {
-        const isGroup = sec.kind === 'group';
-        const secBlocks = blocks.filter(b => b.section_id === sec.id);
+
+      {questions.map(q => {
+        const qBlocks = q.blocks;
+        const withdrawn = qBlocks.length > 0 && qBlocks.every(isWithdrawn);
         return (
           <section
-            key={sec.id}
-            className={`wb-section${isGroup ? ' wb-section-group' : ''}`}
-            data-section-id={sec.id}
+            key={q.section.id}
+            className={`wb-section wb-question ${withdrawn ? 'wb-question-withdrawn' : ''}`}
+            data-section-id={q.section.id}
           >
-            {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
-            {secBlocks.map(b => (
-              <Block key={b.id} block={b} value={undefined} onChange={() => {}} readOnly />
+            <div className="question-number">
+              {q.heading}
+              {q.partCount > 1 && <span className="question-parts-count">{q.partCount} parts</span>}
+              <span className="question-withdraw-slot">
+                {qBlocks.length > 0 && (
+                  <WithdrawQuestion
+                    withdrawn={withdrawn}
+                    withdrawal={withdrawalOf(qBlocks)}
+                    busy={busyId === q.section.id}
+                    error={rowError[q.section.id]}
+                    onWithdraw={reason => apply(q.section.id, qBlocks, true, reason)}
+                    onRestore={() => apply(q.section.id, qBlocks, false, null)}
+                  />
+                )}
+              </span>
+            </div>
+            {qBlocks.map(b => (
+              <div key={b.id} className="wb-question-block">
+                {partLabelByBlockId[b.id] && (
+                  <div className="wb-part-label">{partLabelByBlockId[b.id]}</div>
+                )}
+                <Block block={b} value={undefined} onChange={() => {}} readOnly />
+              </div>
             ))}
           </section>
         );

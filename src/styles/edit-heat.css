@@ -430,3 +430,29 @@
   background: #fdf6e9;
 }
 .eh-conflict p { margin: 0 0 0.4rem; font-size: 0.76rem; line-height: 1.45; }
+
+/* Workbook / Assessment: which CONTENT TYPE's changes you're reviewing. Sits
+   above the status tabs because it's the coarser choice — one master at a
+   time, and the adopt target differs between them. */
+.cl-kind-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+}
+.cl-kind-tab {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.cl-kind-tab--active {
+  background: var(--midnight);
+  border-color: var(--midnight);
+  color: #fff;
+}
+.cl-kind-tab:not(.cl-kind-tab--active):hover { background: var(--border); color: var(--text); }

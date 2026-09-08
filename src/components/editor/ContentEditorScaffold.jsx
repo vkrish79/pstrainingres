@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import BlockListItem from './BlockListItem.jsx';
 import Block from '../blocks/Block.jsx';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
-import { questionNumbers } from '../../lib/blockHelpers.js';
+import { buildQuestions } from '../../lib/assessmentStructure.js';
+import { isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { heatLevel } from '../../lib/configDiff.js';
 
 // Shared sections-and-blocks editor (editor pane + live participant preview
@@ -24,6 +25,7 @@ export default function ContentEditorScaffold({
   onCreateSection,
   onUpdateSectionTitle,
   onDeleteSection,
+  onMoveSection = null,
   showPreview,
   previewTitle,
   extraAddSectionActions = null,
@@ -33,10 +35,18 @@ export default function ContentEditorScaffold({
   // as it did before.
   heat = null,
   onOpenHeat = null,
-  // Flat mode (assessments): no section chrome — render every block as one
-  // running list of numbered questions. Sections still exist in the data (we
-  // add new blocks to the last one), they're just invisible here.
-  flat = false,
+  // Question mode (assessments): a SECTION IS A QUESTION. Its prose is
+  // narration, its fillable blocks are the sub-questions, lettered (a)(b)(c).
+  // See lib/assessmentStructure.js for the numbering rules.
+  //
+  // This replaces the older flat mode, where the section layer was hidden and
+  // every fillable block in the whole assessment took the next running number.
+  questions = false,
+  // Question-level withdraw control, supplied by the assessment editor. Kept as
+  // a render prop because withdrawal writes immediately (it is a config change)
+  // while everything else in this editor is staged — the scaffold should not
+  // have to know the difference.
+  renderQuestionWithdraw = null,
 }) {
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
@@ -109,13 +119,10 @@ export default function ContentEditorScaffold({
     ? blocks.find(b => b.id === activeBlockId)?.section_id || null
     : null;
 
-  // Flat mode: every block across sections, in document order, with running
-  // question numbers. New questions append to the last section.
-  const orderedBlocks = sections.flatMap(sec =>
-    blocks.filter(b => b.section_id === sec.id).sort((a, b) => a.order_index - b.order_index)
-  );
-  const qNums = flat ? questionNumbers(orderedBlocks) : {};
-  const addTargetSectionId = sections.length ? sections[sections.length - 1].id : null;
+  // Question mode: sections in order, each with its narration and its parts.
+  const { questions: qList, partLabelByBlockId } = questions
+    ? buildQuestions(sections, blocks)
+    : { questions: [], partLabelByBlockId: {} };
 
   // The add-question button row (prose/field/table + optional interactive).
   function addBlockRow(sectionId) {
@@ -137,9 +144,13 @@ export default function ContentEditorScaffold({
     );
   }
 
-  function startEditingSection(sec) {
+  // `displayed` matters in question mode: an auto-numbered question's heading is
+  // DERIVED from its position, not read from the stored title, so the two can
+  // differ after a move. Seeding the rename box from the stored title would
+  // then show "Question 2" on a question the screen calls "Question 5".
+  function startEditingSection(sec, displayed = null) {
     setEditingSectionId(sec.id);
-    setSectionTitleDraft(sec.title);
+    setSectionTitleDraft(displayed ?? sec.title);
   }
   async function commitSectionTitle(sec) {
     if (sectionTitleDraft.trim() && sectionTitleDraft !== sec.title) {
@@ -227,32 +238,120 @@ export default function ContentEditorScaffold({
   return (
     <div className={`editor-layout ${showPreview ? 'with-preview' : ''}`}>
       <div className="editor-pane">
-        {flat ? (
+        {questions ? (
           <>
-            {orderedBlocks.length === 0 && <p className="muted">No questions yet — add one below.</p>}
-            <div className="block-list">
-              {orderedBlocks.map((b, i) => (
-                <div
-                  key={b.id}
-                  data-block-id={b.id}
-                  ref={el => { editorBlockRefs.current[b.id] = el; }}
+            {qList.length === 0 && <p className="muted">No questions yet — add one below.</p>}
+            {qList.map((q, qi) => {
+              const sec = q.section;
+              const isEditingTitle = editingSectionId === sec.id;
+              return (
+                <section
+                  key={sec.id}
+                  className="editor-section editor-question"
+                  data-section-id={sec.id}
+                  ref={el => { editorSectionRefs.current[sec.id] = el; }}
                 >
-                  <BlockListItem
-                    block={b}
-                    questionNumber={qNums[b.id] ?? null}
-                    isFirst={i === 0}
-                    isLast={i === orderedBlocks.length - 1}
-                    onSave={(blockId, patch) => onUpdateBlock(blockId, patch)}
-                    onDelete={(blockId) => onDeleteBlock(blockId)}
-                    onDuplicate={(blockId) => onDuplicateBlock(blockId)}
-                    onMoveUp={() => onMoveBlock(b.id, 'up')}
-                    onMoveDown={() => onMoveBlock(b.id, 'down')}
-                    onLocate={locateBlockInPreview}
-                  />
-                </div>
-              ))}
+                  <div className="editor-section-head">
+                    {isEditingTitle ? (
+                      <input
+                        className="form-input"
+                        autoFocus
+                        value={sectionTitleDraft}
+                        onChange={e => setSectionTitleDraft(e.target.value)}
+                        onBlur={() => commitSectionTitle(sec)}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setEditingSectionId(null); setSectionTitleDraft(''); } }}
+                      />
+                    ) : (
+                      <h2 className="editor-section-title" onClick={() => startEditingSection(sec, q.heading)}>
+                        {q.heading}
+                        {/* An author-written heading has taken over from the
+                            automatic number — say so, or renumbering looks broken. */}
+                        {!q.isAuto && <span className="editor-question-custom">custom number</span>}
+                      </h2>
+                    )}
+                    {heatChip(
+                      heat?.bySection?.get(sec.id),
+                      () => onOpenHeat({ sectionId: sec.id, sectionTitle: q.heading, blockId: null }),
+                      'heat-chip--section',
+                    )}
+                    {renderQuestionWithdraw && (
+                      <span className="question-withdraw-slot">
+                        {renderQuestionWithdraw(q)}
+                      </span>
+                    )}
+                    <span className="editor-question-parts">
+                      {q.partCount === 0
+                        ? 'no answerable part yet'
+                        : `${q.partCount} part${q.partCount === 1 ? '' : 's'}`}
+                    </span>
+                    <div className="editor-section-actions">
+                      {onMoveSection && (
+                        <>
+                          <button className="icon-btn" onClick={() => onMoveSection(sec.id, 'up')} disabled={qi === 0} aria-label="Move question up">↑</button>
+                          <button className="icon-btn" onClick={() => onMoveSection(sec.id, 'down')} disabled={qi === qList.length - 1} aria-label="Move question down">↓</button>
+                        </>
+                      )}
+                      {!isEditingTitle && (
+                        <button className="ghost" onClick={() => startEditingSection(sec, q.heading)}>Rename</button>
+                      )}
+                      {confirmDelSection === sec.id ? (
+                        <>
+                          <span className="confirm-text">Delete question &amp; all its parts?</span>
+                          <button className="danger" onClick={async () => { await onDeleteSection(sec.id); setConfirmDelSection(null); }}>Yes</button>
+                          <button className="ghost" onClick={() => setConfirmDelSection(null)}>No</button>
+                        </>
+                      ) : (
+                        <button className="ghost danger" onClick={() => setConfirmDelSection(sec.id)}>Delete question</button>
+                      )}
+                    </div>
+                  </div>
+                  {q.blocks.length === 0 && <p className="muted">Empty — add narration or a part below.</p>}
+                  <div className="block-list">
+                    {q.blocks.map((b, i) => {
+                      const bHeat = heat?.byBlock?.get(b.id);
+                      return (
+                      <div
+                        key={b.id}
+                        data-block-id={b.id}
+                        ref={el => { editorBlockRefs.current[b.id] = el; }}
+                        className={bHeat?.openSessions ? `heat-wrap heat-l${heatLevel(bHeat.openSessions)}` : undefined}
+                      >
+                        <BlockListItem
+                          headExtra={heatChip(
+                            bHeat,
+                            () => onOpenHeat({
+                              sectionId: sec.id,
+                              sectionTitle: q.heading,
+                              blockId: b.id,
+                              blockLabel: partLabelByBlockId[b.id] || `Question ${q.number}`,
+                            }),
+                          )}
+                          block={b}
+                          partLabel={partLabelByBlockId[b.id] ?? null}
+                          inactive={isInactiveBlock(b)}
+                          isFirst={i === 0}
+                          isLast={i === q.blocks.length - 1}
+                          onSave={(blockId, patch) => onUpdateBlock(blockId, patch)}
+                          onDelete={(blockId) => onDeleteBlock(blockId)}
+                          onDuplicate={(blockId) => onDuplicateBlock(blockId)}
+                          onMoveUp={() => onMoveBlock(b.id, 'up')}
+                          onMoveDown={() => onMoveBlock(b.id, 'down')}
+                          onLocate={locateBlockInPreview}
+                        />
+                      </div>
+                      );
+                    })}
+                  </div>
+                  {addBlockRow(sec.id)}
+                </section>
+              );
+            })}
+            <div className="add-section-row">
+              <button className="ghost" onClick={() => onCreateSection(`Question ${qList.length + 1}`)}>
+                ➕ Add question
+              </button>
+              {extraAddSectionActions}
             </div>
-            {addTargetSectionId && addBlockRow(addTargetSectionId)}
           </>
         ) : (
         <>
@@ -374,16 +473,27 @@ export default function ContentEditorScaffold({
           </div>
           <div className="preview-pane-body">
             <h1 className="preview-workbook-title">{previewTitle || 'Untitled'}</h1>
-            {flat ? (
-              orderedBlocks.map(b => (
-                <div
-                  key={b.id}
-                  className={`preview-block-wrap ${selectedBlockId === b.id ? 'selected' : ''} ${pulseBlockId === b.id ? 'pulse' : ''}`}
-                  ref={el => { previewBlockRefs.current[b.id] = el; }}
+            {questions ? (
+              qList.map(q => (
+                <section
+                  key={q.section.id}
+                  className={`wb-section wb-question ${activeSectionId === q.section.id ? 'active' : ''}`}
+                  ref={el => { previewSectionRefs.current[q.section.id] = el; }}
                 >
-                  {qNums[b.id] != null && <div className="question-number">Question {qNums[b.id]}</div>}
-                  <Block block={b} value={undefined} onChange={() => {}} />
-                </div>
+                  <div className="question-number">{q.heading}</div>
+                  {q.blocks.map(b => (
+                    <div
+                      key={b.id}
+                      className={`preview-block-wrap ${selectedBlockId === b.id ? 'selected' : ''} ${pulseBlockId === b.id ? 'pulse' : ''}`}
+                      ref={el => { previewBlockRefs.current[b.id] = el; }}
+                    >
+                      {partLabelByBlockId[b.id] && (
+                        <div className="wb-part-label">{partLabelByBlockId[b.id]}</div>
+                      )}
+                      <Block block={b} value={undefined} onChange={() => {}} />
+                    </div>
+                  ))}
+                </section>
               ))
             ) : (
             <>

@@ -12,6 +12,10 @@ import '../../styles/edit-heat.css';
 // ended on.
 export default function EditHeatModal({
   workbookId, sectionId, sectionTitle, blockId, blockLabel, onClose, onResolved,
+  // 'workbook' or 'assessment'. Decides which detail RPC is read and which
+  // master table an adoption writes into. Everything else is identical: the
+  // two content types share the block_type/config shape all the way down.
+  kind = 'workbook',
 }) {
   const [rows, setRows] = useState([]);
   const [lines, setLines] = useState(() => new Map());
@@ -26,14 +30,17 @@ export default function EditHeatModal({
 
   const load = useCallback(async () => {
     const [{ rows: r, error: e }, { byGroup }] = await Promise.all([
-      fetchEditDetail(workbookId, sectionId, blockId || null),
-      fetchLineDecisions(workbookId),
+      fetchEditDetail(workbookId, sectionId, blockId || null, kind),
+      // Line decisions are filtered by workbook server-side, so an assessment
+      // id would match nothing. Ask for all of them and let the group key
+      // select — the same thing the change-log page does.
+      fetchLineDecisions(kind === 'assessment' ? null : workbookId),
     ]);
     if (e) setError(e);
     setRows(r);
     setLines(byGroup);
     setLoading(false);
-  }, [workbookId, sectionId, blockId]);
+  }, [workbookId, sectionId, blockId, kind]);
 
   // Re-subscribed whenever "dirty" flips so Escape closes through the same
   // path as the × and the backdrop — all three go via close(), which tells the
@@ -187,6 +194,7 @@ export default function EditHeatModal({
 
           {shown.map(r => (
             <ChangeEntry
+              blocksTable={kind === 'assessment' ? 'assessment_blocks' : 'blocks'}
               key={keyOf(r)}
               row={r}
               busy={busyKey === keyOf(r)}

@@ -20,6 +20,7 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
   const [answers, setAnswers] = useState({});
   const [answerKey, setAnswerKey] = useState({});       // { [assessment_block_id]: key }
   const [answerPoints, setAnswerPoints] = useState({}); // { [assessment_block_id]: marks }
+  const [answerModes, setAnswerModes] = useState({});   // { [assessment_block_id]: 'auto' | 'manual' }
 
   useEffect(() => {
     if (!sessionId || !assessmentId) { setLoading(false); return undefined; }
@@ -54,14 +55,18 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
         const blockIds = (blks || []).map(b => b.id);
         const { data: keys, error: e6 } = blockIds.length
           ? await supabase.from('assessment_answer_keys')
-              .select('assessment_block_id, key, points').in('assessment_block_id', blockIds)
+              .select('assessment_block_id, key, points, marking_mode').in('assessment_block_id', blockIds)
           : { data: [], error: null };
         if (e6) throw e6;
         const keyMap = {};
         const pointsMap = {};
+        const modeMap = {};
         (keys || []).forEach(k => {
           keyMap[k.assessment_block_id] = k.key;
           pointsMap[k.assessment_block_id] = Number(k.points) || 1;
+          // Rows written before manual marking existed are all auto, which is
+          // what they already were.
+          modeMap[k.assessment_block_id] = k.marking_mode || 'auto';
         });
 
         if (cancelled) return;
@@ -70,6 +75,7 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
         setAnswers(ansMap);
         setAnswerKey(keyMap);
         setAnswerPoints(pointsMap);
+        setAnswerModes(modeMap);
         setLoading(false);
       } catch (err) {
         if (!cancelled) { setError(err.message || String(err)); setLoading(false); }
@@ -118,5 +124,5 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
     return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
 
-  return { loading, error, sections, blocks, answers, answerKey, answerPoints };
+  return { loading, error, sections, blocks, answers, answerKey, answerPoints, answerModes };
 }

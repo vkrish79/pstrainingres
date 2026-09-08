@@ -16,16 +16,19 @@ import { supabase } from '../lib/supabase.js';
 // `enabled` gates the call rather than relying on RLS alone — vendor-tier
 // reaches the workbook page through its read-only branch, and firing a query
 // that can only come back empty just looks broken.
-export function useWorkbookEditHeat(workbookId, enabled = true) {
+// kind — 'workbook' or 'assessment'. The two RPCs return identical shapes over
+// identical table structures, so one hook serves both; only the function name
+// differs. useAssessmentEditHeat below is the assessment-side name.
+export function useWorkbookEditHeat(workbookId, enabled = true, kind = 'workbook') {
   const [loading, setLoading] = useState(true);
   const [bySection, setBySection] = useState(() => new Map());
   const [byBlock, setByBlock] = useState(() => new Map());
 
   const load = useCallback(async () => {
     if (!workbookId || !enabled) { setLoading(false); return; }
-    const { data, error } = await supabase.rpc('workbook_edit_heat', {
-      p_workbook_id: workbookId,
-    });
+    const { data, error } = kind === 'assessment'
+      ? await supabase.rpc('assessment_edit_heat', { p_assessment_id: workbookId })
+      : await supabase.rpc('workbook_edit_heat', { p_workbook_id: workbookId });
     // A missing RPC (migration not yet applied) must not break the editor:
     // no heat simply means no markers.
     if (error) { setBySection(new Map()); setByBlock(new Map()); setLoading(false); return; }
@@ -46,7 +49,7 @@ export function useWorkbookEditHeat(workbookId, enabled = true) {
     setBySection(secs);
     setByBlock(blks);
     setLoading(false);
-  }, [workbookId, enabled]);
+  }, [workbookId, enabled, kind]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -64,12 +67,14 @@ export function useWorkbookEditHeat(workbookId, enabled = true) {
 // The drill-down behind one marker. Kept separate from the heat load so opening
 // a modal never re-fetches the whole map. Returns resolved groups as well as
 // open ones — the modal filters client-side, so the toggle is instant.
-export async function fetchEditDetail(workbookId, sectionId, blockId = null) {
-  const { data, error } = await supabase.rpc('workbook_edit_detail', {
-    p_workbook_id: workbookId,
-    p_section_id: sectionId,
-    p_block_id: blockId,
-  });
+export async function fetchEditDetail(parentId, sectionId, blockId = null, kind = 'workbook') {
+  const { data, error } = kind === 'assessment'
+    ? await supabase.rpc('assessment_edit_detail', {
+        p_assessment_id: parentId, p_section_id: sectionId, p_block_id: blockId,
+      })
+    : await supabase.rpc('workbook_edit_detail', {
+        p_workbook_id: parentId, p_section_id: sectionId, p_block_id: blockId,
+      });
   if (error) return { rows: [], error: error.message };
   return { rows: data || [], error: null };
 }
@@ -81,7 +86,12 @@ export async function fetchEditDetail(workbookId, sectionId, blockId = null) {
 // Rows carry the same column names as workbook_edit_detail plus the workbook
 // and exercise they belong to, which is what lets both surfaces render through
 // the same ChangeEntry.
-export function useAllChanges(enabled = true, limit = 500) {
+// kind — 'workbook' (default) or 'assessment'. The two RPCs return the same
+// columns bar the parent pair, so assessment rows are NORMALISED onto the
+// workbook field names here. That keeps ChangeLogPage and ChangeEntry as one
+// implementation instead of two that drift; the page only needs to know which
+// master table an adoption writes into.
+export function useAllChanges(enabled = true, limit = 500, kind = 'workbook') {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
@@ -89,24 +99,34 @@ export function useAllChanges(enabled = true, limit = 500) {
   const load = useCallback(async () => {
     if (!enabled) { setRows([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error: e } = await supabase.rpc('workbook_changes_all', {
-      p_limit: limit,
-    });
+    const isAssessment = kind === 'assessment';
+    const { data, error: e } = await supabase.rpc(
+      isAssessment ? 'assessment_changes_all' : 'workbook_changes_all',
+      { p_limit: limit },
+    );
     // A missing RPC means the migration has not been applied yet. Say so
     // plainly rather than showing an empty page that looks like "no changes".
     if (e) {
       setError(
         /function .* does not exist/i.test(e.message)
-          ? 'The change log function is not in the database yet — run 20260905000000_change_log_page.sql.'
+          ? (isAssessment
+              ? 'The assessment change log is not in the database yet — run 20260910000000_session_assessment_withdrawal.sql.'
+              : 'The change log function is not in the database yet — run 20260905000000_change_log_page.sql.')
           : e.message,
       );
       setRows([]);
     } else {
       setError('');
-      setRows(data || []);
+      setRows(isAssessment
+        ? (data || []).map(r => ({
+            ...r,
+            master_workbook_id: r.master_assessment_id,
+            workbook_title: r.assessment_title,
+          }))
+        : (data || []));
     }
     setLoading(false);
-  }, [enabled, limit]);
+  }, [enabled, limit, kind]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -204,4 +224,12 @@ export function useEditHeatTotals(enabled = true) {
   }, [enabled]);
 
   return totals;
+}
+
+// The assessment-side name for the same hook. A separate export rather than
+// making callers pass a string: the assessment editor should not have to know
+// it is reusing the workbook implementation, and the name is what makes the
+// call site readable.
+export function useAssessmentEditHeat(assessmentId, enabled = true) {
+  return useWorkbookEditHeat(assessmentId, enabled, 'assessment');
 }

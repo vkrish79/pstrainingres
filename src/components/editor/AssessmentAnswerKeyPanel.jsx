@@ -1,34 +1,58 @@
 import { useMemo, useState } from 'react';
 import '../../styles/interactive.css';
 import { useAssessmentAnswerKeys } from '../../hooks/useAssessmentAnswerKeys.js';
-import { isScorableBlock } from '../../lib/assessmentScoring.js';
+import { isScorableBlock, isManuallyMarkable, isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
+import { buildQuestions } from '../../lib/assessmentStructure.js';
 
 // Answer-key entry for an assessment template. Lists every auto-scorable
 // question (single-choice, multi-select, short text, table cells) with a
 // control to set the correct answer. Saves to assessment_answer_keys. Long-text
 // questions are not listed (never auto-scored). Trainer-only — participants
 // never read these keys.
-export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
+// unsavedCount — questions added but not yet saved. A key is stored against a
+// block's database id, so a block that exists only in the editor's draft has
+// nothing to attach one to. Rather than offer a control that would fail, those
+// are left out and the panel says how many and why.
+export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCount = 0 }) {
   const blockIds = useMemo(() => blocks.map(b => b.id), [blocks]);
-  const { keys, points, setKey, setPoints, clearKey, error } = useAssessmentAnswerKeys(blockIds);
+  const { keys, points, modes, setKey, setPoints, setMode, clearKey, error } = useAssessmentAnswerKeys(blockIds);
   const [open, setOpen] = useState(false);
 
-  const scorable = useMemo(() => blocks.filter(isScorableBlock), [blocks]);
-  const keyedCount = scorable.filter(b => keys[b.id] != null).length;
-  // What the whole assessment is out of. Only keyed questions are marked, so
-  // only they count — an unkeyed question is worth nothing because nothing
-  // decides whether it's right.
-  const totalMarks = scorable.reduce(
-    (sum, b) => sum + (keys[b.id] != null ? (Number(points[b.id]) || 1) : 0), 0,
+  // Grouped by question, so the key rows sit under the same headings and
+  // letters the editor and the paper show.
+  const { questions, partLabelByBlockId } = useMemo(
+    () => buildQuestions(sections, blocks),
+    [sections, blocks]
   );
 
-  if (scorable.length === 0) {
+  // Every question that can carry marks at all — auto-scorable OR markable by
+  // hand. long_text appears here for the first time: auto-marking refuses it
+  // because no machine can judge an essay, which is exactly why manual marking
+  // exists. Withdrawn questions are left out; they are not in the paper.
+  const markable = useMemo(
+    () => blocks.filter(b => !isInactiveBlock(b) && (isScorableBlock(b) || isManuallyMarkable(b))),
+    [blocks]
+  );
+  const isManual = id => modes[id] === 'manual';
+
+  // "Set up" = will actually be marked: either keyed, or marked by hand.
+  const setUpCount = markable.filter(b => keys[b.id] != null || isManual(b.id)).length;
+  const manualCount = markable.filter(b => isManual(b.id)).length;
+
+  // What the whole assessment is out of. A question counts only once it will be
+  // marked — an unkeyed auto question is worth nothing, because nothing decides
+  // whether it is right.
+  const totalMarks = markable.reduce(
+    (sum, b) => sum + ((keys[b.id] != null || isManual(b.id)) ? (Number(points[b.id]) || 1) : 0), 0,
+  );
+
+  if (markable.length === 0) {
     return (
       <section className="editor-card answer-key-panel">
         <div className="answer-key-head">
-          <h2>🎯 Answer key (auto-marking)</h2>
-          <span className="muted">No auto-scorable questions yet. Add choice, multi-select, short-text, table, or interactive questions.</span>
+          <h2>🎯 Marking</h2>
+          <span className="muted">No answerable questions yet — add one and it will appear here to be marked.</span>
         </div>
       </section>
     );
@@ -38,10 +62,13 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
     <section className="editor-card answer-key-panel">
       <button type="button" className="answer-key-head answer-key-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <span className="answer-key-chevron" aria-hidden>{open ? '▾' : '▸'}</span>
-        <h2>🎯 Answer key (auto-marking)</h2>
-        <span className={`answer-key-count ${keyedCount === scorable.length ? 'full' : keyedCount === 0 ? 'none' : 'partial'}`}>
-          {keyedCount}/{scorable.length} keyed
+        <h2>🎯 Marking</h2>
+        <span className={`answer-key-count ${setUpCount === markable.length ? 'full' : setUpCount === 0 ? 'none' : 'partial'}`}>
+          {setUpCount}/{markable.length} set up
         </span>
+        {manualCount > 0 && (
+          <span className="answer-key-manualcount">✋ {manualCount} by hand</span>
+        )}
         {totalMarks > 0 && (
           <span className="answer-key-total">{totalMarks} mark{totalMarks === 1 ? '' : 's'} total</span>
         )}
@@ -61,20 +88,33 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
             questions with several parts award them proportionally, so 3 of 4 pairs right on a
             4-mark question scores 3.
           </p>
-          {sections.map(sec => {
-            const secBlocks = blocks.filter(b => b.section_id === sec.id && isScorableBlock(b));
+          {unsavedCount > 0 && (
+            <p className="ce-hint answer-key-unsaved">
+              {unsavedCount} new question{unsavedCount === 1 ? ' is' : 's are'} not listed yet —
+              keys attach to a saved question. Press <strong>Save changes</strong> above and
+              {unsavedCount === 1 ? ' it' : ' they'} will appear here.
+            </p>
+          )}
+          {questions.map(q => {
+            const secBlocks = q.blocks.filter(
+              b => !isInactiveBlock(b) && (isScorableBlock(b) || isManuallyMarkable(b))
+            );
             if (!secBlocks.length) return null;
             return (
-              <div key={sec.id} className="answer-key-section">
-                <h3 className="answer-key-section-title">{sec.title}</h3>
+              <div key={q.section.id} className="answer-key-section">
+                <h3 className="answer-key-section-title">{q.heading}</h3>
                 {secBlocks.map(b => (
                   <KeyRow
                     key={b.id}
                     block={b}
+                    partLabel={partLabelByBlockId[b.id] ?? null}
                     value={keys[b.id]}
                     points={points[b.id]}
+                    mode={isManual(b.id) ? 'manual' : 'auto'}
+                    canAuto={isScorableBlock(b)}
                     onChange={k => setKey(b.id, k)}
                     onPoints={p => setPoints(b.id, p)}
+                    onMode={m => setMode(b.id, m)}
                     onClear={() => clearKey(b.id)}
                   />
                 ))}
@@ -87,17 +127,63 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks }) {
   );
 }
 
-function KeyRow({ block, value, points, onChange, onPoints, onClear }) {
+function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel = null, onChange, onPoints, onMode, onClear }) {
   const label = labelOf(block);
+  const manual = mode === 'manual';
   const hasKey = value != null;
+  // A question carries marks once it will actually be marked — keyed, or set to
+  // by-hand. That is the rule the total in the header uses too.
+  const willBeMarked = manual || hasKey;
+
   return (
-    <div className={`answer-key-row ${hasKey ? 'has-key' : ''}`}>
+    <div className={`answer-key-row ${willBeMarked ? 'has-key' : ''} ${manual ? 'is-manual' : ''}`}>
       <div className="answer-key-q">
+        {/* The sub-question letter, when the question has more than one part —
+            without it, two rows under "Question 3" are indistinguishable. */}
+        {partLabel && <span className="answer-key-part">{partLabel}</span>}
         <span className="answer-key-q-label">{label}</span>
-        {/* Marks live on the same row as the key, so there is nothing to set
-            until the question is keyed — and an unkeyed question is not marked
-            at all, which makes its worth moot. */}
-        {hasKey && (
+
+        {/* Auto or by hand. Long-text questions cannot be auto-marked at all,
+            so they are shown as by-hand with no choice to make rather than
+            being offered a switch that only has one working position. */}
+        {canAuto ? (
+          <div className="mark-mode" role="group" aria-label="How this question is marked">
+            <button
+              type="button"
+              className={`mark-mode-btn ${!manual ? 'active' : ''}`}
+              onClick={() => { if (manual) onMode('auto'); }}
+              title="Compare the answer against a correct answer you set"
+            >
+              Auto
+            </button>
+            <button
+              type="button"
+              className={`mark-mode-btn ${manual ? 'active' : ''}`}
+              onClick={() => { if (!manual) onMode('manual'); }}
+              title="You award the marks yourself when you see the answer"
+            >
+              ✋ By hand
+            </button>
+          </div>
+        ) : manual ? (
+          <span className="mark-mode-fixed" title="A written answer can only be judged by a person">
+            ✋ By hand
+          </span>
+        ) : (
+          /* A written answer has no automatic option, but it is not marked
+             until someone says it should be — otherwise it would silently sit
+             in the paper worth nothing. One click sets it up. */
+          <button
+            type="button"
+            className="ghost mark-mode-enable"
+            onClick={() => onMode('manual')}
+            title="A written answer can only be judged by a person"
+          >
+            + Mark this by hand
+          </button>
+        )}
+
+        {willBeMarked && (
           <label className="answer-key-points" title="What this question is worth">
             <input
               type="number"
@@ -110,10 +196,26 @@ function KeyRow({ block, value, points, onChange, onPoints, onClear }) {
             <span>mark{Number(points ?? 1) === 1 ? '' : 's'}</span>
           </label>
         )}
-        {hasKey && <button type="button" className="answer-key-clear" onClick={onClear} title="Clear key">clear</button>}
+        {!manual && hasKey && (
+          <button type="button" className="answer-key-clear" onClick={onClear} title="Clear key">clear</button>
+        )}
       </div>
+
       <div className="answer-key-control">
-        <KeyControl block={block} value={value} onChange={onChange} />
+        {manual ? (
+          <p className="mark-manual-note">
+            No correct answer is stored — you award up to {points ?? 1} mark
+            {Number(points ?? 1) === 1 ? '' : 's'} yourself, on the session's{' '}
+            <strong>📝 Assessment → Live responses</strong> view.
+          </p>
+        ) : canAuto ? (
+          <KeyControl block={block} value={value} onChange={onChange} />
+        ) : (
+          <p className="mark-manual-note muted">
+            Not marked. A written answer can't be checked automatically, so it
+            scores nothing until you set it to be marked by hand.
+          </p>
+        )}
       </div>
     </div>
   );

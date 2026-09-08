@@ -2,7 +2,11 @@ import { useState } from 'react';
 import BlockForm from './BlockForm.jsx';
 import { labelOf } from '../../lib/blockHelpers.js';
 
-export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast, canEdit = true, questionNumber = null, headExtra = null }) {
+// partLabel is the assessment sub-question marker — "(b)" — shown verbatim.
+// questionNumber is the older whole-question form, rendered as "Q3". A block
+// gets one or the other, never both: inside a question the heading already
+// carries the number, so only the letter is worth repeating.
+export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onLocate, isFirst, isLast, canEdit = true, questionNumber = null, partLabel = null, headExtra = null, inactive = false, onToggleInactive = null }) {
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -12,9 +16,10 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
   }
 
   return (
-    <div className="block-row">
+    <div className={`block-row${inactive ? ' block-row-withdrawn' : ''}`}>
       <div className="block-row-head">
-        {questionNumber != null && <span className="block-qnum">Q{questionNumber}</span>}
+        {partLabel != null && <span className="block-qnum block-partlabel">{partLabel}</span>}
+        {partLabel == null && questionNumber != null && <span className="block-qnum">Q{questionNumber}</span>}
         <span
           className={`block-type-tag tag-${block.block_type}`}
           onClick={() => onLocate?.(block.id)}
@@ -35,10 +40,28 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
             Inside the flex flow rather than floated, so it cannot collide with
             the action buttons or be clipped. Null everywhere else. */}
         {headExtra}
+        {inactive && (
+          <span className="block-withdrawn" title="Participants do not see this question">
+            withdrawn
+          </span>
+        )}
         {canEdit && (
           <div className="block-actions">
             <button className="icon-btn" onClick={onMoveUp} disabled={isFirst} aria-label="Move up">↑</button>
             <button className="icon-btn" onClick={onMoveDown} disabled={isLast} aria-label="Move down">↓</button>
+            {/* Withdrawing is not deleting: the question and every answer given
+                to it are kept, it simply leaves the paper and the totals. */}
+            {onToggleInactive && (
+              <button
+                className="ghost"
+                onClick={onToggleInactive}
+                title={inactive
+                  ? 'Put this question back into the paper'
+                  : 'Take this question out of play — participants will not see it and it will not count'}
+              >
+                {inactive ? 'Restore' : 'Withdraw'}
+              </button>
+            )}
             <button className="ghost" onClick={() => setEditing(e => !e)}>{editing ? 'Cancel' : 'Edit'}</button>
             {onDuplicate && (
               <button className="ghost" onClick={() => onDuplicate(block.id)} title="Duplicate this block">Duplicate</button>

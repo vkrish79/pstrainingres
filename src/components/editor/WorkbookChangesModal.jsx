@@ -20,15 +20,20 @@ import '../../styles/edit-heat.css';
 // argument on workbook_changes_all -- not a second query shape.
 export default function WorkbookChangesModal({
   workbookId, workbookTitle, onClose, onResolved, onJumpToSection,
+  // 'workbook' or 'assessment'. The hook returns assessment rows normalised
+  // onto the workbook field names, so everything below is unchanged; only the
+  // adopt target and the wording differ.
+  kind = 'workbook',
 }) {
-  const { loading, rows, error, refresh } = useAllChanges(true);
+  const isAssessment = kind === 'assessment';
+  const { loading, rows, error, refresh } = useAllChanges(true, 500, kind);
   const [lines, setLines] = useState(() => new Map());
 
   // Line decisions live in their own RPC, so they reload alongside the groups
   // rather than being folded into the shared change_groups return type — that
   // one is applied and working, and worth leaving alone.
   const reloadAll = useCallback(async () => {
-    const [, { byGroup }] = await Promise.all([refresh(), fetchLineDecisions(workbookId)]);
+    const [, { byGroup }] = await Promise.all([refresh(), fetchLineDecisions(isAssessment ? null : workbookId)]);
     setLines(byGroup);
   }, [refresh, workbookId]);
 
@@ -190,6 +195,7 @@ export default function WorkbookChangesModal({
               </div>
               {g.entries.map(r => (
                 <ChangeEntry
+                  blocksTable={isAssessment ? 'assessment_blocks' : 'blocks'}
                   key={keyOf(r)}
                   row={r}
                   busy={busyKey === keyOf(r)}
