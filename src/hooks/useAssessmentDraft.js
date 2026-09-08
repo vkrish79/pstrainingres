@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { planSave, cascadeRisks, isDraftId } from '../lib/assessmentDraftPlan.js';
 
@@ -81,11 +81,23 @@ export function useAssessmentDraft({ sections, blocks, reload }) {
     ]),
     [sections, blocks]
   );
-  useEffect(() => {
+  // Re-seeded DURING RENDER, not in an effect.
+  //
+  // An effect would leave the draft one commit behind the data: on the render
+  // where loading flips false the draft would still hold its initial empty
+  // arrays, and anything reading it in that window sees an assessment with no
+  // questions. That is not hypothetical — it added a phantom "Question 1" to
+  // every assessment and reported unsaved changes on a page nobody had touched.
+  //
+  // Setting state during render is React's documented way to derive state from
+  // props: the guard makes it run once per real change, and React re-renders
+  // immediately with the new value rather than painting the stale one first.
+  const [seededShape, setSeededShape] = useState(shape);
+  if (seededShape !== shape) {
+    setSeededShape(shape);
     setDraft(seed(sections, blocks));
     setBase({ sections, blocks });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shape]);
+  }
 
   // ── Structural edits (local only) ────────────────────────────────────────
 

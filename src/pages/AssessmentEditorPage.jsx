@@ -68,13 +68,20 @@ export default function AssessmentEditorPage() {
   const ensuredSectionRef = useRef(false);
   useEffect(() => {
     if (loading || error || !assessment) return;
-    if (sections.length === 0 && !ensuredSectionRef.current) {
+    // Read the SAVED sections, never the draft's.
+    //
+    // The draft re-seeds itself in an effect, so on the render where loading
+    // flips false the draft still holds its initial empty array — it catches up
+    // a commit later. Testing draft.sections here saw "no questions" on every
+    // assessment and added a phantom one, which showed up as unsaved changes on
+    // a page nobody had touched, and would have saved a real empty question.
+    if (savedSections.length === 0 && !ensuredSectionRef.current) {
       ensuredSectionRef.current = true;
       createSection('Question 1');
     }
     // createSection is a stable useCallback; depending on `draft` itself would
     // re-run this on every render, since the hook returns a fresh object.
-  }, [loading, error, assessment, sections.length, createSection]);
+  }, [loading, error, assessment, savedSections.length, createSection]);
 
   // Leaving with staged structural work would lose it silently. The browser's
   // own prompt is the only thing that can interrupt a navigation away.
