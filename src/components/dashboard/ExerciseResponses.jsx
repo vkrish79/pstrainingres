@@ -296,7 +296,7 @@ export default function ExerciseResponses({
               answerPoints={answerPoints}
               questionNumbers={questionNumbers}
               answerModes={answerModes}
-              marksForP={marks ? (marks[stat.participant.id] || {}) : null}
+              marksForP={marks ? (marks[s.participant.id] || {}) : null}
               onMark={onMark}
               markingIds={markingIds}
             />
