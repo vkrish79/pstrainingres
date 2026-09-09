@@ -345,6 +345,7 @@ export default function AssessmentEditorPage() {
               sections={sections}
               blocks={blocks}
               onCreateBlock={draft.createBlock}
+              onMoveBlockTo={draft.moveBlockTo}
               onUpdateBlock={draft.updateBlock}
               onDeleteBlock={draft.deleteBlock}
               onMoveBlock={draft.moveBlock}

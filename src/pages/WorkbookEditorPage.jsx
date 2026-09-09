@@ -27,7 +27,7 @@ export default function WorkbookEditorPage() {
   const { run: runBusy } = useBusyOverlay();
   const {
     loading, error, workbook, sections, blocks,
-    updateWorkbookTitle, updateVendorVisible, createBlock, updateBlock, deleteBlock, moveBlock,
+    updateWorkbookTitle, updateVendorVisible, createBlock, updateBlock, deleteBlock, moveBlock, moveBlockTo,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
     deleteWorkbook, reload,
   } = useWorkbookEditor(id);
@@ -286,6 +286,7 @@ export default function WorkbookEditorPage() {
           sections={sections}
           blocks={blocks}
           onCreateBlock={createBlock}
+          onMoveBlockTo={moveBlockTo}
           onUpdateBlock={updateBlock}
           onDeleteBlock={deleteBlock}
           onMoveBlock={moveBlock}

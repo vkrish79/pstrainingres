@@ -882,3 +882,141 @@ button.ghost.compact, button.danger.compact {
 
 .wb-question-withdrawn { opacity: 0.65; }
 .wb-question-withdrawn .wb-question-block { filter: grayscale(1); }
+
+/* ══ Editor polish: add-block menu, insertion points, row actions ══════════
+   Replaces the seven-button .add-block-row, which was display:flex with no
+   flex-wrap and seven children — so the buttons did not overflow, they
+   COMPRESSED, and the labels broke inside them (at 720px "+ Fill-in-the-blank"
+   split across three lines). */
+
+.add-block-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.85rem; }
+
+.addblock { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+
+.addblock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.38rem 0.65rem;
+  /* The whole point: a label that never breaks itself across lines. */
+  white-space: nowrap;
+}
+.addblock-chip:hover:not(:disabled) { background: var(--bg); border-color: var(--gold); color: var(--text); }
+.addblock-chip.is-open { background: var(--bg); border-color: var(--gold); }
+.addblock-glyph { font-size: 0.92rem; line-height: 1; color: var(--gold-dark); }
+.addblock-caret { font-size: 0.65rem; margin-left: 0.15rem; color: var(--muted); }
+
+.addblock-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 40;
+  min-width: 15rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(30, 60, 90, 0.14);
+  padding: 0.35rem;
+}
+.addblock-group {
+  font-size: 0.63rem; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--muted); padding: 0.5rem 0.55rem 0.25rem;
+}
+.addblock-item {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%;
+  background: transparent; border: none; border-radius: 5px;
+  padding: 0.42rem 0.55rem; font-size: 0.86rem; color: var(--text); text-align: left;
+}
+.addblock-item:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+
+/* ── Insertion points between blocks (recommendation 02) ─────────────────
+   A block used to land at the bottom of its section and be walked up one ↑
+   click at a time. Hidden at rest so the page is no busier than before, but
+   revealed on focus-within as well as hover — a hover-only control does not
+   exist for a keyboard. */
+.block-insert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 0.9rem;
+  margin: 0.05rem 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.block-insert:hover,
+.block-insert:focus-within { opacity: 1; }
+.block-insert-line { flex: 1; height: 1px; background: var(--qasr, #c9bea6); }
+.block-insert .addblock-chip { font-size: 0.76rem; padding: 0.22rem 0.55rem; }
+
+@media (hover: none) {
+  /* No hover on touch, so a hidden control is simply gone. Show a quieter
+     version permanently instead. */
+  .block-insert { opacity: 0.55; }
+}
+
+/* ── Block row actions (recommendations 04 + 05) ─────────────────────────
+   A twelve-block question used to render sixty always-visible controls, one in
+   five destructive. Edit and ⋯ stay legible at rest; the arrows fade until the
+   row is hovered or something inside it takes focus. */
+.block-actions { position: relative; }
+.block-actions .icon-btn:not(.block-kebab) {
+  opacity: 0.25;
+  transition: opacity 0.12s ease;
+}
+.block-row:hover .block-actions .icon-btn,
+.block-row:focus-within .block-actions .icon-btn { opacity: 1; }
+
+@media (hover: none) {
+  .block-actions .icon-btn:not(.block-kebab) { opacity: 1; }
+}
+
+.block-kebab { font-size: 1rem; line-height: 1; }
+.block-kebab.is-open { background: var(--bg); border-color: var(--gold); }
+
+.block-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 40;
+  min-width: 14rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(30, 60, 90, 0.14);
+  padding: 0.35rem;
+}
+.block-menu-item {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%;
+  background: transparent; border: none; border-radius: 5px;
+  padding: 0.42rem 0.55rem; font-size: 0.85rem; color: var(--text); text-align: left;
+}
+.block-menu-item:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+.block-menu-item:disabled { opacity: 0.4; }
+.block-menu-item.is-danger { color: var(--danger); }
+.block-menu-item.is-danger:hover:not(:disabled) { background: #fdf0ef; color: var(--danger); }
+.block-menu-glyph { width: 1.1rem; text-align: center; color: var(--muted); }
+.block-menu-item.is-danger .block-menu-glyph { color: var(--danger); }
+.block-menu-sep { height: 1px; background: var(--border); margin: 0.3rem 0.2rem; }
+.block-menu-confirm { padding: 0.5rem 0.55rem; font-size: 0.82rem; }
+.block-menu-confirm > div { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
+.block-menu-confirm button { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
+
+/* ── Empty state (recommendation 06) ─────────────────────────────────────
+   "No blocks yet." was accurate and helped nobody. The empty state is the one
+   moment you know exactly what the author is about to do. */
+.block-empty {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 1.25rem;
+  text-align: center;
+}
+.block-empty-title { font-size: 0.92rem; font-weight: 600; color: var(--midnight); margin-bottom: 0.15rem; }
+.block-empty-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.8rem; }
+.block-empty-actions { display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap; }

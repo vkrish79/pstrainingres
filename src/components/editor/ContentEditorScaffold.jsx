@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import BlockListItem from './BlockListItem.jsx';
+import AddBlockMenu from './AddBlockMenu.jsx';
 import Block from '../blocks/Block.jsx';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
@@ -18,6 +19,7 @@ export default function ContentEditorScaffold({
   sections,
   blocks,
   onCreateBlock,
+  onMoveBlockTo = null,
   onUpdateBlock,
   onDeleteBlock,
   onMoveBlock,
@@ -124,22 +126,34 @@ export default function ContentEditorScaffold({
     ? buildQuestions(sections, blocks)
     : { questions: [], partLabelByBlockId: {} };
 
-  // The add-question button row (prose/field/table + optional interactive).
+  // The add row at the foot of a section. ONE definition, used by both the
+  // question path and the section path — this markup existed twice until now,
+  // character-identical, which meant any change to it reached the assessment
+  // editor or the workbook editor but never both.
   function addBlockRow(sectionId) {
     return (
       <div className="add-block-row">
-        <button className="ghost" onClick={() => handleAdd(sectionId, 'prose')}>+ Add prose</button>
-        <button className="ghost" onClick={() => handleAdd(sectionId, 'field')}>+ Add field</button>
-        <button className="ghost" onClick={() => handleAdd(sectionId, 'table')}>+ Add table</button>
-        {allowInteractive && (
-          <>
-            <span className="add-block-divider" aria-hidden />
-            <button className="ghost" onClick={() => handleAdd(sectionId, 'fill_blank')}>+ Fill-in-the-blank</button>
-            <button className="ghost" onClick={() => handleAdd(sectionId, 'card_sort')}>+ Card sort</button>
-            <button className="ghost" onClick={() => handleAdd(sectionId, 'match_pairs')}>+ Match pairs</button>
-            <button className="ghost" onClick={() => handleAdd(sectionId, 'reorder')}>+ Reorder</button>
-          </>
-        )}
+        <AddBlockMenu
+          allowInteractive={allowInteractive}
+          onAdd={type => handleAdd(sectionId, type)}
+        />
+      </div>
+    );
+  }
+
+  // An insertion point BETWEEN two blocks. Hidden until the gap is hovered or
+  // something inside it takes focus, so the resting page is no busier than it
+  // was — but reachable by keyboard, which a hover-only control is not.
+  function insertPoint(sectionId, afterIndex) {
+    return (
+      <div className="block-insert">
+        <span className="block-insert-line" aria-hidden />
+        <AddBlockMenu
+          compact
+          allowInteractive={allowInteractive}
+          onAdd={type => handleAdd(sectionId, type, afterIndex)}
+        />
+        <span className="block-insert-line" aria-hidden />
       </div>
     );
   }
@@ -203,7 +217,9 @@ export default function ContentEditorScaffold({
     );
   }
 
-  async function handleAdd(sectionId, type) {
+  // afterIndex is null to append (the row at the foot of a section) or the
+  // index of the block to insert after.
+  async function handleAdd(sectionId, type, afterIndex = null) {
     let defaultConfig;
     if (type === 'prose') defaultConfig = { html: '<p>New prose block</p>' };
     else if (type === 'field') defaultConfig = { label: 'New field', input_type: 'short_text' };
@@ -232,7 +248,7 @@ export default function ContentEditorScaffold({
       prompt: 'Put these in the correct order',
       items: [{ id: newItemId(), text: 'First' }, { id: newItemId(), text: 'Second' }, { id: newItemId(), text: 'Third' }],
     };
-    await onCreateBlock(sectionId, type, defaultConfig);
+    await onCreateBlock(sectionId, type, defaultConfig, afterIndex);
   }
 
   return (
@@ -305,13 +321,28 @@ export default function ContentEditorScaffold({
                       )}
                     </div>
                   </div>
-                  {q.blocks.length === 0 && <p className="muted">Empty — add narration or a part below.</p>}
+                  {q.blocks.length === 0 && (
+                    <div className="block-empty">
+                      <div className="block-empty-title">Nothing in this question yet</div>
+                      <div className="block-empty-sub">
+                        Most questions open with a scenario, then what it asks.
+                      </div>
+                      <div className="block-empty-actions">
+                        <button className="addblock-chip" onClick={() => handleAdd(sec.id, 'prose')}>
+                          <span className="addblock-glyph" aria-hidden>¶</span> Add the scenario
+                        </button>
+                        <button className="addblock-chip" onClick={() => handleAdd(sec.id, 'field')}>
+                          <span className="addblock-glyph" aria-hidden>▭</span> Add a field
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="block-list">
                     {q.blocks.map((b, i) => {
                       const bHeat = heat?.byBlock?.get(b.id);
                       return (
+                      <Fragment key={b.id}>
                       <div
-                        key={b.id}
                         data-block-id={b.id}
                         ref={el => { editorBlockRefs.current[b.id] = el; }}
                         className={bHeat?.openSessions ? `heat-wrap heat-l${heatLevel(bHeat.openSessions)}` : undefined}
@@ -336,9 +367,12 @@ export default function ContentEditorScaffold({
                           onDuplicate={(blockId) => onDuplicateBlock(blockId)}
                           onMoveUp={() => onMoveBlock(b.id, 'up')}
                           onMoveDown={() => onMoveBlock(b.id, 'down')}
+                          onMoveTo={onMoveBlockTo}
                           onLocate={locateBlockInPreview}
                         />
                       </div>
+                      {i < q.blocks.length - 1 && insertPoint(sec.id, i)}
+                      </Fragment>
                       );
                     })}
                   </div>
@@ -347,7 +381,7 @@ export default function ContentEditorScaffold({
               );
             })}
             <div className="add-section-row">
-              <button className="ghost" onClick={() => onCreateSection(`Question ${qList.length + 1}`)}>
+              <button className="primary" onClick={() => onCreateSection(`Question ${qList.length + 1}`)}>
                 ➕ Add question
               </button>
               {extraAddSectionActions}
@@ -404,13 +438,28 @@ export default function ContentEditorScaffold({
                   )}
                 </div>
               </div>
-              {sectionBlocks.length === 0 && <p className="muted">No blocks yet.</p>}
+              {sectionBlocks.length === 0 && (
+                <div className="block-empty">
+                  <div className="block-empty-title">Nothing in this section yet</div>
+                  <div className="block-empty-sub">
+                    Start with the wording, then add what the participant fills in.
+                  </div>
+                  <div className="block-empty-actions">
+                    <button className="addblock-chip" onClick={() => handleAdd(sec.id, 'prose')}>
+                      <span className="addblock-glyph" aria-hidden>¶</span> Add prose
+                    </button>
+                    <button className="addblock-chip" onClick={() => handleAdd(sec.id, 'field')}>
+                      <span className="addblock-glyph" aria-hidden>▭</span> Add a field
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="block-list">
                 {sectionBlocks.map((b, i) => {
                   const bHeat = heat?.byBlock?.get(b.id);
                   return (
+                  <Fragment key={b.id}>
                   <div
-                    key={b.id}
                     data-block-id={b.id}
                     ref={el => { editorBlockRefs.current[b.id] = el; }}
                     className={bHeat?.openSessions ? `heat-wrap heat-l${heatLevel(bHeat.openSessions)}` : undefined}
@@ -433,32 +482,22 @@ export default function ContentEditorScaffold({
                       onDuplicate={(blockId) => onDuplicateBlock(blockId)}
                       onMoveUp={() => onMoveBlock(b.id, 'up')}
                       onMoveDown={() => onMoveBlock(b.id, 'down')}
+                      onMoveTo={onMoveBlockTo}
                       onLocate={locateBlockInPreview}
                     />
                   </div>
+                  {i < sectionBlocks.length - 1 && insertPoint(sec.id, i)}
+                  </Fragment>
                   );
                 })}
               </div>
-              <div className="add-block-row">
-                <button className="ghost" onClick={() => handleAdd(sec.id, 'prose')}>+ Add prose</button>
-                <button className="ghost" onClick={() => handleAdd(sec.id, 'field')}>+ Add field</button>
-                <button className="ghost" onClick={() => handleAdd(sec.id, 'table')}>+ Add table</button>
-                {allowInteractive && (
-                  <>
-                    <span className="add-block-divider" aria-hidden />
-                    <button className="ghost" onClick={() => handleAdd(sec.id, 'fill_blank')}>+ Fill-in-the-blank</button>
-                    <button className="ghost" onClick={() => handleAdd(sec.id, 'card_sort')}>+ Card sort</button>
-                    <button className="ghost" onClick={() => handleAdd(sec.id, 'match_pairs')}>+ Match pairs</button>
-                    <button className="ghost" onClick={() => handleAdd(sec.id, 'reorder')}>+ Reorder</button>
-                  </>
-                )}
-              </div>
+              {addBlockRow(sec.id)}
             </section>
           );
         })}
 
         <div className="add-section-row">
-          <button className="ghost" onClick={() => onCreateSection('New section')}>+ Add section</button>
+          <button className="primary" onClick={() => onCreateSection('New section')}>+ Add section</button>
           {extraAddSectionActions}
         </div>
         </>
