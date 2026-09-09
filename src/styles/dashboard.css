@@ -761,8 +761,22 @@
 /* Doubled class beats the global `button:hover:not(:disabled)` (--midnight),
    which would otherwise fill the header navy and hide the dark text. */
 .exresp-tile-head.exresp-tile-head:hover { background: #eef2f7; }
-.exresp-tile-head-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; flex: 1; }
-.exresp-tile-head-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+/* THE NAME MUST NEVER BE SQUEEZED OUT.
+   The right-hand side used to hold one pill; marking added the score pill and
+   the "to mark" pill beside it. With flex-shrink: 0 it took whatever width it
+   needed, the left side (flex: 1, min-width: 0) collapsed to nothing, and the
+   participant's name disappeared into an ellipsis with no room to render even
+   one character -- leaving a tile of answers with nobody's name on it.
+
+   So: the header wraps, and the left side reserves enough width to stay
+   readable. When the pills no longer fit beside a name, they drop to a second
+   line instead of evicting it. */
+.exresp-tile-head { flex-wrap: wrap; }
+.exresp-tile-head-left { display: flex; align-items: center; gap: 0.5rem; min-width: 9rem; flex: 1 1 auto; }
+.exresp-tile-head-right {
+  display: flex; align-items: center; flex-wrap: wrap;
+  justify-content: flex-end; gap: 0.4rem; flex: 0 1 auto;
+}
 .exresp-chevron { color: var(--muted); font-size: 0.75rem; width: 12px; }
 .exresp-tile-meta { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
 
