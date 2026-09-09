@@ -110,7 +110,6 @@
 .ld-meta th.narrow { width: 1%; }
 .ld-meta td { min-width: 6rem; }
 
-.ld-marks { color: #555; font-weight: 400; }
 
 /* Cells the app has no data for. An empty <td> collapses to nothing, so give
    it a height and a rule to write on — these are forms, and a blank line is

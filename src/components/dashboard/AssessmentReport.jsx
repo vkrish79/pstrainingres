@@ -224,7 +224,6 @@ function IndividualReport({ session, report, passMark }) {
             <th>Assessment Score</th>
             <td>
               {report.score.pct == null ? '' : `${report.score.pct}%`}
-              <span className="ld-marks"> ({report.score.earned} of {report.score.possible} marks)</span>
             </td>
             <th className="narrow">Result</th>
             <td className={verdict ? `result-${verdict.toLowerCase()}` : ''}>{verdict || ''}</td>
