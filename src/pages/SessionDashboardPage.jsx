@@ -25,6 +25,7 @@ import NoteRow from '../components/dashboard/NoteRow.jsx';
 import TrainerPracticeView from '../components/dashboard/TrainerPracticeView.jsx';
 import TrainerAssessmentPreview from '../components/dashboard/TrainerAssessmentPreview.jsx';
 import AssessmentResponses from '../components/dashboard/AssessmentResponses.jsx';
+import AssessmentReport from '../components/dashboard/AssessmentReport.jsx';
 import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -761,15 +762,30 @@ export default function SessionDashboardPage() {
               >
                 Preview
               </button>
+              <button
+                className={`view-subtab ${assessmentSubView === 'report' ? 'active' : ''}`}
+                onClick={() => setAssessmentSubView('report')}
+              >
+                Report
+              </button>
             </div>
-            {assessmentSubView === 'responses' ? (
+            {assessmentSubView === 'responses' && (
               <AssessmentResponses
                 sessionId={session?.id}
                 assessmentId={session?.assessment_id}
                 participants={participants}
               />
-            ) : (
+            )}
+            {assessmentSubView === 'preview' && (
               <TrainerAssessmentPreview assessmentId={session?.assessment_id} />
+            )}
+            {assessmentSubView === 'report' && (
+              <AssessmentReport
+                sessionId={session?.id}
+                assessmentId={session?.assessment_id}
+                participants={participants}
+                session={session}
+              />
             )}
           </div>
         )}

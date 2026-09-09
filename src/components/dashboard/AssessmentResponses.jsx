@@ -19,7 +19,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
   const {
     loading, error, sections, blocks, answers, answerKey, answerPoints, answerModes,
   } = useSessionAssessmentResponses(sessionId, assessmentId);
-  const { marks, setMark, clearMark, savingIds, error: marksError } = useAssessmentMarks(sessionId);
+  const { marks, setMark, setComment, clearMark, savingIds, error: marksError } = useAssessmentMarks(sessionId);
 
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
@@ -46,6 +46,13 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
     });
   }
 
+  // The reason behind a mark, saved against the mark itself. Requires one to
+  // exist first, which the marking controls enforce by only offering the box
+  // once something has been awarded.
+  function handleComment(participantId, blockId, text) {
+    return setComment(participantId, blockId, text);
+  }
+
   return (
     <>
       {marksError && <div className="error" style={{ padding: '0.5rem 1rem' }}>{marksError}</div>}
@@ -59,6 +66,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
         answerModes={answerModes}
         marks={marks}
         onMark={handleMark}
+        onComment={handleComment}
         markingIds={savingIds}
         showNotes={false}
         emptyLabel="No questions in this assessment yet."

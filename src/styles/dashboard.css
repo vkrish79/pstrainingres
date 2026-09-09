@@ -1469,6 +1469,7 @@
    is a third state, deliberately distinct from awarding zero. */
 .exresp-manual {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
   margin: 0.35rem 0 0.5rem;
@@ -1500,6 +1501,18 @@
   font-size: 0.72rem; text-decoration: underline; padding: 0 0.3rem;
 }
 .exresp-mark-by { font-size: 0.7rem; color: var(--muted); margin-left: auto; }
+
+/* Why the mark is what it is. Takes the full width of the marking row (hence
+   the wrap above) because a reason worth recording rarely fits beside the
+   buttons — and this text is what the participant actually reads on their
+   report, so it deserves room to be written properly. */
+.exresp-mark-comment { flex: 1 0 100%; display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.15rem; }
+.exresp-mark-comment-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+}
+.exresp-mark-comment .form-input {
+  width: 100%; font-size: 0.82rem; padding: 0.3rem 0.4rem; resize: vertical; min-height: 2.4rem;
+}
 
 .exresp-mark-unmarked, .exresp-block-unmarked { border-left: 3px solid var(--gold, #b5985a); }
 .exresp-mark.exresp-mark-unmarked { background: #faf3e4; color: var(--gold-dark, #8a5a00); }

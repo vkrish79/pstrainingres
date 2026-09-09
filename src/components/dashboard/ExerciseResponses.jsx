@@ -30,6 +30,7 @@ export default function ExerciseResponses({
   answerModes = null,
   marks = null,
   onMark = null,
+  onComment = null,
   markingIds = null,
 }) {
   const sectionsWithFillable = useMemo(() => {
@@ -298,6 +299,7 @@ export default function ExerciseResponses({
               answerModes={answerModes}
               marksForP={marks ? (marks[s.participant.id] || {}) : null}
               onMark={onMark}
+              onComment={onComment}
               markingIds={markingIds}
             />
           ))}
@@ -341,7 +343,7 @@ export default function ExerciseResponses({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, markingIds = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
@@ -416,6 +418,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
               answerModes={answerModes}
               markForBlock={marksForP ? marksForP[b.id] : null}
               onMark={onMark}
+              onComment={onComment}
               marking={markingIds ? markingIds.has(`${participant.id}:${b.id}`) : false}
             />
           ))}
@@ -426,7 +429,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   );
 }
 
-function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, marking = false }) {
+function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, marking = false }) {
   const value = entry?.value;
   const baseLabel = labelOf(block);
   const label = questionNumber != null ? `Q${questionNumber}. ${baseLabel}` : baseLabel;
@@ -467,10 +470,12 @@ function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNo
         <ManualMarkControls
           points={points}
           awarded={markForBlock?.awarded}
+          comment={markForBlock?.comment || ''}
           markedBy={markForBlock?.marked_by_name}
           busy={marking}
           onAward={n => onMark(participantId, block.id, n)}
           onClear={() => onMark(participantId, block.id, null)}
+          onComment={onComment ? text => onComment(participantId, block.id, text) : null}
         />
       )}
       {block.block_type === 'field' && <FieldRender label={label} value={value} />}
@@ -557,9 +562,25 @@ function relativeTime(ts) {
 // Three states, not two. A question nobody has judged yet is UNMARKED, which
 // is deliberately not the same as awarding zero — a half-marked paper must
 // read as unfinished rather than as a fail.
-function ManualMarkControls({ points, awarded, markedBy, busy, onAward, onClear }) {
+function ManualMarkControls({ points, awarded, comment = '', markedBy, busy, onAward, onClear, onComment = null }) {
   const [draft, setDraft] = useState('');
   const marked = awarded != null;
+  // The comment is a local draft until blur, like the part-marks box: saving
+  // on every keystroke would be a write per character.
+  const [note, setNote] = useState(comment);
+  // Re-sync when the stored comment changes underneath us (a reload, or
+  // switching which participant this tile is showing) — but never while the
+  // trainer is mid-sentence, which is what the focus check is for.
+  const noteRef = useRef(null);
+  useEffect(() => {
+    if (document.activeElement !== noteRef.current) setNote(comment);
+  }, [comment]);
+
+  function commitNote() {
+    const next = note.trim();
+    if (next === (comment || '').trim()) return; // nothing changed — no write
+    onComment(next);
+  }
 
   function commitDraft() {
     const n = Number(draft);
@@ -613,6 +634,26 @@ function ManualMarkControls({ points, awarded, markedBy, busy, onAward, onClear 
         </button>
       )}
       {markedBy && <span className="exresp-mark-by">by {markedBy}</span>}
+
+      {/* Why the mark is what it is. Only once something has been awarded:
+          awarded is NOT NULL, so there is no row to hang a comment on until
+          then, and a note with no judgement behind it would print in the
+          report under a question showing no score. */}
+      {marked && onComment && (
+        <label className="exresp-mark-comment">
+          <span className="exresp-mark-comment-label">Comment</span>
+          <textarea
+            ref={noteRef}
+            className="form-input"
+            rows={2}
+            placeholder="Why these marks? Appears on the participant's report."
+            value={note}
+            disabled={busy}
+            onChange={e => setNote(e.target.value)}
+            onBlur={commitNote}
+          />
+        </label>
+      )}
     </div>
   );
 }

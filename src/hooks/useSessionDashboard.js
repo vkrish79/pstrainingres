@@ -10,7 +10,7 @@ export function useSessionDashboard(sessionId) {
   const [workbook, setWorkbook] = useState(null);
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
-  const [participants, setParticipants] = useState([]);   // [{ id, full_name }]
+  const [participants, setParticipants] = useState([]);   // [{ id, full_name, email }]
   const [answers, setAnswers] = useState({});              // { [participantId]: { [blockId]: { value, updated_at } } }
   const [prepEnabled, setPrepEnabled] = useState(false);   // master workbook has a prep template
 
@@ -28,7 +28,7 @@ export function useSessionDashboard(sessionId) {
             workbooks ( id, title, description, template_id ),
             program:programs ( id, title, program_type:program_types ( id, name ) ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name ),
-            session_participants ( participant_id, profiles ( id, full_name ) )
+            session_participants ( participant_id, profiles ( id, full_name, email ) )
           `)
           .eq('id', sessionId)
           .single();
@@ -136,7 +136,7 @@ export function useSessionDashboard(sessionId) {
   async function refreshParticipants() {
     const { data, error: e } = await supabase
       .from('session_participants')
-      .select('profiles ( id, full_name )')
+      .select('profiles ( id, full_name, email )')
       .eq('session_id', sessionId);
     if (e) return { error: e };
     const parts = (data || [])

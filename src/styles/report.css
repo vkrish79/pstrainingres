@@ -1,0 +1,192 @@
+/* The printable assessment report.
+   Screen styles first, then the print rules that turn the same markup into a
+   document. There is deliberately no second rendering path: what the trainer
+   reviews on screen is what the browser prints, so a report cannot silently
+   print something other than what was checked. */
+
+.assessment-report {
+  padding: 1rem 0;
+}
+
+/* ── Controls (screen only) ───────────────────────────────────────────── */
+
+.report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--surface-2, #f6f7f9);
+  border: 1px solid var(--border, #e3e6ea);
+  border-radius: 10px;
+}
+
+.report-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; }
+
+.report-scope-opt {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+.report-scope-opt.active { font-weight: 700; }
+.report-scope-opt input { accent-color: var(--gold, #b8912f); }
+
+.report-picker { min-width: 14rem; }
+
+.report-warning {
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  border-left: 3px solid #d9a400;
+  background: #fff8e5;
+  color: #6b5200;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.92rem;
+}
+
+/* ── The document itself ──────────────────────────────────────────────── */
+
+.report-page {
+  background: #fff;
+  border: 1px solid var(--border, #e3e6ea);
+  border-radius: 10px;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.25rem;
+  color: #111;
+}
+
+.report-header { border-bottom: 2px solid #222; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+.report-header h2 { margin: 0 0 0.6rem; font-size: 1.25rem; }
+
+/* Label/value pairs as a two-column grid — reads as a form on screen and on
+   paper, and keeps every value on the same left edge. */
+.report-header dl,
+.report-participant dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.report-header dt,
+.report-participant dt { color: #555; font-weight: 500; }
+.report-header dd,
+.report-participant dd { margin: 0; }
+
+.report-participant {
+  padding: 0.85rem 0;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+.report-participant dl { font-size: 0.98rem; }
+.report-interim { color: #8a6d00; font-weight: 500; }
+
+.report-page h3 {
+  margin: 1.4rem 0 0.6rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #444;
+}
+
+.report-stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid #ddd;
+}
+.report-stat { display: flex; flex-direction: column; }
+.report-stat b { font-size: 1.5rem; line-height: 1.1; }
+.report-stat span { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.report-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.report-table th,
+.report-table td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+.report-table th { background: #f4f5f7; font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: #444; }
+.report-table td.num,
+.report-table th.num { text-align: right; white-space: nowrap; }
+.report-table .mono { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+
+.report-answer { margin-top: 0.2rem; font-size: 0.82rem; color: #666; font-style: italic; }
+.report-comment { color: #111; }
+.report-clean { color: #1d7a44; font-weight: 500; }
+
+/* ── Print ────────────────────────────────────────────────────────────── */
+
+@media print {
+  /* Everything that is not the report. The left rail and the dark app bar
+     arrived with the HUB shell and are NOT covered by print.css, which
+     predates them — without these two lines every page prints with a black
+     column down the side and a wasted top band. */
+  .sidenav,
+  .topbar,
+  .no-print,
+  .page-hero,
+  .view-tabs,
+  .assessment-subtabs,
+  .report-controls {
+    display: none !important;
+  }
+
+  /* The canvas is offset by the rail's width on screen. With the rail gone
+     that offset is just a blank margin down the left of every sheet. */
+  body.has-sidenav .page,
+  body.has-sidenav .topbar:not(.topbar--shell) { margin-left: 0 !important; }
+
+  body, .page, .page.dashboard {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .assessment-report { padding: 0 !important; }
+
+  /* One participant per sheet. This is what makes the cohort scope usable:
+     the single file it prints can be split into per-person handouts. */
+  .report-page {
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    page-break-after: always;
+    break-after: page;
+  }
+  .report-page:last-child { page-break-after: auto; break-after: auto; }
+
+  /* A table split across a page boundary loses its header, so keep each row
+     whole and repeat the header on every sheet a long table runs onto. */
+  .report-table { page-break-inside: auto; }
+  .report-table thead { display: table-header-group; }
+  .report-table tr { page-break-inside: avoid; break-inside: avoid; }
+
+  /* Backgrounds are dropped by default in print; these carry meaning, so ask
+     for them explicitly and keep a border as the fallback if the user has
+     background graphics turned off. */
+  .report-table th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border-bottom: 1.5px solid #333 !important;
+  }
+
+  /* The interim-total warning must survive onto paper. A printed report that
+     looks final while three questions are unmarked is the one genuinely
+     dangerous thing this feature could produce. */
+  .report-warning {
+    display: block !important;
+    border: 1px solid #8a6d00 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    margin-bottom: 0.75rem;
+  }
+
+  a[href]::after { content: none !important; }
+}
+
+/* Page margins and a footer are the browser's job, but the size is ours. */
+@page { size: A4 portrait; margin: 14mm 12mm; }
