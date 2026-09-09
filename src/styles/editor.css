@@ -140,7 +140,40 @@ button.danger:hover { background: #a83838; }
 .confirm-text { font-size: 0.85rem; color: var(--danger); margin-right: 0.25rem; max-width: 30rem; }
 
 .add-block-row { display: flex; gap: 0.5rem; margin-top: 0.85rem; }
-.add-section-row { margin: 0.5rem 0 1.25rem; }
+/* The row of section-level actions (Add section / Add question, plus whatever
+   the page adds beside it). It had NO LAYOUT AT ALL — just a margin — so the
+   buttons were inline boxes sitting on a text baseline, separated by whitespace
+   text nodes rather than a gap. Two consequences, both visible: buttons of
+   different heights lined up on their baselines instead of their centres, and
+   the spacing between them depended on how the JSX happened to be formatted. */
+.add-section-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1.25rem;
+}
+
+/* An emoji has a taller line box than plain text at line-height: normal, so a
+   button labelled with one stood 2px taller than its neighbours even after the
+   borders and padding were made to match. Pin the line height so the glyph
+   cannot set the button's height. */
+.add-section-row button { line-height: 1.35; }
+
+/* .primary was an INERT CLASS. Nothing defined it anywhere — it looked right
+   only because the base "button" rule is already the midnight fill, and
+   "button.ghost" is what opts out of that. A class that appears to work while
+   doing nothing is a trap for whoever edits it next, so state it properly.
+
+   The transparent border is the part that matters here: base "button" sets
+   border: none while "button.ghost" adds 1px, so a primary button and a ghost
+   button sitting side by side differed in height by 2px. Now they match. */
+button.primary {
+  background: var(--midnight);
+  color: #fff;
+  border: 1px solid transparent;
+}
+button.primary:hover:where(:not(:disabled)) { background: var(--midnight-hover); }
 
 .editor-section-head {
   display: flex;
