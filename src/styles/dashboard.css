@@ -1521,3 +1521,11 @@
   color: var(--gold-dark, #8a5a00); background: #faf3e4;
   border-radius: 999px; padding: 0.15rem 0.5rem;
 }
+
+/* Pass mark, in the assessment editor. Blank is a real value here — it means
+   nobody has decided what a pass is — so the hint spells out which state the
+   field is in rather than leaving an empty box to be read as an oversight. */
+.pass-mark-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.pass-mark-input { width: 5.5rem; }
+.pass-mark-suffix { font-weight: 600; color: var(--muted); }
+.pass-mark-hint { font-size: 0.82rem; margin-left: 0.35rem; }

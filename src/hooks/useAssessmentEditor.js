@@ -22,6 +22,13 @@ export function useAssessmentEditor(assessmentId) {
     (description) => ce.updateParentField({ description }),
     [ce],
   );
+  // The score at or above which a participant passes, as a percentage.
+  // NULL means nobody has decided, which the report prints as a blank Result
+  // rather than as a fail — see 20260913000000_assessment_pass_mark.sql.
+  const updateAssessmentPassMark = useCallback(
+    (passMark) => ce.updateParentField({ pass_mark: passMark }),
+    [ce],
+  );
 
   return {
     loading: ce.loading,
@@ -31,6 +38,7 @@ export function useAssessmentEditor(assessmentId) {
     blocks: ce.blocks,
     updateAssessmentTitle,
     updateAssessmentDescription,
+    updateAssessmentPassMark,
     createBlock: ce.createBlock,
     updateBlock: ce.updateBlock,
     deleteBlock: ce.deleteBlock,

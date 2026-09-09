@@ -1,29 +1,35 @@
 import { useMemo, useState } from 'react';
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
+import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
 import { buildCohortReport } from '../../lib/assessmentReport.js';
 import '../../styles/report.css';
 
-// The printable outcome of a marked assessment: who sat it, how they did, and
-// exactly where they went wrong — with the trainer's own comment against each
-// question they lost marks on.
+// The L&D Training Report, in the two shapes the business already uses:
+// "L&D Training Report (GRP)" for a cohort and "(IND)" for one person. The
+// table structure, field labels and footnote below are transcribed from those
+// documents so a printed page drops into the existing filing unchanged.
 //
-// PRINTING, NOT PDF GENERATION. This is the same window.print() route the
-// participant workbook and the closed-session view already use ("Print /
-// Download PDF"), and the browser's own print dialogue is what writes the PDF.
-// No PDF library, one rendering path, and what you see on screen is what comes
-// out — see print.css for the print rules.
+// PRINTING, NOT PDF GENERATION. Same window.print() route as the participant
+// workbook and closed-session views, so there is one rendering path and what
+// is reviewed on screen is what comes out.
 //
-// TWO SCOPES, ONE DOCUMENT AT A TIME. One print call produces one file, so
-// "individual report for every staff" is a picker plus a print rather than a
-// button that emits N files at once: choose a person, print, repeat. The
-// cohort scope prints everybody as one document with each participant starting
-// on a fresh page.
+// WHAT THE TWO REPORTS DELIBERATELY DO NOT SHARE:
+// the group report carries NO areas of error. A cohort sheet is a roster with
+// scores on it, circulated more widely than any individual's paper, and
+// listing what each named person got wrong on it would turn a summary into a
+// disclosure. Individual reports keep the error detail.
+//
+// FIELDS THE SYSTEM DOES NOT HOLD -- Staff №, Role, Team, Assessment № -- print
+// as blank ruled cells to be completed by hand. That is faithful to the source
+// documents, which are forms with empty cells, and it beats inventing data or
+// dropping rows the filing expects to see.
 export default function AssessmentReport({ sessionId, assessmentId, participants, session }) {
   const {
     loading, error, sections, blocks, answers, answerKey, answerPoints, answerModes,
   } = useSessionAssessmentResponses(sessionId, assessmentId);
   const { marks, error: marksError } = useAssessmentMarks(sessionId);
+  const { passMark } = useAssessmentPassMark(assessmentId);
 
   const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
   const [selectedId, setSelectedId] = useState('');
@@ -39,15 +45,9 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
 
   const chosen = cohort.reports.find(r => r.participant.id === selectedId) || cohort.reports[0] || null;
-  const shown = scope === 'individual' && chosen ? [chosen] : cohort.reports;
-
-  // The banner has to describe what is actually being printed: in individual
-  // scope the cohort's outstanding count would be alarming and irrelevant.
   const outstanding = scope === 'individual'
     ? (chosen?.unmarked.length || 0)
     : cohort.totalUnmarked;
-
-  const printedOn = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <div className="assessment-report">
@@ -56,23 +56,13 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
       <div className="report-controls no-print">
         <div className="report-scope">
           <label className={`report-scope-opt ${scope === 'cohort' ? 'active' : ''}`}>
-            <input
-              type="radio"
-              name="report-scope"
-              checked={scope === 'cohort'}
-              onChange={() => setScope('cohort')}
-            />
-            Whole cohort
+            <input type="radio" name="report-scope" checked={scope === 'cohort'} onChange={() => setScope('cohort')} />
+            Group (GRP)
             <span className="muted"> — {cohort.reports.length} participant{cohort.reports.length === 1 ? '' : 's'}, one file</span>
           </label>
           <label className={`report-scope-opt ${scope === 'individual' ? 'active' : ''}`}>
-            <input
-              type="radio"
-              name="report-scope"
-              checked={scope === 'individual'}
-              onChange={() => setScope('individual')}
-            />
-            Individual
+            <input type="radio" name="report-scope" checked={scope === 'individual'} onChange={() => setScope('individual')} />
+            Individual (IND)
           </label>
           {scope === 'individual' && (
             <select
@@ -88,28 +78,29 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
             </select>
           )}
         </div>
-
         <div className="report-actions">
-          <button
-            type="button"
-            className="primary"
-            onClick={() => window.print()}
-            disabled={shown.length === 0}
-          >
+          <button type="button" className="primary" onClick={() => window.print()} disabled={cohort.reports.length === 0}>
             ↓ Print / Download PDF
           </button>
         </div>
       </div>
 
-      {/* Marking still outstanding is stated, never hidden, and never blocks
-          the print. A trainer may legitimately want an interim report — what
-          they must not do is hand someone a total that looks final when three
-          questions have not been judged yet. */}
+      {/* Kept from the previous report and deliberately not dropped in the
+          redesign: a total that looks final while questions are unmarked is
+          the one genuinely damaging thing this can print. The source template
+          has no row for it, so it sits above the sheet rather than inside it. */}
       {outstanding > 0 && (
         <div className="report-warning">
           ✋ {outstanding} question{outstanding === 1 ? '' : 's'} still to mark by hand
           {scope === 'individual' ? ' for this participant' : ' across the cohort'}.
-          Totals below are interim until they are marked.
+          Scores below are interim, and Result stays blank until marking is finished.
+        </div>
+      )}
+
+      {passMark == null && (
+        <div className="report-warning no-print">
+          No pass mark is set for this assessment, so Result prints blank.
+          Set one in the assessment editor.
         </div>
       )}
 
@@ -118,144 +109,212 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
       )}
 
       {scope === 'cohort' && cohort.reports.length > 0 && (
-        <section className="report-page report-summary">
-          <ReportHeader session={session} printedOn={printedOn} title="Assessment report — cohort summary" />
-          <div className="report-stat-strip">
-            <div className="report-stat"><b>{cohort.reports.length}</b><span>Participants</span></div>
-            <div className="report-stat"><b>{cohort.questionCount}</b><span>Questions</span></div>
-            <div className="report-stat"><b>{cohort.avgPct == null ? '—' : `${cohort.avgPct}%`}</b><span>Average score</span></div>
-            <div className="report-stat"><b>{cohort.totalUnmarked}</b><span>Still to mark</span></div>
-          </div>
-
-          <h3>Results</h3>
-          <table className="report-table">
-            <thead>
-              <tr><th>Name</th><th>Username</th><th className="num">Score</th><th className="num">%</th><th className="num">Errors</th></tr>
-            </thead>
-            <tbody>
-              {cohort.reports.map(r => (
-                <tr key={r.participant.id}>
-                  <td>{r.participant.full_name || '(unnamed)'}</td>
-                  <td className="mono">{r.username || '—'}</td>
-                  <td className="num">{r.score.earned}/{r.score.possible}</td>
-                  <td className="num">{r.score.pct == null ? '—' : `${r.score.pct}%`}</td>
-                  <td className="num">{r.errors.length}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Ordered by how many people got it wrong, not by question number:
-              this table exists to decide what to go over in the debrief. */}
-          {cohort.commonErrors.length > 0 && (
-            <>
-              <h3>Most-missed questions</h3>
-              <table className="report-table">
-                <thead>
-                  <tr><th>Q</th><th>Question</th><th className="num">Got it wrong</th></tr>
-                </thead>
-                <tbody>
-                  {cohort.commonErrors.map(e => (
-                    <tr key={e.blockId}>
-                      <td className="mono">{e.label}</td>
-                      <td>{e.title}</td>
-                      <td className="num">{e.count} of {cohort.reports.length}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </section>
+        <GroupReport session={session} cohort={cohort} passMark={passMark} />
       )}
 
-      {shown.map(r => (
-        <section className="report-page" key={r.participant.id}>
-          <ReportHeader session={session} printedOn={printedOn} title="Assessment report" />
-
-          <div className="report-participant">
-            <dl>
-              <dt>Name</dt><dd>{r.participant.full_name || '(unnamed)'}</dd>
-              <dt>Username</dt><dd className="mono">{r.username || '—'}</dd>
-              <dt>Result</dt>
-              <dd>
-                <b>{r.score.earned} of {r.score.possible} marks</b>
-                {r.score.pct != null && <> · {r.score.pct}%</>}
-                {r.unmarked.length > 0 && <span className="report-interim"> (interim — {r.unmarked.length} still to mark)</span>}
-              </dd>
-            </dl>
-          </div>
-
-          <h3>Areas of error</h3>
-          {r.errors.length === 0 ? (
-            <p className="report-clean">No marks lost{r.unmarked.length > 0 ? ' on the questions marked so far' : ''}.</p>
-          ) : (
-            <table className="report-table report-errors">
-              <thead>
-                <tr><th>Q</th><th>Question</th><th className="num">Marks</th><th>Comment</th></tr>
-              </thead>
-              <tbody>
-                {r.errors.map(e => (
-                  <tr key={e.blockId}>
-                    <td className="mono">{e.label}</td>
-                    <td>
-                      {e.title}
-                      {e.answerText && <div className="report-answer">Answered: {e.answerText}</div>}
-                    </td>
-                    <td className="num">{e.earned}/{e.possible}</td>
-                    <td>
-                      {e.comment
-                        ? <span className="report-comment">{e.comment}</span>
-                        : <span className="muted">{e.manual ? '—' : 'Auto-marked'}</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {r.unmarked.length > 0 && (
-            <>
-              <h3>Still to mark</h3>
-              <table className="report-table">
-                <thead><tr><th>Q</th><th>Question</th><th className="num">Worth</th></tr></thead>
-                <tbody>
-                  {r.unmarked.map(u => (
-                    <tr key={u.blockId}>
-                      <td className="mono">{u.label}</td>
-                      <td>{u.title}</td>
-                      <td className="num">{u.possible}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </section>
-      ))}
+      {scope === 'individual' && chosen && (
+        <IndividualReport session={session} report={chosen} passMark={passMark} />
+      )}
     </div>
   );
 }
 
-function ReportHeader({ session, printedOn, title }) {
+// ── L&D Training Report (GRP) ───────────────────────────────────────────────
+function GroupReport({ session, cohort, passMark }) {
+  // The source document rules 16 rows whether or not they are used, so the
+  // sheet looks the same however many people sat the paper.
+  const MIN_ROWS = 16;
+  const rows = [...cohort.reports];
+  const blanks = Math.max(0, MIN_ROWS - rows.length);
+
   return (
-    <header className="report-header">
-      <h2>{title}</h2>
-      <dl>
-        <dt>Session</dt><dd>{session?.name || '—'}</dd>
-        {session?.program?.title && <><dt>Programme</dt><dd>{session.program.title}</dd></>}
-        <dt>Dates</dt><dd>{formatRange(session?.starts_at, session?.ends_at)}</dd>
-        {session?.trainer?.full_name && <><dt>Trainer</dt><dd>{session.trainer.full_name}</dd></>}
-        {session?.city_code && <><dt>Location</dt><dd>{session.city_code}</dd></>}
-        <dt>Printed</dt><dd>{printedOn}</dd>
-      </dl>
-    </header>
+    <section className="report-page ld-report">
+      <ReportTitle>L&amp;D Training Report</ReportTitle>
+
+      <table className="ld-meta">
+        <tbody>
+          <tr>
+            <th>Team &amp; Location</th><td className="fill-in" />
+            <th className="narrow">City</th><td>{session?.city_code || <span className="fill-in-inline" />}</td>
+          </tr>
+          <tr>
+            <th>Program Title</th><td colSpan={3}>{session?.program?.title || session?.name || ''}</td>
+          </tr>
+          <tr>
+            <th>Dates &amp; Assessment №</th><td>{formatRange(session?.starts_at, session?.ends_at)}</td>
+            <th className="narrow">№</th><td className="fill-in" />
+          </tr>
+          <tr>
+            <th>Facilitator &amp; Staff №</th><td>{session?.trainer?.full_name || ''}</td>
+            <th className="narrow">№</th><td className="fill-in" />
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 className="ld-heading">Assessment Summary</h3>
+      <table className="ld-table">
+        <thead>
+          <tr>
+            <th className="col-sr">Sr</th>
+            <th className="col-staff">Staff №</th>
+            <th>Full Name</th>
+            <th className="col-role">Role</th>
+            <th className="col-score">Score (%)</th>
+            <th className="col-result">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const verdict = resultOf(r.score, passMark, r.unmarked.length);
+            return (
+              <tr key={r.participant.id}>
+                <td className="col-sr">{i + 1}</td>
+                <td className="col-staff fill-in" />
+                <td>{r.participant.full_name || '(unnamed)'}</td>
+                <td className="col-role fill-in" />
+                <td className="col-score">{r.score.pct == null ? '' : `${r.score.pct}%`}</td>
+                <td className={`col-result ${verdict ? `result-${verdict.toLowerCase()}` : ''}`}>{verdict || ''}</td>
+              </tr>
+            );
+          })}
+          {/* Ruled but empty, so the printed sheet matches the source form. */}
+          {Array.from({ length: blanks }, (_, i) => (
+            <tr key={`blank-${i}`} className="ld-blank-row">
+              <td className="col-sr">{rows.length + i + 1}</td>
+              <td className="col-staff" /><td /><td className="col-role" />
+              <td className="col-score" /><td className="col-result" />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <FacilitatorComments />
+      <ReportFootnote />
+    </section>
   );
 }
 
+// ── L&D Training Report (IND) ───────────────────────────────────────────────
+function IndividualReport({ session, report, passMark }) {
+  const verdict = resultOf(report.score, passMark, report.unmarked.length);
+
+  return (
+    <section className="report-page ld-report">
+      <ReportTitle>L&amp;D Training Report</ReportTitle>
+
+      <table className="ld-meta">
+        <tbody>
+          <tr>
+            <th>Name &amp; Staff №</th><td>{report.participant.full_name || '(unnamed)'}</td>
+            <th className="narrow">№:</th><td className="fill-in" />
+          </tr>
+          <tr>
+            <th>Program Title &amp; Date</th>
+            <td colSpan={3}>
+              {session?.program?.title || session?.name || ''}
+              {' — '}
+              {formatRange(session?.starts_at, session?.ends_at)}
+            </td>
+          </tr>
+          <tr>
+            <th>Facilitator &amp; Staff №</th><td>{session?.trainer?.full_name || ''}</td>
+            <th className="narrow">№:</th><td className="fill-in" />
+          </tr>
+          <tr>
+            <th>Assessment Score</th>
+            <td>
+              {report.score.pct == null ? '' : `${report.score.pct}%`}
+              <span className="ld-marks"> ({report.score.earned} of {report.score.possible} marks)</span>
+            </td>
+            <th className="narrow">Result</th>
+            <td className={verdict ? `result-${verdict.toLowerCase()}` : ''}>{verdict || ''}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 className="ld-heading">Assessment Feedback</h3>
+      <table className="ld-table ld-feedback">
+        <tbody>
+          <tr>
+            <th className="ld-feedback-label">Areas of Error</th>
+            <td>
+              {report.errors.length === 0 ? (
+                <p className="ld-clean">
+                  No marks lost{report.unmarked.length > 0 ? ' on the questions marked so far' : ''}.
+                </p>
+              ) : (
+                <ol className="ld-error-list">
+                  {report.errors.map(e => (
+                    <li key={e.blockId}>
+                      {/* "Question – 01: (title)", the numbering the source
+                          document uses. The question's own label is kept so it
+                          matches the paper the participant sat. */}
+                      <span className="ld-error-q">Question – {pad(e.label)}:</span>{' '}
+                      <span className="ld-error-title">({e.title})</span>
+                      <span className="ld-error-marks">{e.earned}/{e.possible}</span>
+                      {e.comment && <div className="ld-error-comment">{e.comment}</div>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {report.unmarked.length > 0 && (
+                <p className="ld-pending">
+                  {report.unmarked.length} question{report.unmarked.length === 1 ? '' : 's'} still
+                  to mark: {report.unmarked.map(u => u.label).join(', ')}.
+                </p>
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <FacilitatorComments />
+      <ReportFootnote />
+    </section>
+  );
+}
+
+// ── shared furniture ────────────────────────────────────────────────────────
+
+function ReportTitle({ children }) {
+  return <h2 className="ld-title">{children}</h2>;
+}
+
+// The source documents put the facilitator's written comments in a ruled box.
+// Nothing in the system captures them yet, so it prints "No comments" rather
+// than an empty box that reads as an oversight.
+function FacilitatorComments() {
+  return (
+    <>
+      <h3 className="ld-heading">
+        Facilitator Comments<sup className="ld-footnote-ref">1</sup>
+      </h3>
+      <div className="ld-comments-box">No comments</div>
+    </>
+  );
+}
+
+function ReportFootnote() {
+  return (
+    <p className="ld-footnote">
+      <sup>1</sup> Note: Ratings &amp; comments noted by the facilitator are based on the
+      assessment, observation and interaction with staff while they are in the classroom
+      for the duration of the training program.
+    </p>
+  );
+}
+
+// "3" -> "03", "3(b)" -> "03(b)". Matches the source document's two-digit
+// question numbering without disturbing a part letter.
+function pad(label) {
+  const s = String(label ?? '');
+  const m = s.match(/^(\d+)(.*)$/);
+  return m ? m[1].padStart(2, '0') + m[2] : s;
+}
+
 function formatRange(a, b) {
-  if (!a && !b) return '—';
-  const f = d => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (!a && !b) return '';
+  const f = d => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   if (a && b && a !== b) return `${f(a)} – ${f(b)}`;
   return f(a || b);
 }

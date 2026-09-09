@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 // Generalized content-editor state for any parent-with-sections-with-blocks
@@ -48,10 +48,34 @@ export function useContentEditor(kindConfig, parentId) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Mirrors `parent` so updateParentField can roll back to the last known
+  // saved row without taking `parent` as a dependency.
+  const parentRef = useRef(null);
+  useEffect(() => { parentRef.current = parent; }, [parent]);
+
   const updateParentField = useCallback(async (patch) => {
+    const before = parentRef.current;
     setParent(p => p ? { ...p, ...patch } : p);
-    await supabase.from(parentTable).update(patch).eq('id', parentId);
-  }, [parentId, parentTable]);
+
+    // .select() is not decoration. A blocked update returns 200 with no error
+    // and zero rows, so without reading the row back a refusal is
+    // indistinguishable from a success — the field shows the new value, and
+    // the old one comes back on the next reload with nothing explaining why.
+    const { data, error: saveErr } = await supabase
+      .from(parentTable).update(patch).eq('id', parentId).select('id');
+
+    if (saveErr || !data || data.length === 0) {
+      // Put back what was actually stored rather than leaving the optimistic
+      // value on screen claiming to be saved.
+      if (before) setParent(before);
+      const msg = saveErr?.message
+        || 'That change was not saved — you may not have permission to edit this.';
+      setError(msg);
+      return { error: new Error(msg) };
+    }
+    setError(null);
+    return {};
+  }, [parentTable, parentId]);
 
   const createBlock = useCallback(async (sectionId, blockType, config = {}) => {
     const sectionBlocks = blocks.filter(b => b.section_id === sectionId);

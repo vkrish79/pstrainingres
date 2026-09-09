@@ -1,10 +1,17 @@
-/* The printable assessment report.
-   Screen styles first, then the print rules that turn the same markup into a
-   document. There is deliberately no second rendering path: what the trainer
-   reviews on screen is what the browser prints, so a report cannot silently
-   print something other than what was checked. */
+/* The L&D Training Report — screen styles first, then the print rules that
+   turn the same markup into the document. There is deliberately no second
+   rendering path, so a report cannot print something other than what was
+   reviewed on screen.
+
+   Palette is the app's own (index.css): midnight for structure, gold for
+   section headings, qasr for row banding. */
 
 .assessment-report {
+  --ld-midnight: var(--midnight, #1e3c5a);
+  --ld-gold: var(--gold, #b5985a);
+  --ld-gold-dark: var(--gold-dark, #8b7342);
+  --ld-qasr: var(--qasr, #c9bea6);
+  --ld-rule: #b9b3a6;
   padding: 1rem 0;
 }
 
@@ -18,8 +25,9 @@
   justify-content: space-between;
   padding: 0.85rem 1rem;
   margin-bottom: 1rem;
-  background: var(--surface-2, #f6f7f9);
-  border: 1px solid var(--border, #e3e6ea);
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e5e2dc);
+  border-left: 3px solid var(--ld-gold);
   border-radius: 10px;
 }
 
@@ -32,96 +40,179 @@
   cursor: pointer;
   font-weight: 500;
 }
-.report-scope-opt.active { font-weight: 700; }
-.report-scope-opt input { accent-color: var(--gold, #b8912f); }
+.report-scope-opt.active { font-weight: 700; color: var(--ld-midnight); }
+.report-scope-opt input { accent-color: var(--ld-gold); }
 
 .report-picker { min-width: 14rem; }
 
 .report-warning {
   padding: 0.6rem 0.9rem;
   margin-bottom: 1rem;
-  border-left: 3px solid #d9a400;
-  background: #fff8e5;
+  border-left: 3px solid var(--ld-gold-dark);
+  background: #faf3e4;
   color: #6b5200;
   border-radius: 0 6px 6px 0;
   font-size: 0.92rem;
 }
 
-/* ── The document itself ──────────────────────────────────────────────── */
+/* ── The document ─────────────────────────────────────────────────────── */
 
 .report-page {
   background: #fff;
-  border: 1px solid var(--border, #e3e6ea);
+  border: 1px solid var(--border, #e5e2dc);
   border-radius: 10px;
-  padding: 1.5rem 1.75rem;
+  padding: 1.75rem 2rem;
   margin-bottom: 1.25rem;
   color: #111;
 }
 
-.report-header { border-bottom: 2px solid #222; padding-bottom: 0.75rem; margin-bottom: 1rem; }
-.report-header h2 { margin: 0 0 0.6rem; font-size: 1.25rem; }
+.ld-report { font-size: 0.9rem; }
 
-/* Label/value pairs as a two-column grid — reads as a form on screen and on
-   paper, and keeps every value on the same left edge. */
-.report-header dl,
-.report-participant dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.2rem 1rem;
-  margin: 0;
-  font-size: 0.9rem;
+.ld-title {
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  font-size: 1.3rem;
+  letter-spacing: 0.02em;
+  color: var(--ld-midnight);
+  border-bottom: 3px solid var(--ld-gold);
 }
-.report-header dt,
-.report-participant dt { color: #555; font-weight: 500; }
-.report-header dd,
-.report-participant dd { margin: 0; }
 
-.report-participant {
-  padding: 0.85rem 0;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid #ddd;
-}
-.report-participant dl { font-size: 0.98rem; }
-.report-interim { color: #8a6d00; font-weight: 500; }
-
-.report-page h3 {
-  margin: 1.4rem 0 0.6rem;
-  font-size: 1rem;
+.ld-heading {
+  margin: 1.4rem 0 0.5rem;
+  font-size: 0.85rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #444;
+  letter-spacing: 0.08em;
+  color: var(--ld-gold-dark);
+  font-weight: 700;
 }
 
-.report-stat-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.75rem;
-  padding: 0.9rem 0;
-  border-bottom: 1px solid #ddd;
+/* Header block — the identity fields at the top of both templates. */
+.ld-meta,
+.ld-table {
+  width: 100%;
+  border-collapse: collapse;
 }
-.report-stat { display: flex; flex-direction: column; }
-.report-stat b { font-size: 1.5rem; line-height: 1.1; }
-.report-stat span { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
 
-.report-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.report-table th,
-.report-table td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
-.report-table th { background: #f4f5f7; font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: #444; }
-.report-table td.num,
-.report-table th.num { text-align: right; white-space: nowrap; }
-.report-table .mono { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.ld-meta th,
+.ld-meta td {
+  border: 1px solid var(--ld-rule);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: middle;
+}
+.ld-meta th {
+  background: var(--ld-qasr);
+  color: #2b2415;
+  font-weight: 700;
+  white-space: nowrap;
+  width: 1%;
+}
+.ld-meta th.narrow { width: 1%; }
+.ld-meta td { min-width: 6rem; }
 
-.report-answer { margin-top: 0.2rem; font-size: 0.82rem; color: #666; font-style: italic; }
-.report-comment { color: #111; }
-.report-clean { color: #1d7a44; font-weight: 500; }
+.ld-marks { color: #555; font-weight: 400; }
+
+/* Cells the app has no data for. An empty <td> collapses to nothing, so give
+   it a height and a rule to write on — these are forms, and a blank line is
+   the correct output, not a defect. */
+.fill-in { background: repeating-linear-gradient(transparent, transparent); }
+.fill-in::after,
+.fill-in-inline::after {
+  content: '';
+  display: block;
+  min-height: 1.1em;
+  border-bottom: 1px dotted var(--ld-rule);
+}
+.fill-in-inline { display: block; min-width: 5rem; }
+
+/* Summary / feedback tables */
+.ld-table th,
+.ld-table td {
+  border: 1px solid var(--ld-rule);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.ld-table thead th {
+  background: var(--ld-midnight);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+/* Banding makes a 16-row roster readable across a printed page. */
+.ld-table tbody tr:nth-child(even) { background: #f7f5f0; }
+
+.ld-table .col-sr { width: 2.5rem; text-align: center; }
+.ld-table .col-staff { width: 7rem; }
+.ld-table .col-role { width: 8rem; }
+.ld-table .col-score { width: 5.5rem; text-align: right; white-space: nowrap; }
+.ld-table .col-result { width: 5rem; text-align: center; font-weight: 700; }
+
+.ld-blank-row td { height: 1.55rem; color: var(--muted, #8a8a8a); }
+.ld-blank-row .col-sr { color: var(--muted, #8a8a8a); font-weight: 400; }
+
+.result-pass { color: #1d7a44; font-weight: 700; }
+.result-fail { color: #a5342a; font-weight: 700; }
+
+/* Individual: the Areas of Error block */
+.ld-feedback .ld-feedback-label {
+  width: 9rem;
+  background: var(--ld-qasr);
+  color: #2b2415;
+  font-weight: 700;
+  vertical-align: top;
+}
+.ld-error-list { margin: 0; padding-left: 1.4rem; }
+.ld-error-list li { margin-bottom: 0.55rem; }
+.ld-error-list li:last-child { margin-bottom: 0; }
+.ld-error-q { font-weight: 700; color: var(--ld-midnight); }
+.ld-error-title { color: #333; }
+.ld-error-marks {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.02rem 0.4rem;
+  border: 1px solid var(--ld-rule);
+  border-radius: 3px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.ld-error-comment {
+  margin-top: 0.15rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--ld-gold);
+  color: #333;
+}
+.ld-clean { margin: 0; color: #1d7a44; font-weight: 500; }
+.ld-pending { margin: 0.6rem 0 0; color: #6b5200; font-size: 0.85rem; }
+
+/* Facilitator comments box + the template's footnote */
+.ld-comments-box {
+  border: 1px solid var(--ld-rule);
+  border-top: 2px solid var(--ld-gold);
+  min-height: 4.5rem;
+  padding: 0.6rem;
+  color: var(--muted, #8a8a8a);
+  font-style: italic;
+}
+.ld-footnote-ref { color: var(--ld-gold-dark); font-weight: 700; }
+.ld-footnote {
+  margin: 1rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--ld-rule);
+  font-size: 0.72rem;
+  color: #555;
+  line-height: 1.45;
+}
 
 /* ── Print ────────────────────────────────────────────────────────────── */
 
 @media print {
-  /* Everything that is not the report. The left rail and the dark app bar
-     arrived with the HUB shell and are NOT covered by print.css, which
-     predates them — without these two lines every page prints with a black
-     column down the side and a wasted top band. */
+  /* Everything that is not the report. The left rail and dark app bar came
+     with the HUB shell and are NOT covered by print.css, which predates them —
+     without these the sheet prints with a black column down the side. */
   .sidenav,
   .topbar,
   .no-print,
@@ -132,7 +223,7 @@
     display: none !important;
   }
 
-  /* The canvas is offset by the rail's width on screen. With the rail gone
+  /* The canvas is offset by the rail's width on screen; with the rail gone
      that offset is just a blank margin down the left of every sheet. */
   body.has-sidenav .page,
   body.has-sidenav .topbar:not(.topbar--shell) { margin-left: 0 !important; }
@@ -144,11 +235,8 @@
     padding: 0 !important;
     max-width: none !important;
   }
-
   .assessment-report { padding: 0 !important; }
 
-  /* One participant per sheet. This is what makes the cohort scope usable:
-     the single file it prints can be split into per-person handouts. */
   .report-page {
     border: none !important;
     border-radius: 0 !important;
@@ -159,27 +247,38 @@
   }
   .report-page:last-child { page-break-after: auto; break-after: auto; }
 
-  /* A table split across a page boundary loses its header, so keep each row
-     whole and repeat the header on every sheet a long table runs onto. */
-  .report-table { page-break-inside: auto; }
-  .report-table thead { display: table-header-group; }
-  .report-table tr { page-break-inside: avoid; break-inside: avoid; }
+  /* A table split across a page boundary loses its header, so repeat it and
+     keep each row whole. */
+  .ld-table { page-break-inside: auto; }
+  .ld-table thead { display: table-header-group; }
+  .ld-table tr, .ld-meta tr { page-break-inside: avoid; break-inside: avoid; }
+  .ld-error-list li { page-break-inside: avoid; break-inside: avoid; }
 
-  /* Backgrounds are dropped by default in print; these carry meaning, so ask
-     for them explicitly and keep a border as the fallback if the user has
-     background graphics turned off. */
-  .report-table th {
+  /* Fills carry meaning here (midnight header row, qasr label cells, banding),
+     and print drops backgrounds by default. Ask for them explicitly and keep
+     a border so the table still reads if the user has background graphics
+     switched off — white-on-midnight in particular is unreadable without it. */
+  .ld-table thead th,
+  .ld-meta th,
+  .ld-feedback .ld-feedback-label,
+  .ld-table tbody tr:nth-child(even) {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    border-bottom: 1.5px solid #333 !important;
+  }
+  .ld-table thead th { border: 1px solid #16293c !important; }
+
+  .ld-title, .ld-heading, .ld-error-q, .result-pass, .result-fail {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  /* The interim-total warning must survive onto paper. A printed report that
-     looks final while three questions are unmarked is the one genuinely
-     dangerous thing this feature could produce. */
-  .report-warning {
+  /* The interim warning must survive onto paper — a printed report that looks
+     final while questions are unmarked is the one genuinely dangerous thing
+     this feature could produce. Its screen-only twin (the missing pass mark
+     notice) carries .no-print and is hidden above. */
+  .report-warning:not(.no-print) {
     display: block !important;
-    border: 1px solid #8a6d00 !important;
+    border: 1px solid #6b5200 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     margin-bottom: 0.75rem;
@@ -188,5 +287,4 @@
   a[href]::after { content: none !important; }
 }
 
-/* Page margins and a footer are the browser's job, but the size is ours. */
 @page { size: A4 portrait; margin: 14mm 12mm; }

@@ -32,7 +32,7 @@ export default function AssessmentEditorPage() {
   const {
     loading, error, assessment,
     sections: savedSections, blocks: savedBlocks,
-    updateAssessmentTitle, updateAssessmentDescription,
+    updateAssessmentTitle, updateAssessmentDescription, updateAssessmentPassMark,
     deleteAssessment, reload,
   } = useAssessmentEditor(id);
 
@@ -44,6 +44,7 @@ export default function AssessmentEditorPage() {
 
   const [titleDraft, setTitleDraft] = useState('');
   const [descDraft, setDescDraft] = useState('');
+  const [passMarkDraft, setPassMarkDraft] = useState(null);
   const [showPreview, setShowPreview] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState('');
@@ -144,6 +145,9 @@ export default function AssessmentEditorPage() {
 
   const title = titleDraft !== '' ? titleDraft : (assessment?.title || '');
   const description = descDraft !== '' ? descDraft : (assessment?.description || '');
+  const passMark = passMarkDraft !== null
+    ? passMarkDraft
+    : (assessment?.pass_mark != null ? String(assessment.pass_mark) : '');
 
   async function commitTitle() {
     if (titleDraft && titleDraft !== assessment.title) {
@@ -156,6 +160,27 @@ export default function AssessmentEditorPage() {
       await updateAssessmentDescription(descDraft.trim() || null);
     }
     setDescDraft('');
+  }
+
+  async function commitPassMark() {
+    if (passMarkDraft === null) return;          // never focused — nothing to do
+    const raw = passMarkDraft.trim();
+    const current = assessment?.pass_mark ?? null;
+
+    if (raw === '') {
+      // Cleared on purpose: back to "nobody has decided", which prints blank.
+      if (current !== null) await updateAssessmentPassMark(null);
+      setPassMarkDraft(null);
+      return;
+    }
+    const n = Number(raw);
+    // Garbage typed in reverts rather than writing NaN into the column.
+    if (!Number.isFinite(n)) { setPassMarkDraft(null); return; }
+    // Clamped to the CHECK constraint's range so a typo is corrected here
+    // rather than rejected by the database with an opaque error.
+    const next = Math.min(100, Math.max(0, n));
+    if (next !== current) await updateAssessmentPassMark(next);
+    setPassMarkDraft(null);
   }
 
   async function handleDelete() {
@@ -228,6 +253,30 @@ export default function AssessmentEditorPage() {
             onBlur={commitDescription}
             placeholder="What this assessment covers"
           />
+
+          {/* Blank is a real value, not a missing one: it means nobody has
+              decided what a pass is, and the report prints that Result cell
+              empty rather than calling it a fail. */}
+          <label className="form-label" style={{ marginTop: '0.75rem' }}>Pass mark (optional)</label>
+          <div className="pass-mark-row">
+            <input
+              className="form-input pass-mark-input"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              value={passMark}
+              onChange={e => setPassMarkDraft(e.target.value)}
+              onBlur={commitPassMark}
+              placeholder="—"
+            />
+            <span className="pass-mark-suffix">%</span>
+            <span className="muted pass-mark-hint">
+              {passMark === ''
+                ? 'Not set — the report leaves Result blank.'
+                : `Scoring ${passMark}% or above is a pass.`}
+            </span>
+          </div>
         </section>
 
         {/* Sticky, because structural work happens far down a long paper and a
