@@ -1,12 +1,5 @@
 import { Link } from 'react-router-dom';
-
-function formatDateRange(start, end) {
-  const fmt = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-  if (start && end) return `${fmt(start)} → ${fmt(end)}`;
-  if (start) return `From ${fmt(start)}`;
-  if (end) return `Until ${fmt(end)}`;
-  return '';
-}
+import { formatRange } from '../../lib/sessionDates.js';
 
 // Card used by the trainer home, vendor drill-in, and "my sessions" strip.
 // `showTrainer` adds a "Trainer: X" line; useful in views where the caller
@@ -23,7 +16,7 @@ export default function SessionCard({ session, showTrainer = false }) {
         {closed && <span className="closed-pill small">Closed</span>}
       </div>
       {(session.starts_at || session.ends_at) && (
-        <p className="session-card-dates">{formatDateRange(session.starts_at, session.ends_at)}</p>
+        <p className="session-card-dates">{formatRange(session.starts_at, session.ends_at)}</p>
       )}
       {showTrainer && session.trainer?.full_name && (
         <p className="session-card-meta">Trainer: {session.trainer.full_name}</p>

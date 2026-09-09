@@ -1543,3 +1543,24 @@
 .pass-mark-input { width: 5.5rem; }
 .pass-mark-suffix { font-weight: 600; color: var(--muted); }
 .pass-mark-hint { font-size: 0.82rem; margin-left: 0.35rem; }
+
+/* The join URL line in the session hero. It had NO styling at all — a bare <p>
+   with the label as loose text and an inline margin on the button — so a long
+   URL wrapped mid-string and pushed Copy onto its own line. */
+.join-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.join-code-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Break at any character rather than overflowing: a URL has no spaces to wrap
+   at, so the default would push the hero wider than its container. */
+.join-code-url { overflow-wrap: anywhere; }
+.join-code-copy { font-size: 0.78rem; padding: 0.28rem 0.6rem; }

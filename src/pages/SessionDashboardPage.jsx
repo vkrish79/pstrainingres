@@ -26,6 +26,7 @@ import TrainerPracticeView from '../components/dashboard/TrainerPracticeView.jsx
 import TrainerAssessmentPreview from '../components/dashboard/TrainerAssessmentPreview.jsx';
 import AssessmentResponses from '../components/dashboard/AssessmentResponses.jsx';
 import AssessmentReport from '../components/dashboard/AssessmentReport.jsx';
+import { formatRange } from '../lib/sessionDates.js';
 import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -39,13 +40,7 @@ const IDLE_MS = 45000;
 // participant heartbeat interval, currently 20s, with headroom).
 const OFFLINE_MS = 45000;
 
-function formatDateRange(start, end) {
-  const fmt = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-  if (start && end) return `${fmt(start)} → ${fmt(end)}`;
-  if (start) return `From ${fmt(start)}`;
-  if (end) return `Until ${fmt(end)}`;
-  return '';
-}
+
 
 export default function SessionDashboardPage() {
   const { id } = useParams();
@@ -427,12 +422,13 @@ export default function SessionDashboardPage() {
               {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
             </h1>
             {(session?.starts_at || session?.ends_at) && (
-              <p><span className="session-dates">{formatDateRange(session.starts_at, session.ends_at)}</span></p>
+              <p><span className="session-dates">{formatRange(session.starts_at, session.ends_at)}</span></p>
             )}
             {session?.join_code && (
               <p className="join-code-row">
-                Join URL: <a href={joinUrl} className="mono">{joinUrl}</a>
-                <button type="button" className="ghost" onClick={copyJoinUrl} style={{ marginLeft: '0.5rem' }}>
+                <span className="join-code-label">Join URL</span>
+                <a href={joinUrl} className="mono join-code-url">{joinUrl}</a>
+                <button type="button" className="ghost join-code-copy" onClick={copyJoinUrl}>
                   {joinCopied ? 'Copied!' : 'Copy'}
                 </button>
               </p>
@@ -457,17 +453,21 @@ export default function SessionDashboardPage() {
             )}
             {prepEnabled && (
               <button className="ghost-link" onClick={() => navigate(`/trainer/sessions/${id}/prep`)}>
-                🗂 Manage prep
+                <span className="btn-glyph" aria-hidden>▤</span> Manage prep
               </button>
             )}
             <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
-              ↓ Export CSV
+              <span className="btn-glyph" aria-hidden>↓</span> Export CSV
             </button>
-            <button className="ghost-link danger" onClick={() => { setCloseError(''); setConfirmClose(true); }}>
-              ✕ Close session
+            {/* Closing is the normal end of a session, and a closed session can
+                be reopened; deleting cannot be undone. Both were .danger, which
+                spent the red on a routine action and left nothing to mark the
+                permanent one. */}
+            <button className="ghost-link" onClick={() => { setCloseError(''); setConfirmClose(true); }}>
+              <span className="btn-glyph" aria-hidden>⊟</span> Close session
             </button>
             <button className="ghost-link danger" onClick={() => { setDeleteSessionError(''); setConfirmDeleteSession(true); }}>
-              🗑 Delete session
+              <span className="btn-glyph" aria-hidden>✕</span> Delete session
             </button>
           </div>
         </section>
@@ -481,9 +481,9 @@ export default function SessionDashboardPage() {
         <div className="view-tabs">
           <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>
           <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => setView('exercise')}>By exercise</button>
-          <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>▶ My copy</button>
+          <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>My copy</button>
           {session?.assessment_id && (
-            <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>📝 Assessment</button>
+            <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
           )}
         </div>
 
@@ -546,8 +546,8 @@ export default function SessionDashboardPage() {
                   <div className="invite-banner-actions">
                     {invitesRows.length > 0 && (
                       <>
-                        <button className="ghost" onClick={() => openHandoutWindow(invitesRows)}>🖨 Print again</button>
-                        <button className="ghost" onClick={copyAllInvites}>{invitesCopied ? 'Copied!' : '📋 Copy all invites'}</button>
+                        <button className="ghost" onClick={() => openHandoutWindow(invitesRows)}><span className="btn-glyph" aria-hidden>⎙</span> Print again</button>
+                        <button className="ghost" onClick={copyAllInvites}>{invitesCopied ? 'Copied!' : <><span className="btn-glyph" aria-hidden>⧉</span> Copy all invites</>}</button>
                       </>
                     )}
                     <button className="ghost" onClick={() => { setInvitesPhase('idle'); setInvitesRows([]); setInvitesError(''); }}>Dismiss</button>

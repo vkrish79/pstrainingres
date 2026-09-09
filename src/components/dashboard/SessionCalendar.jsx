@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { sessionColour } from '../../lib/programColour.js';
 import { parseMonth } from './SessionViews.jsx';
-import { formatRange } from './SessionList.jsx';
+import { formatRange } from '../../lib/sessionDates.js';
 
 // A month of sessions, drawn as bars.
 //

@@ -106,7 +106,7 @@ export default function AssessmentLockControl({ unlockedAt, deadlineAt, onUnlock
           disabled={busy}
           title="Re-lock so participants can't access the assessment"
         >
-          🔓 Lock assessment
+          <span className="btn-glyph" aria-hidden>⊘</span> Lock assessment
         </button>
         {error && <span className="assessment-lock-error">{error}</span>}
       </span>
@@ -120,7 +120,7 @@ export default function AssessmentLockControl({ unlockedAt, deadlineAt, onUnlock
         onClick={() => setEditing(true)}
         title="Unlock the assessment for all enrolled participants"
       >
-        🔒 Unlock assessment
+        <span className="btn-glyph" aria-hidden>▷</span> Unlock assessment
       </button>
     );
   }

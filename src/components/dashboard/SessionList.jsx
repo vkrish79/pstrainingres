@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { sessionColour } from '../../lib/programColour.js';
+import { formatRange } from '../../lib/sessionDates.js';
 
 // Sessions as a sortable table.
 //
@@ -114,7 +115,7 @@ export default function SessionList({ sessions, showTrainer = false, emptyLabel 
                   <span className="session-list-sub">{r.session.program.title}</span>
                 )}
               </td>
-              <td className="session-list-dates">{formatRange(r.session.starts_at, r.session.ends_at)}</td>
+              <td className="session-list-dates">{formatRange(r.session.starts_at, r.session.ends_at) || '—'}</td>
               <td>{r.city || '—'}</td>
               {showTrainer && <td>{r.trainer || <span className="muted">Unassigned</span>}</td>}
               <td className="num">{r.people}</td>
@@ -133,23 +134,4 @@ export default function SessionList({ sessions, showTrainer = false, emptyLabel 
   );
 }
 
-// "09–11 Sep 2026" when a range sits in one month, "28 Aug – 3 Sep 2026" when
-// it crosses one. Repeating the month on both sides of a three-day range is
-// noise in a column being scanned.
-export function formatRange(start, end) {
-  if (!start && !end) return '—';
-  const s = start ? new Date(start) : null;
-  const e = end ? new Date(end) : null;
-  const day = d => String(d.getDate()).padStart(2, '0');
-  const monthYear = d => d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-  const full = d => `${day(d)} ${monthYear(d)}`;
 
-  if (s && e) {
-    if (s.getTime() === e.getTime()) return full(s);
-    if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
-      return `${day(s)}–${day(e)} ${monthYear(s)}`;
-    }
-    return `${full(s)} – ${full(e)}`;
-  }
-  return s ? `From ${full(s)}` : `Until ${full(e)}`;
-}
