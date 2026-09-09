@@ -1,0 +1,263 @@
+/* Sessions in three shapes — calendar, list, cards.
+   Cards already live in dashboard.css; this file adds the switcher, the list
+   and the calendar. */
+
+.session-views { margin-bottom: 1.5rem; }
+
+.session-views-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Segmented control, after the .tp-pill-group in myLearning Hub. */
+.session-view-pills { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.session-view-pill {
+  background: var(--card);
+  color: var(--muted);
+  border: none;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.38rem 0.8rem;
+  line-height: 1.35;
+}
+.session-view-pill:last-child { border-right: none; }
+.session-view-pill:hover:not(.active) { background: var(--bg); color: var(--text); }
+.session-view-pill.active { background: var(--midnight); color: #fff; }
+.session-view-pill.active .btn-glyph { color: var(--gold); }
+
+.session-month-nav { display: inline-flex; align-items: center; gap: 0.4rem; }
+.session-month-label {
+  font-weight: 700;
+  color: var(--midnight);
+  min-width: 9.5rem;
+  text-align: center;
+  font-size: 0.92rem;
+}
+.session-today-btn { font-size: 0.78rem; padding: 0.28rem 0.6rem; }
+
+.session-undated-note {
+  margin: 0.85rem 0 0;
+  font-size: 0.82rem;
+  color: var(--gold-dark);
+}
+
+/* ── List ────────────────────────────────────────────────────────────── */
+
+.session-list-wrap { overflow-x: auto; }
+.session-list { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 44rem; }
+.session-list th, .session-list td {
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.session-list th { border-bottom: 1.5px solid var(--border); padding: 0; }
+.session-list th.num, .session-list td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* The whole header cell is the sort control, so the hit area matches what it
+   looks like rather than being the label text alone. */
+.session-list-sort {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: inherit;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.session-list th.num .session-list-sort { justify-content: flex-end; }
+.session-list-sort:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+.session-list-caret { font-size: 0.6rem; color: var(--gold-dark); }
+
+.session-list tbody tr:hover { background: var(--bg); }
+.session-list-name a {
+  font-weight: 600;
+  color: var(--midnight);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.session-list-name a:hover { text-decoration: underline; }
+.session-list-swatch {
+  display: inline-block;
+  width: 3px;
+  height: 1.05em;
+  border-radius: 2px;
+  margin-right: 0.5rem;
+  flex: none;
+}
+.session-list-sub { display: block; font-size: 0.74rem; color: var(--muted); }
+.session-list-dates { white-space: nowrap; }
+.session-list tr.is-closed .session-list-name a { color: var(--muted); }
+
+.session-pill {
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 0.14rem 0.45rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.session-pill.live { background: #eef5f0; color: #1d6b41; }
+.session-pill.closed { background: var(--bg); color: var(--muted); }
+/* A session with no dates is not an error, but it is something to go and fix —
+   it cannot appear on the calendar until it has them. */
+.session-pill.undated { background: #faf3e4; color: var(--gold-dark); }
+
+/* ── Calendar ────────────────────────────────────────────────────────── */
+
+.session-cal-wrap {
+  --cal-bar-h: 1.35rem;
+  --cal-daynum-h: 1.5rem;
+  overflow-x: auto;
+}
+
+.session-cal {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--card);
+  min-width: 40rem;
+}
+
+.session-cal-dow {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.session-cal-dow span {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.4rem 0.5rem;
+}
+
+/* One grid row holds the day cells AND the bars on top of them: the cells sit
+   in row 1 and every bar is positioned into that same row, offset downward by
+   its track. That is what lets a bar span days — a bar nested inside a day
+   cell could never cross a cell boundary. */
+.session-cal-week {
+  display: grid;
+  /* minmax(0, 1fr), NOT 1fr. A bare 1fr is minmax(AUTO, 1fr), so a grid item
+     wider than its share — a bar carrying a long session name — pushes its
+     columns out and squeezes the rest. Measured before this: day columns came
+     out 124/124/21/28/28/28/28px instead of seven equal ones. The zero minimum
+     lets the column ignore the bar content; the bar ellipsises instead. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  /* Room for the date numbers plus however many tracks this week needs. */
+  min-height: calc(var(--cal-daynum-h) + (var(--tracks, 0) + 0.6) * (var(--cal-bar-h) + 0.2rem));
+}
+.session-cal-week:last-child { border-bottom: none; }
+
+.session-cal-day {
+  grid-row: 1;
+  border-right: 1px solid var(--border);
+  padding: 0.25rem 0.4rem;
+  min-height: 100%;
+}
+.session-cal-day:last-child { border-right: none; }
+.session-cal-day.weekend { background: var(--bg); }
+.session-cal-day.outside .session-cal-daynum { color: var(--border); }
+.session-cal-day.today { box-shadow: inset 0 2px 0 var(--gold); }
+.session-cal-day.today .session-cal-daynum { color: var(--gold-dark); font-weight: 800; }
+.session-cal-daynum {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-cal-bar {
+  grid-row: 1;
+  align-self: start;
+  z-index: 2;
+  margin: calc(var(--cal-daynum-h) + var(--track) * (var(--cal-bar-h) + 0.2rem)) 0.15rem 0;
+  height: var(--cal-bar-h);
+  border-radius: 3px;
+  padding: 0 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  overflow: hidden;
+}
+.session-cal-bar:hover { filter: brightness(1.08); }
+.session-cal-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-cal-bar-count { margin-left: auto; opacity: 0.85; font-weight: 500; }
+.session-cal-bar.is-closed { opacity: 0.45; }
+
+/* A session running into or out of this week is squared off at that edge, so
+   it reads as continuing rather than starting or stopping there. */
+.session-cal-bar.clip-start { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; }
+.session-cal-bar.clip-end { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
+
+.session-cal-more {
+  grid-row: 1;
+  align-self: start;
+  z-index: 2;
+  margin-top: calc(var(--cal-daynum-h) + var(--track) * (var(--cal-bar-h) + 0.2rem));
+  padding: 0 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.session-cal-empty { margin-top: 0.85rem; }
+
+/* Undated sessions, which a calendar cannot draw. Visible and countable
+   rather than silently missing. */
+.session-unscheduled {
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.session-unscheduled-head {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+  margin-bottom: 0.5rem;
+}
+.session-unscheduled-items { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.session-unscheduled-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.28rem 0.6rem;
+  border-radius: 5px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+.session-unscheduled-item:hover { border-color: var(--gold); }
+.session-unscheduled-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }

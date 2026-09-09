@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { supabase } from '../lib/supabase.js';
-import SessionCard from '../components/dashboard/SessionCard.jsx';
+import SessionViews from '../components/dashboard/SessionViews.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
@@ -46,15 +46,12 @@ export default function VendorSessionsPage() {
 
         {sl && <div className="loading">Loading…</div>}
         {error && <div className="error">{error}</div>}
-        {!sl && !error && sessions.length === 0 && (
-          <p className="muted">No sessions in this vendor yet.</p>
-        )}
-        {!sl && sessions.length > 0 && (
-          <div className="session-grid">
-            {sessions.map(s => (
-              <SessionCard key={s.id} session={s} showTrainer />
-            ))}
-          </div>
+        {!sl && !error && (
+          <SessionViews
+            sessions={sessions}
+            showTrainer
+            emptyLabel="No sessions in this vendor yet."
+          />
         )}
       </main>
     </>

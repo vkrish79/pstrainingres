@@ -5,7 +5,7 @@ import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import { useVendors } from '../hooks/useVendors.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../lib/roles.js';
 import { heatLevel } from '../lib/configDiff.js';
-import SessionCard from '../components/dashboard/SessionCard.jsx';
+import SessionViews from '../components/dashboard/SessionViews.jsx';
 import LowPrepBanner from '../components/dashboard/LowPrepBanner.jsx';
 import TopBar from '../components/TopBar.jsx';
 import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
@@ -65,9 +65,12 @@ function SuperHome({ userId, role }) {
       {!msl && superSessions.length > 0 && (
         <>
           <SectionHeader title="PS training sessions" />
-          <div className="session-grid">
-            {superSessions.map(s => <SessionCard key={s.id} session={s} showTrainer />)}
-          </div>
+          <SessionViews
+            id="sup"
+            sessions={superSessions}
+            showTrainer
+            emptyLabel="No super-trainer sessions yet."
+          />
         </>
       )}
 
@@ -124,9 +127,12 @@ function VendorManagerHome({ userId, role }) {
         <p className="muted">No sessions yet. Click "New session" above to create one.</p>
       )}
       {!sl && sessions.length > 0 && (
-        <div className="session-grid">
-          {sessions.map(s => <SessionCard key={s.id} session={s} showTrainer />)}
-        </div>
+        <SessionViews
+          id="ven"
+          sessions={sessions}
+          showTrainer
+          emptyLabel="No sessions in this vendor yet."
+        />
       )}
       <WorkbookLibrary loading={wl} workbooks={workbooks} />
     </>
@@ -158,9 +164,11 @@ function VendorTrainerHome({ userId, role }) {
         <p className="muted">No sessions yet. Click "New session" above to create one.</p>
       )}
       {!sl && sessions.length > 0 && (
-        <div className="session-grid">
-          {sessions.map(s => <SessionCard key={s.id} session={s} />)}
-        </div>
+        <SessionViews
+          id="my"
+          sessions={sessions}
+          emptyLabel="You have no sessions yet."
+        />
       )}
       <WorkbookLibrary loading={wl} workbooks={workbooks} />
     </>

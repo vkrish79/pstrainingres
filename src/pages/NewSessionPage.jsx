@@ -74,7 +74,14 @@ export default function NewSessionPage() {
     if (cities.length === 0 && cityCode && !/^[A-Z]{3}$/.test(cityCode)) {
       return 'City code must be three uppercase letters (e.g. AUH).';
     }
-    if (startsAt && endsAt && endsAt < startsAt) {
+    // Dates are required. A session without them cannot appear on the
+    // calendar at all, which is a poor thing to discover later — the column
+    // stays nullable for sessions created before this rule, but nothing new
+    // should join them.
+    if (!startsAt && !endsAt) return 'Give this session a start and end date.';
+    if (!startsAt) return 'Give this session a start date.';
+    if (!endsAt) return 'Give this session an end date.';
+    if (endsAt < startsAt) {
       return 'End date cannot be before start date.';
     }
     const trainerRequired =
@@ -104,8 +111,8 @@ export default function NewSessionPage() {
         {
           p_program_id: programId,
           p_name: name.trim(),
-          p_starts_at: startsAt || null,
-          p_ends_at: endsAt || null,
+          p_starts_at: startsAt,
+          p_ends_at: endsAt,
           p_city_code: cityCode || null,
           // null = "assign to caller". RPC re-validates: vendor_manager can't
           // pick outside their vendor; vendor_trainer can't pick anyone but
@@ -209,11 +216,26 @@ export default function NewSessionPage() {
             <div className="form-grid">
               <div>
                 <label className="form-label">From date</label>
-                <input className="form-input" type="date" value={startsAt} onChange={e => setStartsAt(e.target.value)} />
+                <input
+                  className="form-input"
+                  type="date"
+                  value={startsAt}
+                  onChange={e => setStartsAt(e.target.value)}
+                  required
+                />
               </div>
               <div>
                 <label className="form-label">To date</label>
-                <input className="form-input" type="date" value={endsAt} onChange={e => setEndsAt(e.target.value)} />
+                {/* min, not min+1: a one-day session is normal, so the end may
+                    equal the start. */}
+                <input
+                  className="form-input"
+                  type="date"
+                  value={endsAt}
+                  onChange={e => setEndsAt(e.target.value)}
+                  required
+                  min={startsAt || undefined}
+                />
               </div>
             </div>
 
@@ -237,7 +259,7 @@ export default function NewSessionPage() {
 
             {error && <p className="error">{error}</p>}
             <div className="form-actions">
-              <button type="submit" disabled={busy || !programId || !name.trim()}>
+              <button type="submit" disabled={busy || !programId || !name.trim() || !startsAt || !endsAt}>
                 {busy ? 'Creating…' : 'Create session'}
               </button>
             </div>
