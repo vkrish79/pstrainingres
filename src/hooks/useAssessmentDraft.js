@@ -140,18 +140,50 @@ export function useAssessmentDraft({ sections, blocks, reload }) {
     });
   }, []);
 
-  const createBlock = useCallback((sectionId, blockType, config = {}) => {
+  // afterIndex null appends; a number inserts directly after that position.
+  // The assessment editor stages structural edits, so this only has to get the
+  // in-memory order right — compactBlocks renumbers the section from zero, so
+  // inserting at a half-step and compacting is exact and cannot collide.
+  const createBlock = useCallback((sectionId, blockType, config = {}, afterIndex = null) => {
     setDraft(d => {
-      const n = d.blocks.filter(b => b.section_id === sectionId).length;
+      const sib = d.blocks
+        .filter(b => b.section_id === sectionId)
+        .sort((a, b) => a.order_index - b.order_index);
+      const order = afterIndex == null || afterIndex >= sib.length - 1
+        ? sib.length
+        : sib[afterIndex].order_index + 0.5;
       return {
         ...d,
-        blocks: [...d.blocks, {
+        blocks: compactBlocks([...d.blocks, {
           id: nextTmpId('blk'),
           section_id: sectionId,
-          order_index: n,
+          order_index: order,
           block_type: blockType,
           config,
-        }],
+        }]),
+      };
+    });
+    return Promise.resolve({});
+  }, []);
+
+  // 07's twin on the staged side. Same reasoning: a full renumber of the
+  // section rather than an arithmetic shuffle.
+  const moveBlockTo = useCallback((blockId, position) => {
+    setDraft(d => {
+      const self = d.blocks.find(b => b.id === blockId);
+      if (!self) return d;
+      const sib = d.blocks
+        .filter(b => b.section_id === self.section_id)
+        .sort((a, b) => a.order_index - b.order_index);
+      const from = sib.findIndex(b => b.id === blockId);
+      const to = position === 'top' ? 0 : sib.length - 1;
+      if (from === to) return d;
+      const reordered = [...sib];
+      reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+      const idx = new Map(reordered.map((b, i) => [b.id, i]));
+      return {
+        ...d,
+        blocks: d.blocks.map(b => idx.has(b.id) ? { ...b, order_index: idx.get(b.id) } : b),
       };
     });
     return Promise.resolve({});
@@ -383,7 +415,7 @@ export function useAssessmentDraft({ sections, blocks, reload }) {
     save,
     discard,
     createSection, updateSectionTitle, deleteSection, moveSection,
-    createBlock, updateBlock, deleteBlock, moveBlock, duplicateBlock,
+    createBlock, updateBlock, deleteBlock, moveBlock, moveBlockTo, duplicateBlock,
     applyGrouping,
   };
 }

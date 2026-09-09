@@ -77,16 +77,53 @@ export function useContentEditor(kindConfig, parentId) {
     return {};
   }, [parentTable, parentId]);
 
-  const createBlock = useCallback(async (sectionId, blockType, config = {}) => {
-    const sectionBlocks = blocks.filter(b => b.section_id === sectionId);
-    const maxIdx = sectionBlocks.reduce((m, b) => Math.max(m, b.order_index), -1);
+  // afterIndex null appends (what this always did). A number inserts directly
+  // after the block at that position within the section, which is what the
+  // insertion points between blocks need: a new block used to land at the
+  // bottom and be walked up one ↑ click at a time.
+  //
+  // The push-down-then-insert below is lifted from duplicateBlock, which has
+  // done exactly this in production since it shipped.
+  const createBlock = useCallback(async (sectionId, blockType, config = {}, afterIndex = null) => {
+    const sectionBlocks = blocks
+      .filter(b => b.section_id === sectionId)
+      .sort((a, b) => a.order_index - b.order_index);
+
+    if (afterIndex == null || afterIndex >= sectionBlocks.length - 1) {
+      const maxIdx = sectionBlocks.reduce((m, b) => Math.max(m, b.order_index), -1);
+      const { data, error: insErr } = await supabase
+        .from(blocksTable)
+        .insert({ section_id: sectionId, order_index: maxIdx + 1, block_type: blockType, config })
+        .select()
+        .single();
+      if (insErr) return { error: insErr };
+      setBlocks(prev => [...prev, data]);
+      return { data };
+    }
+
+    const anchor = sectionBlocks[afterIndex];
+    const newIdx = anchor.order_index + 1;
+    // Everything at or after the new position moves down one.
+    await Promise.all(
+      sectionBlocks
+        .filter(b => b.order_index >= newIdx)
+        .map(b => supabase.from(blocksTable).update({ order_index: b.order_index + 1 }).eq('id', b.id))
+    );
+
     const { data, error: insErr } = await supabase
       .from(blocksTable)
-      .insert({ section_id: sectionId, order_index: maxIdx + 1, block_type: blockType, config })
+      .insert({ section_id: sectionId, order_index: newIdx, block_type: blockType, config })
       .select()
       .single();
     if (insErr) return { error: insErr };
-    setBlocks(prev => [...prev, data]);
+
+    setBlocks(prev => [
+      ...prev.map(b =>
+        b.section_id === sectionId && b.order_index >= newIdx
+          ? { ...b, order_index: b.order_index + 1 }
+          : b),
+      data,
+    ]);
     return { data };
   }, [blocks, blocksTable]);
 
@@ -221,11 +258,45 @@ export function useContentEditor(kindConfig, parentId) {
     ]);
   }, [blocks, blocksTable]);
 
+  // Jump a block to the top or bottom of its section. The cheap two thirds of
+  // drag-and-drop: these are the moves that cost a dozen ↑ clicks today, and
+  // they need no pointer handling, no drop targets and no touch story.
+  const moveBlockTo = useCallback(async (blockId, position) => {
+    const block = blocks.find(b => b.id === blockId);
+    if (!block) return {};
+    const sectionBlocks = blocks
+      .filter(b => b.section_id === block.section_id)
+      .sort((a, b) => a.order_index - b.order_index);
+    const from = sectionBlocks.findIndex(b => b.id === blockId);
+    const to = position === 'top' ? 0 : sectionBlocks.length - 1;
+    if (from === to) return {};
+
+    // Rebuild the whole section's order rather than computing deltas — a
+    // section is a handful of blocks, and a full renumber cannot leave a gap
+    // or a collision behind the way an arithmetic shuffle can.
+    const reordered = [...sectionBlocks];
+    reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+
+    setBlocks(prev => prev.map(b => {
+      const i = reordered.findIndex(r => r.id === b.id);
+      return i === -1 ? b : { ...b, order_index: i };
+    }));
+
+    // Only the rows whose position actually changed are written.
+    const writes = reordered
+      .map((blk, i) => ({ blk, i }))
+      .filter(({ blk, i }) => blk.order_index !== i)
+      .map(({ blk, i }) => supabase.from(blocksTable).update({ order_index: i }).eq('id', blk.id));
+    const results = await Promise.all(writes);
+    const failed = results.find(r => r?.error);
+    return failed ? { error: failed.error } : {};
+  }, [blocks, blocksTable]);
+
   return {
     loading, error,
     parent, sections, blocks,
     updateParentField,
-    createBlock, updateBlock, deleteBlock, moveBlock, duplicateBlock,
+    createBlock, updateBlock, deleteBlock, moveBlock, moveBlockTo, duplicateBlock,
     createSection, updateSectionTitle, deleteSection,
     deleteParent, reload: load,
   };

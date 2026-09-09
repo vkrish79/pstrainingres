@@ -36,6 +36,7 @@ export function useWorkbookEditor(workbookId) {
     updateBlock: ce.updateBlock,
     deleteBlock: ce.deleteBlock,
     moveBlock: ce.moveBlock,
+    moveBlockTo: ce.moveBlockTo,
     duplicateBlock: ce.duplicateBlock,
     createSection: ce.createSection,
     updateSectionTitle: ce.updateSectionTitle,
