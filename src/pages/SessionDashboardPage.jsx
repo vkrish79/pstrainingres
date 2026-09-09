@@ -142,7 +142,7 @@ export default function SessionDashboardPage() {
   const inviteCtx = useMemo(() => ({
     sessionName: session?.name || 'the training session',
     joinUrl,
-    dateRange: formatDateRange(session?.starts_at, session?.ends_at),
+    dateRange: formatRange(session?.starts_at, session?.ends_at),
   }), [session?.name, session?.starts_at, session?.ends_at, joinUrl]);
 
   function openHandoutWindow(rows) {
