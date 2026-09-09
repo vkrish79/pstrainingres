@@ -261,3 +261,33 @@
 }
 .session-unscheduled-item:hover { border-color: var(--gold); }
 .session-unscheduled-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+
+/* Filters, above the view switch. Same shape as the archive page's
+   .archive-toolbar so the two surfaces behave alike. */
+.session-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+/* .form-input is width:100%, so inside a flex row every control claims the
+   whole line and they stack. The archive toolbar already solved this the same
+   way — reset the basis, then let the search box be the one that grows. */
+/* width: auto is the load-bearing part. .form-input is width:100%, and
+   flex-basis:auto resolves FROM that width — so every control claims the whole
+   line and they stack, however the flex shorthand is written. .change-trainer
+   in dashboard.css does the same thing for the same reason. */
+.session-filters .form-input { width: auto; flex: 0 0 auto; }
+.session-filters input[type="search"] { flex: 1 1 240px; min-width: 200px; max-width: 24rem; }
+.session-filter-select { min-width: 9rem; }
+.session-filter-clear { font-size: 0.78rem; padding: 0.3rem 0.65rem; }
+.session-filter-count { margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.session-filter-reset {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--midnight);
+  text-decoration: underline;
+}

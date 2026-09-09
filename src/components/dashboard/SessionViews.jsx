@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import SessionCard from './SessionCard.jsx';
 import SessionList from './SessionList.jsx';
 import SessionCalendar from './SessionCalendar.jsx';
+import SessionFilters, { filterSessions } from './SessionFilters.jsx';
 
 // Sessions in whichever shape suits the question: a calendar for "what is
 // running and when", a list for scanning and comparing, cards for a handful.
@@ -32,6 +34,17 @@ export default function SessionViews({
   const view = params.get(viewKey) || defaultView;
   const month = params.get(monthKey) || currentMonth();
 
+  // Filters ride in the URL alongside the view, so they survive a reload and a
+  // shared link carries them. They also survive the view switch for free —
+  // this component owns them, and switching view only changes which child
+  // renders.
+  const filters = {
+    q: params.get(`${id}q`) || '',
+    type: params.get(`${id}type`) || 'all',
+    city: params.get(`${id}city`) || 'all',
+    trainer: params.get(`${id}trainer`) || 'all',
+  };
+
   function setParam(key, value) {
     const next = new URLSearchParams(params);
     // Don't leave the default in the URL — a shared link should carry what
@@ -41,10 +54,34 @@ export default function SessionViews({
     setParams(next, { replace: true });
   }
 
-  const undatedCount = (sessions || []).filter(s => !s.starts_at && !s.ends_at).length;
+  function setFilter(key, value) {
+    const next = new URLSearchParams(params);
+    if (key === '__clear__') {
+      for (const k of ['q', 'type', 'city', 'trainer']) next.delete(`${id}${k}`);
+    } else if (!value || value === 'all') {
+      next.delete(`${id}${key}`);
+    } else {
+      next.set(`${id}${key}`, value);
+    }
+    setParams(next, { replace: true });
+  }
+
+  const shown = useMemo(() => filterSessions(sessions, filters), [sessions, filters.q, filters.type, filters.city, filters.trainer]);
+  const filtering = (sessions || []).length !== shown.length;
+
+  // Counted on what is being SHOWN, not on everything loaded — otherwise the
+  // calendar promises three unscheduled sessions the current filter excludes.
+  const undatedCount = shown.filter(s => !s.starts_at && !s.ends_at).length;
 
   return (
     <div className="session-views">
+      <SessionFilters
+        sessions={sessions}
+        value={filters}
+        onChange={setFilter}
+        showTrainer={showTrainer}
+      />
+
       <div className="session-views-bar">
         <div className="session-view-pills" role="tablist" aria-label="View">
           {[['calendar', '▦', 'Calendar'], ['list', '☰', 'List'], ['cards', '▤', 'Cards']].map(([v, glyph, label]) => (
@@ -76,22 +113,44 @@ export default function SessionViews({
         )}
       </div>
 
-      {view === 'calendar' && (
-        <SessionCalendar sessions={sessions} month={month} emptyLabel={emptyLabel} />
+      {/* An empty result from a filter is not the same as having no sessions,
+          and saying "No sessions." to someone who has just typed a search is
+          both wrong and unhelpful — it hides the reason. */}
+      {filtering && shown.length === 0 ? (
+        <p className="muted">
+          No sessions match these filters.{' '}
+          <button type="button" className="ghost-link session-filter-reset" onClick={() => setFilter('__clear__')}>
+            Clear them
+          </button>
+        </p>
+      ) : (
+        <>
+          {view === 'calendar' && (
+            <SessionCalendar sessions={shown} month={month} emptyLabel={emptyLabel} />
+          )}
+
+          {view === 'list' && (
+            <SessionList sessions={shown} showTrainer={showTrainer} emptyLabel={emptyLabel} />
+          )}
+
+          {view === 'cards' && (
+            shown.length === 0
+              ? <p className="muted">{emptyLabel}</p>
+              : (
+                <div className="session-grid">
+                  {shown.map(s => <SessionCard key={s.id} session={s} showTrainer={showTrainer} />)}
+                </div>
+              )
+          )}
+        </>
       )}
 
-      {view === 'list' && (
-        <SessionList sessions={sessions} showTrainer={showTrainer} emptyLabel={emptyLabel} />
-      )}
-
-      {view === 'cards' && (
-        (sessions || []).length === 0
-          ? <p className="muted">{emptyLabel}</p>
-          : (
-            <div className="session-grid">
-              {sessions.map(s => <SessionCard key={s.id} session={s} showTrainer={showTrainer} />)}
-            </div>
-          )
+      {/* What the filter is hiding, stated rather than left to be inferred
+          from a list that looks short. */}
+      {filtering && shown.length > 0 && (
+        <p className="session-filter-count">
+          Showing {shown.length} of {sessions.length} sessions.
+        </p>
       )}
 
       {/* Said once, under every view. On the calendar it explains a gap the
