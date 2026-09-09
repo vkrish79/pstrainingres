@@ -5,6 +5,7 @@ import App from './App.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import { BusyOverlayProvider } from './contexts/BusyOverlayContext.jsx';
 import './styles/index.css';
+import './styles/shell.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

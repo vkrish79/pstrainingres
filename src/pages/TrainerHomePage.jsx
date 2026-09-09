@@ -23,20 +23,21 @@ export default function TrainerHomePage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero">
-          <div className="page-hero-text">
-            <h1>Welcome back, {firstName}</h1>
-          </div>
-          <div className="page-hero-actions">
+        {/* No welcome banner. The rail says where you are and the bar says who
+            you are, so a block whose only content was a greeting was spending
+            the most valuable strip of the page on nothing.
+            Programs and Assessments left with it — they are destinations, and
+            destinations belong in the rail. What stays here is the things you
+            DO from this page, which have nowhere else to live. */}
+        <section className="page-bar">
+          <div className="page-bar-actions">
             {isSuper && (
               <>
-                <Link to="/trainer/programs" className="ghost-link">Programs</Link>
-                <Link to="/trainer/assessments" className="ghost-link">Assessments</Link>
                 <Link to="/trainer/workbooks/new" className="ghost-link">+ New workbook</Link>
                 <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>
               </>
             )}
-            <Link to="/trainer/sessions/new">+ New session</Link>
+            <Link to="/trainer/sessions/new" className="primary-link">+ New session</Link>
           </div>
         </section>
 

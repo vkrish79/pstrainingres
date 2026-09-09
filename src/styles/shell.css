@@ -1,0 +1,278 @@
+/* ===========================================================================
+   App shell — the myLearning HUB layout: a dark fixed left rail, a dark app
+   bar, and a warm light canvas between them.
+   ===========================================================================
+
+   Applies to TRAINER surfaces only. Participants keep the plain white bar and
+   a full-width paper; the shell is gated on being on a /trainer route, so a
+   trainer previewing a participant page sees what the participant sees.
+
+   The rail is fixed and the canvas is pushed clear of it with a body class,
+   not a wrapper element — that way every existing page keeps rendering exactly
+   as it did, with no edit to any of them. */
+
+:root {
+  --nav-w: 214px;
+  --nav-bg: #16304a;          /* a shade under --midnight so the bar reads as separate */
+  --nav-bg-active: #0f2438;
+  --nav-fg: #c3d2e0;
+  --nav-fg-dim: #7f97ad;
+  --topbar-h: 61px;
+}
+
+/* ── Left rail ─────────────────────────────────────────────────────────── */
+
+.sidenav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--nav-w);
+  z-index: 60;                /* over the app bar, which starts to its right */
+  background: var(--nav-bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sidenav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  text-decoration: none;
+  min-height: var(--topbar-h);
+  box-sizing: border-box;
+}
+.sidenav-mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--gold);
+  color: #12283d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+.sidenav-brand-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.sidenav-brand-title { color: #fff; font-size: 0.92rem; font-weight: 700; }
+.sidenav-brand-sub {
+  color: var(--nav-fg-dim);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidenav-nav { padding: 0.4rem 0 1.5rem; }
+.sidenav-group + .sidenav-group { margin-top: 0.9rem; }
+.sidenav-group-label {
+  padding: 0 1rem 0.3rem;
+  color: var(--nav-fg-dim);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sidenav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 1rem;
+  color: var(--nav-fg);
+  text-decoration: none;
+  font-size: 0.88rem;
+  /* Transparent, not none: the active state swaps its colour in, so the text
+     never shifts by a pixel when you land on a page. */
+  border-left: 3px solid transparent;
+}
+.sidenav-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.sidenav-item.active {
+  background: var(--nav-bg-active);
+  border-left-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
+}
+.sidenav-icon { flex: none; width: 1.1rem; text-align: center; opacity: 0.85; }
+.sidenav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── App bar ───────────────────────────────────────────────────────────── */
+
+.topbar--shell {
+  background: var(--midnight);
+  border-bottom: none;
+  box-shadow: none;
+  padding-left: var(--nav-w);
+}
+.topbar--shell .topbar-inner {
+  max-width: none;
+  padding: 0 1.25rem;
+  min-height: var(--topbar-h);
+}
+
+.topbar-where { line-height: 1.2; min-width: 0; }
+.topbar-where-title { color: #fff; font-size: 1rem; font-weight: 700; }
+.topbar-where-sub {
+  color: var(--nav-fg-dim);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topbar--shell .topbar-nav { gap: 0.6rem; }
+
+.topbar-icon-btn {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: none;
+  font-size: 0.9rem;
+}
+.topbar-icon-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+.topbar--shell .topbar-user {
+  gap: 0.5rem;
+  padding: 0.2rem 0.5rem 0.2rem 0.25rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.topbar--shell .topbar-user-avatar { background: var(--gold); color: #12283d; }
+.topbar-user-text { display: flex; flex-direction: column; line-height: 1.15; }
+.topbar--shell .topbar-user-name { color: #fff; font-size: 0.82rem; font-weight: 600; }
+.topbar-user-role { color: var(--nav-fg-dim); font-size: 0.65rem; }
+
+.topbar--shell .topbar-signout {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--nav-fg);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+}
+.topbar--shell .topbar-signout:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+/* Search is a trigger that opens a panel, not an inline input. On a dark bar
+   it needs to read as a field you can click — wide, recessed, with the
+   shortcut visible — rather than as another icon button. */
+.topbar--shell .topbar-search-btn {
+  flex: 1;
+  max-width: 560px;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--nav-fg-dim);
+  font-weight: 500;
+}
+.topbar--shell .topbar-search-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.topbar--shell .topbar-search-kbd {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--nav-fg);
+  border-radius: 5px;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.7rem;
+}
+/* The bar is a three-part layout once search can grow: where-you-are, the
+   search field, then identity. */
+.topbar--shell .topbar-inner { gap: 1.25rem; }
+.topbar--shell .topbar-nav { flex: 1; justify-content: flex-end; min-width: 0; }
+
+/* ── Canvas ────────────────────────────────────────────────────────────── */
+
+body.has-sidenav .page,
+body.has-sidenav .topbar:not(.topbar--shell) {
+  margin-left: var(--nav-w);
+}
+
+/* Below the rail's useful width it becomes a horizontal strip rather than
+   stealing half the screen. Ten items still fit on one scrolling line. */
+@media (max-width: 860px) {
+  .sidenav {
+    position: static;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.25rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .sidenav-brand { min-height: 0; padding: 0.6rem 0.8rem; }
+  .sidenav-brand-text { display: none; }
+  .sidenav-nav { display: flex; padding: 0; }
+  .sidenav-group { display: flex; }
+  .sidenav-group + .sidenav-group { margin-top: 0; }
+  .sidenav-group-label { display: none; }
+  .sidenav-item { border-left: none; border-bottom: 3px solid transparent; white-space: nowrap; }
+  .sidenav-item.active { border-left: none; border-bottom-color: var(--gold); }
+  .topbar--shell { padding-left: 0; }
+  body.has-sidenav .page,
+  body.has-sidenav .topbar:not(.topbar--shell) { margin-left: 0; }
+}
+
+/* ── Full-bleed canvas ─────────────────────────────────────────────────────
+   Inside the shell the page uses the whole width. The 1280px cap was there to
+   stop a full-width page becoming unreadable on a wide monitor when the app
+   was one centred column; with a fixed rail taking the left edge, that cap
+   just leaves a band of dead space on the right — which is what it did. */
+body.has-sidenav .page {
+  max-width: none;
+  margin-left: var(--nav-w);
+  margin-right: 0;
+  padding: 1.25rem 1.5rem 3rem;
+}
+
+/* The action strip that replaced the welcome banner. Actions only — where you
+   are is already in the app bar, so a heading here would say it twice. */
+.page-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+.page-bar-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.page-bar-actions .ghost-link,
+.page-bar-actions .primary-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.page-bar-actions .ghost-link {
+  background: var(--card);
+  color: var(--midnight);
+  border: 1px solid var(--border);
+}
+.page-bar-actions .ghost-link:hover { background: var(--bg); border-color: var(--gold); }
+.page-bar-actions .primary-link { background: var(--gold); color: #fff; }
+.page-bar-actions .primary-link:hover { background: var(--gold-dark); }
+
+@media (max-width: 860px) {
+  body.has-sidenav .page { margin-left: 0; }
+}
