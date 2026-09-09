@@ -8,7 +8,7 @@ import MatchPairsBlock from './MatchPairsBlock.jsx';
 import ReorderBlock from './ReorderBlock.jsx';
 
 export default function Block({ block, value, onChange, readOnly = false, recentlyUpdated = false }) {
-  let inner = null;
+  let inner;
   switch (block.block_type) {
     case 'prose': inner = <ProseBlock block={block} />; break;
     case 'field': inner = <FieldBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;
