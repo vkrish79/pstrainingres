@@ -1564,3 +1564,100 @@
    at, so the default would push the hero wider than its container. */
 .join-code-url { overflow-wrap: anywhere; }
 .join-code-copy { font-size: 0.78rem; padding: 0.28rem 0.6rem; }
+
+/* ══ Assessment status + run controls ═══════════════════════════════════
+   The lock control used to live in the session header with five render
+   states, one of them a form — so the toolbar's height was a function of the
+   control's state (measured: 215px to 341px of movement from one click, with
+   the "minutes" field rendering between 433px and 602px wide). The controls
+   moved to the Assessment tab; the header keeps a status chip whose width
+   changes by a couple of characters and never by more. */
+
+/* Specificity note: .page-hero-actions a, .page-hero-actions button is (0,1,1)
+   and paints every control in the hero gold. A bare .assessment-status-chip is
+   (0,1,0) and loses, so the chip rendered as a gold button with its countdown
+   almost invisible on it. Scoped here to (0,2,1) so the chip keeps its own
+   appearance where it actually lives. */
+.page-hero-actions .assessment-status-chip,
+.assessment-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.page-hero-actions .assessment-status-chip:hover:not(:disabled),
+.assessment-status-chip:hover:not(:disabled) { border-color: var(--gold); background: var(--card); }
+.assessment-status-time {
+  font-variant-numeric: tabular-nums;
+  /* Fixed width so the chip does not twitch as the digits change. */
+  min-width: 3.4rem;
+  text-align: right;
+  color: var(--muted);
+}
+.assessment-status-chip.is-urgent .assessment-status-time { color: #8a5a00; }
+
+.assessment-status-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: var(--muted);
+}
+.is-open .assessment-status-dot { background: #2f9e63; }
+.is-expired .assessment-status-dot { background: #c0392b; }
+.is-locked .assessment-status-dot { background: var(--muted); }
+
+/* The strip at the top of the Assessment tab. */
+.assessment-run {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 8px;
+  padding: 0.75rem 0.95rem;
+  margin-bottom: 1rem;
+}
+.assessment-run-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.assessment-run-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+}
+.assessment-run-state {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.85rem; font-weight: 700; color: var(--text);
+}
+.assessment-run-timer {
+  font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  background: #eef2f7; border: 1px solid var(--border);
+  padding: 0.25rem 0.6rem; border-radius: 999px; white-space: nowrap;
+}
+.assessment-run-timer.is-urgent { background: #fff4e0; border-color: #e0b24d; color: #8a5a00; }
+.assessment-run-note, .assessment-run-hint { font-size: 0.8rem; color: var(--muted); }
+
+/* Actions push to the right on a wide row and wrap underneath on a narrow one,
+   rather than squeezing the state text — the mistake the header made. */
+.assessment-run-actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem;
+  margin-left: auto;
+}
+.assessment-run-actions button { font-size: 0.8rem; padding: 0.3rem 0.65rem; line-height: 1.35; }
+
+.assessment-run-custom { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--muted); }
+/* width:auto — .form-input is width:100%, which in a flex row makes every
+   control claim the whole line. Same reason as .session-filters. */
+.assessment-run-custom .form-input { width: auto; flex: 0 0 4.5rem; padding: 0.3rem 0.45rem; font-size: 0.82rem; }
+
+.assessment-run-error { margin: 0.6rem 0 0; font-size: 0.82rem; color: var(--danger); }
+.assessment-run-help { margin: 0.55rem 0 0; font-size: 0.8rem; color: var(--muted); max-width: 60ch; }

@@ -12,7 +12,8 @@ import { sanitizeNotesHtml } from '../lib/notesRichText.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
-import AssessmentLockControl from '../components/dashboard/AssessmentLockControl.jsx';
+import AssessmentStatusChip from '../components/dashboard/AssessmentStatusChip.jsx';
+import AssessmentRunStrip from '../components/dashboard/AssessmentRunStrip.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, expectedInputs, filledInputs } from '../lib/blockHelpers.js';
@@ -442,13 +443,15 @@ export default function SessionDashboardPage() {
                 onChange={setSessionTrainer}
               />
             )}
+            {/* Status, not controls. The controls moved to the Assessment tab —
+                see AssessmentRunStrip for why. This chip's width changes by a
+                couple of characters as the clock runs and never by more, so it
+                cannot reflow the row the way the old control did. */}
             {session?.assessment_id && (
-              <AssessmentLockControl
+              <AssessmentStatusChip
                 unlockedAt={session.assessment_unlocked_at}
                 deadlineAt={session.assessment_deadline_at}
-                onUnlock={(mins) => setAssessmentUnlocked(true, mins)}
-                onLock={() => setAssessmentUnlocked(false)}
-                onExtend={(mins) => extendAssessmentDeadline(mins)}
+                onOpen={() => setView('assessment')}
               />
             )}
             {prepEnabled && (
@@ -749,6 +752,13 @@ export default function SessionDashboardPage() {
 
         {view === 'assessment' && (
           <div className="assessment-view">
+            <AssessmentRunStrip
+              unlockedAt={session?.assessment_unlocked_at}
+              deadlineAt={session?.assessment_deadline_at}
+              onUnlock={(mins) => setAssessmentUnlocked(true, mins)}
+              onLock={() => setAssessmentUnlocked(false)}
+              onExtend={(mins) => extendAssessmentDeadline(mins)}
+            />
             <div className="assessment-subtabs">
               <button
                 className={`view-subtab ${assessmentSubView === 'responses' ? 'active' : ''}`}
