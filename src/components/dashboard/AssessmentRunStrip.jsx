@@ -10,9 +10,12 @@ import { useCountdown, assessmentState, STATE_LABEL } from '../../lib/assessment
 // function of the control's state: 215px to 341px of movement from clicking a
 // single button. Here it has a row of its own and can be any size it likes.
 //
-// PRESETS, NOT A TEXT FIELD. Nobody wants to type a number to start an exam,
-// and the old control asked for one twice — once to unlock, once to extend.
-// A custom box is still there for the session that genuinely needs 47 minutes.
+// PRESETS FIRST, CUSTOM ALWAYS AVAILABLE. Nobody wants to type a number to
+// start an exam, and the old control asked for one twice — once to unlock,
+// once to extend. But a preset list is a guess about what people need, so
+// "Other…" sits beside every set of presets rather than only the first: the
+// same input serves unlocking, extending and reopening, and what it does
+// depends on the state it is used from.
 const DURATIONS = [30, 60, 90];
 const EXTENSIONS = [5, 15, 30];
 
@@ -34,15 +37,27 @@ export default function AssessmentRunStrip({ unlockedAt, deadlineAt, onUnlock, o
     return true;
   }
 
-  async function unlock(mins) {
-    if (await run(() => onUnlock(mins))) { setCustom(''); setShowCustom(false); }
+  function closeCustom() {
+    setShowCustom(false);
+    setCustom('');
   }
 
-  async function unlockCustom() {
+  async function preset(mins) {
+    if (await run(() => (state === 'locked' ? onUnlock(mins) : onExtend(mins)))) closeCustom();
+  }
+
+  // One input, three jobs. From locked it opens the assessment for N minutes;
+  // from open or expired it adds N minutes to the deadline.
+  async function commitCustom() {
     const n = Number(custom);
     if (!Number.isFinite(n) || n <= 0) return;
-    await unlock(n);
+    if (await run(() => (state === 'locked' ? onUnlock(n) : onExtend(n)))) closeCustom();
   }
+
+  const customVerb = state === 'locked' ? 'Open' : expired ? 'Reopen' : 'Add';
+  // Adding time to an assessment that has no deadline is meaningless, so the
+  // custom box is offered only where a number would actually do something.
+  const canSetTime = state === 'locked' || !!deadlineAt;
 
   return (
     <div className={`assessment-run is-${state}`}>
@@ -62,63 +77,66 @@ export default function AssessmentRunStrip({ unlockedAt, deadlineAt, onUnlock, o
         )}
 
         <span className="assessment-run-actions">
-          {state === 'locked' ? (
+          {state === 'locked' && (
             <>
               <span className="assessment-run-hint">Open it for</span>
               {DURATIONS.map(m => (
-                <button key={m} type="button" className="ghost" disabled={busy} onClick={() => unlock(m)}>
+                <button key={m} type="button" className="ghost" disabled={busy} onClick={() => preset(m)}>
                   {m}m
                 </button>
               ))}
-              <button type="button" className="ghost" disabled={busy} onClick={() => unlock(null)}>
+              <button type="button" className="ghost" disabled={busy} onClick={() => preset(null)}>
                 Untimed
               </button>
-              {showCustom ? (
-                <span className="assessment-run-custom">
-                  <input
-                    type="number"
-                    min="1"
-                    className="form-input"
-                    value={custom}
-                    placeholder="45"
-                    disabled={busy}
-                    autoFocus
-                    onChange={e => setCustom(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') unlockCustom();
-                      if (e.key === 'Escape') { setShowCustom(false); setCustom(''); }
-                    }}
-                  />
-                  <span>min</span>
-                  <button type="button" className="primary" disabled={busy || !custom.trim()} onClick={unlockCustom}>
-                    Open
-                  </button>
-                </span>
-              ) : (
-                <button type="button" className="ghost-link" disabled={busy} onClick={() => setShowCustom(true)}>
-                  Other…
-                </button>
-              )}
             </>
-          ) : (
+          )}
+
+          {state !== 'locked' && deadlineAt && (
             <>
-              {/* Extending is buttons, not a field: +15 is one click, and the
-                  old control made you type it. */}
-              {deadlineAt && (
-                <>
-                  <span className="assessment-run-hint">{expired ? 'Reopen for' : 'Add'}</span>
-                  {EXTENSIONS.map(m => (
-                    <button key={m} type="button" className="ghost" disabled={busy}
-                      onClick={() => run(() => onExtend(m))}>
-                      +{m}m
-                    </button>
-                  ))}
-                </>
-              )}
-              <button type="button" className="ghost" disabled={busy} onClick={() => run(onLock)}>
-                <span className="btn-glyph" aria-hidden>⊘</span> Lock
-              </button>
+              <span className="assessment-run-hint">{expired ? 'Reopen for' : 'Add'}</span>
+              {EXTENSIONS.map(m => (
+                <button key={m} type="button" className="ghost" disabled={busy} onClick={() => preset(m)}>
+                  +{m}m
+                </button>
+              ))}
             </>
+          )}
+
+          {canSetTime && (showCustom ? (
+            <span className="assessment-run-custom">
+              <input
+                type="number"
+                min="1"
+                className="form-input"
+                value={custom}
+                placeholder="45"
+                disabled={busy}
+                autoFocus
+                aria-label={`${customVerb} for a custom number of minutes`}
+                onChange={e => setCustom(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') commitCustom();
+                  if (e.key === 'Escape') closeCustom();
+                }}
+              />
+              <span>min</span>
+              <button type="button" className="primary" disabled={busy || !custom.trim()} onClick={commitCustom}>
+                {customVerb}
+              </button>
+              <button type="button" className="ghost-link" disabled={busy} onClick={closeCustom}>
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button type="button" className="ghost-link" disabled={busy} onClick={() => setShowCustom(true)}>
+              Other…
+            </button>
+          ))}
+
+          {state !== 'locked' && (
+            <button type="button" className="ghost" disabled={busy} onClick={() => run(onLock)}>
+              <span className="btn-glyph" aria-hidden>⊘</span> Lock
+            </button>
           )}
         </span>
       </div>
@@ -129,6 +147,12 @@ export default function AssessmentRunStrip({ unlockedAt, deadlineAt, onUnlock, o
         <p className="assessment-run-help">
           Participants cannot open the assessment until you unlock it. A time limit is
           session-wide and starts the moment you do.
+        </p>
+      )}
+      {expired && (
+        <p className="assessment-run-help">
+          The time is up and participants can no longer answer. Reopening adds time from now,
+          not from when it ran out.
         </p>
       )}
     </div>

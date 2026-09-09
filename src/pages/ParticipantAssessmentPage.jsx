@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useCountdown } from '../lib/assessmentTimer.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useParticipantAssessment } from '../hooks/useParticipantAssessment.js';
@@ -48,37 +49,15 @@ export default function ParticipantAssessmentPage() {
   }, [qList, answers]);
 
   // Session-wide timer. assessment_deadline_at is null when the assessment was
-  // unlocked untimed. Tick once a second until the deadline passes, then freeze:
-  // inputs go read-only (RLS also rejects late writes) but answers stay visible.
-  const deadlineMs = session?.assessment_deadline_at
-    ? new Date(session.assessment_deadline_at).getTime()
-    : null;
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  const expired = deadlineMs != null && nowMs >= deadlineMs;
-  useEffect(() => {
-    if (deadlineMs == null) return;
-    setNowMs(Date.now());
-    if (Date.now() >= deadlineMs) return; // already past — no need to tick
-    const id = setInterval(() => {
-      setNowMs(prev => {
-        const t = Date.now();
-        if (t >= deadlineMs) clearInterval(id);
-        return t;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [deadlineMs]);
-
-  const remainingLabel = useMemo(() => {
-    if (deadlineMs == null) return null;
-    const ms = Math.max(0, deadlineMs - nowMs);
-    const total = Math.floor(ms / 1000);
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = total % 60;
-    const pad = n => String(n).padStart(2, '0');
-    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
-  }, [deadlineMs, nowMs]);
+  // unlocked untimed. Once the deadline passes, inputs go read-only (RLS also
+  // rejects late writes) but answers stay visible.
+  //
+  // The countdown comes from the SHARED hook, which measures the offset between
+  // this browser's clock and the server's. That matters most here: the deadline
+  // is stamped by the database, so a participant whose machine runs fast used to
+  // see the assessment expire while the server was still accepting answers, and
+  // one running slow saw time remaining after it had stopped.
+  const { label: remainingLabel, expired, remainingMs } = useCountdown(session?.assessment_deadline_at);
 
   const overallStatus = useMemo(() => {
     const statuses = Object.values(savingMap);
@@ -180,7 +159,7 @@ export default function ParticipantAssessmentPage() {
           </div>
           <div className="page-hero-actions">
             {remainingLabel != null && (
-              <span className={`assessment-timer ${expired ? 'expired' : nowMs > deadlineMs - 60000 ? 'warning' : ''}`}>
+              <span className={`assessment-timer ${expired ? 'expired' : (remainingMs != null && remainingMs < 60000) ? 'warning' : ''}`}>
                 {expired ? '⏱ Time’s up — view only' : `⏱ ${remainingLabel}`}
               </span>
             )}
