@@ -363,7 +363,7 @@ export default function AssessmentEditorPage() {
               onOpenHeat={heatEnabled ? setHeatFocus : null}
               extraAddSectionActions={
                 <button className="ghost" onClick={() => setShowAddExercises(true)}>
-                  ➕ Add questions from another assessment
+                  <span className="btn-glyph" aria-hidden>⊕</span> Add questions from another assessment
                 </button>
               }
             />

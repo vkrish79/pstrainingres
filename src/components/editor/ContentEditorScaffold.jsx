@@ -382,7 +382,7 @@ export default function ContentEditorScaffold({
             })}
             <div className="add-section-row">
               <button className="primary" onClick={() => onCreateSection(`Question ${qList.length + 1}`)}>
-                ➕ Add question
+                <span className="btn-glyph" aria-hidden>+</span> Add question
               </button>
               {extraAddSectionActions}
             </div>
@@ -497,7 +497,9 @@ export default function ContentEditorScaffold({
         })}
 
         <div className="add-section-row">
-          <button className="primary" onClick={() => onCreateSection('New section')}>+ Add section</button>
+          <button className="primary" onClick={() => onCreateSection('New section')}>
+            <span className="btn-glyph" aria-hidden>+</span> Add section
+          </button>
           {extraAddSectionActions}
         </div>
         </>

@@ -300,8 +300,12 @@ export default function WorkbookEditorPage() {
           onOpenHeat={heatEnabled ? setHeatFocus : null}
           extraAddSectionActions={
             <>
-              <button className="ghost" onClick={() => setShowAddExercises(true)}>➕ Add exercises from another workbook</button>
-              <button className="ghost" onClick={async () => { await renumberExercises(id); await reload(); }}>🔢 Renumber exercises</button>
+              <button className="ghost" onClick={() => setShowAddExercises(true)}>
+                <span className="btn-glyph" aria-hidden>⊕</span> Add exercises from another workbook
+              </button>
+              <button className="ghost" onClick={async () => { await renumberExercises(id); await reload(); }}>
+                <span className="btn-glyph" aria-hidden>№</span> Renumber exercises
+              </button>
             </>
           }
         />

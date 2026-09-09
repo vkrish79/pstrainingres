@@ -151,7 +151,7 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
                 ) : (
                   <button type="button" className="block-menu-item is-danger" role="menuitem"
                     onClick={() => setConfirmDel(true)}>
-                    <span className="block-menu-glyph" aria-hidden>🗑</span> Delete
+                    <span className="block-menu-glyph" aria-hidden>✕</span> Delete
                   </button>
                 )}
               </div>

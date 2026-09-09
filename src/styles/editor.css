@@ -1053,3 +1053,21 @@ button.ghost.compact, button.danger.compact {
 .block-empty-title { font-size: 0.92rem; font-weight: 600; color: var(--midnight); margin-bottom: 0.15rem; }
 .block-empty-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.8rem; }
 .block-empty-actions { display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap; }
+
+/* Icon glyph inside a button label. Monochrome and set in the page's own
+   typeface, unlike the emoji these replaced — an emoji is a colour image that
+   ignores the surrounding font and line box, which is exactly why those
+   buttons stood taller than their neighbours. Shares the vocabulary of the
+   add-block menu (¶ ▭ ▦ …) so the editor reads as one system:
+     +  create something new here
+     ⊕  bring something in from elsewhere
+     №  numbering
+     ✕  destructive                                                        */
+.btn-glyph {
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--gold-dark);
+  margin-right: 0.1rem;
+}
+/* gold-dark disappears into the midnight fill, so lift it on a primary. */
+button.primary .btn-glyph { color: var(--gold); }
