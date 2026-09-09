@@ -90,7 +90,21 @@
 .ld-meta,
 .ld-table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
+  /* FIXED LAYOUT IS WHAT KEEPS THE SHEET ON THE PAPER.
+     With auto layout a table is at least as wide as its widest unbreakable
+     content. Every header cell here was white-space: nowrap on top of fixed
+     rem column widths, which put the summary table's minimum at 701px against
+     703px of printable A4 — it fitted by two pixels. Any other paper size,
+     print scale, or font substitution pushed it over and the right-hand
+     border ran off the page.
+
+     Fixed layout takes the column widths below as instructions rather than
+     hints, so the table is exactly 100% of the page and the content wraps
+     inside it. Percentages, not rem, for the same reason: they cannot
+     out-grow their container. */
+  table-layout: fixed;
 }
 
 .ld-meta th,
@@ -104,11 +118,13 @@
   background: var(--ld-qasr);
   color: #2b2415;
   font-weight: 700;
-  white-space: nowrap;
-  width: 1%;
+  width: 26%;
 }
-.ld-meta th.narrow { width: 1%; }
-.ld-meta td { min-width: 6rem; }
+.ld-meta th.narrow { width: 12%; }
+.ld-meta tr > td:nth-of-type(1) { width: 34%; }
+.ld-meta tr > td:nth-of-type(2) { width: 28%; }
+/* A long programme title or name must wrap rather than widen the table. */
+.ld-meta th, .ld-meta td { overflow-wrap: break-word; }
 
 
 /* Cells the app has no data for. An empty <td> collapses to nothing, so give
@@ -139,16 +155,20 @@
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  white-space: nowrap;
+  /* Deliberately NOT nowrap. "Score (%)" wrapping to two lines costs a few
+     millimetres of header height; refusing to wrap cost the right-hand
+     border of the whole sheet. */
 }
 /* Banding makes a 16-row roster readable across a printed page. */
 .ld-table tbody tr:nth-child(even) { background: #f7f5f0; }
 
-.ld-table .col-sr { width: 2.5rem; text-align: center; }
-.ld-table .col-staff { width: 7rem; }
-.ld-table .col-role { width: 8rem; }
-.ld-table .col-score { width: 5.5rem; text-align: right; white-space: nowrap; }
-.ld-table .col-result { width: 5rem; text-align: center; font-weight: 700; }
+.ld-table .col-sr { width: 6%; text-align: center; }
+.ld-table .col-staff { width: 16%; }
+.ld-table .col-role { width: 16%; }
+.ld-table .col-score { width: 18%; text-align: right; }
+.ld-table .col-result { width: 18%; text-align: center; font-weight: 700; }
+/* A long name wraps inside its cell instead of stretching the table. */
+.ld-table th, .ld-table td { overflow-wrap: break-word; }
 
 .ld-blank-row td { height: 1.55rem; color: var(--muted, #8a8a8a); }
 .ld-blank-row .col-sr { color: var(--muted, #8a8a8a); font-weight: 400; }
@@ -158,7 +178,7 @@
 
 /* Individual: the Areas of Error block */
 .ld-feedback .ld-feedback-label {
-  width: 9rem;
+  width: 22%;
   background: var(--ld-qasr);
   color: #2b2415;
   font-weight: 700;
@@ -239,7 +259,13 @@
   .report-page {
     border: none !important;
     border-radius: 0 !important;
-    padding: 0 !important;
+    /* NOT padding: 0. With border-collapse: collapse the table's outer border
+       sits ON its edge, and a full-width table puts that edge exactly on the
+       printable boundary — so half the right-hand border falls outside the
+       paper and prints clipped or not at all. A hair of inset gives it
+       somewhere to land. Left and right only: vertical space is the @page
+       margin's job. */
+    padding: 0 1mm !important;
     margin: 0 !important;
     page-break-after: always;
     break-after: page;
