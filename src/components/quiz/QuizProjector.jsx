@@ -71,6 +71,11 @@ export default function QuizProjector({ runId, onExit }) {
         ? (new Date(run.phase_ends_at) - new Date(run.phase_started_at)) / 1000
         : 20;
       music.startQuestion(limit, () => secondsRef.current);
+    } else if (phase === 'ready') {
+      // The pre-roll used to be silent, so the first thing after pressing
+      // Start was three seconds of nothing — half the reason the music seemed
+      // not to be working at all.
+      music.startPreroll(() => secondsRef.current);
     } else {
       music.stop();
       if (phase === 'reveal') music.sting('reveal');
