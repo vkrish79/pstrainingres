@@ -152,7 +152,17 @@ export default function VendorsAdminPage() {
                       )}
                     </td>
                     <td>{v.trainer_count}</td>
-                    <td>{v.session_count}</td>
+                    {/* The way in to /trainer/vendors/:id/sessions. The card
+                        grid on the sessions page used to be it, and that grid
+                        has gone now that vendor sessions are in the main list
+                        with a vendor filter — leaving only global search, which
+                        you have to already know to look for. A count that is
+                        also the link costs nothing and keeps the page reachable. */}
+                    <td>
+                      {v.session_count > 0
+                        ? <Link to={`/trainer/vendors/${v.id}/sessions`}>{v.session_count}</Link>
+                        : v.session_count}
+                    </td>
                     <td>{new Date(v.created_at).toLocaleDateString()}</td>
                     <td>
                       {editingId === v.id ? (

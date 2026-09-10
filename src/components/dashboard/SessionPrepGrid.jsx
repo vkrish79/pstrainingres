@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { isMatrixPaste, parseClipboardMatrix, applyMatrix } from '../../lib/pasteGrid.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import '../../styles/prep-grid.css';
 
@@ -68,16 +69,52 @@ export default function SessionPrepGrid({ participants = [], sections = [], prep
   );
 }
 
-// Modal: paste fresh PNRs (one per participant, in row order) → replace that
-// exercise's prep for everyone. Blank lines are skipped (never clears prep).
+// Replace one exercise's prep for every participant, as a grid rather than a
+// textarea.
+//
+// It used to be a free textarea beside a numbered list of names: you pasted a
+// column from Excel and then counted down two lists to check line 7 was really
+// Fatima's. The values and the names were never on the same row, which is the
+// one thing the reader needs.
+//
+// Now each participant IS a row, with their current value beside the cell that
+// replaces it, and a paste from Excel fills down from the cell you paste into —
+// the same behaviour as PrepPasteGrid on the Prep page, sharing its parser.
+//
+// BLANK STILL MEANS KEEP. The submit loop below indexes positionally against
+// `participants` and skips empty content, which is what makes "leave a row
+// alone" expressible. So the grid holds one value per participant including
+// the empties, and is never compacted down to just the filled ones.
 function ReplaceColumnModal({ section, participants, prep, onClose, onSave }) {
   useBodyScrollLock();
-  const [text, setText] = useState('');
+  // One cell per participant, in participant order. A row of one column, which
+  // keeps it the same shape applyMatrix expects.
+  const [rows, setRows] = useState(() => participants.map(() => ['']));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [dropped, setDropped] = useState(0);
   const [poolWarning, setPoolWarning] = useState('');
-  const lines = text.split('\n').map(s => s.trim());
+
+  const lines = rows.map(r => (r[0] || '').trim());
   const filled = lines.filter(Boolean).length;
+
+  function setCell(i, val) {
+    setRows(prev => prev.map((row, ri) => (ri === i ? [val] : row)));
+    setDropped(0);
+  }
+
+  // Paste a column straight out of Excel: fills downward from this row.
+  function handlePaste(i, e) {
+    const text = e.clipboardData?.getData('text') || '';
+    if (!isMatrixPaste(text)) return;   // single value — let the input do it
+    e.preventDefault();
+    const matrix = parseClipboardMatrix(text);
+    setRows(prev => {
+      const { rows: next, dropped: lost } = applyMatrix(prev, matrix, i, 0);
+      setDropped(lost);
+      return next;
+    });
+  }
 
   async function submit() {
     setBusy(true); setErr(''); setPoolWarning('');
@@ -107,26 +144,62 @@ function ReplaceColumnModal({ section, participants, prep, onClose, onSave }) {
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </header>
         <div className="modal-body">
-          <p className="muted" style={{ marginTop: 0 }}>Paste one fresh value per participant, in this order. Each replaces that participant's <strong>{section.title}</strong> prep live. Leave a line blank to keep that participant's current value.</p>
-          <div className="prep-replace-grid">
-            <ol className="prep-replace-names">
-              {participants.map((p, i) => (
-                <li key={p.id}>
-                  <span className="prep-replace-rank">{i + 1}</span>
-                  <span className="prep-replace-name">{p.full_name || '(unnamed)'}</span>
-                  <span className="prep-replace-cur">{prep[p.id]?.[section.id]?.content || '—'}</span>
-                </li>
-              ))}
-            </ol>
-            <textarea
-              className="prep-replace-text"
-              rows={Math.max(5, participants.length)}
-              value={text}
-              onChange={e => setText(e.target.value)}
-              placeholder={`One value per line\n(${participants.length} participant${participants.length === 1 ? '' : 's'})`}
-            />
+          <p className="muted" style={{ marginTop: 0 }}>
+            Copy the column of fresh values from Excel and paste it into the first
+            cell — it fills down from there. Each replaces that participant's{' '}
+            <strong>{section.title}</strong> prep live. <strong>Leave a cell empty</strong> to
+            keep that participant's current value.
+          </p>
+
+          <div className="pg-scroll prep-replace-scroll">
+            <table className="pg-table prep-replace-table">
+              <thead>
+                <tr>
+                  <th className="pg-rowhead prep-replace-rownum">#</th>
+                  <th>Participant</th>
+                  <th>Current</th>
+                  <th>New value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {participants.map((p, i) => {
+                  const current = prep[p.id]?.[section.id]?.content || '';
+                  const next = (rows[i]?.[0] || '').trim();
+                  return (
+                    <tr key={p.id} className={next ? 'prep-replace-changed' : undefined}>
+                      <td className="pg-rowhead prep-replace-rownum">{i + 1}</td>
+                      <td className="prep-replace-name">{p.full_name || '(unnamed)'}</td>
+                      <td className="prep-replace-cur mono">{current || '—'}</td>
+                      <td className="pg-editcell">
+                        <input
+                          className="pg-edit"
+                          value={rows[i]?.[0] || ''}
+                          onChange={e => setCell(i, e.target.value)}
+                          onPaste={e => handlePaste(i, e)}
+                          aria-label={`New ${section.title} prep for ${p.full_name || 'participant'}`}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <p className="muted">{filled} value{filled === 1 ? '' : 's'} pasted for {participants.length} participant{participants.length === 1 ? '' : 's'}.</p>
+
+          <p className="muted">
+            {filled} value{filled === 1 ? '' : 's'} entered for {participants.length} participant{participants.length === 1 ? '' : 's'}.
+            {filled > 0 && filled < participants.length && ' The rest keep what they have.'}
+          </p>
+          {/* Pasting more values than there are participants used to fail
+              silently — the extras simply vanished, and nobody found out until
+              somebody's prep was wrong. */}
+          {dropped > 0 && (
+            <p className="prep-warn">
+              ⚠ {dropped} pasted value{dropped === 1 ? '' : 's'} did not fit — there
+              {participants.length === 1 ? ' is' : ' are'} only {participants.length} participant
+              {participants.length === 1 ? '' : 's'}. Check you copied the right block.
+            </p>
+          )}
           {err && <p className="error">{err}</p>}
           {poolWarning && <p className="prep-warn">⚠ {poolWarning}</p>}
         </div>

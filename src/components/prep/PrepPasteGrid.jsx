@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { isMatrixPaste, parseClipboardMatrix } from '../../lib/pasteGrid.js';
 import '../../styles/prep-grid.css';
 
 // In-app prep entry — no template download, no header row to mangle. The exercise
@@ -18,19 +19,26 @@ export default function PrepPasteGrid({ structure = [], onSubmit, onCancel, busy
     setRows(prev => prev.map((row, ri) => (ri === r ? row.map((cell, ci) => (ci === c ? val : cell)) : row)));
   }
 
-  // Spreadsheet-style paste: \n = rows, \t = columns, filled from the target cell.
+  // Spreadsheet-style paste: \n = rows, \t = columns, filled from the target
+  // cell. The parsing — \r\n, trailing newlines, blank lines that must survive
+  // — lives in lib/pasteGrid.js and is shared with the session dashboard's
+  // replace-prep grid, which had its own copy of it.
+  //
+  // The WRITE is not shared, deliberately. This grid grows to fit whatever
+  // arrives, because a kit list has no fixed length; the replace-prep grid has
+  // exactly one row per participant and clamps instead.
   function handlePaste(r, c, e) {
     const text = e.clipboardData?.getData('text') || '';
-    if (!/[\t\n]/.test(text)) return; // single value → let the input handle it
+    if (!isMatrixPaste(text)) return; // single value → let the input handle it
     e.preventDefault();
-    const matrix = text.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map(line => line.split('\t'));
+    const matrix = parseClipboardMatrix(text);
     setRows(prev => {
       const next = prev.map(row => [...row]);
       for (let i = 0; i < matrix.length; i++) {
         const tr = r + i;
         while (next.length <= tr) next.push(blankRow());
         for (let j = 0; j < matrix[i].length && c + j < headers.length; j++) {
-          next[tr][c + j] = matrix[i][j].trim();
+          next[tr][c + j] = matrix[i][j];
         }
       }
       return next;

@@ -262,6 +262,34 @@ export function useSessionDashboard(sessionId) {
     return { data: true };
   }
 
+  // Change when a session runs.
+  //
+  // Both rules are enforced by a trigger (20260914000000_session_dates_required):
+  // neither date may be null, and the end may not precede the start. The form
+  // checks the same two so the reader is told before a round trip, but the
+  // trigger is the authority — it covers create_session_from_program and every
+  // other path into the table.
+  //
+  // .select() IS NOT OPTIONAL. An update that RLS refuses comes back 200 with
+  // no error and zero rows, so without reading the row back this would report
+  // success on a write that never happened.
+  async function updateSessionDates(startsAt, endsAt) {
+    const { data, error: e } = await supabase
+      .from('sessions')
+      .update({ starts_at: startsAt, ends_at: endsAt })
+      .eq('id', sessionId)
+      .select('id, starts_at, ends_at');
+
+    if (e) return { error: new Error(e.message) };
+    if (!data || data.length === 0) {
+      return { error: new Error('That change was not saved — you may not have permission to edit this session.') };
+    }
+
+    const row = data[0];
+    setSession(prev => (prev ? { ...prev, starts_at: row.starts_at, ends_at: row.ends_at } : prev));
+    return { data: row };
+  }
+
   async function closeSession() {
     const { data: { session: authSess } } = await supabase.auth.getSession();
     if (!authSess) return { error: new Error('Not authenticated') };
@@ -349,5 +377,5 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
+  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
 }

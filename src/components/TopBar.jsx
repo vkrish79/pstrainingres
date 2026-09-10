@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isTrainerTier, homePathForRole, roleLabel } from '../lib/roles.js';
-import { useLowPrepPools } from '../hooks/useLowPrepPools.js';
-import PrepUploadModal from './prep/PrepUploadModal.jsx';
 import GlobalSearch from './GlobalSearch.jsx';
 import Sidenav from './Sidenav.jsx';
 
@@ -11,7 +8,7 @@ import Sidenav from './Sidenav.jsx';
 // the left, search in the middle and who-you-are on the right.
 //
 // Navigation moved OUT of here and into the left rail. What stays is the small
-// set of things that are true on every page — search, prep, identity — rather
+// set of things that are true on every page — search and identity — rather
 // than a link row that grew past what a single line can hold.
 //
 // PARTICIPANTS KEEP THE OLD, PLAIN BAR. Their two pages are a paper to read and
@@ -49,8 +46,6 @@ export default function TopBar() {
   const isTrainer = isTrainerTier(profile?.role);
   const homePath = homePathForRole(profile?.role);
   const chipLabel = roleLabel(profile?.role);
-  const [prepOpen, setPrepOpen] = useState(false);
-  const { lowPools } = useLowPrepPools(profile);
 
   const onTrainerRoute = pathname.startsWith('/trainer');
   const showShell = isTrainer && onTrainerRoute;
@@ -76,25 +71,23 @@ export default function TopBar() {
             </Link>
           )}
 
+          {/* Search sits in a slot of its own, between where-you-are and who-
+              you-are, so it lands in the CENTRE of the bar rather than wherever
+              the width of the identity block happens to leave it. See the grid
+              in shell.css — three columns, the middle one fixed, which is what
+              makes the centring true rather than approximate.
+
+              THE PREP BUTTON HAS GONE from beside it. It was a second route to
+              prep that the Prep item in the left rail already reaches, and it
+              carried a count badge for a warning the banner on the page below
+              states in words. Two doors to one room, one of them unlabelled. */}
+          {isTrainer && (
+            <div className="topbar-search-slot">
+              <GlobalSearch />
+            </div>
+          )}
+
           <nav className="topbar-nav">
-            {isTrainer && (
-              <>
-                <GlobalSearch />
-                <button
-                  type="button"
-                  className="topbar-icon-btn"
-                  onClick={() => setPrepOpen(true)}
-                  title="Upload prep"
-                >
-                  ◧
-                  {lowPools.length > 0 && (
-                    <span className="nav-badge" title={`${lowPools.length} prep pool(s) running low`}>
-                      {lowPools.length}
-                    </span>
-                  )}
-                </button>
-              </>
-            )}
             <span className="topbar-user">
               <span className="topbar-user-avatar">{(profile?.full_name || '?').charAt(0).toUpperCase()}</span>
               <span className="topbar-user-text">
@@ -106,7 +99,6 @@ export default function TopBar() {
           </nav>
         </div>
       </header>
-      {prepOpen && <PrepUploadModal onClose={() => setPrepOpen(false)} profile={profile} />}
     </>
   );
 }

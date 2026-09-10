@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { sessionColour } from '../../lib/programColour.js';
-import { parseMonth } from './SessionViews.jsx';
-import { formatRange } from '../../lib/sessionDates.js';
+import SessionHoverCard from './SessionHoverCard.jsx';
+import { DOW, startOfMonthGrid, dayStart, packWeek, monthsForView, hasAnyInMonths, parseMonthKey } from '../../lib/calendarSpans.js';
 
 // A month of sessions, drawn as bars.
 //
@@ -17,75 +17,34 @@ import { formatRange } from '../../lib/sessionDates.js';
 // conflict detection, room availability and three confirm modals. That is a
 // resourcing tool. This is a session list that knows about dates.
 
-const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MAX_TRACKS = 3; // beyond this a week says "+N more" rather than growing without limit
+// How many stacked tracks a week will draw before it says "+N more", per
+// density. A PARAMETER, not the module constant it used to be: a year-view
+// cell is 28px tall, and reserving three tracks of vertical space inside it
+// would leave twelve months of mostly-empty boxes.
+const TRACKS = { full: 3, compact: 2, tiny: 3 };
 
-// The Monday on or before the 1st, so the grid starts on a whole week.
-// (getDay() is Sunday-first; +6 %7 rotates it to Monday-first.)
-function startOfMonthGrid(monthDate) {
-  const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const dow = (first.getDay() + 6) % 7;
-  const grid = new Date(first);
-  grid.setDate(grid.getDate() - dow);
-  grid.setHours(0, 0, 0, 0);
-  return grid;
-}
-
-function dayStart(value) {
-  const d = new Date(value);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function diffDays(a, b) {
-  return Math.round((b - a) / 86400000);
-}
-
-// Which sessions touch this week, where each starts, how far it runs, and
-// which track it sits in. Lifted from MonthBlock.packWeek().
+// One month's grid. Extracted from SessionCalendar so quarter and year views
+// can draw three and twelve of them — the same split myLearning Hub's training
+// plan makes between TrainingPlanCanvas and MonthBlock.
 //
-// Sorting by start then by longest-first matters: it makes the packing
-// deterministic, so a session does not hop between rows when an unrelated one
-// is added.
-export function packWeek(weekStart, sessions) {
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
+// `density` drives the CSS custom properties for bar and date-number height,
+// declared on this block so they override the wrap's full-size values by
+// inheritance. At `tiny` the bars lose their text entirely and become colour
+// strips: at 4px high a session name is not readable, and pretending otherwise
+// would just be a smear.
+function MonthBlock({
+  monthDate,
+  sessions,
+  density = 'full',
+  showTitle = false,
+  onTitleClick,
+  onBarEnter,
+  onBarLeave,
+}) {
+  const maxTracks = TRACKS[density] ?? 3;
+  const tiny = density === 'tiny';
 
-  const visible = sessions
-    .map(s => {
-      if (!s.starts_at && !s.ends_at) return null;
-      const start = dayStart(s.starts_at || s.ends_at);
-      const end = dayStart(s.ends_at || s.starts_at);
-      if (end < weekStart || start >= weekEnd) return null;
-      const col = Math.max(0, diffDays(weekStart, start));
-      const endCol = Math.min(6, diffDays(weekStart, end));
-      return {
-        session: s,
-        col,
-        span: endCol - col + 1,
-        start,
-        // Whether the bar is cut off by the edge of this week, so the drawing
-        // can show it continues rather than implying it stops here.
-        clippedStart: start < weekStart,
-        clippedEnd: end >= weekEnd,
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => (a.start - b.start) || (b.span - a.span));
-
-  const trackEnds = [];
-  return visible.map(item => {
-    let track = trackEnds.findIndex(endCol => item.col > endCol);
-    if (track < 0) { track = trackEnds.length; trackEnds.push(-1); }
-    trackEnds[track] = item.col + item.span - 1;
-    return { ...item, track };
-  });
-}
-
-export default function SessionCalendar({ sessions, month, emptyLabel = 'No sessions.' }) {
-  const monthDate = parseMonth(month);
-
-  const { weeks, undated } = useMemo(() => {
+  const weeks = useMemo(() => {
     const list = sessions || [];
     const gridStart = startOfMonthGrid(monthDate);
     const out = [];
@@ -102,23 +61,39 @@ export default function SessionCalendar({ sessions, month, emptyLabel = 'No sess
           && days[6].getMonth() !== monthDate.getMonth()) break;
       out.push({ weekStart, days, items: packWeek(weekStart, list) });
     }
-    return { weeks: out, undated: list.filter(s => !s.starts_at && !s.ends_at) };
+    return out;
   }, [sessions, monthDate]);
 
   const todayISO = dayStart(new Date()).getTime();
   const thisMonth = monthDate.getMonth();
-  const anyInMonth = weeks.some(w => w.items.length > 0);
+  const monthLabel = monthDate.toLocaleDateString('en-GB', { month: 'long' });
+  const fullLabel = monthDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="session-cal-wrap">
+    <div className={`session-cal-block density-${density}`}>
+      {showTitle && (
+        onTitleClick ? (
+          <button
+            type="button"
+            className="session-cal-block-title is-clickable"
+            onClick={() => onTitleClick(monthDate)}
+            title={`Open ${fullLabel}`}
+          >
+            {monthLabel}
+          </button>
+        ) : (
+          <div className="session-cal-block-title">{monthLabel}</div>
+        )
+      )}
+
       <div className="session-cal">
         <div className="session-cal-dow">
-          {DOW.map(d => <span key={d}>{d}</span>)}
+          {DOW.map(d => <span key={d}>{tiny ? d.charAt(0) : d}</span>)}
         </div>
 
         {weeks.map(({ weekStart, days, items }) => {
-          const shown = items.filter(i => i.track < MAX_TRACKS);
-          const hidden = items.filter(i => i.track >= MAX_TRACKS);
+          const shown = items.filter(i => i.track < maxTracks);
+          const hidden = items.filter(i => i.track >= maxTracks);
           // "+N more" is counted per DAY, so it appears over the days that
           // actually have something behind them.
           const overflowByCol = {};
@@ -127,7 +102,7 @@ export default function SessionCalendar({ sessions, month, emptyLabel = 'No sess
               overflowByCol[c] = (overflowByCol[c] || 0) + 1;
             }
           }
-          const trackCount = Math.min(MAX_TRACKS, items.reduce((m, i) => Math.max(m, i.track + 1), 0));
+          const trackCount = Math.min(maxTracks, items.reduce((m, i) => Math.max(m, i.track + 1), 0));
 
           return (
             <div
@@ -165,20 +140,33 @@ export default function SessionCalendar({ sessions, month, emptyLabel = 'No sess
                     gridColumn: `${i.col + 1} / span ${i.span}`,
                     '--track': i.track,
                   }}
-                  title={`${i.session.name} · ${formatRange(i.session.starts_at, i.session.ends_at)}`}
+                  /* No `title`. It waited a second, arrived as unstyled OS
+                     chrome, and mostly repeated the bar. onFocus/onBlur as well
+                     as the mouse handlers, so tabbing through the calendar
+                     gets the same information as hovering. */
+                  onMouseEnter={e => onBarEnter?.(i.session, e.currentTarget)}
+                  onMouseLeave={onBarLeave}
+                  onFocus={e => onBarEnter?.(i.session, e.currentTarget)}
+                  onBlur={onBarLeave}
                 >
-                  <span className="session-cal-bar-name">{i.session.name}</span>
-                  <span className="session-cal-bar-count">
-                    {(i.session.session_participants || []).length}
-                  </span>
+                  {/* At tiny density the bar is a 4px strip. Text would be a
+                      smear, and the hover card carries the detail instead. */}
+                  {!tiny && (
+                    <>
+                      <span className="session-cal-bar-name">{i.session.name}</span>
+                      <span className="session-cal-bar-count">
+                        {(i.session.session_participants || []).length}
+                      </span>
+                    </>
+                  )}
                 </Link>
               ))}
 
-              {Object.entries(overflowByCol).map(([col, n]) => (
+              {!tiny && Object.entries(overflowByCol).map(([col, n]) => (
                 <span
                   key={`more-${col}`}
                   className="session-cal-more"
-                  style={{ gridColumn: `${Number(col) + 1}`, '--track': MAX_TRACKS }}
+                  style={{ gridColumn: `${Number(col) + 1}`, '--track': maxTracks }}
                 >
                   +{n} more
                 </span>
@@ -187,17 +175,65 @@ export default function SessionCalendar({ sessions, month, emptyLabel = 'No sess
           );
         })}
       </div>
+    </div>
+  );
+}
 
-      {!anyInMonth && (
+export default function SessionCalendar({
+  sessions,
+  month,
+  view = 'month',
+  onJumpToMonth,
+  emptyLabel = 'No sessions.',
+}) {
+  const monthDate = parseMonthKey(month);
+
+  // The hovered bar, as a session plus the rectangle it occupies. The RECT is
+  // stored rather than the element, so the card positions against a snapshot
+  // and cannot end up reading a node that has since re-rendered.
+  const [card, setCard] = useState(null);
+  function showCard(session, el) {
+    setCard({ session, anchor: el.getBoundingClientRect() });
+  }
+  function hideCard() { setCard(null); }
+
+  const months = useMemo(() => monthsForView(monthDate, view), [monthDate, view]);
+  const density = view === 'year' ? 'tiny' : view === 'quarter' ? 'compact' : 'full';
+
+  const list = sessions || [];
+  const undated = list.filter(s => !s.starts_at && !s.ends_at);
+  const anyShown = useMemo(() => hasAnyInMonths(months, list), [months, list]);
+
+  const periodWord = view === 'year' ? 'this year' : view === 'quarter' ? 'this quarter' : 'this month';
+
+  return (
+    <div className="session-cal-wrap">
+      <div className={`session-cal-months view-${view}`}>
+        {months.map(m => (
+          <MonthBlock
+            key={m.toISOString()}
+            monthDate={m}
+            sessions={list}
+            density={density}
+            showTitle={view !== 'month'}
+            onTitleClick={view !== 'month' ? onJumpToMonth : undefined}
+            onBarEnter={showCard}
+            onBarLeave={hideCard}
+          />
+        ))}
+      </div>
+
+      {!anyShown && (
         <p className="muted session-cal-empty">
-          {(sessions || []).length === 0 ? emptyLabel : 'Nothing scheduled this month.'}
+          {list.length === 0 ? emptyLabel : `Nothing scheduled ${periodWord}.`}
         </p>
       )}
 
       {/* Undated sessions cannot be drawn on a calendar, and vanishing without
           a word is the failure worth avoiding: a trainer seeing eleven of
           their fourteen sessions would have no way to know the other three
-          exist. They stay visible and countable here instead. */}
+          exist. They stay visible and countable here instead — ONCE, under the
+          whole calendar, not once per month block. */}
       {undated.length > 0 && (
         <div className="session-unscheduled">
           <div className="session-unscheduled-head">Unscheduled · {undated.length}</div>
@@ -211,6 +247,10 @@ export default function SessionCalendar({ sessions, month, emptyLabel = 'No sess
           </div>
         </div>
       )}
+
+      {/* Rendered last and positioned against the viewport, so it draws over
+          the grid instead of inside it — see the note in SessionHoverCard. */}
+      {card && <SessionHoverCard session={card.session} anchor={card.anchor} />}
     </div>
   );
 }

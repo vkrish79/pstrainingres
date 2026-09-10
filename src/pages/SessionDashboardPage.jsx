@@ -17,7 +17,6 @@ import AssessmentRunStrip from '../components/dashboard/AssessmentRunStrip.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, expectedInputs, filledInputs } from '../lib/blockHelpers.js';
-import { buildAnswersCsv, downloadCsv } from '../lib/sessionExport.js';
 import { buildAllInvitesText, buildHandoutHtml, buildInviteText } from '../lib/participantInvite.js';
 import Block from '../components/blocks/Block.jsx';
 import MaterialsList from '../components/MaterialsList.jsx';
@@ -29,6 +28,8 @@ import AssessmentResponses from '../components/dashboard/AssessmentResponses.jsx
 import AssessmentReport from '../components/dashboard/AssessmentReport.jsx';
 import { formatRange } from '../lib/sessionDates.js';
 import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
+import EditSessionDatesModal from '../components/dashboard/EditSessionDatesModal.jsx';
+import KebabMenu from '../components/KebabMenu.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -48,14 +49,14 @@ export default function SessionDashboardPage() {
   const navigate = useNavigate();
   const {
     loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled,
-    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
+    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
   } = useSessionDashboard(id);
   const { session: authSession, profile } = useAuth();
   const { run: runBusy } = useBusyOverlay();
   const canChangeTrainer = isVendorManagerOrAbove(profile?.role);
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
-  const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
+  const { prep: prepBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(id);
   // Live cursors: where each participant is looking right now. Read-only here.
   const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
@@ -75,6 +76,7 @@ export default function SessionDashboardPage() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleteError, setDeleteError] = useState({}); // { [participantId]: msg }
   const [confirmClose, setConfirmClose] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
   const [closeError, setCloseError] = useState('');
   const [confirmDeleteSession, setConfirmDeleteSession] = useState(false);
   const [deleteSessionError, setDeleteSessionError] = useState('');
@@ -353,12 +355,6 @@ export default function SessionDashboardPage() {
     return { data };
   }
 
-  function handleExport() {
-    const csv = buildAnswersCsv({ session, sections, blocks, participants, answers, notes, participantNotes, participantPrep: prepBy, participantStandalone: standaloneBy });
-    const safe = (session?.name || 'session').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
-    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-    downloadCsv(`${safe}_answers_${stamp}.csv`, csv);
-  }
 
   if (loading) return <><TopBar /><div className="loading">Loading session…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
@@ -454,24 +450,39 @@ export default function SessionDashboardPage() {
                 onOpen={() => setView('assessment')}
               />
             )}
-            {prepEnabled && (
-              <button className="ghost-link" onClick={() => navigate(`/trainer/sessions/${id}/prep`)}>
-                <span className="btn-glyph" aria-hidden>▤</span> Manage prep
-              </button>
-            )}
-            <button className="ghost-link" onClick={handleExport} disabled={participants.length === 0}>
-              <span className="btn-glyph" aria-hidden>↓</span> Export CSV
-            </button>
-            {/* Closing is the normal end of a session, and a closed session can
-                be reopened; deleting cannot be undone. Both were .danger, which
-                spent the red on a routine action and left nothing to mark the
-                permanent one. */}
-            <button className="ghost-link" onClick={() => { setCloseError(''); setConfirmClose(true); }}>
-              <span className="btn-glyph" aria-hidden>⊟</span> Close session
-            </button>
-            <button className="ghost-link danger" onClick={() => { setDeleteSessionError(''); setConfirmDeleteSession(true); }}>
-              <span className="btn-glyph" aria-hidden>✕</span> Delete session
-            </button>
+            {/* SIX CONTROLS ON ONE ROW WAS THE PROBLEM. What is left in the
+                open is the two things that are STATE rather than actions — who
+                is delivering this session, and how the assessment is going.
+                Every button is behind the ⋯.
+                Closing is reversible and deleting is not, so only one of them
+                is red — and the separator puts a beat before it. */}
+            <KebabMenu
+              label="Session actions"
+              items={[
+                {
+                  label: 'Edit dates',
+                  glyph: '▦',
+                  onClick: () => setEditingDates(true),
+                },
+                prepEnabled && {
+                  label: 'Manage prep',
+                  glyph: '▤',
+                  onClick: () => navigate(`/trainer/sessions/${id}/prep`),
+                },
+                { separator: true },
+                {
+                  label: 'Close session',
+                  glyph: '⊟',
+                  onClick: () => { setCloseError(''); setConfirmClose(true); },
+                },
+                {
+                  label: 'Delete session',
+                  glyph: '✕',
+                  danger: true,
+                  onClick: () => { setDeleteSessionError(''); setConfirmDeleteSession(true); },
+                },
+              ]}
+            />
           </div>
         </section>
 
@@ -660,11 +671,23 @@ export default function SessionDashboardPage() {
                                 >Dismiss</button>
                               </>
                             ) : (
-                              <>
-                                <button className="ghost" onClick={() => setPrepEditorFor(p.id)}>Prep…</button>
-                                <button className="ghost" onClick={() => setConfirmReset(p.id)}>Reset pwd</button>
-                                <button className="ghost danger" onClick={() => setConfirmDelete(p.id)}>Delete</button>
-                              </>
+                              /* Three buttons per row, on every row, was the
+                                 loudest thing on this page — the noise scaled
+                                 with the cohort. Both confirms still render
+                                 INLINE in this cell rather than inside the
+                                 menu: the menu closes on the click, the cell
+                                 re-renders as the confirm, and a popup that
+                                 dismisses on outside-click never has to hold a
+                                 question. */
+                              <KebabMenu
+                                label={`Actions for ${p.full_name || 'participant'}`}
+                                items={[
+                                  { label: 'Edit prep…', glyph: '▤', onClick: () => setPrepEditorFor(p.id) },
+                                  { label: 'Reset password', glyph: '⟲', onClick: () => setConfirmReset(p.id) },
+                                  { separator: true },
+                                  { label: 'Remove from session', glyph: '✕', danger: true, onClick: () => setConfirmDelete(p.id) },
+                                ]}
+                              />
                             )}
                           </td>
                           )}
@@ -832,6 +855,13 @@ export default function SessionDashboardPage() {
             </footer>
           </div>
         </div>
+      )}
+      {editingDates && (
+        <EditSessionDatesModal
+          session={session}
+          onSave={updateSessionDates}
+          onClose={() => setEditingDates(false)}
+        />
       )}
       {confirmDeleteSession && (
         <DeleteSessionModal

@@ -97,13 +97,6 @@ input, select, textarea { font-family: inherit; }
    global button:hover (which outranks a single class). */
 .topbar-nav-link.topbar-nav-btn { background: none; border: none; cursor: pointer; font-family: inherit; }
 .topbar-nav-link.topbar-nav-btn:hover { background: var(--bg); color: var(--midnight); }
-/* Count badge on the Prep nav item when prep pools are running low. */
-.nav-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 1.05rem; height: 1.05rem; padding: 0 0.3rem; margin-left: 0.35rem;
-  background: var(--danger); color: #fff; border-radius: 999px;
-  font-size: 0.68rem; font-weight: 700; line-height: 1; vertical-align: middle;
-}
 
 .topbar-user {
   display: flex; align-items: center; gap: 0.5rem;
@@ -182,14 +175,22 @@ input, select, textarea { font-family: inherit; }
   color: #fff;
   border-radius: var(--radius-lg);
   position: relative;
-  overflow: hidden;
+  /* NOT overflow: hidden. It was, to contain the glow below — and it also
+     clipped anything a child wanted to hang past the edge, which meant the ⋯
+     menu in the actions row was cut off mid-item. The glow now sizes itself
+     inside the box instead, so nothing needs clipping. */
+  overflow: visible;
 }
 .page-hero::after {
   content: '';
   position: absolute;
-  top: -40%; right: -10%;
-  width: 50%; height: 200%;
-  background: radial-gradient(ellipse at center, rgba(181, 152, 90, 0.18) 0%, transparent 60%);
+  /* Was a 50%×200% box hung off the top-right corner, which only stayed inside
+     because the parent clipped it. Same ellipse, same place, expressed as a
+     gradient within the hero's own bounds: radius 25%×100%, centred at 85%,60%
+     — the centre that box worked out to. */
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 25% 100% at 85% 60%, rgba(181, 152, 90, 0.18) 0%, transparent 60%);
   pointer-events: none;
 }
 /* THE TITLE MUST NOT BE CRUSHED BY THE BUTTONS.

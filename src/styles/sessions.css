@@ -105,6 +105,16 @@
 .session-list-dates { white-space: nowrap; }
 .session-list tr.is-closed .session-list-name a { color: var(--muted); }
 
+
+/* PS-delivered rather than a vendor's. Quieter than a vendor name because it
+   is the default case — the eye should catch the exceptions. */
+.session-list-inhouse { color: var(--muted); font-weight: 600; }
+
+/* The Closed pill sits beside the session name now that there is no status
+   column. Nothing on this page loads closed sessions today, but the list is
+   worth keeping honest if it is ever pointed at the archive. */
+.session-list-name .session-pill { margin-left: 0.5rem; }
+
 .session-pill {
   font-size: 0.66rem;
   font-weight: 700;
@@ -136,18 +146,22 @@
   min-width: 40rem;
 }
 
+/* The day-name strip carries the brand colour. It is the one band on the
+   calendar that is pure chrome — it never changes and holds no data — so it is
+   the right place to spend the midnight blue: it frames the grid without
+   competing with the session bars, which own every other colour here. */
 .session-cal-dow {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  background: var(--midnight);
+  border-bottom: none;
 }
 .session-cal-dow span {
   font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.82);
   padding: 0.4rem 0.5rem;
 }
 
@@ -264,12 +278,42 @@
 
 /* Filters, above the view switch. Same shape as the archive page's
    .archive-toolbar so the two surfaces behave alike. */
+/* Filters on the left, the page's primary action hard right.
+   The action is a sibling of the whole filter GROUP rather than of the
+   individual controls — see the comment in SessionViews. That is what lets it
+   be flex:none safely: the group absorbs every shortfall by wrapping onto
+   another line, which is what it already does when the controls outgrow one
+   row, so nothing new can be crushed. */
+.session-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.session-toolbar-action { flex: 0 0 auto; }
+
+/* No sessions means no filter row, so the action is drawn here instead. */
+.session-empty {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+.session-empty p { margin: 0; }
+
 .session-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  /* Grows into the toolbar and gives up space by wrapping, never by squeezing
+     a control. min-width:0 so a long select label cannot set a floor that
+     pushes the action off the row. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 /* .form-input is width:100%, so inside a flex row every control claims the
    whole line and they stack. The archive toolbar already solved this the same
@@ -291,3 +335,152 @@
   color: var(--midnight);
   text-decoration: underline;
 }
+
+/* ── Calendar hover card ─────────────────────────────────────────────────
+   Fixed, not absolute: .session-cal-wrap sets overflow-x: auto, and a
+   non-visible value on one axis makes the other compute to auto — so the
+   calendar clips on both and an absolutely-positioned card would be sliced at
+   the grid edge. Fixed positions against the viewport and escapes that. */
+.session-hovercard {
+  position: fixed;
+  z-index: 80;
+  /* A read, not a target. If the cursor could land on it, crossing the gap
+     between bar and card would flicker. */
+  pointer-events: none;
+  width: 17rem;
+  max-width: calc(100vw - 1rem);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 10px 30px rgba(30, 60, 90, 0.18);
+  padding: 0.7rem 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.session-hovercard-head {
+  display: flex; align-items: center; gap: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+.session-hovercard-swatch {
+  flex: none; width: 3px; height: 1.05em; border-radius: 2px;
+}
+.session-hovercard-name {
+  color: var(--midnight);
+  font-size: 0.9rem;
+  /* Long names wrap here rather than ellipsising — the card exists precisely
+     to show what the bar had to cut off. */
+  overflow-wrap: anywhere;
+}
+
+.session-hovercard-prog { color: var(--text); margin-bottom: 0.45rem; }
+.session-hovercard-type { color: var(--muted); }
+
+.session-hovercard-rows { margin: 0; display: grid; gap: 0.15rem; }
+.session-hovercard-rows > div {
+  display: grid;
+  grid-template-columns: 4.2rem 1fr;
+  gap: 0.5rem;
+}
+.session-hovercard-rows dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  align-self: center;
+}
+.session-hovercard-rows dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+
+/* ── Quarter and year views ──────────────────────────────────────────────
+   Three months side by side, or twelve in a 4×3 block — the same shape
+   myLearning Hub's training plan uses. One MonthBlock per month; only the
+   density changes.
+
+   NO transform, filter or will-change on these wrappers. Any of the three
+   would make them a containing block for fixed-position descendants, and the
+   hover card would start positioning against the wrapper instead of the
+   viewport — which is the whole reason it is fixed. */
+.session-cal-months.view-quarter {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+.session-cal-months.view-year {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.session-cal-block { min-width: 0; }
+
+.session-cal-block-title {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0 0 0.35rem 0.15rem;
+  color: var(--midnight);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.session-cal-block-title.is-clickable { cursor: pointer; }
+.session-cal-block-title.is-clickable:hover { color: var(--gold-dark); }
+
+/* Density overrides. These redeclare the two custom properties the week's
+   min-height calc reads — they are declared on .session-cal-wrap and inherit
+   down, so setting them here wins for everything inside this block. */
+.session-cal-block.density-compact {
+  --cal-bar-h: 1.05rem;
+  --cal-daynum-h: 1.2rem;
+}
+.session-cal-block.density-compact .session-cal { min-width: 0; }
+.session-cal-block.density-compact .session-cal-dow span { font-size: 0.55rem; padding: 0.3rem 0.25rem; }
+.session-cal-block.density-compact .session-cal-day { padding: 0.15rem 0.25rem; }
+.session-cal-block.density-compact .session-cal-daynum { font-size: 0.64rem; }
+.session-cal-block.density-compact .session-cal-bar { font-size: 0.6rem; padding: 0 0.25rem; gap: 0.2rem; }
+.session-cal-block.density-compact .session-cal-more { font-size: 0.55rem; }
+
+.session-cal-block.density-tiny {
+  --cal-bar-h: 0.28rem;
+  --cal-daynum-h: 1rem;
+}
+.session-cal-block.density-tiny .session-cal { min-width: 0; }
+.session-cal-block.density-tiny .session-cal-block-title { font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.session-cal-block.density-tiny .session-cal-dow span {
+  font-size: 0.5rem; padding: 0.22rem 0; text-align: center; letter-spacing: 0;
+}
+.session-cal-block.density-tiny .session-cal-day { padding: 0.1rem 0.15rem; }
+.session-cal-block.density-tiny .session-cal-daynum { font-size: 0.55rem; }
+/* At this size a bar is a colour strip and carries no text — see MonthBlock. */
+.session-cal-block.density-tiny .session-cal-bar {
+  border-radius: 2px;
+  margin-left: 0.08rem;
+  margin-right: 0.08rem;
+  padding: 0;
+}
+
+/* The month grid keeps its own min-width at full density so a single month
+   never squashes below readability; inside a quarter or year block that floor
+   is what would force a horizontal scrollbar, so it is lifted above. */
+.session-cal-months.view-month .session-cal { min-width: 40rem; }
+
+@media (max-width: 1100px) {
+  .session-cal-months.view-year { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .session-cal-months.view-quarter,
+  .session-cal-months.view-year { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* The month/quarter/year group, styled as the same segmented control as the
+   view pills so the two read as one family rather than two ideas. Smaller,
+   because it is a setting within the calendar rather than a choice of view. */
+.session-span-pills {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  margin-right: 0.35rem;
+}
+.session-span-pills .session-view-pill { font-size: 0.75rem; padding: 0.3rem 0.6rem; }

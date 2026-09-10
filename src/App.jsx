@@ -7,6 +7,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import ChangePasswordPage from './pages/ChangePasswordPage.jsx';
 import TrainerHomePage from './pages/TrainerHomePage.jsx';
 import WorkbookEditorPage from './pages/WorkbookEditorPage.jsx';
+import WorkbooksPage from './pages/WorkbooksPage.jsx';
 import ImportWorkbookPage from './pages/ImportWorkbookPage.jsx';
 import NewWorkbookPage from './pages/NewWorkbookPage.jsx';
 import SessionDashboardPage from './pages/SessionDashboardPage.jsx';
@@ -42,6 +43,9 @@ export default function App() {
       } />
       <Route path="/trainer" element={
         <ProtectedRoute role="trainer"><TrainerHomePage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/workbooks" element={
+        <ProtectedRoute role="trainer"><WorkbooksPage /></ProtectedRoute>
       } />
       <Route path="/trainer/workbooks/new" element={
         <ProtectedRoute role="trainer"><NewWorkbookPage /></ProtectedRoute>

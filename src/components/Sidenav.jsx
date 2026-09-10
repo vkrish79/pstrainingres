@@ -18,27 +18,40 @@ import { isSuperTrainerOrAbove } from '../lib/roles.js';
 // route to them, so showing a dead link would only invite the question.
 const GROUPS = [
   {
-    label: null,
-    items: [{ to: '/trainer', end: true, icon: '▤', label: 'Sessions' }],
-  },
-  {
+    // Sessions sits INSIDE Delivery rather than alone above it. It used to be
+    // an unlabelled group of one, which made the rail open with an item that
+    // belonged to no heading — and Delivery is precisely what it is. Live work
+    // first, then the material you prepare for it.
     label: 'Delivery',
     items: [
+      { to: '/trainer', end: true, icon: '▤', label: 'Sessions' },
       { to: '/trainer/prep', icon: '◧', label: 'Prep' },
-      { to: '/trainer/archive', icon: '◫', label: 'Closed sessions' },
     ],
   },
   {
+    // Ordered by how the material is built: a workbook is the paper, an
+    // assessment is what follows it, a program bundles the two, and session
+    // changes is the review of edits made to any of them.
     label: 'Content',
     items: [
-      { to: '/trainer/programs', icon: '◈', label: 'Programs' },
+      // NOT superOnly, unlike everything else in this group. This is a vendor
+      // trainer's only route to the templates they deliver from — the library
+      // used to sit at the bottom of the sessions page, where every role could
+      // reach it. useTrainerWorkbooks narrows non-super roles to vendor_visible
+      // rows, so the page is safe to open; only authoring is gated, on the page.
+      { to: '/trainer/workbooks', icon: '▥', label: 'Workbooks' },
       { to: '/trainer/assessments', icon: '✎', label: 'Assessments' },
+      { to: '/trainer/programs', icon: '◈', label: 'Programs' },
       { to: '/trainer/changes', icon: '⇄', label: 'Session changes', superOnly: true },
     ],
   },
   {
+    // Closed sessions joins Analytics here: both are looking BACK at delivery
+    // that has finished, which is a different job from running one. The two
+    // lookbacks lead, then the three administration destinations.
     label: 'Management',
     items: [
+      { to: '/trainer/archive', icon: '◫', label: 'Closed sessions' },
       { to: '/trainer/analytics', icon: '◔', label: 'Analytics' },
       { to: '/trainer/vendors', icon: '◇', label: 'Vendors', superOnly: true },
       { to: '/trainer/staff', icon: '◎', label: 'Staff', superOnly: true },

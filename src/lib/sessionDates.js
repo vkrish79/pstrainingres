@@ -35,3 +35,20 @@ function sameDay(a, b) {
     && a.getMonth() === b.getMonth()
     && a.getDate() === b.getDate();
 }
+
+// A timestamptz → the yyyy-mm-dd an <input type="date"> wants.
+//
+// LOCAL date parts, deliberately, NOT toISOString().slice(0, 10). The stored
+// value is a timestamptz at midnight, and formatRange above renders it with
+// local getters — so a session shown as "09 Sept" must load into the editor as
+// 09 Sept. Going via toISOString converts to UTC first, which west of Greenwich
+// hands back the 8th: the trainer opens the editor, changes nothing, saves, and
+// the session has silently moved a day earlier. Invisible until it happens to
+// somebody in the wrong timezone.
+export function toDateInput(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}

@@ -4,8 +4,17 @@
   color: var(--text);
 }
 
-.section-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.section-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; gap: 1rem; }
 .section-row .section-title { margin: 0; }
+
+/* An action in a section header must not crush the title beside it. A
+   .primary-link is a flex item with no min-width of its own, so at a narrow
+   canvas the two fight and whichever has the lower basis loses — the rule that
+   wrapped the session hero's h1 onto four lines. The title shrinks; the button
+   never does. Applies to every .section-row in the app, not one page. */
+.section-row > .section-title { min-width: 0; flex: 1 1 auto; }
+.section-row > .primary-link,
+.section-row > .ghost-link { flex: 0 0 auto; }
 .primary-link {
   text-decoration: none;
   background: var(--accent); color: #fff;
@@ -1039,7 +1048,6 @@
   cursor: pointer; white-space: nowrap;
 }
 .lowprep-banner .lowprep-review:hover:not(:disabled) { background: #f7e6c4; }
-.lowprep-dismiss { flex-shrink: 0; color: #8a5a00; }
 
 /* Change-trainer control in the session hero. Scoped overrides beat the gold
    `.page-hero-actions button` rule so Save reads as primary and Change/Cancel

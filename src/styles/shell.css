@@ -108,11 +108,26 @@
   box-shadow: none;
   padding-left: var(--nav-w);
 }
+/* THREE COLUMNS, NOT A FLEX ROW, so the search bar is genuinely centred.
+   As flex items, where-you-are and the identity block have different widths,
+   so a search box between them sits whereever those two leave it — near the
+   middle on one page and visibly off it on another, as the section title
+   changes from "Prep" to "Closed sessions". A fixed middle column is centred
+   on the bar regardless of what either side is carrying.
+   1fr on the outsides rather than auto: equal columns are what centres the
+   middle one. Both sides already handle their own overflow (.topbar-where has
+   min-width: 0). */
 .topbar--shell .topbar-inner {
   max-width: none;
   padding: 0 1.25rem;
   min-height: var(--topbar-h);
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 560px) 1fr;
+  align-items: center;
+  gap: 1.25rem;
 }
+.topbar-search-slot { display: flex; justify-content: center; min-width: 0; }
+.topbar--shell .topbar-nav { justify-self: end; }
 
 .topbar-where { line-height: 1.2; min-width: 0; }
 .topbar-where-title { color: #fff; font-size: 1rem; font-weight: 700; }
@@ -125,19 +140,6 @@
 }
 
 .topbar--shell .topbar-nav { gap: 0.6rem; }
-
-.topbar-icon-btn {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border: none;
-  font-size: 0.9rem;
-}
-.topbar-icon-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
 .topbar--shell .topbar-user {
   gap: 0.5rem;
@@ -194,10 +196,10 @@
   padding: 0.05rem 0.35rem;
   font-size: 0.7rem;
 }
-/* The bar is a three-part layout once search can grow: where-you-are, the
-   search field, then identity. */
-.topbar--shell .topbar-inner { gap: 1.25rem; }
-.topbar--shell .topbar-nav { flex: 1; justify-content: flex-end; min-width: 0; }
+/* The three-part layout that used to be declared here — a second
+   .topbar--shell .topbar-inner rule plus flex sizing on .topbar-nav — is now
+   the grid at the top of this section. Two rules setting the same element's
+   layout eighty lines apart is how a change gets made in one of them. */
 
 /* ── Canvas ────────────────────────────────────────────────────────────── */
 

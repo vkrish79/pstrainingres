@@ -1,62 +1,32 @@
 import { useMemo } from 'react';
+import { FILTER_KEYS, filterSessions, filterOptions } from '../../lib/sessionFilters.js';
 
 // Filters for a session list, in whichever view it is being drawn.
 //
-// Modelled on the archive page's .archive-toolbar, which already had this
-// shape: a search box, then selects whose options come from the data rather
-// than a hard-coded list. Matching it means the two surfaces behave the same
-// way rather than being two different ideas about filtering.
+// THE LOGIC IS NOT HERE. filterSessions, filterOptions and FILTER_KEYS live in
+// lib/sessionFilters.js, because node cannot import a file containing JSX and
+// logic that cannot be tested is logic that gets a filter key added to four of
+// its five copies. This file is the markup and nothing else.
+//
+// Re-exported below so existing importers keep working.
 //
 // A SELECT ONLY APPEARS WHEN THERE IS SOMETHING TO CHOOSE BETWEEN. A "City"
 // dropdown offering only AUH is a control that cannot do anything — it costs a
-// glance every time and rewards it never. Same for programme type and trainer.
+// glance every time and rewards it never. Same for programme type, trainer and
+// vendor.
 //
 // Filters live ABOVE the view switch and apply to all three views, so changing
 // the view changes how the same set is drawn rather than quietly widening it
 // back to everything.
 
-export function filterSessions(sessions, f) {
-  const q = (f.q || '').trim().toLowerCase();
-  return (sessions || []).filter(s => {
-    if (f.type && f.type !== 'all' && (s.program?.program_type?.id || '') !== f.type) return false;
-    if (f.city && f.city !== 'all' && (s.city_code || '') !== f.city) return false;
-    if (f.trainer && f.trainer !== 'all' && (s.trainer?.id || '') !== f.trainer) return false;
-    if (!q) return true;
-    // Search covers what is on screen: the name, and the three columns a
-    // reader might be scanning for instead.
-    return [
-      s.name,
-      s.program?.title,
-      s.program?.program_type?.name,
-      s.trainer?.full_name,
-      s.city_code,
-    ].some(v => (v || '').toLowerCase().includes(q));
-  });
-}
+export { filterSessions, FILTER_KEYS, PS_IN_HOUSE } from '../../lib/sessionFilters.js';
 
 export default function SessionFilters({ sessions, value, onChange, showTrainer = false }) {
-  // Options come from the sessions in hand, so a filter can never offer
-  // something that would return nothing.
-  const { types, cities, trainers } = useMemo(() => {
-    const t = new Map();
-    const c = new Set();
-    const tr = new Map();
-    for (const s of sessions || []) {
-      const pt = s.program?.program_type;
-      if (pt?.id) t.set(pt.id, pt.name || 'Untitled');
-      if (s.city_code) c.add(s.city_code);
-      if (s.trainer?.id) tr.set(s.trainer.id, s.trainer.full_name || 'Unnamed');
-    }
-    const byName = (a, b) => a[1].localeCompare(b[1]);
-    return {
-      types: [...t.entries()].sort(byName),
-      cities: [...c].sort(),
-      trainers: [...tr.entries()].sort(byName),
-    };
-  }, [sessions]);
+  const { types, cities, trainers, vendors } = useMemo(
+    () => filterOptions(sessions), [sessions],
+  );
 
-  const active = ['q', 'type', 'city', 'trainer']
-    .filter(k => value[k] && value[k] !== 'all').length;
+  const active = FILTER_KEYS.filter(k => value[k] && value[k] !== 'all').length;
 
   // Nothing to filter and nothing to search — don't draw a toolbar at all.
   if ((sessions || []).length === 0) return null;
@@ -106,6 +76,20 @@ export default function SessionFilters({ sessions, value, onChange, showTrainer 
         >
           <option value="all">All trainers</option>
           {trainers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+      )}
+
+      {/* Same rule as the rest: only when there is a choice to make. A super
+          with no vendors configured sees no vendor filter, exactly as before. */}
+      {vendors.length > 1 && (
+        <select
+          className="form-input session-filter-select"
+          value={value.vendor || 'all'}
+          onChange={e => onChange('vendor', e.target.value)}
+          aria-label="Vendor"
+        >
+          <option value="all">All vendors</option>
+          {vendors.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
       )}
 

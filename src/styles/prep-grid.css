@@ -100,17 +100,21 @@ thead .pg-rowhead { z-index: 3; }
 .pg-col-replace:hover .pg-col-icon { opacity: 1; }
 
 /* replace-a-column modal */
-.prep-replace-modal { max-width: 580px; width: 92vw; }
-.prep-replace-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; align-items: start; }
-.prep-replace-names { list-style: none; margin: 0; padding: 0; font-size: 0.8rem; }
-.prep-replace-names li { display: flex; align-items: center; gap: 0.5rem; padding: 4px 0; border-bottom: 1px solid #f1f5f9; }
-.prep-replace-rank { width: 16px; color: #94a3b8; font-size: 0.7rem; text-align: right; }
-.prep-replace-name { flex: 1; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.prep-replace-cur { color: #94a3b8; font-variant-numeric: tabular-nums; }
-.prep-replace-text {
-  width: 100%; box-sizing: border-box; border: 1px solid #d7dee7; border-radius: 8px;
-  padding: 8px 10px; font: inherit; font-size: 0.82rem; resize: vertical; min-height: 140px;
-}
+/* The replace-prep grid: one row per participant, their current value beside
+   the cell that replaces it. This was a textarea next to a numbered list of
+   names — two parallel columns the reader had to count down to check that
+   line 7 really was the seventh participant. Same row, same eye-line now. */
+.prep-replace-modal { max-width: 760px; width: 94vw; }
+.prep-replace-scroll { max-height: 46vh; overflow: auto; }
+.prep-replace-table { font-size: 0.82rem; }
+.prep-replace-rownum { width: 2.2rem; text-align: right; color: #94a3b8; font-size: 0.72rem; }
+.prep-replace-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 12rem; }
+.prep-replace-cur { color: #94a3b8; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A row that will be written, marked while you are still looking at the grid
+   rather than only in the count underneath it. */
+.prep-replace-changed .prep-replace-name { font-weight: 600; }
+.prep-replace-changed .prep-replace-rownum { color: var(--gold-dark); }
+.prep-replace-changed td { background: #fffdf6; }
 
 /* ── group divider rows (status-tinted, accent bar) ──
    The cell spans every column, so it can't be sticky itself; the label is a

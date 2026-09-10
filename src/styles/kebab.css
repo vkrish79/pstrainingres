@@ -1,0 +1,87 @@
+/* The shared ⋯ menu. Visually the same object as the editor's .block-menu,
+   which stays where it is — this is the generic one, used by the session
+   header and the participant rows. */
+
+.kebab-wrap { position: relative; display: inline-flex; }
+
+/* .kebab-wrap .kebab-btn, not .kebab-btn, for the same reason as the items
+   below: `.page-hero-actions button` is (0,1,1) and would otherwise paint the
+   trigger solid gold like a primary action, which is the opposite of what it
+   is — the quiet door to the things you reach for least. */
+.kebab-wrap .kebab-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+}
+.kebab-wrap .kebab-btn:hover { background: var(--bg); border-color: var(--gold); }
+.kebab-wrap .kebab-btn.is-open { background: var(--bg); border-color: var(--gold); }
+
+.kebab-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  z-index: 40;
+  min-width: 13rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(30, 60, 90, 0.14);
+  padding: 0.35rem;
+}
+/* Anchored to whichever edge keeps it on screen: the session header's menu
+   sits at the right of the page, a row menu at the right of its cell. */
+.kebab-menu--end { right: 0; }
+.kebab-menu--start { left: 0; }
+
+/* SELECTOR IS .kebab-menu .kebab-item, NOT .kebab-item — the extra class is
+   load-bearing, not tidiness.
+   This menu opens inside containers that style their descendants by element:
+   `.page-hero-actions a, .page-hero-actions button` is (0,1,1) and paints
+   every button under it gold with white text and hero padding. A bare
+   `.kebab-item` is (0,1,0) and loses, so the menu rendered as a stack of large
+   gold blocks. (0,2,0) wins. Same collision as `.page-hero-actions button`
+   versus the assessment status chip.
+   Every property that rule sets is therefore restated here rather than left to
+   inherit — background, colour, border, padding, radius, weight and size. */
+.kebab-menu .kebab-item {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 0.42rem 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+.kebab-menu .kebab-item:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+.kebab-menu .kebab-item:disabled { opacity: 0.4; background: transparent; }
+.kebab-menu .kebab-item.danger { color: var(--danger); background: transparent; }
+.kebab-menu .kebab-item.danger:hover:not(:disabled) { background: #fdf0ef; color: var(--danger); }
+
+.kebab-menu .kebab-glyph { width: 1.1rem; text-align: center; color: var(--muted); }
+.kebab-menu .kebab-item.danger .kebab-glyph { color: var(--danger); }
+
+.kebab-sep { height: 1px; background: var(--border); margin: 0.3rem 0.2rem; }
+
+/* On the dark session hero the trigger has to read as a control, not as a
+   glyph floating on a gradient. Matches the other .page-hero-actions buttons,
+   which are gold — this one is quieter, because it holds the things you reach
+   for least. */
+.page-hero:not(.compact) .kebab-wrap .kebab-btn {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+.page-hero:not(.compact) .kebab-wrap .kebab-btn:hover,
+.page-hero:not(.compact) .kebab-wrap .kebab-btn.is-open {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.7);
+}
