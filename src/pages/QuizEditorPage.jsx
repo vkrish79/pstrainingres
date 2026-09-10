@@ -133,7 +133,16 @@ export default function QuizEditorPage() {
                 onSave={async v => { const { error: e } = await editor.renameQuiz(v); if (e) setRowError(e.message); }}
               />
               <div className="page-bar-actions">
-                <Link to="/trainer/quizzes" className="ghost-link">← All quizzes</Link>
+                {/* A session's own copy came from its Quiz tab, so that is where
+                    back means. Sending a trainer to the library instead drops
+                    them somewhere they were not, next to the template they did
+                    NOT just edit — which is how someone ends up editing the
+                    master by mistake. */}
+                {quiz.session_id ? (
+                  <Link to={`/trainer/sessions/${quiz.session_id}`} className="ghost-link">← Back to session</Link>
+                ) : (
+                  <Link to="/trainer/quizzes" className="ghost-link">← All quizzes</Link>
+                )}
               </div>
             </section>
 

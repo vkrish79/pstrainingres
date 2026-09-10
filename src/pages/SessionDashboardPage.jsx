@@ -30,6 +30,7 @@ import { formatRange } from '../lib/sessionDates.js';
 import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
 import EditSessionDatesModal from '../components/dashboard/EditSessionDatesModal.jsx';
 import KebabMenu from '../components/KebabMenu.jsx';
+import SessionQuizzes from '../components/dashboard/SessionQuizzes.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -69,7 +70,7 @@ export default function SessionDashboardPage() {
     return () => clearInterval(t);
   }, []);
 
-  const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice'
+  const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice' | 'assessment' | 'quiz'
   const [assessmentSubView, setAssessmentSubView] = useState('responses'); // 'responses' | 'preview'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -499,6 +500,9 @@ export default function SessionDashboardPage() {
           {session?.assessment_id && (
             <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
           )}
+          {/* Always shown, unlike Assessment: a quiz is attached from this very
+              tab, so hiding it until one exists would hide the only way in. */}
+          <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
         </div>
 
         {view === 'participants' && (
@@ -822,6 +826,8 @@ export default function SessionDashboardPage() {
             )}
           </div>
         )}
+
+        {view === 'quiz' && <SessionQuizzes sessionId={id} />}
       </main>
       <PrepEditor
         open={!!prepEditorFor}

@@ -131,3 +131,50 @@
 .quiz-opt.is-correct .quiz-opt-letter { background: rgba(34, 130, 74, 0.85); color: #fff; }
 
 .quiz-add { margin: 0.25rem 0 2rem; }
+
+/* ── The Quiz tab on a session ──────────────────────────────────────────── */
+
+.quiz-tab { max-width: 56rem; }
+
+.quiz-attached { list-style: none; margin: 0 0 1.25rem; padding: 0; }
+
+.quiz-attached-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  margin-bottom: 0.5rem;
+}
+
+.quiz-attached-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+.quiz-attached-title { font-weight: 600; }
+
+.quiz-attached-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.quiz-attach-form { max-width: 34rem; }
+.quiz-attach-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+/* .form-input is width:100%; in a flex row that resolves the basis from 100%
+   and shoves the button onto its own line. Same trap as the archive toolbar
+   and the quiz title. */
+.quiz-attach-row .form-input { width: auto; flex: 1 1 16rem; min-width: 0; }
