@@ -1,0 +1,133 @@
+/* Live Quiz — authoring surfaces.
+   Deliberately narrow: only what the quiz editor needs that the shared
+   editor.css vocabulary does not already provide. */
+
+.quiz-title {
+  font-weight: 600;
+  max-width: 32rem;
+  /* .form-input is width:100%, and in the page-bar flex row that resolves the
+     basis from 100% and pushes the actions off the end. Same trap as the
+     archive toolbar. */
+  width: auto;
+  flex: 1 1 auto;
+  /* .page-bar is justify-content:flex-end — it was built for a strip of
+     actions, and a title dropped into it drifts to the right next to them.
+     Pushing the free space to the right here puts the title back on the left
+     without changing the shared rule, which every other page depends on. */
+  margin-right: auto;
+}
+
+.quiz-summary { margin: 0 0 1rem; }
+
+.quiz-q {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem 1.15rem;
+  margin-bottom: 0.85rem;
+}
+
+.quiz-q-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.quiz-q-num {
+  font-weight: 700;
+  color: var(--midnight);
+  letter-spacing: 0.02em;
+}
+
+/* Says what is missing, not merely that something is. */
+.quiz-q-flag {
+  font-size: 0.78rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(181, 152, 90, 0.15);
+  border: 1px solid rgba(181, 152, 90, 0.5);
+  color: #7a6329;
+  white-space: nowrap;
+}
+
+.quiz-q-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.quiz-q-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+}
+.quiz-q-timer .form-input {
+  width: auto;          /* see .quiz-title */
+  padding: 0.25rem 0.4rem;
+  font-size: 0.82rem;
+}
+
+.quiz-q-del { color: var(--danger, #a12); }
+
+.quiz-q-hint { font-size: 0.8rem; margin: 0.5rem 0 0.6rem; }
+
+/* A fixed 2x2, not auto-fit. auto-fit packed three across on a wide screen and
+   left the fourth answer stranded alone on a second row, which reads as three
+   options and an afterthought. Four answers are a block; the trainer is
+   choosing one of them, and the shape should say so. */
+.quiz-opts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+@media (max-width: 700px) {
+  .quiz-opts { grid-template-columns: minmax(0, 1fr); }
+}
+
+.quiz-opt {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  /* minmax(0,...) above keeps a long answer from widening the column; this
+     keeps the input itself from overflowing the row. */
+  min-width: 0;
+}
+.quiz-opt .form-input { width: auto; flex: 1 1 auto; min-width: 0; border: none; background: transparent; }
+.quiz-opt .form-input:focus { box-shadow: none; }
+
+.quiz-opt.is-correct {
+  border-color: rgba(34, 130, 74, 0.55);
+  background: rgba(34, 130, 74, 0.06);
+}
+
+.quiz-opt-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.quiz-opt-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 6px;
+  background: var(--border);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--midnight);
+}
+.quiz-opt.is-correct .quiz-opt-letter { background: rgba(34, 130, 74, 0.85); color: #fff; }
+
+.quiz-add { margin: 0.25rem 0 2rem; }

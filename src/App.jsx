@@ -24,6 +24,8 @@ import ProgramsListPage from './pages/ProgramsListPage.jsx';
 import ProgramEditorPage from './pages/ProgramEditorPage.jsx';
 import AssessmentsListPage from './pages/AssessmentsListPage.jsx';
 import AssessmentEditorPage from './pages/AssessmentEditorPage.jsx';
+import QuizzesListPage from './pages/QuizzesListPage.jsx';
+import QuizEditorPage from './pages/QuizEditorPage.jsx';
 import ImportAssessmentPage from './pages/ImportAssessmentPage.jsx';
 import PrepPage from './pages/PrepPage.jsx';
 import SessionPrepPage from './pages/SessionPrepPage.jsx';
@@ -107,6 +109,14 @@ export default function App() {
       } />
       <Route path="/trainer/assessments/:id" element={
         <ProtectedRoute role="super"><AssessmentEditorPage /></ProtectedRoute>
+      } />
+      {/* role="trainer", not "super": both tiers author quizzes, unlike
+          workbooks and assessments. Matches quiz_can_author() in the DB. */}
+      <Route path="/trainer/quizzes" element={
+        <ProtectedRoute role="trainer"><QuizzesListPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/quizzes/:id" element={
+        <ProtectedRoute role="trainer"><QuizEditorPage /></ProtectedRoute>
       } />
       <Route path="/workbook" element={
         <ProtectedRoute role="participant"><ParticipantWorkbookPage /></ProtectedRoute>

@@ -41,6 +41,9 @@ const GROUPS = [
       // rows, so the page is safe to open; only authoring is gated, on the page.
       { to: '/trainer/workbooks', icon: '▥', label: 'Workbooks' },
       { to: '/trainer/assessments', icon: '✎', label: 'Assessments' },
+      // NOT superOnly: vendor trainers author and run quizzes too, unlike
+      // assessments. quiz_can_author() in the DB is the matching rule.
+      { to: '/trainer/quizzes', icon: '◑', label: 'Quizzes' },
       { to: '/trainer/programs', icon: '◈', label: 'Programs' },
       { to: '/trainer/changes', icon: '⇄', label: 'Session changes', superOnly: true },
     ],

@@ -22,6 +22,7 @@ import Sidenav from './Sidenav.jsx';
 // rather than falling back to Sessions.
 const SECTIONS = [
   ['/trainer/assessments', 'Assessments'],
+  ['/trainer/quizzes', 'Quizzes'],
   ['/trainer/programs', 'Programs'],
   ['/trainer/workbooks', 'Workbooks'],
   ['/trainer/sessions', 'Sessions'],
