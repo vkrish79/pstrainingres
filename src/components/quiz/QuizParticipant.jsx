@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { ordinal } from '../../lib/ordinal.js';
+import QuizShape from './QuizShape.jsx';
 import '../../styles/quiz-live.css';
-
-const LETTERS = ['A', 'B', 'C', 'D'];
 
 // What a participant sees on their own device.
 //
@@ -90,7 +89,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
                 disabled={!!picked || sending}
                 onClick={() => answer(o.id)}
               >
-                <span className="qlive-letter">{LETTERS[i]}</span>
+                <span className="qlive-badge"><QuizShape index={i} /></span>
                 <span className="qlive-label">{o.label}</span>
               </button>
             ))}

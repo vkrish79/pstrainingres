@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useQuizRun } from '../../hooks/useQuizRun.js';
+import QuizShape from './QuizShape.jsx';
 import '../../styles/quiz-live.css';
-
-const LETTERS = ['A', 'B', 'C', 'D'];
 
 // The screen on the wall. Big enough to read from the back of a room, and it
 // never shows anything a participant should not already be seeing — the answer
@@ -121,7 +120,7 @@ export default function QuizProjector({ runId, onExit }) {
           <ul className="qlive-opts">
             {(run?.options ?? []).map((o, i) => (
               <li key={o.id} className={`qlive-opt qlive-opt-${i}`}>
-                <span className="qlive-letter">{LETTERS[i]}</span>
+                <span className="qlive-badge"><QuizShape index={i} /></span>
                 <span className="qlive-label">{o.label}</span>
               </li>
             ))}
@@ -139,7 +138,7 @@ export default function QuizProjector({ runId, onExit }) {
           <ul className="qlive-opts qlive-opts-reveal">
             {reveal.map((o, i) => (
               <li key={o.option_id} className={`qlive-opt qlive-opt-${i}${o.is_correct ? ' is-right' : ' is-wrong'}`}>
-                <span className="qlive-letter">{LETTERS[i]}</span>
+                <span className="qlive-badge"><QuizShape index={i} /></span>
                 <span className="qlive-label">{o.label}</span>
                 <span className="qlive-votes">{o.votes}</span>
                 {/* Share of the room, so a question everyone missed is obvious

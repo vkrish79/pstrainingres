@@ -109,23 +109,34 @@
 }
 
 /* Colour carries identity across the projector and every handset, so "the
-   blue one" means the same thing everywhere. Never the only signal: the
-   letter is always there too, for anyone who cannot tell them apart. */
+   blue one" means the same thing everywhere. Never the ONLY signal though —
+   the shape sits on every option too, because roughly one man in twelve
+   cannot separate the red from the green, and projector colours drift. */
 .qlive-opt-0 { background: #1f6fb2; }
 .qlive-opt-1 { background: #b1512f; }
 .qlive-opt-2 { background: #2f7d52; }
 .qlive-opt-3 { background: #6a4b9c; }
 
-.qlive-letter {
+.qlive-badge {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  /* Scales with the answer text, so the shape is readable from the back of a
+     room on the projector and still fits a phone. */
+  width: clamp(1.7rem, 3.4vw, 2.6rem);
+  height: clamp(1.7rem, 3.4vw, 2.6rem);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.25);
-  font-weight: 700;
+}
+
+/* The shape itself: solid white on the option's own colour. Shape AND colour
+   carry the identity, never colour alone. */
+.quiz-shape {
+  width: 62%;
+  height: 62%;
+  display: block;
+  fill: #fff;
 }
 .qlive-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 

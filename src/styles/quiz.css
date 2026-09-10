@@ -116,19 +116,30 @@
   flex: 0 0 auto;
 }
 
-.quiz-opt-letter {
+/* The editor shows the same four shapes AND the same four colours the room
+   will see, so the row a trainer is editing looks like the option that will be
+   on the wall. Marking "the triangle" and telling the room to press the
+   triangle only works if they are looking at the same thing.
+
+   Deliberately NOT recoloured when correct: correctness is the row's green
+   edge and the radio, and repainting the badge green would destroy the very
+   identity it exists to carry — the correct answer would stop being the
+   triangle. Distinct class names from .qlive-opt-N because both sheets can be
+   loaded on the session page at once. */
+.quiz-opt-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 6px;
   background: var(--border);
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--midnight);
 }
-.quiz-opt.is-correct .quiz-opt-letter { background: rgba(34, 130, 74, 0.85); color: #fff; }
+.quiz-opt-badge .quiz-shape { width: 68%; height: 68%; fill: #fff; display: block; }
+.quiz-opt-badge.s0 { background: #1f6fb2; }
+.quiz-opt-badge.s1 { background: #b1512f; }
+.quiz-opt-badge.s2 { background: #2f7d52; }
+.quiz-opt-badge.s3 { background: #6a4b9c; }
 
 .quiz-add { margin: 0.25rem 0 2rem; }
 

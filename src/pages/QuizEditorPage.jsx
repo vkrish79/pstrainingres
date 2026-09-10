@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuizEditor } from '../hooks/useQuizEditor.js';
+import QuizShape from '../components/quiz/QuizShape.jsx';
+import { shapeFor } from '../lib/quizShapes.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
 import '../styles/quiz.css';
 
-const LETTERS = ['A', 'B', 'C', 'D'];
 // Kahoot-ish spread. 5s is the floor the database allows; 120 the ceiling.
 const LIMITS = [10, 15, 20, 30, 45, 60, 90];
 
@@ -78,25 +79,25 @@ function QuestionCard({ q, index, total, actions, onError }) {
       />
 
       <p className="muted quiz-q-hint">
-        Pick the correct answer with the circle on the left. Participants never receive it —
+        Mark the correct answer with the button on the left. Participants never receive it —
         only the four labels.
       </p>
 
       <div className="quiz-opts">
         {q.quiz_options.map((o, i) => (
           <div key={o.id} className={`quiz-opt${o.is_correct ? ' is-correct' : ''}`}>
-            <label className="quiz-opt-pick" title={o.is_correct ? 'This is the correct answer' : 'Mark as the correct answer'}>
+            <label className="quiz-opt-pick" title={`${shapeFor(i).label} — ${o.is_correct ? 'this is the correct answer' : 'mark as the correct answer'}`}>
               <input
                 type="radio"
                 name={`correct-${q.id}`}
                 checked={o.is_correct}
                 onChange={() => call(() => actions.setCorrect(q.id, o.id))}
               />
-              <span className="quiz-opt-letter">{LETTERS[i] ?? i + 1}</span>
+              <span className={`quiz-opt-badge s${i}`}><QuizShape index={i} /></span>
             </label>
             <BlurInput
               value={o.label}
-              placeholder={`Answer ${LETTERS[i] ?? i + 1}`}
+              placeholder={`${shapeFor(i).label} answer`}
               maxLength={150}
               onSave={v => call(() => actions.updateOption(o.id, v))}
             />
