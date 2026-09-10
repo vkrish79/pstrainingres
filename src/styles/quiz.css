@@ -178,3 +178,16 @@
    and shoves the button onto its own line. Same trap as the archive toolbar
    and the quiz title. */
 .quiz-attach-row .form-input { width: auto; flex: 1 1 16rem; min-width: 0; }
+
+/* Run sits first in the row and looks like the action it is — everything else
+   on the row is preparation. */
+.quiz-run-btn {
+  background: var(--midnight);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.quiz-run-btn:disabled { opacity: 0.45; cursor: default; }

@@ -1,0 +1,217 @@
+/* Live Quiz — the run. Projector and participant share this sheet because
+   they share a visual language: the same four answer colours, the same timer,
+   the same reveal. Two sheets would drift. */
+
+.qlive {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--midnight, #16304d);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  /* The room is looking at this. Nothing behind it should show through. */
+  overflow: hidden;
+}
+
+.qlive-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  flex: 0 0 auto;
+}
+.qlive-step { font-weight: 600; letter-spacing: 0.02em; opacity: 0.85; }
+.qlive-bar-tools { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+.qlive-err { color: #ffb4b4; font-size: 0.85rem; }
+.qlive .ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+
+/* min-height:0 so the stage can shrink inside the flex column instead of
+   pushing the bar off the top — the flex default is auto, which refuses. */
+.qlive-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+}
+.qlive-centre { align-items: center; justify-content: center; text-align: center; }
+
+.qlive-big { font-size: clamp(1.8rem, 5vw, 3.2rem); margin: 0; text-wrap: balance; }
+.qlive-big.is-right { color: #7ee0a4; }
+.qlive-big.is-wrong { color: #ffc2a1; }
+.qlive-sub { opacity: 0.8; margin: 0; max-width: 40rem; }
+.qlive-count { font-size: clamp(4rem, 18vw, 11rem); margin: 0; line-height: 1; font-variant-numeric: tabular-nums; }
+
+.qlive-qhead { display: flex; align-items: flex-start; gap: 1rem; flex: 0 0 auto; }
+.qlive-prompt {
+  font-size: clamp(1.3rem, 3.6vw, 2.6rem);
+  margin: 0;
+  text-wrap: balance;
+  min-width: 0;
+  /* NOT flex:1 1 auto here. The prompt sits inside .qlive-qhead (a ROW) during
+     the question, where growing sideways is right — but at the reveal it is a
+     direct child of .qlive-stage (a COLUMN), where the same rule made it grow
+     DOWNWARDS and shove the answers to the floor with a screen-high gap above
+     them. Growing belongs to the row, so it is scoped to the row. */
+  flex: 0 0 auto;
+}
+.qlive-qhead .qlive-prompt { flex: 1 1 auto; }
+.qlive-timer {
+  flex: 0 0 auto;
+  font-size: clamp(1.5rem, 4vw, 2.6rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  min-width: 3.2rem;
+  text-align: center;
+  padding: 0.2rem 0.7rem;
+}
+
+/* Four answers, 2x2 — the shape people know from every quiz app, and the
+   reason the editor uses the same grid. */
+.qlive-opts, .qlive-picks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+@media (max-width: 640px) {
+  .qlive-opts, .qlive-picks { grid-template-columns: minmax(0, 1fr); }
+}
+
+.qlive-opt, .qlive-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: clamp(0.7rem, 2vw, 1.3rem);
+  border-radius: 12px;
+  border: none;
+  color: #fff;
+  font-size: clamp(0.95rem, 2.2vw, 1.5rem);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Colour carries identity across the projector and every handset, so "the
+   blue one" means the same thing everywhere. Never the only signal: the
+   letter is always there too, for anyone who cannot tell them apart. */
+.qlive-opt-0 { background: #1f6fb2; }
+.qlive-opt-1 { background: #b1512f; }
+.qlive-opt-2 { background: #2f7d52; }
+.qlive-opt-3 { background: #6a4b9c; }
+
+.qlive-letter {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+}
+.qlive-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+
+.qlive-pick { cursor: pointer; transition: transform 0.08s ease, opacity 0.2s ease; }
+.qlive-pick:hover:not(:disabled) { transform: translateY(-1px); }
+.qlive-pick:disabled { cursor: default; }
+.qlive-pick.is-picked { outline: 3px solid #fff; outline-offset: 2px; }
+.qlive-pick.is-dimmed { opacity: 0.35; }
+
+.qlive-tally { text-align: center; font-size: 1.1rem; opacity: 0.85; margin: 0; }
+.qlive-note { text-align: center; margin: 0; font-weight: 600; }
+.qlive-muted { opacity: 0.7; font-weight: 400; }
+.qlive-skip { align-self: center; }
+
+/* Reveal: the correct one stays lit, the rest fall back. */
+.qlive-opts-reveal .qlive-opt.is-wrong { opacity: 0.4; }
+.qlive-opts-reveal .qlive-opt.is-right { outline: 3px solid #7ee0a4; outline-offset: 2px; }
+.qlive-votes { position: relative; z-index: 1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qlive-bar-fill {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.75);
+  transition: width 0.4s ease;
+}
+
+.qlive-board { list-style: none; margin: 0; padding: 0; width: min(40rem, 100%); align-self: center; }
+.qlive-board li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.09);
+  margin-bottom: 0.5rem;
+  font-size: clamp(1rem, 2.4vw, 1.5rem);
+}
+.qlive-place { width: 2rem; font-weight: 700; opacity: 0.75; }
+.qlive-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.qlive-pts { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.qlive-podium {
+  list-style: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  width: min(46rem, 100%);
+}
+.qlive-plinth {
+  flex: 1 1 0;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px 12px 0 0;
+  padding: 0.9rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+/* The winner stands in the middle and tallest — the order in the DOM is
+   2nd, 1st, 3rd for exactly that reason. */
+.qlive-plinth.p1 { height: 13rem; background: rgba(181, 152, 90, 0.45); }
+.qlive-plinth.p2 { height: 10rem; }
+.qlive-plinth.p3 { height: 8rem; }
+.qlive-plinth.empty { background: transparent; height: 6rem; }
+.qlive-medal { font-size: 1.6rem; font-weight: 800; }
+
+.qlive-rank { font-size: 1.2rem; margin: 0; opacity: 0.9; }
+
+.qlive-go {
+  align-self: center;
+  background: var(--gold, #b5985a);
+  color: #16304d;
+  border: none;
+  border-radius: 10px;
+  padding: 0.7rem 1.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.qlive-go:disabled { opacity: 0.6; cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qlive-pick, .qlive-bar-fill { transition: none; }
+  .qlive-pick:hover:not(:disabled) { transform: none; }
+}

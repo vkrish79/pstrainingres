@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../../lib/supabase.js';
 import { useSessionQuizzes } from '../../hooks/useSessionQuizzes.js';
 import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
+import QuizProjector from '../quiz/QuizProjector.jsx';
 import '../../styles/quiz.css';
 
 // The Quiz tab on a session. Add a quiz from the library, edit this session's
@@ -12,6 +14,19 @@ export default function SessionQuizzes({ sessionId }) {
   const [pick, setPick] = useState('');
   const [rowError, setRowError] = useState('');
   const [confirming, setConfirming] = useState(null);
+  const [runId, setRunId] = useState(null);
+
+  // quiz_start_run returns the new run's id. It also snapshots the roster and
+  // closes any run still open on this session, in one transaction — see
+  // 20260916000006_quiz_run.sql.
+  async function handleRun(quizId) {
+    setRowError('');
+    const { data, error: err } = await runBusy('Starting the quiz…', () =>
+      supabase.rpc('quiz_start_run', { p_quiz_id: quizId, p_session_id: sessionId }));
+    if (err) { setRowError(err.message); return; }
+    if (!data) { setRowError('The quiz did not start.'); return; }
+    setRunId(data);
+  }
 
   async function handleAttach(e) {
     e.preventDefault();
@@ -32,6 +47,11 @@ export default function SessionQuizzes({ sessionId }) {
   // Already-added titles, so the picker can say so rather than letting someone
   // add the same quiz twice and wonder which is which on the day.
   const addedTitles = new Set(attached.map(q => q.title));
+
+  // The projector takes the whole screen. Rendered here rather than routed to
+  // so that closing it returns the trainer to the tab they launched from, with
+  // the session still loaded behind it.
+  if (runId) return <QuizProjector runId={runId} onExit={() => setRunId(null)} />;
 
   return (
     <section className="quiz-tab">
@@ -59,6 +79,17 @@ export default function SessionQuizzes({ sessionId }) {
                     </span>
                   </div>
                   <div className="quiz-attached-tools">
+                    {/* Running an empty quiz would open a blank projector in
+                        front of the room; the database refuses it too. */}
+                    <button
+                      type="button"
+                      className="quiz-run-btn"
+                      disabled={q.question_count === 0}
+                      title={q.question_count === 0 ? 'Add a question first' : 'Show this on the projector'}
+                      onClick={() => handleRun(q.id)}
+                    >
+                      ▶ Run
+                    </button>
                     <Link to={`/trainer/quizzes/${q.id}`} className="ghost-link">Edit</Link>
                     {confirming === q.id ? (
                       <>

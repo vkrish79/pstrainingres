@@ -7,12 +7,14 @@ import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
+import { useActiveQuizRun } from '../hooks/useActiveQuizRun.js';
 import { progressOf } from '../lib/blockHelpers.js';
 import { useJustCompleted } from '../hooks/useJustCompleted.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
 import MaterialsList from '../components/MaterialsList.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
+import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -28,6 +30,24 @@ export default function ParticipantWorkbookPage() {
   const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
+
+  // A quiz is not something a participant navigates to — the trainer says
+  // "we're doing a quiz" and it appears. Watching for one beats reading a URL
+  // out to sixteen people.
+  //
+  // STICKY once entered. useActiveQuizRun only reports runs that have not
+  // ended, so the moment the trainer ends the quiz it returns null — which
+  // yanked the participant back to their workbook before they ever saw the
+  // final screen or their score. Holding the id until they dismiss it means
+  // the quiz ends the way it should: they close it.
+  const { runId: activeQuizRunId } = useActiveQuizRun(session?.id);
+  const [stickyQuizRunId, setStickyQuizRunId] = useState(null);
+  const [quizDismissed, setQuizDismissed] = useState(null);
+  useEffect(() => {
+    if (activeQuizRunId) setStickyQuizRunId(activeQuizRunId);
+  }, [activeQuizRunId]);
+  // A later quiz has a new id, so dismissing one never suppresses the next.
+  const quizRunId = stickyQuizRunId && stickyQuizRunId !== quizDismissed ? stickyQuizRunId : null;
   const { prep: sectionPrep, standalone: standalonePrep, expected: expectedPrep } = useParticipantPrep(session?.id, authSession?.user.id);
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(session?.id);
 
@@ -258,6 +278,14 @@ export default function ParticipantWorkbookPage() {
     setCurrentSectionId(prev => prev || sections[0]?.id || null);
     return () => observer.disconnect();
   }, [loading, selectedSectionId, sections]);
+
+  // Above the loading gate: once a quiz is running it IS the screen, and a
+  // participant who reloads mid-quiz must land back in it rather than in a
+  // workbook the room has moved on from. The dismiss check lives in quizRunId
+  // itself, above.
+  if (quizRunId) {
+    return <QuizParticipant runId={quizRunId} onDismiss={() => setQuizDismissed(quizRunId)} />;
+  }
 
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) {
