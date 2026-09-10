@@ -29,23 +29,18 @@ export default function WorkbooksPage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <h1>Workbooks</h1>
-            <p className="muted">
-              {loading
-                ? 'Loading…'
-                : `${workbooks.length} template${workbooks.length === 1 ? '' : 's'}.`}
-              {' '}Sessions are built from these.
-            </p>
-          </div>
-          {isSuper && (
-            <div className="page-hero-actions">
+        {/* NO HERO. The rail says Workbooks and so does the app bar; a third
+            heading saying it again, over a sentence explaining what a workbook
+            is, was a band of the page that told a returning user nothing. What
+            is left is what you came here to do. */}
+        {isSuper && (
+          <section className="page-bar">
+            <div className="page-bar-actions">
               <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>
               <Link to="/trainer/workbooks/new" className="primary-link">+ New workbook</Link>
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {loading && <div className="loading">Loading…</div>}
 

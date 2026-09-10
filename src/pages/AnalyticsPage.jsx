@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line,
@@ -158,19 +157,9 @@ export default function AnalyticsPage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>📊 Analytics</h1>
-            <p className="muted">
-              {loading
-                ? 'Loading…'
-                : filterName
-                  ? `${filterName} · ${overall.sessions} session${overall.sessions === 1 ? '' : 's'}`
-                  : `${overall.sessions} session${overall.sessions === 1 ? '' : 's'} across every cohort you can see`}
-            </p>
-          </div>
-        </section>
+        {/* No hero — the app bar and the rail both say Analytics. Its count
+            line said nothing the stat strip below does not: the first card is
+            overall.sessions under the same label. */}
 
         {error && <p className="error">{error}</p>}
         {!loading && !error && sessions.length === 0 && (

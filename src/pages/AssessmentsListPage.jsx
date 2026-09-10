@@ -35,16 +35,13 @@ export default function AssessmentsListPage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>Assessments</h1>
-            <p>
-              An assessment is the post-program test: same block model as a workbook (prose, fields, tables),
-              attached to one program at a time. Program-internal — vendors and participants don't see assessments here.
-            </p>
-          </div>
-          <div className="page-hero-actions">
+        {/* NO HERO. The app bar and the rail both say Assessments, and the
+            paragraph under it defined the word for someone who is already
+            inside the module — read once, then read past forever after. The
+            Back link went with it: every destination it pointed at is in the
+            rail. What is left is the two things you do here. */}
+        <section className="page-bar">
+          <div className="page-bar-actions">
             <Link to="/trainer/assessments/import" className="ghost-link">↑ Import .docx</Link>
           </div>
         </section>

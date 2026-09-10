@@ -1110,8 +1110,69 @@
   margin-bottom: 1rem;
   flex-wrap: wrap;
 }
-.archive-toolbar .form-input { flex: 0 0 auto; }
-.archive-toolbar input[type="search"] { flex: 1 1 240px; min-width: 200px; }
+/* width: auto is the load-bearing word here, not the flex shorthand beside it.
+   .form-input is width: 100%, and flex-basis: auto resolves FROM that width —
+   so every control claimed a whole line and the three filters stacked into a
+   column, however the flex was written. Exactly the bug .session-filters had.
+   Costly here beyond looks: on a page whose table now has a fixed height, three
+   stacked rows of chrome were eating the space the rows needed. */
+.archive-toolbar .form-input { width: auto; flex: 0 0 auto; }
+.archive-toolbar input[type="search"] { flex: 1 1 240px; min-width: 200px; max-width: 26rem; }
+.archive-toolbar select.form-input { min-width: 10rem; }
+
+/* ── The archive scrolls its ROWS, not the page ──────────────────────────
+   The page becomes a fixed-height column: toolbar pinned, table taking what
+   is left. Without this the window scrolls, and by row thirty the filters and
+   the column headers are both off the top of the screen.
+   min-height: 0 IS REQUIRED. A flex child defaults to min-height: auto, which
+   refuses to shrink below its content — so the scroller would grow to fit all
+   thirteen rows and never scroll at all. This is the single line that makes
+   the whole arrangement work. */
+.archive-page {
+  height: calc(100vh - var(--topbar-h));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 1rem;
+}
+.archive-page .archive-toolbar { flex: 0 0 auto; }
+.archive-page > p { flex: 0 0 auto; }
+
+.archive-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* THE FRAME MOVES FROM THE TABLE TO THE SCROLLER, and that is not cosmetic.
+     .archive-table carries overflow: hidden to clip its own rounded corners —
+     and an ancestor with overflow: hidden becomes the scrollport for any
+     sticky descendant, so the header cells stuck to a box that was itself
+     scrolling away. Measured: the header ended up 1574px above the scroller.
+     The scroller already clips (overflow-y: auto), so it can hold the border
+     and the radius, and the table can stop clipping. */
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+.archive-scroll .archive-table {
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+/* Headers stay while the rows move — otherwise scrolling a long archive means
+   guessing which column is which. */
+.archive-scroll .archive-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card);
+  /* A sticky cell's own border does not travel with it, so the rule under the
+     header is drawn as a shadow instead. */
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+/* The year separator rows are sticky-adjacent: they must pass UNDER the
+   header, not over it. */
+.archive-scroll .archive-year-row td { z-index: 1; }
 
 .archive-table {
   width: 100%;

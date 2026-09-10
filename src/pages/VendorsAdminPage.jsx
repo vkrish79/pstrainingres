@@ -64,13 +64,8 @@ export default function VendorsAdminPage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>Vendors</h1>
-            <p>Add vendors, rename them, or remove ones that aren't in use.</p>
-          </div>
-        </section>
+        {/* No hero — the app bar and the rail both say Vendors, and the card
+            below is titled "Add a vendor". */}
 
         <section className="editor-card">
           <h2 className="section-title" style={{ marginTop: 0 }}>Add a vendor</h2>

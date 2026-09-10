@@ -35,16 +35,11 @@ export default function ProgramsListPage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>Programs</h1>
-            <p>
-              A program bundles a workbook, an assessment, and reference materials (handouts, quick-ref
-              guides). Sessions are created from a published program — but that flow lands in a later release.
-            </p>
-          </div>
-        </section>
+        {/* NO HERO — same reasoning as Assessments and Workbooks. The rail and
+            the app bar both say Programs; the paragraph explained what a
+            program is to someone already in the module, and ended on a note
+            about a flow that has not shipped. The create card below is now the
+            first thing on the page, which is what you came here for. */}
 
         <section className="editor-card">
           <form onSubmit={handleCreate} className="add-person-form">

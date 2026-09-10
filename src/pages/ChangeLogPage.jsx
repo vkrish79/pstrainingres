@@ -184,17 +184,12 @@ export default function ChangeLogPage() {
     <>
       <TopBar />
       <main className="page">
-        <div className="page-hero">
-          <div>
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>Session changes</h1>
-            <p>
-              {isAssessment
-                ? 'Every question the field has reworded or withdrawn in its own copy of an assessment. Adopting a line writes it into the master assessment; dismissing one only records that you decided against it.'
-                : 'Every exercise the field has reworded in its own copy of a workbook. Adopting a line writes it into the master workbook, live to enrolled participants; dismissing one only records that you decided against it.'}
-            </p>
-          </div>
-        </div>
+        {/* NO HERO — as on Workbooks, Assessments and Programs. The app bar and
+            the rail both say Session changes, and the Back link pointed at a
+            destination the rail already holds.
+            NOTE: the paragraph that went with it was the only place saying that
+            adopting a line goes LIVE TO ENROLLED PARTICIPANTS. That is a
+            consequence, not a definition — see the note in the handover. */}
 
         {error && <p className="error">{error}</p>}
         {actionError && <p className="error">{actionError}</p>}

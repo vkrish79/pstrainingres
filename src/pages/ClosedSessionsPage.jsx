@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { supabase } from '../lib/supabase.js';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import TopBar from '../components/TopBar.jsx';
@@ -30,36 +29,6 @@ export default function ClosedSessionsPage() {
   const { loading, error, sessions } = useTrainerSessions(
     authSession?.user.id, 'all', null, 'closed',
   );
-
-  const [backfilling, setBackfilling] = useState(false);
-  const [backfillMsg, setBackfillMsg] = useState('');
-
-  // One-time maintenance: populate analytics for sessions closed before the
-  // session-analytics feature shipped. Idempotent (upserts), super-tier only.
-  async function runBackfill() {
-    setBackfilling(true); setBackfillMsg('');
-    try {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      if (!s) { setBackfillMsg('Not authenticated.'); return; }
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/backfill-session-analytics`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${s.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({}),
-      });
-      const j = await res.json();
-      if (!res.ok) { setBackfillMsg(j.error || 'Backfill failed.'); return; }
-      const errs = j.errors?.length ? `, ${j.errors.length} error(s)` : '';
-      setBackfillMsg(`Backfilled ${j.processed} session${j.processed === 1 ? '' : 's'}${j.skipped ? `, skipped ${j.skipped}` : ''}${errs}.`);
-    } catch (e) {
-      setBackfillMsg(e.message || 'Backfill failed.');
-    } finally {
-      setBackfilling(false);
-    }
-  }
 
   const [query, setQuery] = useState('');
   const [yearFilter, setYearFilter] = useState('all');
@@ -123,31 +92,13 @@ export default function ClosedSessionsPage() {
   return (
     <>
       <TopBar />
-      <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>📁 Closed sessions</h1>
-            <p className="muted">
-              {loading ? 'Loading…' : `${sessions.length} session${sessions.length === 1 ? '' : 's'} in the archive`}
-            </p>
-          </div>
-          {isSuper && (
-            <div className="page-hero-actions">
-              <button
-                type="button"
-                className="ghost"
-                onClick={runBackfill}
-                disabled={backfilling}
-                title="One-time: compute analytics for sessions closed before this feature shipped"
-              >
-                {backfilling ? 'Backfilling…' : '↻ Backfill analytics'}
-              </button>
-            </div>
-          )}
-        </section>
-        {backfillMsg && <p className="prep-notice">{backfillMsg}</p>}
-
+      <main className="page archive-page">
+        {/* NO HERO — as on Workbooks, Assessments, Programs and Session
+            changes. The app bar and the rail both say Closed sessions.
+            THE BACKFILL BUTTON WENT WITH IT. It was a one-off migration tool:
+            compute analytics for sessions closed before that feature shipped.
+            That job is done, and a permanent button for a one-time task is a
+            live wire on a page people visit to look things up. */}
         <div className="archive-toolbar">
           <input
             className="form-input"
@@ -176,7 +127,11 @@ export default function ClosedSessionsPage() {
           <p className="muted">No closed sessions match the current filter.</p>
         )}
 
+        {/* The scroller. The toolbar above stays put and this takes whatever
+            height is left, so a long archive scrolls its ROWS rather than
+            pushing the filters off the top of the window. */}
         {!loading && filtered.length > 0 && (
+          <div className="archive-scroll">
           <table className="archive-table">
             <thead>
               <tr>
@@ -219,6 +174,7 @@ export default function ClosedSessionsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </main>
     </>

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useStaff } from '../hooks/useStaff.js';
 import { useVendors } from '../hooks/useVendors.js';
 import { generateTempPassword } from '../lib/passwords.js';
@@ -112,13 +111,8 @@ export default function StaffAdminPage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>Staff</h1>
-            <p>Add vendor managers and vendor trainers, reassign them between vendors, or remove them.</p>
-          </div>
-        </section>
+        {/* No hero — the app bar and the rail both say Staff, and the card
+            below is titled "Add a staff member". */}
 
         <section className="editor-card">
           <h2 className="section-title" style={{ marginTop: 0 }}>Add a staff member</h2>

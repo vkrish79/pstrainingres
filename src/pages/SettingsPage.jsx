@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useProgramTypes } from '../hooks/useProgramTypes.js';
 import CitiesSettings from '../components/settings/CitiesSettings.jsx';
 import TopBar from '../components/TopBar.jsx';
@@ -56,13 +55,11 @@ export default function SettingsPage() {
     <>
       <TopBar />
       <main className="page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>Settings</h1>
-            <p>App-level configuration. Changes here apply across all vendors and trainers.</p>
-          </div>
-        </section>
+        {/* No hero — the app bar and the rail both say Settings.
+            NOTE: the paragraph said these changes apply across ALL vendors and
+            trainers. That is scope, not a definition, and it is now stated
+            nowhere. Left out deliberately rather than relocated — same call as
+            the adopt warning on Session changes. */}
 
         <section className="editor-card">
           <h2 className="section-title" style={{ marginTop: 0 }}>Program types</h2>
