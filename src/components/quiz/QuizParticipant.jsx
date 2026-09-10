@@ -2,14 +2,21 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { ordinal } from '../../lib/ordinal.js';
+import { shapeFor } from '../../lib/quizShapes.js';
 import QuizShape from './QuizShape.jsx';
 import '../../styles/quiz-live.css';
 
-// What a participant sees on their own device.
+// What a participant sees on their own device: FOUR SHAPES. Nothing else.
 //
-// It always carries the question, not just the four buttons. Half the room may
-// be remote with no projector, and the plan settled on ONE participant UI
-// rather than two that drift apart.
+// The question and its four answers are on the projector, where the room reads
+// them together. Repeating them on sixteen handsets makes everyone look down at
+// the moment they should be looking up, and turns one shared question into
+// sixteen private ones.
+//
+// THE TRADE, stated plainly: a REMOTE participant has no projector, so they
+// would see four shapes and nothing to answer. This is an in-room design, on
+// instruction. If remote cohorts ever run, the labels have to come back for
+// them — which is a branch here, not a rewrite.
 //
 // Nothing here can reveal the answer, because nothing here is ever told it:
 // quiz_current() returns labels only, and quiz_answer() deliberately does not
@@ -63,7 +70,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
       {phase === 'lobby' && (
         <div className="qlive-stage qlive-centre">
           <h1 className="qlive-big">Quiz starting</h1>
-          <p className="qlive-sub">Wait for the first question.</p>
+          <p className="qlive-sub">Watch the screen at the front.</p>
         </div>
       )}
 
@@ -75,27 +82,33 @@ export default function QuizParticipant({ runId, onDismiss }) {
       )}
 
       {phase === 'question' && (
-        <div className="qlive-stage">
-          <div className="qlive-qhead">
-            <h1 className="qlive-prompt">{run?.prompt}</h1>
+        <div className="qlive-stage qlive-answer">
+          {/* The clock, and nothing else above the shapes. No question text and
+              no answer wording: both are on the projector, and a participant
+              should be reading them there rather than looking down. */}
+          <div className="qlive-answer-top">
+            <span className="qlive-qnum">Question {idx + 1}</span>
             <div className="qlive-timer" aria-label="Seconds remaining">{Math.ceil(secondsLeft ?? 0)}</div>
           </div>
-          <div className="qlive-picks">
+          <div className="qlive-picks qlive-picks-bare">
             {(run?.options ?? []).map((o, i) => (
               <button
                 key={o.id}
                 type="button"
-                className={`qlive-pick qlive-opt-${i}${picked === o.id ? ' is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
+                className={`qlive-pick qlive-pick-bare qlive-opt-${i}${picked === o.id ? ' is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
                 disabled={!!picked || sending}
                 onClick={() => answer(o.id)}
+                // The shape's name is now the ONLY name this control has, so it
+                // has to be the accessible one — there is no visible text left
+                // for a screen reader to fall back on.
+                aria-label={shapeFor(i).label}
               >
-                <span className="qlive-badge"><QuizShape index={i} /></span>
-                <span className="qlive-label">{o.label}</span>
+                <QuizShape index={i} />
               </button>
             ))}
           </div>
           {note && <p className="qlive-note">{note}</p>}
-          {!note && !picked && <p className="qlive-note qlive-muted">Answer quickly — speed counts.</p>}
+          {!note && !picked && <p className="qlive-note qlive-muted">Tap your answer — speed counts.</p>}
         </div>
       )}
 

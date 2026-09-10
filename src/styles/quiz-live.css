@@ -200,11 +200,38 @@
   gap: 0.3rem;
 }
 /* The winner stands in the middle and tallest — the order in the DOM is
-   2nd, 1st, 3rd for exactly that reason. */
-.qlive-plinth.p1 { height: 13rem; background: rgba(181, 152, 90, 0.45); }
+   2nd, 1st, 3rd for exactly that reason. They ARRIVE third, second, first,
+   which is the order an award ceremony uses and the only one with suspense.
+
+   THE EMPTY STAGE IS ALWAYS THERE. An earlier version hid the whole plinth
+   until its turn, which left the screen blank for over a second — on a wall
+   that reads as a broken projector, not as anticipation. The frames stand
+   from the start and the winners land on them. */
+.qlive-plinth {
+  opacity: 0.28;
+  transition: opacity 0.45s ease, box-shadow 0.45s ease;
+}
+.qlive-plinth.is-in { opacity: 1; }
+.qlive-plinth.p1.is-in { box-shadow: 0 0 0 2px rgba(226, 199, 132, 0.85); }
+
+/* The occupant lands; the plinth does not move. */
+.qlive-plinth > * {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.qlive-plinth.is-in > * { opacity: 1; transform: none; }
+
+/* Gold, not olive. A translucent gold over the midnight ground muddies into
+   khaki; the gradient keeps it reading as a winner's plinth. */
+.qlive-plinth.p1 {
+  height: 13rem;
+  background: linear-gradient(180deg, rgba(214, 183, 116, 0.95), rgba(151, 122, 62, 0.75));
+}
+.qlive-plinth.p1 .qlive-medal, .qlive-plinth.p1 .qlive-name, .qlive-plinth.p1 .qlive-pts { color: #16304d; }
 .qlive-plinth.p2 { height: 10rem; }
 .qlive-plinth.p3 { height: 8rem; }
-.qlive-plinth.empty { background: transparent; height: 6rem; }
+.qlive-plinth.empty { background: transparent; height: 6rem; opacity: 0; }
 .qlive-medal { font-size: 1.6rem; font-weight: 800; }
 
 .qlive-rank { font-size: 1.2rem; margin: 0; opacity: 0.9; }
@@ -225,4 +252,92 @@
 @media (prefers-reduced-motion: reduce) {
   .qlive-pick, .qlive-bar-fill { transition: none; }
   .qlive-pick:hover:not(:disabled) { transform: none; }
+}
+
+
+/* ── The handset: shapes and nothing else ───────────────────────────────── */
+
+.qlive-answer { justify-content: flex-start; }
+.qlive-answer-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+.qlive-qnum { font-weight: 600; opacity: 0.75; }
+.qlive-answer-top .qlive-timer { margin-left: auto; }
+
+/* Four big targets filling the screen. A thumb should not have to aim, and
+   there is no text to read so nothing competes for the space. */
+.qlive-picks-bare {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+}
+@media (max-width: 640px) {
+  /* Overrides the one-column rule the labelled version needs: without labels
+     a 2x2 fits a phone comfortably, and one column would push the last shape
+     off the bottom. */
+  .qlive-picks-bare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.qlive-pick-bare {
+  justify-content: center;
+  padding: clamp(0.5rem, 3vw, 1.5rem);
+}
+.qlive-pick-bare .quiz-shape {
+  width: min(52%, 7rem);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* ── Leaderboard: what changed, not just who is ahead ───────────────────── */
+
+.qlive-row {
+  animation: qlive-row-in 0.42s ease both;
+}
+@keyframes qlive-row-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+/* A climb is the thing worth noticing on this screen, so it gets the accent
+   edge — everything else stays quiet. */
+.qlive-row.has-climbed {
+  background: rgba(126, 224, 164, 0.14);
+  box-shadow: inset 3px 0 0 #7ee0a4;
+}
+
+.qlive-move {
+  flex: 0 0 auto;
+  min-width: 2.6rem;
+  font-size: 0.8em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.qlive-move.up { color: #7ee0a4; }
+.qlive-move.down { color: #ffc2a1; }
+.qlive-move.flat { opacity: 0.35; }
+
+.qlive-streak {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  font-weight: 700;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  background: rgba(181, 152, 90, 0.35);
+  border: 1px solid rgba(181, 152, 90, 0.7);
+  white-space: nowrap;
+}
+
+.qlive-gain {
+  flex: 0 0 auto;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #7ee0a4;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qlive-row { animation: none; }
+  .qlive-plinth { transition: none; }
 }
