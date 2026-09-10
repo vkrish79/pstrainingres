@@ -341,3 +341,36 @@
   .qlive-row { animation: none; }
   .qlive-plinth { transition: none; }
 }
+
+/* ── Music style picker ─────────────────────────────────────────────────── */
+
+.qlive-music-pick { display: inline-flex; align-items: center; }
+.qlive-music-pick select {
+  /* Matches the .ghost buttons beside it: a native select inherits the page
+     font and a white ground, which reads as a stray form control on a dark
+     projector bar. */
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.qlive-music-pick select:disabled { opacity: 0.45; cursor: default; }
+/* The list itself is drawn by the OS, so its options need a readable ground of
+   their own — inheriting the transparent background gives white-on-white. */
+.qlive-music-pick option { background: #16304d; color: #fff; }
+
+/* Visible to a screen reader, not to the room. The picker sits in a bar of
+   two-word buttons and a visible "Music style" label would crowd it. */
+.qlive-vis-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

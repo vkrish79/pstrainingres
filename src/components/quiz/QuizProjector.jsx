@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useQuizRun } from '../../hooks/useQuizRun.js';
-import { createQuizMusic } from '../../lib/quizMusic.js';
+import { createQuizMusic, QUIZ_MUSIC_THEMES } from '../../lib/quizMusic.js';
 import QuizShape from './QuizShape.jsx';
 import '../../styles/quiz-live.css';
 
@@ -25,6 +25,7 @@ export default function QuizProjector({ runId, onExit }) {
 
   const music = useMemo(() => createQuizMusic(), []);
   const [muted, setMuted] = useState(() => music.muted);
+  const [themeKey, setThemeKey] = useState(() => music.theme);
   // Read by the music loop on every beat, so the tempo follows the corrected
   // server clock rather than a countdown started when the question opened.
   const secondsRef = useRef(secondsLeft);
@@ -137,6 +138,29 @@ export default function QuizProjector({ runId, onExit }) {
     music.setMuted(next);
   }
 
+  // Restart whatever is currently playing so the new style is heard at once.
+  // Picking music from a written description is guesswork; picking it by ear
+  // during a real question is not.
+  function restartCurrent() {
+    if (phase === 'question') {
+      const limit = run?.phase_ends_at && run?.phase_started_at
+        ? (new Date(run.phase_ends_at) - new Date(run.phase_started_at)) / 1000
+        : 20;
+      music.startQuestion(limit, () => secondsRef.current);
+    } else if (phase === 'ready') {
+      music.startPreroll(() => secondsRef.current);
+    }
+  }
+
+  function pickTheme(key) {
+    setThemeKey(key);
+    music.unlock();
+    music.setTheme(key, restartCurrent);
+    // Off the clock there is no loop to restart, so play the reveal cue as a
+    // sample — otherwise choosing a style in the lobby is silent guesswork.
+    if (phase !== 'question' && phase !== 'ready') music.sting('reveal');
+  }
+
   return (
     <div className="qlive qlive-projector">
       <header className="qlive-bar">
@@ -145,6 +169,20 @@ export default function QuizProjector({ runId, onExit }) {
         </span>
         <div className="qlive-bar-tools">
           {err && <span className="qlive-err">{err}</span>}
+          <label className="qlive-music-pick">
+            <span className="qlive-vis-hidden">Music style</span>
+            <select
+              className="ghost"
+              value={themeKey}
+              disabled={muted}
+              onChange={e => pickTheme(e.target.value)}
+              title={muted ? 'Turn the music on to change the style' : 'Change the music style'}
+            >
+              {QUIZ_MUSIC_THEMES.map(t => (
+                <option key={t.key} value={t.key}>{t.label}</option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             className="ghost"
