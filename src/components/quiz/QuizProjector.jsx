@@ -4,6 +4,9 @@ import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { createQuizMusic, QUIZ_MUSIC_THEMES } from '../../lib/quizMusic.js';
 import QuizShape from './QuizShape.jsx';
 import QuizJoinCode from './QuizJoinCode.jsx';
+import QuizImage from './QuizImage.jsx';
+import QuizFlame from './QuizFlame.jsx';
+import QuizMedal from './QuizMedal.jsx';
 import '../../styles/quiz-live.css';
 
 // How long each podium plinth waits before the next appears. Third, second,
@@ -226,6 +229,11 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
             <h1 className="qlive-prompt">{run?.prompt}</h1>
             <div className="qlive-timer" aria-label="Seconds remaining">{Math.ceil(secondsLeft ?? 0)}</div>
           </div>
+          {/* Between the prompt and the answers, which is where the layout
+              always left room — see the v2 note in live-quiz-plan.html. The
+              picture takes the slack in the middle of the column and the
+              options keep their place at the bottom of the screen. */}
+          <QuizImage path={run?.image_path} className="qlive-figure" />
           {run?.kind === 'order' && (
             <p className="qlive-instruction">Tap the shapes in the right order</p>
           )}
@@ -237,7 +245,28 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
               </li>
             ))}
           </ul>
-          <p className="qlive-tally">{answered} of {players} answered</p>
+          {/* How full the room is, as a bar rather than only a number: a
+              trainer glancing up needs to know whether to wait or to talk,
+              and "11 of 16" makes them do arithmetic to find out.
+
+              NOT green while it fills. Green is the reveal's colour for a
+              right answer, and a green bar climbing during the question
+              would read as the room getting it right. It turns green only
+              when the bar is full, where it means everyone is in and
+              nothing about who was correct. */}
+          <div className="qlive-answered">
+            <div className="qlive-answered-track">
+              <div
+                className={`qlive-answered-fill${players > 0 && answered >= players ? ' is-full' : ''}`}
+                style={{ width: players ? `${(answered / players) * 100}%` : '0%' }}
+              />
+            </div>
+            <p className="qlive-tally">
+              {players > 0 && answered >= players
+                ? "Everyone's in"
+                : `${answered} of ${players} answered`}
+            </p>
+          </div>
           <button type="button" className="ghost qlive-skip" disabled={busy} onClick={() => setPhase('reveal')}>
             Close it now
           </button>
@@ -247,6 +276,11 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
       {phase === 'reveal' && (
         <div className="qlive-stage">
           <h1 className="qlive-prompt">{run?.prompt}</h1>
+          {/* Still here at the reveal, but small. "The answer was the blue
+              one" means nothing to a room that can no longer see what it was
+              a question about — and the distribution bars are what the eye
+              needs most, so the picture gives way to them. */}
+          <QuizImage path={run?.image_path} className="qlive-figure qlive-figure-sm" />
           {run?.kind === 'order' ? (
             <>
               <p className="qlive-instruction">The right order was</p>
@@ -284,8 +318,10 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
       )}
 
       {phase === 'leaderboard' && (
-        <div className="qlive-stage">
-          <h1 className="qlive-big">Leaderboard</h1>
+        <div className="qlive-stage qlive-stage-board">
+          {/* No heading. A board of names, places and points beside a "next
+              question" button is not something a room needs labelling, and
+              the word was taking the top of the screen to say so. */}
           {/* Top five only. Real names are on a wall, and nobody should be
               publicly shown in last place. Everyone sees their own rank, and
               their own streak, on their own screen. */}
@@ -302,20 +338,19 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
                   // at once — the eye can follow one row at a time.
                   style={{ animationDelay: `${i * 110}ms` }}
                 >
-                  <span className="qlive-place">{r.place}</span>
+                  <span className={`qlive-place${r.place <= 3 ? ` p${r.place}` : ''}`}>{r.place}</span>
                   <span
                     className={`qlive-move ${moved > 0 ? 'up' : moved < 0 ? 'down' : 'flat'}`}
                     aria-label={moved > 0 ? `Up ${moved}` : moved < 0 ? `Down ${-moved}` : 'No change'}
                   >
-                    {moved > 0 ? `▲ ${moved}` : moved < 0 ? `▼ ${-moved}` : '–'}
+                    {/* Nothing at all when nobody moved. The dash that used to
+                        sit here was a mark the eye had to stop on to discover
+                        it meant no news. */}
+                    {moved > 0 ? `▲ ${moved}` : moved < 0 ? `▼ ${-moved}` : ''}
                   </span>
                   <span className="qlive-name">{r.full_name}</span>
                   {/* A streak of one is just a correct answer. Two is a run. */}
-                  {r.streak >= 2 && (
-                    <span className="qlive-streak" title={`${r.streak} correct in a row`}>
-                      {r.streak} in a row
-                    </span>
-                  )}
+                  {r.streak >= 2 && <QuizFlame streak={r.streak} />}
                   {r.gained > 0 && <span className="qlive-gain">+{r.gained}</span>}
                   <span className="qlive-pts">{r.points}</span>
                 </li>
@@ -357,7 +392,7 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
                   <span className="qlive-podium-name">{r.full_name}</span>
                   <span className="qlive-podium-score">{r.points}</span>
                   <span className={`qlive-plinth p${place}`}>
-                    <span className="qlive-medal">{place}</span>
+                    <QuizMedal place={place} />
                   </span>
                 </li>
               );

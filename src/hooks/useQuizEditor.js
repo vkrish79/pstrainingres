@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { prepareQuizImage, forgetQuizImageUrl, QUIZ_IMAGE_BUCKET } from '../lib/quizImages.js';
 
 // One quiz, with its questions and their four options, for the editor.
 //
@@ -90,11 +91,60 @@ export function useQuizEditor(quizId) {
   const updateQuestion = useCallback(async (questionId, patch) => {
     const { data, error: e } = await supabase
       .from('quiz_questions').update(patch).eq('id', questionId)
-      .select('id, prompt, time_limit_seconds');
+      // image_path is in this list because it is in the patches this function
+      // is given. Leave it out and the write lands, the row comes back without
+      // it, and the spread below quietly restores the OLD path in local state —
+      // an upload that worked, showing no picture.
+      .select('id, prompt, time_limit_seconds, image_path');
     if (e) return { error: new Error(e.message) };
     if (!data?.length) return { error: new Error('That change was not saved — you may not have permission to edit this quiz.') };
     setQuestions(prev => prev.map(q => (q.id === questionId ? { ...q, ...data[0] } : q)));
     return { data: data[0] };
+  }, []);
+
+  // ── the picture on the projected question ────────────────────────────
+  // Shrunk and re-encoded in the browser first; see prepareQuizImage. The
+  // upload goes up BEFORE the column is written, so an upload that fails
+  // leaves the question exactly as it was rather than pointing at an object
+  // that is not there.
+  const setQuestionImage = useCallback(async (questionId, file) => {
+    const prepared = await prepareQuizImage(file);
+    if (prepared.error) return { error: prepared.error };
+    const { blob, contentType, ext } = prepared.data;
+
+    const path = `quizzes/${quizId}/${questionId}-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from(QUIZ_IMAGE_BUCKET)
+      .upload(path, blob, { contentType, upsert: false });
+    if (upErr) return { error: new Error(upErr.message) };
+
+    const { data, error: e } = await supabase
+      .from('quiz_questions').update({ image_path: path }).eq('id', questionId)
+      .select('id, image_path');
+    if (e) return { error: new Error(e.message) };
+    if (!data?.length) return { error: new Error('That picture was not saved — you may not have permission to edit this quiz.') };
+
+    setQuestions(prev => prev.map(q => (q.id === questionId ? { ...q, image_path: data[0].image_path } : q)));
+    return { data: data[0] };
+  }, [quizId]);
+
+  // Clears the COLUMN, and deliberately does not remove the object.
+  // quiz_attach_to_session copies image_path, so a template's picture and
+  // every session copy's picture are one file in storage. Deleting it here
+  // would blank the image on a session running the same quiz elsewhere.
+  // Orphans are cheap; the reasoning is in RUN-THIS-IN-SUPABASE-quiz-images.txt.
+  const clearQuestionImage = useCallback(async (questionId) => {
+    const { data, error: e } = await supabase
+      .from('quiz_questions').update({ image_path: null }).eq('id', questionId)
+      .select('id, image_path');
+    if (e) return { error: new Error(e.message) };
+    if (!data?.length) return { error: new Error('That change was not saved — you may not have permission to edit this quiz.') };
+    setQuestions(prev => prev.map(q => {
+      if (q.id !== questionId) return q;
+      forgetQuizImageUrl(q.image_path);
+      return { ...q, image_path: null };
+    }));
+    return { data: true };
   }, []);
 
   const deleteQuestion = useCallback(async (questionId) => {
@@ -183,6 +233,7 @@ export function useQuizEditor(quizId) {
   return {
     loading, error, quiz, questions,
     renameQuiz, addQuestion, updateQuestion, deleteQuestion,
+    setQuestionImage, clearQuestionImage,
     updateOption, setCorrect, moveQuestion, moveItem, refresh,
   };
 }

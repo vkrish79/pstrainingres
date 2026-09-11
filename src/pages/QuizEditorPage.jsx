@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuizEditor } from '../hooks/useQuizEditor.js';
 import QuizShape from '../components/quiz/QuizShape.jsx';
+import QuizImage from '../components/quiz/QuizImage.jsx';
+import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { shapeFor } from '../lib/quizShapes.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -46,6 +48,64 @@ function BlurInput({ value, onSave, className = 'form-input', ...rest }) {
   );
 }
 
+// The picture row on a question in the editor.
+//
+// The thumbnail is there to answer one question — did the right file go up —
+// so it is small and it is not clickable. The room sees the picture at full
+// size on the wall, which is the only place its detail matters.
+function QuestionImage({ q, actions, onError }) {
+  const { run: runBusy } = useBusyOverlay();
+  const inputRef = useRef(null);
+
+  async function pick(e) {
+    const file = e.target.files?.[0];
+    // Cleared immediately so choosing the SAME file again still fires change —
+    // otherwise a failed upload cannot be retried without picking something
+    // else first.
+    e.target.value = '';
+    if (!file) return;
+    const { error } = await runBusy('Preparing the picture…', () => actions.setQuestionImage(q.id, file));
+    if (error) onError(error.message);
+  }
+
+  return (
+    <div className="quiz-q-image">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={pick}
+      />
+      {q.image_path && <QuizImage path={q.image_path} alt="" />}
+      <button
+        type="button"
+        className="ghost quiz-q-image-btn"
+        onClick={() => inputRef.current?.click()}
+      >
+        {q.image_path ? 'Replace picture' : '+ Add a picture'}
+      </button>
+      {q.image_path && (
+        <button
+          type="button"
+          className="ghost"
+          onClick={async () => {
+            const { error } = await actions.clearQuestionImage(q.id);
+            if (error) onError(error.message);
+          }}
+        >
+          Remove
+        </button>
+      )}
+      {!q.image_path && (
+        <span className="muted quiz-q-hint">
+          Shown on the projected question, not on the handsets. Large pictures are
+          shrunk before they are uploaded.
+        </span>
+      )}
+    </div>
+  );
+}
+
 function QuestionCard({ q, index, total, actions, onError }) {
   const missing = whatsMissing(q);
   const call = async (fn) => { const { error } = await fn(); if (error) onError(error.message); };
@@ -83,6 +143,8 @@ function QuestionCard({ q, index, total, actions, onError }) {
         maxLength={300}
         onSave={v => call(() => actions.updateQuestion(q.id, { prompt: v }))}
       />
+
+      <QuestionImage q={q} actions={actions} onError={onError} />
 
       {q.kind === 'order' ? (
         <>
@@ -185,6 +247,21 @@ export default function QuizEditorPage() {
                 )}
               </div>
             </section>
+
+            {/* Which copy am I editing? The back link says so, but quietly,
+                and getting it wrong is silent: the picture goes on the master,
+                the room runs the session's copy, and nothing appears on the
+                wall. quiz_attach_to_session snapshots a quiz at the moment it
+                is attached — on purpose, so a trainer mid-course does not have
+                their questions change underneath them — which means a master
+                edit reaches nobody who already has a copy. */}
+            {quiz.is_template && (
+              <p className="quiz-master-note">
+                This is the <strong>library copy</strong>. Sessions that already have this quiz
+                keep the version they were given — edit it there, on the session's Quiz tab,
+                if you need the change in a room that is already set up.
+              </p>
+            )}
 
             {rowError && <p className="error">{rowError}</p>}
 
