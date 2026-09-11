@@ -45,7 +45,9 @@ export function useGlobalSearch(rawTerm, role) {
       // (for the deep-link) and RLS scopes to sessions the caller can see.
       const participantsQ = supabase
         .from('session_participants')
-        .select('sessions!inner(id, name, closed_at), profiles!inner(id, full_name, email)')
+        // FK named: an un-hinted profiles embed is refused outright if
+        // session_participants ever has a second FK to profiles.
+        .select('sessions!inner(id, name, closed_at), profiles!session_participants_participant_id_fkey!inner(id, full_name, email)')
         .or(`full_name.ilike.${like},email.ilike.${like}`, { referencedTable: 'profiles' })
         .limit(PER_GROUP);
 

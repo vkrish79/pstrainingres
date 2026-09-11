@@ -1,6 +1,30 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
+// Enrolment rows -> the participant list every view reads. The deactivation
+// fields ride along on the participant so the roster, the close check and the
+// menus all ask "is this person a dropout?" of the same object.
+//
+// The enrolment is read with `*` rather than by naming the deactivation
+// columns: until 20260917000000_participant_dropout_close_check.sql is applied
+// those columns do not exist, and naming them would fail the whole dashboard.
+//
+// The profiles embed NAMES its foreign key. An un-hinted `profiles (...)` is
+// refused outright ("more than one relationship was found") the moment a
+// second FK from session_participants to profiles exists — which happened
+// once, briefly, and took this page down.
+function toParticipants(rows) {
+  return (rows || [])
+    .filter(sp => sp.profiles)
+    .map(sp => ({
+      ...sp.profiles,
+      deactivated_at: sp.deactivated_at ?? null,
+      deactivated_by_name: sp.deactivated_by_name ?? null,
+      deactivation_reason: sp.deactivation_reason ?? null,
+    }))
+    .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+}
+
 // Fetches a session's participants + workbook structure + all answers,
 // and keeps answers live via a realtime subscription.
 export function useSessionDashboard(sessionId) {
@@ -10,7 +34,11 @@ export function useSessionDashboard(sessionId) {
   const [workbook, setWorkbook] = useState(null);
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
-  const [participants, setParticipants] = useState([]);   // [{ id, full_name, email }]
+  const [participants, setParticipants] = useState([]);   // [{ id, full_name, email, deactivated_at, deactivated_by_name, deactivation_reason }]
+  // Participants with at least one assessment answer, read once on load. With
+  // the workbook answers (which are live) this decides whether someone has
+  // "started" — and so is deactivated rather than removed.
+  const [assessmentStarted, setAssessmentStarted] = useState(() => new Set());
   const [answers, setAnswers] = useState({});              // { [participantId]: { [blockId]: { value, updated_at } } }
   const [prepEnabled, setPrepEnabled] = useState(false);   // master workbook has a prep template
 
@@ -28,17 +56,14 @@ export function useSessionDashboard(sessionId) {
             workbooks ( id, title, description, template_id ),
             program:programs ( id, title, program_type:program_types ( id, name ) ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name ),
-            session_participants ( participant_id, profiles ( id, full_name, email ) )
+            session_participants ( *, profiles!session_participants_participant_id_fkey ( id, full_name, email ) )
           `)
           .eq('id', sessionId)
           .single();
         if (e1) throw e1;
 
         const wb = sess.workbooks;
-        const parts = (sess.session_participants || [])
-          .map(sp => sp.profiles)
-          .filter(Boolean)
-          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        const parts = toParticipants(sess.session_participants);
 
         // Does this session's workbook expect prep? The prep template lives on
         // the MASTER (template) workbook, not the per-session clone.
@@ -71,6 +96,15 @@ export function useSessionDashboard(sessionId) {
           ansMap[a.participant_id][a.block_id] = { value: a.value, updated_at: a.updated_at };
         });
 
+        // Non-fatal: at worst a participant who has only touched the
+        // assessment shows "Remove", and the check made on click catches it.
+        let started = new Set();
+        if (sess.assessment_id) {
+          const { data: aRows } = await supabase
+            .from('assessment_answers').select('participant_id').eq('session_id', sessionId);
+          started = new Set((aRows || []).map(r => r.participant_id));
+        }
+
         if (cancelled) return;
         setSession({
           id: sess.id, name: sess.name,
@@ -90,6 +124,7 @@ export function useSessionDashboard(sessionId) {
         setBlocks(blks || []);
         setParticipants(parts);
         setAnswers(ansMap);
+        setAssessmentStarted(started);
         setPrepEnabled(prepIsEnabled);
         setLoading(false);
       } catch (err) {
@@ -136,13 +171,10 @@ export function useSessionDashboard(sessionId) {
   async function refreshParticipants() {
     const { data, error: e } = await supabase
       .from('session_participants')
-      .select('profiles ( id, full_name, email )')
+      .select('*, profiles!session_participants_participant_id_fkey ( id, full_name, email )')
       .eq('session_id', sessionId);
     if (e) return { error: e };
-    const parts = (data || [])
-      .map(r => r.profiles)
-      .filter(Boolean)
-      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const parts = toParticipants(data);
     setParticipants(parts);
     return { data: parts };
   }
@@ -290,7 +322,9 @@ export function useSessionDashboard(sessionId) {
     return { data: row };
   }
 
-  async function closeSession() {
+  // `check` is { progress_check, assessment } from CloseSessionModal — see the
+  // close-session edge function for what it enforces.
+  async function closeSession(check) {
     const { data: { session: authSess } } = await supabase.auth.getSession();
     if (!authSess) return { error: new Error('Not authenticated') };
 
@@ -302,7 +336,7 @@ export function useSessionDashboard(sessionId) {
         'Authorization': `Bearer ${authSess.access_token}`,
         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ session_id: sessionId }),
+      body: JSON.stringify({ session_id: sessionId, ...check }),
     });
     if (!res.ok) {
       let msg = res.statusText;
@@ -377,5 +411,41 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
+  // Mark a participant as having dropped out (reason required), or undo it.
+  // Their account and answers are untouched either way.
+  async function setParticipantDeactivated(participantId, deactivate, reason = null) {
+    const { data, error: e } = await supabase.rpc('set_participant_deactivated', {
+      p_session_id: sessionId,
+      p_participant_id: participantId,
+      p_deactivate: !!deactivate,
+      p_reason: deactivate ? reason : null,
+    });
+    if (e) return { error: new Error(e.message) };
+    setParticipants(prev => prev.map(p => (p.id === participantId ? {
+      ...p,
+      deactivated_at: data?.deactivated_at ?? null,
+      deactivated_by_name: data?.deactivated_by_name ?? null,
+      deactivation_reason: data?.deactivation_reason ?? null,
+    } : p)));
+    return { data };
+  }
+
+  // Asked of the DATABASE at the moment "Remove" is chosen, not of this page's
+  // state: assessment answers here were read once on load, so a participant
+  // who has started the assessment since would otherwise be hard-deleted along
+  // with everything they wrote.
+  async function participantHasProgress(participantId) {
+    const [w, a] = await Promise.all([
+      supabase.from('answers').select('id', { count: 'exact', head: true })
+        .eq('session_id', sessionId).eq('participant_id', participantId),
+      supabase.from('assessment_answers').select('id', { count: 'exact', head: true })
+        .eq('session_id', sessionId).eq('participant_id', participantId),
+    ]);
+    // "Has progress" is the safe answer to a failed check: the worst it does
+    // is offer Deactivate where Remove would have been fine.
+    if (w.error || a.error) return true;
+    return (w.count || 0) + (a.count || 0) > 0;
+  }
+
+  return { loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
 }

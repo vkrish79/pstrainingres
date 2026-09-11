@@ -18,10 +18,15 @@ export function useAssessmentMarks(sessionId) {
   const [marks, setMarks] = useState({});
   const [error, setError] = useState(null);
   const [savingIds, setSavingIds] = useState(() => new Set());
+  // True once the first read has come back, successfully or not. Anything that
+  // records scores (closing a session) must wait for it — before then, every
+  // hand-awarded mark reads as "not marked yet".
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!sessionId) { setMarks({}); return undefined; }
+    if (!sessionId) { setMarks({}); setLoaded(true); return undefined; }
     let cancelled = false;
+    setLoaded(false);
     (async () => {
       const { data, error: loadErr } = await supabase
         .from('assessment_marks')
@@ -35,6 +40,7 @@ export function useAssessmentMarks(sessionId) {
         .select('*')
         .eq('session_id', sessionId);
       if (cancelled) return;
+      setLoaded(true);
       if (loadErr) { setError(loadErr.message || String(loadErr)); return; }
       const byParticipant = {};
       for (const row of data || []) {
@@ -160,5 +166,5 @@ export function useAssessmentMarks(sessionId) {
     return {};
   }, []);
 
-  return { marks, setMark, setComment, clearMark, savingIds, error };
+  return { marks, setMark, setComment, clearMark, savingIds, error, loaded };
 }

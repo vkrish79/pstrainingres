@@ -28,6 +28,8 @@ import AssessmentResponses from '../components/dashboard/AssessmentResponses.jsx
 import AssessmentReport from '../components/dashboard/AssessmentReport.jsx';
 import { formatRange } from '../lib/sessionDates.js';
 import AddSessionParticipants from '../components/dashboard/AddSessionParticipants.jsx';
+import CloseSessionModal from '../components/dashboard/CloseSessionModal.jsx';
+import DeactivateParticipantModal from '../components/dashboard/DeactivateParticipantModal.jsx';
 import EditSessionDatesModal from '../components/dashboard/EditSessionDatesModal.jsx';
 import KebabMenu from '../components/KebabMenu.jsx';
 import SessionQuizzes from '../components/dashboard/SessionQuizzes.jsx';
@@ -49,8 +51,8 @@ export default function SessionDashboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const {
-    loading, error, session, workbook, sections, blocks, participants, answers, prepEnabled,
-    addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
+    loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled,
+    setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
   } = useSessionDashboard(id);
   const { session: authSession, profile } = useAuth();
   const { run: runBusy } = useBusyOverlay();
@@ -76,6 +78,8 @@ export default function SessionDashboardPage() {
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleteError, setDeleteError] = useState({}); // { [participantId]: msg }
+  // { id, startedSinceLoad } — the participant whose dropout is being recorded.
+  const [deactivating, setDeactivating] = useState(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [editingDates, setEditingDates] = useState(false);
   const [closeError, setCloseError] = useState('');
@@ -98,16 +102,6 @@ export default function SessionDashboardPage() {
   const [invitesCopied, setInvitesCopied] = useState(false);
   const [copiedRowInvite, setCopiedRowInvite] = useState(null); // participant id
 
-  // Close-session confirm modal: freeze background scroll while open and let
-  // Esc dismiss it (matches the other modals).
-  useBodyScrollLock(confirmClose);
-  useEffect(() => {
-    if (!confirmClose) return undefined;
-    function onKey(e) { if (e.key === 'Escape' && !busy) setConfirmClose(false); }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [confirmClose, busy]);
-
   useBodyScrollLock(confirmDeleteSession);
   useEffect(() => {
     if (!confirmDeleteSession) return undefined;
@@ -122,10 +116,20 @@ export default function SessionDashboardPage() {
     const sec = prepBy[pid];
     return !!sec && Object.keys(sec).length > 0;
   }
+  // Dropouts are left out: allocating a kit to someone who has gone would take
+  // it from the pool for nothing.
   const unPreppedIds = useMemo(
-    () => (prepEnabled ? participants.filter(p => !hasPrep(p.id)).map(p => p.id) : []),
+    () => (prepEnabled ? participants.filter(p => !p.deactivated_at && !hasPrep(p.id)).map(p => p.id) : []),
     [prepEnabled, participants, prepBy],
   );
+  const dropoutCount = participants.filter(p => p.deactivated_at).length;
+
+  // "Started" = any saved answer, workbook or assessment. The same test the
+  // database is asked in participantHasProgress, so the menu and the check on
+  // click agree.
+  function hasStarted(pid) {
+    return Object.keys(answers[pid] || {}).length > 0 || assessmentStarted.has(pid);
+  }
 
   const joinUrl = session?.join_code
     ? `${window.location.origin}/join/${session.join_code}`
@@ -323,6 +327,19 @@ export default function SessionDashboardPage() {
     if (selectedParticipantId === pid) setSelectedParticipantId(null);
   }
 
+  // "Remove" is only offered to someone with no answers on this page — but the
+  // assessment answers here are from page load, so ask the database before
+  // offering a delete. If they have started since, record a dropout instead.
+  async function requestRemove(pid) {
+    if (await participantHasProgress(pid)) setDeactivating({ id: pid, startedSinceLoad: true });
+    else setConfirmDelete(pid);
+  }
+
+  async function doReactivate(pid) {
+    const { error: err } = await runBusy('Reactivating participant…', () => setParticipantDeactivated(pid, false));
+    if (err) setDeleteError(prev => ({ ...prev, [pid]: err.message }));
+  }
+
   async function doResetPassword(pid) {
     setBusy(true);
     const { data, error: err } = await runBusy('Resetting password…', () => resetParticipantPassword(pid));
@@ -394,10 +411,10 @@ export default function SessionDashboardPage() {
     );
   }
 
-  async function doClose() {
+  async function doClose(check) {
     setBusy(true);
     setCloseError('');
-    const { error: err } = await runBusy('Closing session…', () => closeSession());
+    const { error: err } = await runBusy('Closing session…', () => closeSession(check));
     setBusy(false);
     if (err) { setCloseError(err.message); return; } // keep the modal open to show it
     setConfirmClose(false);
@@ -511,6 +528,11 @@ export default function SessionDashboardPage() {
               <div className="participants-header">
                 <h2 className="section-title" style={{ margin: 0 }}>
                   Participants ({participants.length})
+                  {dropoutCount > 0 && (
+                    <span className="dropout-count" title="Deactivated — dropped out mid-session">
+                      {dropoutCount} dropped out
+                    </span>
+                  )}
                   {onlineCount > 0 && (
                     <span className="online-count" title={`${onlineCount} viewing the workbook now`}>
                       <span className="presence-dot live" /> {onlineCount} online
@@ -593,12 +615,23 @@ export default function SessionDashboardPage() {
                       const { answered, total, lastTs } = progressFor(p.id);
                       const pct = total ? Math.round((answered / total) * 100) : 0;
                       const isSel = p.id === selectedParticipantId;
+                      const isDropout = !!p.deactivated_at;
                       return (
-                        <tr key={p.id} className={isSel ? 'selected' : ''}
+                        <tr key={p.id} className={`${isSel ? 'selected' : ''}${isDropout ? ' deactivated' : ''}`}
                             onClick={() => setSelectedParticipantId(isSel ? null : p.id)}>
                           <td>
                             {p.full_name || '(unnamed)'}
-                            {prepEnabled && !hasPrep(p.id) && <span className="no-prep-tag" title="No prep allocated yet">No prep</span>}
+                            {isDropout && <span className="dropout-tag">Dropped out</span>}
+                            {!isDropout && prepEnabled && !hasPrep(p.id) && <span className="no-prep-tag" title="No prep allocated yet">No prep</span>}
+                            {isDropout && (
+                              <div className="dropout-reason">
+                                {p.deactivation_reason}
+                                <span className="dropout-meta">
+                                  {' '}— {p.deactivated_by_name ? `${p.deactivated_by_name}, ` : ''}
+                                  {new Date(p.deactivated_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td>
                             <div className="progress-cell">
@@ -689,7 +722,14 @@ export default function SessionDashboardPage() {
                                   { label: 'Edit prep…', glyph: '▤', onClick: () => setPrepEditorFor(p.id) },
                                   { label: 'Reset password', glyph: '⟲', onClick: () => setConfirmReset(p.id) },
                                   { separator: true },
-                                  { label: 'Remove from session', glyph: '✕', danger: true, onClick: () => setConfirmDelete(p.id) },
+                                  // Once someone has started, removing them
+                                  // would delete what they wrote — so the
+                                  // destructive option is replaced, not added to.
+                                  isDropout
+                                    ? { label: 'Reactivate', glyph: '↺', onClick: () => doReactivate(p.id) }
+                                    : hasStarted(p.id)
+                                      ? { label: 'Deactivate…', glyph: '⊘', onClick: () => setDeactivating({ id: p.id, startedSinceLoad: false }) }
+                                      : { label: 'Remove from session', glyph: '✕', danger: true, onClick: () => requestRemove(p.id) },
                                 ]}
                               />
                             )}
@@ -840,28 +880,35 @@ export default function SessionDashboardPage() {
         onAllocate={allocateOne}
       />
       {confirmClose && (
-        <div className="modal-backdrop visible" onClick={() => { if (!busy) setConfirmClose(false); }}>
-          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <header className="modal-head">
-              <h2>Close this session?</h2>
-              <button className="icon-btn" onClick={() => setConfirmClose(false)} disabled={busy} aria-label="Close">×</button>
-            </header>
-            <div className="modal-body">
-              <p>Closing <strong>{session?.name}</strong> will:</p>
-              <ul className="confirm-list">
-                <li>Save a permanent <strong>JSON summary</strong> of every answer and note.</li>
-                <li><strong>Permanently delete</strong> all {participants.length} participant{participants.length === 1 ? '' : 's'} and their accounts — they can no longer log in.</li>
-              </ul>
-              <p className="muted">This can’t be undone. The session moves to your Closed sessions archive.</p>
-              {closeError && <p className="error">{closeError}</p>}
-            </div>
-            <footer className="modal-foot">
-              <button className="ghost" onClick={() => setConfirmClose(false)} disabled={busy}>Cancel</button>
-              <button className="danger" onClick={doClose} disabled={busy}>{busy ? 'Closing…' : 'Yes, close session'}</button>
-            </footer>
-          </div>
-        </div>
+        <CloseSessionModal
+          session={session}
+          sections={sections}
+          blocks={blocks}
+          participants={participants}
+          answers={answers}
+          busy={busy}
+          error={closeError}
+          onConfirm={doClose}
+          onCancel={() => setConfirmClose(false)}
+        />
       )}
+      {deactivating && (() => {
+        const p = participants.find(x => x.id === deactivating.id);
+        const { answered, total } = progressFor(deactivating.id);
+        return (
+          <DeactivateParticipantModal
+            participant={p}
+            progressLabel={total ? `${answered} / ${total}` : null}
+            startedSinceLoad={deactivating.startedSinceLoad}
+            onCancel={() => setDeactivating(null)}
+            onConfirm={async (reason) => {
+              const res = await setParticipantDeactivated(deactivating.id, true, reason);
+              if (!res.error) setDeactivating(null);
+              return res;
+            }}
+          />
+        );
+      })()}
       {editingDates && (
         <EditSessionDatesModal
           session={session}

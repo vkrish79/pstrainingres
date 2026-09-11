@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { useSessionRollup } from '../hooks/useSessionRollup.js';
 import TopBar from '../components/TopBar.jsx';
+import AssessmentAnalytics from '../components/dashboard/AssessmentAnalytics.jsx';
 import '../styles/dashboard.css';
 
 const NONE = '__none__'; // bucket key for sessions with no type / no vendor
@@ -19,10 +20,11 @@ function rollup(rows, keyFn, nameFn) {
   for (const r of rows) {
     const k = keyFn(r);
     if (k == null) continue;
-    if (!m.has(k)) m.set(k, { key: k, name: nameFn(r), active: 0, closed: 0, participants: 0 });
+    if (!m.has(k)) m.set(k, { key: k, name: nameFn(r), active: 0, closed: 0, participants: 0, dropouts: 0 });
     const g = m.get(k);
     if (r.isClosed) g.closed += 1; else g.active += 1;
     g.participants += r.participants;
+    g.dropouts += r.dropouts || 0;
   }
   return [...m.values()].sort((x, y) => (y.active + y.closed) - (x.active + x.closed));
 }
@@ -94,6 +96,7 @@ function RollupTable({ title, label, rows, emptyNote }) {
             <tr>
               <th>{label}</th><th>Sessions</th>
               <th className="srt-num">Active</th><th className="srt-num">Closed</th><th className="srt-num">Participants</th>
+              <th className="srt-num">Dropped out</th>
             </tr>
           </thead>
           <tbody>
@@ -104,6 +107,7 @@ function RollupTable({ title, label, rows, emptyNote }) {
                 <td className="srt-num">{r.active}</td>
                 <td className="srt-num">{r.closed}</td>
                 <td className="srt-num">{r.participants}</td>
+                <td className="srt-num">{r.dropouts || '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -138,6 +142,7 @@ export default function AnalyticsPage() {
     active: filtered.filter((s) => !s.isClosed).length,
     closed: filtered.filter((s) => s.isClosed).length,
     participants: filtered.reduce((n, s) => n + s.participants, 0),
+    dropouts: filtered.reduce((n, s) => n + (s.dropouts || 0), 0),
   }), [filtered]);
 
   const byType = useMemo(() => rollup(sessions, (s) => s.typeId ?? NONE, (s) => s.typeName || 'Untyped'), [sessions]);
@@ -189,6 +194,7 @@ export default function AnalyticsPage() {
               <div className="stat-card"><div className="stat-icon">●</div><div><div className="stat-num">{overall.active}</div><div className="stat-label">Active sessions</div></div></div>
               <div className="stat-card"><div className="stat-icon">✓</div><div><div className="stat-num">{overall.closed}</div><div className="stat-label">Closed sessions</div></div></div>
               <div className="stat-card"><div className="stat-icon">P</div><div><div className="stat-num">{overall.participants}</div><div className="stat-label">Participants</div></div></div>
+              <div className="stat-card"><div className="stat-icon">⊘</div><div><div className="stat-num">{overall.dropouts}</div><div className="stat-label">Dropped out</div></div></div>
             </div>
 
             <div className="dash-grid">
@@ -256,6 +262,8 @@ export default function AnalyticsPage() {
                 )}
               </Tile>
             </div>
+
+            <AssessmentAnalytics sessions={filtered} filterName={filterName} />
 
             {typeFilter === 'all' && (
               <RollupTable title="By session type" label="Session type" rows={byType} />

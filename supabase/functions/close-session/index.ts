@@ -9,7 +9,25 @@
 // Auth: super-tier OR vendor_manager of the session's vendor OR the
 // session's trainer.
 //
-// Body: { session_id }
+// Body: { session_id, progress_check, assessment? }
+//   progress_check — one entry per ACTIVE participant the trainer's screen
+//     checked: { participant_id, below: [{ section_id, title, filled, total }],
+//     justification }. `below` lists the exercises under 50%; when it is
+//     non-empty a justification is required. Deactivated participants (dropouts)
+//     are exempt — their deactivation reason already explains them.
+//
+//     The 50% figures are computed in the browser with the same helpers that
+//     draw the progress bars (src/lib/blockHelpers.js), so the close dialog and
+//     the roster can never disagree about who is short. This function enforces
+//     that every flagged participant is justified and that nobody enrolled is
+//     missing from the check; it does not re-derive the percentages. That is a
+//     workflow guard, not a security boundary — the same caller can already
+//     delete participants outright.
+//   assessment — { pass_mark, results: [{ participant_id, sat, earned,
+//     possible, pct, unmarked, result }] }, scored in the browser by
+//     src/lib/assessmentScoring.js — the one implementation the marking screen
+//     and the printed report use. Optional; only read when the session has an
+//     assessment.
 // Returns: { id, closed_at, closed_summary } on success.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -20,7 +38,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const SNAPSHOT_SCHEMA_VERSION = 1;
+// 2: participants carry status / deactivation / close_check, and the snapshot
+// carries an `assessment` block. Every v1 field is unchanged.
+const SNAPSHOT_SCHEMA_VERSION = 2;
 
 function jsonRes(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -171,6 +191,92 @@ function computeAnalytics(snap: any) {
   return { sessionRow, sectionRows };
 }
 
+// Dropouts, the close check and the assessment. Kept apart from
+// computeAnalytics so it can be written as a SEPARATE update: until
+// 20260917000000_participant_dropout_close_check.sql is applied these columns
+// do not exist, and folding them into the main upsert would lose the whole
+// analytics row rather than just these fields.
+//
+// Assessment figures are over ACTIVE participants only — a dropout's
+// half-finished paper would otherwise drag the cohort's average down for a
+// reason that has nothing to do with the assessment.
+function computeCloseExtras(snap: any) {
+  const participants: any[] = snap.participants || [];
+  const active = participants.filter((p) => p.status !== 'deactivated');
+  const asmt = snap.assessment || null;
+
+  const extras: Record<string, unknown> = {
+    deactivated_count: participants.length - active.length,
+    below_threshold_count: active.filter((p) => (p.close_check?.below || []).length > 0).length,
+    has_assessment: !!asmt,
+    assessment_title: asmt?.title ?? null,
+    assessment_pass_mark: asmt?.pass_mark ?? null,
+    assessment_participant_count: 0,
+    assessment_sat_count: 0,
+    assessment_scored_count: 0,
+    assessment_incomplete_count: 0,
+    assessment_avg_pct: null,
+    assessment_pass_count: 0,
+    assessment_fail_count: 0,
+    assessment_score_pcts: null,
+  };
+  if (!asmt) return extras;
+
+  const activeIds = new Set(active.map((p) => p.id));
+  const rows: any[] = (asmt.results || []).filter((r: any) => activeIds.has(r.participant_id));
+  const sat = rows.filter((r) => r.sat);
+  // Only a fully-marked paper has a final score. One with questions still
+  // awaiting a trainer's judgement is counted, but kept out of the average —
+  // its unmarked questions would read as zeros.
+  const scored = sat.filter((r) => r.possible > 0 && r.unmarked === 0 && r.pct != null);
+
+  extras.assessment_participant_count = active.length;
+  extras.assessment_sat_count = sat.length;
+  extras.assessment_scored_count = scored.length;
+  extras.assessment_incomplete_count = sat.filter((r) => r.unmarked > 0).length;
+  extras.assessment_avg_pct = scored.length
+    ? round2(scored.reduce((n, r) => n + r.pct, 0) / scored.length)
+    : null;
+  extras.assessment_pass_count = sat.filter((r) => r.result === 'PASS').length;
+  extras.assessment_fail_count = sat.filter((r) => r.result === 'FAIL').length;
+  extras.assessment_score_pcts = scored.map((r) => Math.round(r.pct));
+  return extras;
+}
+
+// The browser's per-participant assessment scores, reduced to the fields we
+// keep and to participants actually in this session.
+function cleanAssessmentResults(raw: unknown, allowedIds: Set<string>) {
+  if (!Array.isArray(raw)) return [];
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const byP = new Map<string, any>();
+  for (const r of raw as any[]) {
+    if (!r || typeof r.participant_id !== 'string' || !allowedIds.has(r.participant_id)) continue;
+    byP.set(r.participant_id, {
+      participant_id: r.participant_id,
+      sat: r.sat === true,
+      earned: num(r.earned) ?? 0,
+      possible: num(r.possible) ?? 0,
+      pct: num(r.pct),
+      unmarked: Math.max(0, Math.round(num(r.unmarked) ?? 0)),
+      result: r.result === 'PASS' || r.result === 'FAIL' ? r.result : null,
+    });
+  }
+  return [...byP.values()];
+}
+
+// One progress-check entry, reduced to what the snapshot keeps.
+function cleanBelow(raw: unknown) {
+  if (!Array.isArray(raw)) return [];
+  return (raw as any[])
+    .filter((b) => b && typeof b.section_id === 'string')
+    .map((b) => ({
+      section_id: b.section_id,
+      title: typeof b.title === 'string' ? b.title.slice(0, 200) : null,
+      filled: Number.isFinite(b.filled) ? b.filled : null,
+      total: Number.isFinite(b.total) ? b.total : null,
+    }));
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonRes(405, { error: 'Method not allowed' });
@@ -195,10 +301,15 @@ Deno.serve(async (req: Request) => {
     return jsonRes(403, { error: 'Trainer-tier access required' });
   }
 
-  let body: { session_id?: string };
+  let body: { session_id?: string; progress_check?: unknown; assessment?: any };
   try { body = await req.json(); } catch { return jsonRes(400, { error: 'Invalid JSON body' }); }
   const { session_id } = body;
   if (!session_id) return jsonRes(400, { error: 'session_id is required' });
+  // A page loaded before the progress check existed sends no check at all.
+  // Refuse rather than close unchecked.
+  if (!Array.isArray(body.progress_check)) {
+    return jsonRes(400, { error: 'This page is out of date. Refresh it and close the session again.' });
+  }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -242,15 +353,49 @@ Deno.serve(async (req: Request) => {
     .from('workbooks').select('id, title, description').eq('id', sess.workbook_id).maybeSingle();
 
   // ---- 3. Load participants + their answers + their section notes ----
+  // `*` rather than naming the deactivation columns: until the migration that
+  // adds them is applied, naming them is a hard error and nobody could close a
+  // session at all. Missing columns simply read as "nobody deactivated".
   const { data: spRows, error: spe } = await admin
     .from('session_participants')
     .select(`
+      *,
       participant:profiles!session_participants_participant_id_fkey ( id, full_name, email )
     `)
     .eq('session_id', session_id);
   if (spe) return jsonRes(500, { error: spe.message });
-  const participantProfiles = (spRows || []).map((r: any) => r.participant).filter(Boolean);
+  const enrolled = (spRows || []).filter((r: any) => r.participant);
+  const participantProfiles = enrolled.map((r: any) => r.participant);
   const participantIds = participantProfiles.map((p: any) => p.id);
+  const enrolmentByP: Record<string, any> = {};
+  for (const r of enrolled) enrolmentByP[r.participant.id] = r;
+
+  // ---- 3a. The progress check. Every active participant must have been
+  // checked, and every one the check found under 50% on an exercise must be
+  // justified. Dropouts are exempt. ----
+  const checkByP = new Map<string, any>();
+  for (const e of body.progress_check as any[]) {
+    if (e && typeof e.participant_id === 'string') checkByP.set(e.participant_id, e);
+  }
+  const unchecked: string[] = [];
+  const unjustified: string[] = [];
+  for (const p of participantProfiles) {
+    if (enrolmentByP[p.id]?.deactivated_at) continue;
+    const entry = checkByP.get(p.id);
+    if (!entry) { unchecked.push(p.full_name || p.id); continue; }
+    const below = cleanBelow(entry.below);
+    if (below.length > 0 && !String(entry.justification ?? '').trim()) unjustified.push(p.full_name || p.id);
+  }
+  if (unchecked.length) {
+    return jsonRes(409, {
+      error: `The participant list has changed since this page loaded (${unchecked.join(', ')}). Refresh the page and close again.`,
+    });
+  }
+  if (unjustified.length) {
+    return jsonRes(422, {
+      error: `A justification is needed for everyone under 50% on an exercise: ${unjustified.join(', ')}.`,
+    });
+  }
 
   const [
     { data: answersRows },
@@ -312,15 +457,74 @@ Deno.serve(async (req: Request) => {
     return m ? m[1] : email; // real-email path: just show the email
   }
 
-  const participants = participantProfiles.map((p: any) => ({
-    id: p.id,
-    full_name: p.full_name,
-    username: usernameFromEmail(p.email),
-    answers: ansByP[p.id] || {},
-    section_notes: notesByP[p.id] || {},
-    section_prep: prepByP[p.id] || {},
-    standalone_prep: standaloneByP[p.id] || [],
-  }));
+  const participants = participantProfiles.map((p: any) => {
+    const sp = enrolmentByP[p.id] || {};
+    const deactivated = !!sp.deactivated_at;
+    const check = checkByP.get(p.id);
+    const below = deactivated ? [] : cleanBelow(check?.below);
+    return {
+      id: p.id,
+      full_name: p.full_name,
+      username: usernameFromEmail(p.email),
+      answers: ansByP[p.id] || {},
+      section_notes: notesByP[p.id] || {},
+      section_prep: prepByP[p.id] || {},
+      standalone_prep: standaloneByP[p.id] || [],
+      status: deactivated ? 'deactivated' : 'active',
+      deactivation: deactivated ? {
+        at: sp.deactivated_at,
+        by_name: sp.deactivated_by_name || null,
+        reason: sp.deactivation_reason || null,
+      } : null,
+      // Only written when there was something to justify.
+      close_check: below.length ? {
+        below,
+        justification: String(check?.justification ?? '').trim().slice(0, 4000),
+      } : null,
+    };
+  });
+
+  // ---- 4a. The assessment. Participants are about to be hard-deleted and
+  // assessment_answers cascades from auth.users, so this is the only copy that
+  // will survive. Raw answers and marks are kept alongside the scores so the
+  // record can be re-read or re-marked later. ----
+  let assessment: any = null;
+  if (sess.assessment_id) {
+    const [{ data: asmtRow }, { data: aAnsRows, error: aAnsErr }, { data: aMarkRows, error: aMarkErr }] = await Promise.all([
+      admin.from('assessments').select('id, title').eq('id', sess.assessment_id).maybeSingle(),
+      admin.from('assessment_answers')
+        .select('participant_id, assessment_block_id, value, updated_at')
+        .eq('session_id', session_id),
+      admin.from('assessment_marks').select('*').eq('session_id', session_id),
+    ]);
+    // Losing these would silently lose the assessment for good, so a failed
+    // read stops the close instead of producing a snapshot without them.
+    if (aAnsErr) return jsonRes(500, { error: `Could not read assessment answers: ${aAnsErr.message}` });
+    if (aMarkErr) return jsonRes(500, { error: `Could not read assessment marks: ${aMarkErr.message}` });
+
+    const aAnsByP: Record<string, Record<string, any>> = {};
+    for (const a of aAnsRows || []) {
+      (aAnsByP[a.participant_id] ||= {})[a.assessment_block_id] = { value: a.value, updated_at: a.updated_at };
+    }
+    const aMarksByP: Record<string, Record<string, any>> = {};
+    for (const m of aMarkRows || []) {
+      (aMarksByP[m.participant_id] ||= {})[m.assessment_block_id] = {
+        awarded: m.awarded,
+        comment: m.comment ?? null,
+        marked_by_name: m.marked_by_name ?? null,
+        marked_at: m.marked_at ?? null,
+      };
+    }
+    const passMark = Number(body.assessment?.pass_mark);
+    assessment = {
+      id: sess.assessment_id,
+      title: asmtRow?.title || null,
+      pass_mark: body.assessment?.pass_mark != null && Number.isFinite(passMark) ? passMark : null,
+      results: cleanAssessmentResults(body.assessment?.results, new Set(participantIds)),
+      answers: aAnsByP,
+      marks: aMarksByP,
+    };
+  }
 
   // ---- 5. Build the snapshot ----
   const closed_at = new Date().toISOString();
@@ -361,6 +565,7 @@ Deno.serve(async (req: Request) => {
       })),
     } : null,
     participants,
+    assessment,
     trainer_notes: (trainerNotesRows || []).map((n: any) => ({
       participant_id: n.participant_id,
       block_id: n.block_id,
@@ -409,6 +614,24 @@ Deno.serve(async (req: Request) => {
     }
   } catch (e) {
     analyticsError = (e as { message?: string })?.message || String(e);
+  }
+  // Separate write, so a database without the new columns still keeps the
+  // row above. Only attempted once that row exists.
+  //
+  // Guarded as tightly as the block above, computation included: by this
+  // point the session is already marked closed, so a throw here would leave
+  // it closed with its participants never deleted, and every retry refused
+  // as "already closed".
+  if (!analyticsError) {
+    try {
+      const { error: xErr } = await admin
+        .from('session_analytics')
+        .update(computeCloseExtras(snapshot))
+        .eq('session_id', session_id);
+      if (xErr) analyticsError = `Dropout/assessment analytics not saved: ${xErr.message}`;
+    } catch (e) {
+      analyticsError = `Dropout/assessment analytics not saved: ${(e as { message?: string })?.message || String(e)}`;
+    }
   }
 
   // ---- 7. HARD DELETE participants. Per-row errors are logged but

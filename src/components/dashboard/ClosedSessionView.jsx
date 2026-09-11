@@ -9,7 +9,10 @@ import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 // since the live participants/answers tables are wiped on close.
 
 export default function ClosedSessionView({ snapshot, onDelete, deleteModal = null }) {
-  const { session, participants = [], closed_at, closed_by, trainer_notes = [] } = snapshot;
+  const { session, participants = [], closed_at, closed_by, trainer_notes = [], assessment = null } = snapshot;
+  // Snapshots from before schema_version 2 carry no status — everyone was active.
+  const dropoutCount = participants.filter(p => p.status === 'deactivated').length;
+  const justifiedCount = participants.filter(p => p.close_check?.below?.length).length;
 
   // Snapshots store block.type, but blockHelpers (isFillableBlock/isAnswered/
   // labelOf) read block.block_type. Alias both so the helpers work — without
@@ -200,7 +203,15 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
           <div className="stat-card"><div className="stat-icon">✓</div><div><div className="stat-num">{stats.fullyCompleted}</div><div className="stat-label">Fully complete</div></div></div>
           <div className="stat-card"><div className="stat-icon">∅</div><div><div className="stat-num">{stats.notStarted}</div><div className="stat-label">Not started</div></div></div>
           <div className="stat-card"><div className="stat-icon">🚩</div><div><div className="stat-num">{stats.flagged}</div><div className="stat-label">Flagged answer{stats.flagged === 1 ? '' : 's'}</div></div></div>
+          {dropoutCount > 0 && (
+            <div className="stat-card"><div className="stat-icon">⊘</div><div><div className="stat-num">{dropoutCount}</div><div className="stat-label">Dropped out</div></div></div>
+          )}
+          {justifiedCount > 0 && (
+            <div className="stat-card"><div className="stat-icon">✎</div><div><div className="stat-num">{justifiedCount}</div><div className="stat-label">Closed under 50%</div></div></div>
+          )}
         </div>
+
+        {assessment && <ClosedAssessmentResults assessment={assessment} participants={participants} />}
 
         {sectionStats.length > 0 && (
           <section className="closed-by-exercise">
@@ -292,10 +303,39 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, expande
         {flagCount > 0 && <span className="exresp-flag-badge">🚩 {flagCount}</span>}
         {noteCount > 0 && <span className="exresp-note-badge">💬 {noteCount}</span>}
         {sectionNoteCount > 0 && <span className="exresp-note-badge" title="Section notes">📝 {sectionNoteCount}</span>}
+        {participant.status === 'deactivated' && <span className="dropout-tag">Dropped out</span>}
+        {participant.close_check?.below?.length > 0 && (
+          <span className="exresp-note-badge" title="Closed under 50% on an exercise — justified">✎ under 50%</span>
+        )}
         <span className="exresp-progress-pill">{answered} / {totalInputs} ({pct}%)</span>
       </button>
       {expanded && (
         <div className="closed-record-body">
+          {participant.deactivation && (
+            <section className="closed-section">
+              <h3>Dropped out</h3>
+              <div className="participant-note-readonly">
+                <span className="participant-note-readonly-label">
+                  Reason{participant.deactivation.by_name ? ` · ${participant.deactivation.by_name}` : ''}
+                  {participant.deactivation.at ? ` · ${new Date(participant.deactivation.at).toLocaleString()}` : ''}
+                </span>
+                <div className="participant-note-readonly-text">{participant.deactivation.reason}</div>
+              </div>
+            </section>
+          )}
+          {participant.close_check?.below?.length > 0 && (
+            <section className="closed-section">
+              <h3>Closed under 50%</h3>
+              <div className="participant-note-readonly">
+                <span className="participant-note-readonly-label">
+                  {participant.close_check.below
+                    .map(b => `${b.title || '(untitled)'}${b.total ? ` ${Math.round((b.filled / b.total) * 100)}%` : ''}`)
+                    .join(' · ')}
+                </span>
+                <div className="participant-note-readonly-text">{participant.close_check.justification}</div>
+              </div>
+            </section>
+          )}
           {(participant.standalone_prep?.length > 0) && (
             <section className="closed-section">
               <h3>Pre-work</h3>
@@ -389,4 +429,67 @@ function formatValue(v) {
   if (Array.isArray(v)) return v.join(', ');
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
+}
+
+// The assessment as it stood at close. Scores were computed by the same code
+// as the live Report tab and saved in the snapshot, because the answers they
+// came from are deleted with the participants. Dropouts are listed but kept
+// out of the average, matching session_analytics.
+function ClosedAssessmentResults({ assessment, participants }) {
+  const byId = new Map(participants.map(p => [p.id, p]));
+  const rows = (assessment.results || [])
+    .map(r => ({ ...r, participant: byId.get(r.participant_id) }))
+    .filter(r => r.participant)
+    .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
+
+  const active = rows.filter(r => r.participant.status !== 'deactivated');
+  const scored = active.filter(r => r.sat && r.possible > 0 && r.unmarked === 0 && r.pct != null);
+  const avg = scored.length ? Math.round(scored.reduce((n, r) => n + r.pct, 0) / scored.length) : null;
+  const passes = active.filter(r => r.sat && r.result === 'PASS').length;
+  const fails = active.filter(r => r.sat && r.result === 'FAIL').length;
+
+  return (
+    <section className="closed-by-exercise">
+      <h2 className="closed-subhead">
+        Assessment{assessment.title ? ` — ${assessment.title}` : ''}
+      </h2>
+      {rows.length === 0 ? (
+        <p className="muted">No scores were recorded when this session closed.</p>
+      ) : (
+        <>
+          <p className="muted">
+            {avg != null ? `Average ${avg}%` : 'No fully-marked papers'}
+            {assessment.pass_mark != null ? ` · pass mark ${assessment.pass_mark}% · ${passes} passed, ${fails} failed` : ' · no pass mark set'}
+          </p>
+          <table className="closed-exercise-table">
+            <thead>
+              <tr><th>Participant</th><th>Score</th><th className="cet-num">Result</th></tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.participant_id}>
+                  <td className="cet-title">
+                    {r.participant.full_name || '(unnamed)'}
+                    {r.participant.status === 'deactivated' && <span className="dropout-tag">Dropped out</span>}
+                  </td>
+                  <td>
+                    {!r.sat ? <span className="muted">Did not sit</span> : (
+                      <div className="cet-bar-row">
+                        <div className="cet-bar"><div className="cet-bar-fill" style={{ width: `${r.pct ?? 0}%` }} /></div>
+                        <span className="cet-bar-label">
+                          {r.earned} / {r.possible}{r.pct != null ? ` · ${r.pct}%` : ''}
+                          {r.unmarked > 0 ? ` · ${r.unmarked} unmarked` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="cet-num">{r.sat && r.result ? r.result : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </section>
+  );
 }

@@ -12,7 +12,13 @@ import { supabase } from '../lib/supabase.js';
 //
 // Returns answers shaped { [participantId]: { [assessment_block_id]: { value, updated_at } } }
 // to match what ExerciseResponses expects, so that component can be reused.
-export function useSessionAssessmentResponses(sessionId, assessmentId) {
+//
+// { live: false } loads once and never subscribes. Needed by anything that can
+// be open at the same time as the Assessment tab (the close-session dialog):
+// supabase-js hands back the EXISTING channel for a repeated name, so a second
+// live instance would add listeners to an already-subscribed channel, and
+// whichever unmounted first would tear the channel down for the other.
+export function useSessionAssessmentResponses(sessionId, assessmentId, { live = true } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sections, setSections] = useState([]);
@@ -87,7 +93,7 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
   // Live updates as participants answer. Distinct channel name so it doesn't
   // collide with the workbook `answers` channel for the same session.
   useEffect(() => {
-    if (!sessionId) return undefined;
+    if (!sessionId || !live) return undefined;
     const channel = supabase
       .channel(`session-${sessionId}-assessment-answers`)
       .on(
@@ -122,7 +128,7 @@ export function useSessionAssessmentResponses(sessionId, assessmentId) {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [sessionId]);
+  }, [sessionId, live]);
 
   return { loading, error, sections, blocks, answers, answerKey, answerPoints, answerModes };
 }

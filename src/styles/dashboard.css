@@ -220,6 +220,18 @@
 .srt-sw-active { background: var(--success); }
 .srt-sw-closed { background: #9aa7b4; }
 
+/* Analytics — assessments. The score bar's track is 0–100% (not volume-scaled
+   like the sessions bar), so a bar's length reads directly as the score. */
+.asmt-analytics { margin: 1.75rem 0 0.5rem; }
+.asmt-analytics-note { margin: -0.25rem 0 0.9rem; font-size: 0.82rem; }
+.asmt-group-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  flex-wrap: wrap; margin-bottom: 0.6rem;
+}
+.asmt-score-track { height: 14px; border-radius: 999px; overflow: hidden; background: #eef1f5; }
+.asmt-score-bar { height: 100%; background: var(--midnight); border-radius: 999px; min-width: 3px; }
+.stat-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+
 .srt-filter { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 1rem; }
 .srt-filter label {
   font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
@@ -1022,6 +1034,46 @@
   color: #9a6a00; background: #fdf3e0; border: 1px solid #f0d9af;
   padding: 0.05rem 0.4rem; border-radius: 999px; vertical-align: middle;
 }
+/* Dropouts: deactivated participants stay on the roster, greyed, with the
+   reason under their name. The row is still clickable — their answers are kept. */
+.dropout-tag {
+  display: inline-block; margin-left: 0.5rem;
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: #6b6b6b; background: #efeeea; border: 1px solid #dcd8cf;
+  padding: 0.05rem 0.4rem; border-radius: 999px; vertical-align: middle;
+}
+.dropout-reason { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; line-height: 1.35; max-width: 32rem; }
+.dropout-meta { font-size: 0.75rem; }
+.participants-table tr.deactivated td { color: #9a9a9a; }
+.participants-table tr.deactivated .progress-fill { background: #c4c4c4; }
+.dropout-count {
+  margin-left: 0.6rem; font-size: 0.8rem; font-weight: 500; color: var(--muted);
+}
+
+/* Close-session dialog: progress check + assessment summary. */
+.close-session-modal { max-width: 600px; }
+.close-check { border-top: 1px solid var(--border); margin-top: 0.9rem; padding-top: 0.8rem; }
+.close-check-title { margin: 0 0 0.4rem; font-size: 0.92rem; color: var(--midnight); }
+.close-check-lead { margin: 0 0 0.6rem; font-size: 0.9rem; line-height: 1.45; }
+.close-check-ok { margin: 0; font-size: 0.9rem; color: #2e7d4f; }
+.close-check-warn {
+  margin: 0 0 0.6rem; font-size: 0.87rem; line-height: 1.45;
+  background: #fff7e8; border: 1px solid #ecd9a8; border-radius: 8px; padding: 0.5rem 0.7rem;
+}
+.close-check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+.close-check-item {
+  border: 1px solid #ecd9a8; border-left: 3px solid var(--warning); border-radius: 8px;
+  padding: 0.55rem 0.7rem; background: #fffdf8;
+}
+.close-check-item.done { border-color: var(--border); border-left-color: var(--success); background: var(--card); }
+.close-check-name { display: block; font-weight: 600; color: var(--midnight); font-size: 0.9rem; }
+.close-check-below { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.3rem 0 0.45rem; }
+.close-check-chip {
+  font-size: 0.75rem; color: #8a5a00; background: #fdf3e0; border: 1px solid #f0d9af;
+  padding: 0.05rem 0.45rem; border-radius: 999px;
+}
+.close-check-item textarea { width: 100%; resize: vertical; font-size: 0.88rem; }
+.close-check-gate { margin-left: auto; font-size: 0.82rem; }
 .prep-allocate-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
   flex-wrap: wrap;
