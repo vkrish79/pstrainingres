@@ -26,6 +26,8 @@ import '../../styles/quiz-live.css';
 export default function QuizParticipant({ runId, onDismiss }) {
   const { run, secondsLeft } = useQuizRun(runId);
   const [picked, setPicked] = useState(null);
+  // The sequence being built for a reorder question: option ids, in tap order.
+  const [seq, setSeq] = useState([]);
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState('');
   const [result, setResult] = useState(null);
@@ -34,7 +36,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
   const idx = run?.current_index ?? -1;
 
   // A new question clears the last one's answer and verdict.
-  useEffect(() => { setPicked(null); setNote(''); setResult(null); }, [idx]);
+  useEffect(() => { setPicked(null); setSeq([]); setNote(''); setResult(null); }, [idx]);
 
   useEffect(() => {
     if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase)) return;
@@ -65,6 +67,35 @@ export default function QuizParticipant({ runId, onDismiss }) {
     setNote('Answer locked in');
   }
 
+  // TAP IN ORDER, not drag. Dragging on a phone is fiddly at the best of
+  // times, and this is someone rushing under a clock in a room — a mis-drag
+  // costs the question. Tapping is one gesture everybody already has.
+  //
+  // The fourth tap submits: with four items the last one is forced anyway, so
+  // a confirm step would only add a tap to every answer. Before that, "Start
+  // again" undoes the lot.
+  async function tapItem(optionId) {
+    if (sending || seq.includes(optionId) || picked) return;
+    const next = [...seq, optionId];
+    setSeq(next);
+    const all = run?.options ?? [];
+    if (next.length < all.length) return;
+
+    setSending(true);
+    setPicked(next[0]);          // locks the buttons while the write is away
+    const { data, error } = await supabase.rpc('quiz_answer_order', {
+      p_run_id: runId, p_option_ids: next,
+    });
+    setSending(false);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error) { setPicked(null); setSeq([]); setNote(error.message); return; }
+    if (row && row.accepted === false) {
+      setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
+      return;
+    }
+    setNote('Order locked in');
+  }
+
   return (
     <div className="qlive qlive-participant">
       {phase === 'lobby' && (
@@ -90,25 +121,78 @@ export default function QuizParticipant({ runId, onDismiss }) {
             <span className="qlive-qnum">Question {idx + 1}</span>
             <div className="qlive-timer" aria-label="Seconds remaining">{Math.ceil(secondsLeft ?? 0)}</div>
           </div>
-          <div className="qlive-picks qlive-picks-bare">
-            {(run?.options ?? []).map((o, i) => (
-              <button
-                key={o.id}
-                type="button"
-                className={`qlive-pick qlive-pick-bare qlive-opt-${i}${picked === o.id ? ' is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
-                disabled={!!picked || sending}
-                onClick={() => answer(o.id)}
-                // The shape's name is now the ONLY name this control has, so it
-                // has to be the accessible one — there is no visible text left
-                // for a screen reader to fall back on.
-                aria-label={shapeFor(i).label}
-              >
-                <QuizShape index={i} />
-              </button>
-            ))}
-          </div>
-          {note && <p className="qlive-note">{note}</p>}
-          {!note && !picked && <p className="qlive-note qlive-muted">Tap your answer — speed counts.</p>}
+          {run?.kind === 'order' ? (
+            <>
+              {/* The sequence so far, so a thumb can see what it has chosen
+                  without reading the question — which is on the wall. */}
+              <ol className="qlive-seq">
+                {(run?.options ?? []).map((_, slot) => {
+                  const chosenId = seq[slot];
+                  const chosen = (run?.options ?? []).findIndex(o => o.id === chosenId);
+                  return (
+                    <li key={slot} className={`qlive-seq-slot${chosenId ? ' is-filled' : ''}`}>
+                      <span className="qlive-seq-num">{slot + 1}</span>
+                      {chosenId
+                        ? <span className={`qlive-seq-shape qlive-opt-${chosen}`}><QuizShape index={chosen} /></span>
+                        : <span className="qlive-seq-empty" aria-hidden="true" />}
+                    </li>
+                  );
+                })}
+              </ol>
+              <div className="qlive-picks qlive-picks-bare">
+                {(run?.options ?? []).map((o, i) => {
+                  const used = seq.includes(o.id);
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      className={`qlive-pick qlive-pick-bare qlive-opt-${i}${used ? ' is-dimmed' : ''}`}
+                      disabled={used || !!picked || sending}
+                      onClick={() => tapItem(o.id)}
+                      aria-label={`${shapeFor(i).label}${used ? `, placed ${seq.indexOf(o.id) + 1}` : ''}`}
+                    >
+                      <QuizShape index={i} />
+                    </button>
+                  );
+                })}
+              </div>
+              {note && <p className="qlive-note">{note}</p>}
+              {!note && (
+                <p className="qlive-note qlive-muted">
+                  {seq.length === 0
+                    ? 'Tap the shapes in order — speed counts.'
+                    : `${seq.length} of ${(run?.options ?? []).length} placed`}
+                </p>
+              )}
+              {!note && seq.length > 0 && !picked && (
+                <button type="button" className="ghost qlive-restart" onClick={() => setSeq([])}>
+                  Start again
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="qlive-picks qlive-picks-bare">
+                {(run?.options ?? []).map((o, i) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={`qlive-pick qlive-pick-bare qlive-opt-${i}${picked === o.id ? ' is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
+                    disabled={!!picked || sending}
+                    onClick={() => answer(o.id)}
+                    // The shape's name is now the ONLY name this control has, so
+                    // it has to be the accessible one — there is no visible text
+                    // left for a screen reader to fall back on.
+                    aria-label={shapeFor(i).label}
+                  >
+                    <QuizShape index={i} />
+                  </button>
+                ))}
+              </div>
+              {note && <p className="qlive-note">{note}</p>}
+              {!note && !picked && <p className="qlive-note qlive-muted">Tap your answer — speed counts.</p>}
+            </>
+          )}
         </div>
       )}
 

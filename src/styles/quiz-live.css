@@ -447,3 +447,61 @@
   color: #e2c784;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── "Put in order" in the room ─────────────────────────────────────────── */
+
+.qlive-instruction {
+  text-align: center;
+  margin: 0;
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  opacity: 0.8;
+}
+
+/* Steps read as a list, not as four competing answers — one column even on a
+   wide screen, because the room is reading a sequence. */
+.qlive-opts-list { grid-template-columns: minmax(0, 1fr); }
+.qlive-opts-answer { counter-reset: none; }
+
+.qlive-seq-num {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* The handset's sequence-so-far: four slots that fill as shapes are tapped. */
+.qlive-seq {
+  list-style: none;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.qlive-seq-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0.2rem;
+  border-radius: 10px;
+  border: 2px dashed rgba(255, 255, 255, 0.28);
+}
+.qlive-seq-slot.is-filled { border-style: solid; border-color: rgba(255, 255, 255, 0.5); }
+.qlive-seq-slot .qlive-seq-num { font-size: 0.8rem; opacity: 0.6; min-width: 0; }
+.qlive-seq-shape {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem; height: 2rem;
+  border-radius: 8px;
+}
+/* Keeps the slot the same height before and after a shape lands, so the
+   buttons below do not jump under a thumb mid-tap. */
+.qlive-seq-empty { display: block; width: 2rem; height: 2rem; }
+
+.qlive-restart { align-self: center; }

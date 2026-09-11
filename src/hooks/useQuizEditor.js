@@ -25,8 +25,8 @@ export function useQuizEditor(quizId) {
       .select(`
         id, title, is_template, session_id, vendor_id, updated_at,
         quiz_questions (
-          id, order_index, prompt, time_limit_seconds, image_path,
-          quiz_options ( id, order_index, label, is_correct )
+          id, order_index, prompt, time_limit_seconds, image_path, kind,
+          quiz_options ( id, order_index, label, is_correct, correct_rank )
         )
       `)
       .eq('id', quizId)
@@ -43,7 +43,16 @@ export function useQuizEditor(quizId) {
         .sort((a, b) => a.order_index - b.order_index)
         .map(q => ({
           ...q,
-          quiz_options: (q.quiz_options || []).slice().sort((a, b) => a.order_index - b.order_index),
+          // A CHOICE question's options are sorted by slot (which is the shape).
+          // An ORDER question's items are sorted by where they BELONG, because
+          // that is the sequence the trainer is writing — the shapes are
+          // scrambled against it on purpose, and sorting by shape here would
+          // show the trainer their answer shuffled.
+          quiz_options: (q.quiz_options || []).slice().sort((a, b) => (
+            q.kind === 'order'
+              ? (a.correct_rank ?? 0) - (b.correct_rank ?? 0)
+              : a.order_index - b.order_index
+          )),
         })),
     );
     setLoading(false);
@@ -69,9 +78,9 @@ export function useQuizEditor(quizId) {
     return { data: data[0] };
   }, [quizId]);
 
-  const addQuestion = useCallback(async () => {
+  const addQuestion = useCallback(async (kind = 'choice') => {
     const { data, error: e } = await supabase.rpc('quiz_add_question', {
-      p_quiz_id: quizId, p_prompt: '', p_seconds: 20,
+      p_quiz_id: quizId, p_prompt: '', p_seconds: 20, p_kind: kind,
     });
     if (e) return { error: new Error(e.message) };
     await refresh();
@@ -137,6 +146,26 @@ export function useQuizEditor(quizId) {
     return { data: true };
   }, []);
 
+  // Move an ITEM within a reorder question. Sends the whole sequence, like
+  // quiz_reorder_questions, so what is stored cannot drift from what the
+  // editor is showing.
+  const moveItem = useCallback(async (questionId, optionId, direction) => {
+    const q = questions.find(x => x.id === questionId);
+    if (!q) return { data: false };
+    const items = q.quiz_options.slice();
+    const i = items.findIndex(o => o.id === optionId);
+    const j = direction === 'up' ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= items.length) return { data: false };
+    [items[i], items[j]] = [items[j], items[i]];
+    // Optimistic: the editor is not being watched by a room.
+    setQuestions(prev => prev.map(x => (x.id === questionId ? { ...x, quiz_options: items } : x)));
+    const { error: e } = await supabase.rpc('quiz_set_order', {
+      p_question_id: questionId, p_option_ids: items.map(o => o.id),
+    });
+    if (e) { await refresh(); return { error: new Error(e.message) }; }
+    return { data: true };
+  }, [questions, refresh]);
+
   const moveQuestion = useCallback(async (questionId, direction) => {
     const i = questions.findIndex(q => q.id === questionId);
     const j = direction === 'up' ? i - 1 : i + 1;
@@ -154,6 +183,6 @@ export function useQuizEditor(quizId) {
   return {
     loading, error, quiz, questions,
     renameQuiz, addQuestion, updateQuestion, deleteQuestion,
-    updateOption, setCorrect, moveQuestion, refresh,
+    updateOption, setCorrect, moveQuestion, moveItem, refresh,
   };
 }

@@ -226,7 +226,10 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
             <h1 className="qlive-prompt">{run?.prompt}</h1>
             <div className="qlive-timer" aria-label="Seconds remaining">{Math.ceil(secondsLeft ?? 0)}</div>
           </div>
-          <ul className="qlive-opts">
+          {run?.kind === 'order' && (
+            <p className="qlive-instruction">Tap the shapes in the right order</p>
+          )}
+          <ul className={`qlive-opts${run?.kind === 'order' ? ' qlive-opts-list' : ''}`}>
             {(run?.options ?? []).map((o, i) => (
               <li key={o.id} className={`qlive-opt qlive-opt-${i}`}>
                 <span className="qlive-badge"><QuizShape index={i} /></span>
@@ -244,6 +247,20 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
       {phase === 'reveal' && (
         <div className="qlive-stage">
           <h1 className="qlive-prompt">{run?.prompt}</h1>
+          {run?.kind === 'order' ? (
+            <>
+              <p className="qlive-instruction">The right order was</p>
+              <ol className="qlive-opts qlive-opts-list qlive-opts-answer">
+                {reveal.slice().sort((a, b) => (a.correct_rank ?? 0) - (b.correct_rank ?? 0)).map(o => (
+                  <li key={o.option_id} className={`qlive-opt qlive-opt-${o.order_index} is-right`}>
+                    <span className="qlive-seq-num">{(o.correct_rank ?? 0) + 1}</span>
+                    <span className="qlive-badge"><QuizShape index={o.order_index} /></span>
+                    <span className="qlive-label">{o.label}</span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : (
           <ul className="qlive-opts qlive-opts-reveal">
             {reveal.map((o, i) => (
               <li key={o.option_id} className={`qlive-opt qlive-opt-${i}${o.is_correct ? ' is-right' : ' is-wrong'}`}>
@@ -259,6 +276,7 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
               </li>
             ))}
           </ul>
+          )}
           <button type="button" className="qlive-go" disabled={busy} onClick={() => setPhase('leaderboard')}>
             Show the leaderboard
           </button>

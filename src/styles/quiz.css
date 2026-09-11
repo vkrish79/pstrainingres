@@ -202,3 +202,41 @@
   cursor: pointer;
 }
 .quiz-run-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── "Put in order" questions in the editor ─────────────────────────────── */
+
+.quiz-kind {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(31, 111, 178, 0.15);
+  border: 1px solid rgba(31, 111, 178, 0.5);
+  color: #1f6fb2;
+}
+
+.quiz-steps { list-style: none; margin: 0; padding: 0; }
+.quiz-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  margin-bottom: 0.4rem;
+  min-width: 0;
+}
+/* The step's place in the sequence — this is the answer the trainer is
+   writing, so it reads as a numbered list rather than a set of choices. */
+.quiz-step-num {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--midnight);
+}
+.quiz-step .form-input { width: auto; flex: 1 1 auto; min-width: 0; border: none; background: transparent; }
+.quiz-step .form-input:focus { box-shadow: none; }
