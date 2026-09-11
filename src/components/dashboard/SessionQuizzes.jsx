@@ -8,7 +8,7 @@ import '../../styles/quiz.css';
 
 // The Quiz tab on a session. Add a quiz from the library, edit this session's
 // own copy, remove it. Running it lands next.
-export default function SessionQuizzes({ sessionId }) {
+export default function SessionQuizzes({ sessionId, joinCode }) {
   const { loading, error, attached, library, attach, remove } = useSessionQuizzes(sessionId);
   const { run: runBusy } = useBusyOverlay();
   const [pick, setPick] = useState('');
@@ -51,7 +51,7 @@ export default function SessionQuizzes({ sessionId }) {
   // The projector takes the whole screen. Rendered here rather than routed to
   // so that closing it returns the trainer to the tab they launched from, with
   // the session still loaded behind it.
-  if (runId) return <QuizProjector runId={runId} onExit={() => setRunId(null)} />;
+  if (runId) return <QuizProjector runId={runId} joinCode={joinCode} onExit={() => setRunId(null)} />;
 
   return (
     <section className="quiz-tab">

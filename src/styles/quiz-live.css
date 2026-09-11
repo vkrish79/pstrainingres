@@ -188,16 +188,63 @@
   margin: 0;
   width: min(46rem, 100%);
 }
-.qlive-plinth {
+/* A slot is the whole column: name and score standing ABOVE the step, with the
+   step itself at the bottom. The score used to sit inside the block in small
+   type under the name, which made the achievement the least visible thing on
+   the screen. */
+.qlive-podium-slot {
   flex: 1 1 0;
   min-width: 0;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px 12px 0 0;
-  padding: 0.9rem 0.6rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  opacity: 0.28;
+  transition: opacity 0.45s ease;
+}
+.qlive-podium-slot.is-in { opacity: 1; }
+.qlive-podium-slot.empty { opacity: 0; }
+
+/* The occupant lands; the step does not move. */
+.qlive-podium-slot > * {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.qlive-podium-slot.is-in > * { opacity: 1; transform: none; }
+/* The step is the stage and stands from the start — hiding it left the wall
+   blank for over a second, which reads as a broken projector. */
+.qlive-podium-slot .qlive-plinth { opacity: 1; transform: none; }
+
+.qlive-podium-name {
+  font-size: clamp(0.95rem, 2.2vw, 1.5rem);
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+/* The point of the whole screen. */
+.qlive-podium-score {
+  font-size: clamp(2rem, 6vw, 4.2rem);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: #e2c784;
+}
+
+.qlive-plinth {
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px 12px 0 0;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
 }
 /* The winner stands in the middle and tallest — the order in the DOM is
    2nd, 1st, 3rd for exactly that reason. They ARRIVE third, second, first,
@@ -207,31 +254,16 @@
    until its turn, which left the screen blank for over a second — on a wall
    that reads as a broken projector, not as anticipation. The frames stand
    from the start and the winners land on them. */
-.qlive-plinth {
-  opacity: 0.28;
-  transition: opacity 0.45s ease, box-shadow 0.45s ease;
-}
-.qlive-plinth.is-in { opacity: 1; }
-.qlive-plinth.p1.is-in { box-shadow: 0 0 0 2px rgba(226, 199, 132, 0.85); }
-
-/* The occupant lands; the plinth does not move. */
-.qlive-plinth > * {
-  opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-}
-.qlive-plinth.is-in > * { opacity: 1; transform: none; }
-
 /* Gold, not olive. A translucent gold over the midnight ground muddies into
    khaki; the gradient keeps it reading as a winner's plinth. */
 .qlive-plinth.p1 {
   height: 13rem;
   background: linear-gradient(180deg, rgba(214, 183, 116, 0.95), rgba(151, 122, 62, 0.75));
 }
-.qlive-plinth.p1 .qlive-medal, .qlive-plinth.p1 .qlive-name, .qlive-plinth.p1 .qlive-pts { color: #16304d; }
+.qlive-plinth.p1 .qlive-medal { color: #16304d; }
 .qlive-plinth.p2 { height: 10rem; }
 .qlive-plinth.p3 { height: 8rem; }
-.qlive-plinth.empty { background: transparent; height: 6rem; opacity: 0; }
+.qlive-medal { font-size: clamp(1.2rem, 3vw, 2rem); font-weight: 800; }
 .qlive-medal { font-size: 1.6rem; font-weight: 800; }
 
 .qlive-rank { font-size: 1.2rem; margin: 0; opacity: 0.9; }
@@ -373,4 +405,45 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ── Join code on the lobby screen ──────────────────────────────────────── */
+
+.qlive-join {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2.5rem);
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* White ground and a quiet border: a QR needs its own light field to scan
+   against, and the projector's ground is midnight. */
+.qlive-qr {
+  background: #fff;
+  padding: 0.6rem;
+  border-radius: 12px;
+  width: clamp(9rem, 18vw, 15rem);
+  height: auto;
+  display: block;
+}
+
+.qlive-join-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  text-align: left;
+}
+.qlive-join-label { font-size: 0.9rem; opacity: 0.7; letter-spacing: 0.04em; text-transform: uppercase; }
+.qlive-join-url { font-size: clamp(0.95rem, 2vw, 1.35rem); opacity: 0.85; }
+/* The typed fallback, big enough to read from the back — not everyone scans. */
+.qlive-join-code {
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  color: #e2c784;
+  font-variant-numeric: tabular-nums;
 }

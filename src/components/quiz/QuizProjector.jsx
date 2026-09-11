@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { createQuizMusic, QUIZ_MUSIC_THEMES } from '../../lib/quizMusic.js';
 import QuizShape from './QuizShape.jsx';
+import QuizJoinCode from './QuizJoinCode.jsx';
 import '../../styles/quiz-live.css';
 
 // How long each podium plinth waits before the next appears. Third, second,
@@ -14,7 +15,7 @@ const PODIUM_STEP_MS = 1100;
 // handsets show only shapes — and it never shows anything a participant should
 // not already be seeing: the answer arrives at the reveal, at the same moment
 // for everyone.
-export default function QuizProjector({ runId, onExit }) {
+export default function QuizProjector({ runId, joinCode, onExit }) {
   const { run, secondsLeft, reload } = useQuizRun(runId);
   const [counts, setCounts] = useState(null);
   const [reveal, setReveal] = useState([]);
@@ -200,9 +201,10 @@ export default function QuizProjector({ runId, onExit }) {
         <div className="qlive-stage qlive-centre">
           <h1 className="qlive-big">Ready when you are</h1>
           <p className="qlive-sub">
-            Everyone in this session is already in. Their screens show four shapes —
-            the question and the answers are here, on this screen.
+            Their screens show four shapes — the question and the answers are here,
+            on this screen. Anyone not signed in yet can scan to join.
           </p>
+          <QuizJoinCode joinCode={joinCode} />
           <button type="button" className="qlive-go" disabled={busy} onClick={() => setPhase('ready', 0)}>
             Start the quiz
           </button>
@@ -324,15 +326,21 @@ export default function QuizProjector({ runId, onExit }) {
               const r = top3[rank];
               const place = rank + 1;
               const arrivesAt = 4 - place;   // 3rd on step 1, 2nd on 2, 1st on 3
-              if (!r) return <li key={`empty-${place}`} className="qlive-plinth empty" />;
+              if (!r) return <li key={`empty-${place}`} className="qlive-podium-slot empty" />;
               return (
                 <li
                   key={r.participant_id}
-                  className={`qlive-plinth p${place}${podiumStep >= arrivesAt ? ' is-in' : ''}`}
+                  className={`qlive-podium-slot${podiumStep >= arrivesAt ? ' is-in' : ''}`}
                 >
-                  <span className="qlive-medal">{place}</span>
-                  <span className="qlive-name">{r.full_name}</span>
-                  <span className="qlive-pts">{r.points}</span>
+                  {/* Name and SCORE stand above the step, not inside it. The
+                      score is the achievement, so it is the biggest thing on
+                      the screen — it used to be the smallest, tucked under the
+                      name at the bottom of the block. */}
+                  <span className="qlive-podium-name">{r.full_name}</span>
+                  <span className="qlive-podium-score">{r.points}</span>
+                  <span className={`qlive-plinth p${place}`}>
+                    <span className="qlive-medal">{place}</span>
+                  </span>
                 </li>
               );
             })}

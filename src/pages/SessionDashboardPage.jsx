@@ -827,7 +827,7 @@ export default function SessionDashboardPage() {
           </div>
         )}
 
-        {view === 'quiz' && <SessionQuizzes sessionId={id} />}
+        {view === 'quiz' && <SessionQuizzes sessionId={id} joinCode={session?.join_code} />}
       </main>
       <PrepEditor
         open={!!prepEditorFor}
