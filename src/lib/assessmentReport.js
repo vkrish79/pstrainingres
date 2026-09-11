@@ -34,6 +34,9 @@ import { labelOf, isFillableBlock } from './blockHelpers.js';
 const SENTINEL_DOMAIN = 'pstrainingres.local';
 
 export function usernameOf(participant) {
+  // A closed session's saved summary carries the username itself — the
+  // account, and so the email, was deleted at close.
+  if (participant?.username) return participant.username;
   const email = participant?.email || '';
   if (!email) return '';
   if (email.endsWith(SENTINEL_DOMAIN)) return email.split('@')[0];

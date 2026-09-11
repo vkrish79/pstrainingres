@@ -395,6 +395,7 @@ export default function SessionDashboardPage() {
     return (
       <ClosedSessionView
         snapshot={session.closed_summary}
+        liveAssessmentId={session.assessment_id || null}
         onDelete={() => { setDeleteSessionError(''); setConfirmDeleteSession(true); }}
         deleteModal={confirmDeleteSession ? (
           <DeleteSessionModal

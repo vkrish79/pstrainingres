@@ -4,12 +4,14 @@ import TopBar from '../TopBar.jsx';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import { useClosedSessionFigures } from '../../hooks/useClosedSessionFigures.js';
+import ClosedAssessmentReport from './ClosedAssessmentReport.jsx';
 
 // Read-only summary view rendered when sessions.closed_at is set. Driven
 // entirely by sessions.closed_summary (the snapshot saved at close time)
 // since the live participants/answers tables are wiped on close.
 
-export default function ClosedSessionView({ snapshot, onDelete, deleteModal = null }) {
+export default function ClosedSessionView({ snapshot, liveAssessmentId = null, onDelete, deleteModal = null }) {
+  const [view, setView] = useState('summary'); // 'summary' | 'report'
   const { session, participants = [], closed_at, closed_by, trainer_notes = [], assessment = null } = snapshot;
   // Snapshots from before schema_version 2 carry no status — everyone was active.
   const dropoutCount = participants.filter(p => p.status === 'deactivated').length;
@@ -193,6 +195,33 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  // The printable L&D report. Its own view rather than a section of the
+  // summary: printing must produce the report alone, and the summary above it
+  // would otherwise print too.
+  if (view === 'report') {
+    return (
+      <>
+        <TopBar />
+        <main className="page closed-session">
+          <section className="page-hero compact no-print">
+            <div className="page-hero-text">
+              <button type="button" className="back-link back-link-btn" onClick={() => setView('summary')}>
+                &larr; Back to session summary
+              </button>
+              <h1>
+                Assessment report
+                <span className="closed-pill">Closed</span>
+              </h1>
+              <p className="muted">{session?.name}{assessment?.title ? ` · ${assessment.title}` : ''}</p>
+            </div>
+          </section>
+          <ClosedAssessmentReport snapshot={snapshot} liveAssessmentId={liveAssessmentId} />
+        </main>
+        {deleteModal}
+      </>
+    );
+  }
+
   return (
     <>
       <TopBar />
@@ -245,7 +274,13 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
           )}
         </div>
 
-        {assessment && <ClosedAssessmentResults assessment={assessment} participants={participants} />}
+        {assessment && (
+          <ClosedAssessmentResults
+            assessment={assessment}
+            participants={participants}
+            onOpenReport={() => { setView('report'); window.scrollTo(0, 0); }}
+          />
+        )}
 
         {shownSections.length > 0 && (
           <section className="closed-by-exercise">
@@ -473,7 +508,7 @@ function formatValue(v) {
 // as the live Report tab and saved in the snapshot, because the answers they
 // came from are deleted with the participants. Dropouts are listed but kept
 // out of the average, matching session_analytics.
-function ClosedAssessmentResults({ assessment, participants }) {
+function ClosedAssessmentResults({ assessment, participants, onOpenReport }) {
   const byId = new Map(participants.map(p => [p.id, p]));
   const rows = (assessment.results || [])
     .map(r => ({ ...r, participant: byId.get(r.participant_id) }))
@@ -488,9 +523,16 @@ function ClosedAssessmentResults({ assessment, participants }) {
 
   return (
     <section className="closed-by-exercise">
-      <h2 className="closed-subhead">
-        Assessment{assessment.title ? ` — ${assessment.title}` : ''}
-      </h2>
+      <div className="asmt-group-head">
+        <h2 className="closed-subhead" style={{ margin: 0 }}>
+          Assessment{assessment.title ? ` — ${assessment.title}` : ''}
+        </h2>
+        {onOpenReport && (assessment.results || []).length > 0 && (
+          <button type="button" className="ghost no-print" onClick={onOpenReport}>
+            ⎙ L&amp;D report (GRP / IND)
+          </button>
+        )}
+      </div>
       {rows.length === 0 ? (
         <p className="muted">No scores were recorded when this session closed.</p>
       ) : (

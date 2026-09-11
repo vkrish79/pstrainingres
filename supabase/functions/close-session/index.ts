@@ -542,6 +542,39 @@ Deno.serve(async (req: Request) => {
         marked_at: m.marked_at ?? null,
       };
     }
+    // The questions and their keys, frozen with the record. The printed
+    // report needs them to name each area of error, and the session's own copy
+    // of the assessment is not permanent — the retention job removes it. A
+    // failed read here costs only the report, never the close.
+    let structure: any = null;
+    try {
+      const { data: aSecs, error: sErr } = await admin
+        .from('assessment_sections').select('*')
+        .eq('assessment_id', sess.assessment_id).order('order_index');
+      if (sErr) throw sErr;
+      const secIds = (aSecs || []).map((x: any) => x.id);
+      const { data: aBlocks, error: bErr } = secIds.length
+        ? await admin.from('assessment_blocks')
+            .select('id, section_id, block_type, config, order_index')
+            .in('section_id', secIds).order('order_index')
+        : { data: [], error: null };
+      if (bErr) throw bErr;
+      const blockIds = (aBlocks || []).map((x: any) => x.id);
+      const { data: aKeys, error: kErr } = blockIds.length
+        ? await admin.from('assessment_answer_keys').select('*').in('assessment_block_id', blockIds)
+        : { data: [], error: null };
+      if (kErr) throw kErr;
+      const keys: Record<string, any> = {};
+      for (const k of aKeys || []) {
+        keys[k.assessment_block_id] = { key: k.key, points: k.points ?? null, marking_mode: k.marking_mode || 'auto' };
+      }
+      // block_type, NOT the workbook snapshot's `type` alias — the report's
+      // helpers read block_type, and the alias has already bitten once.
+      structure = { sections: aSecs || [], blocks: aBlocks || [], keys };
+    } catch (_e) {
+      structure = null;
+    }
+
     const passMark = Number(body.assessment?.pass_mark);
     assessment = {
       id: sess.assessment_id,
@@ -550,6 +583,7 @@ Deno.serve(async (req: Request) => {
       results: cleanAssessmentResults(body.assessment?.results, new Set(participantIds)),
       answers: aAnsByP,
       marks: aMarksByP,
+      structure,
     };
   }
 

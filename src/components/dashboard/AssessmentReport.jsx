@@ -31,18 +31,65 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
   const { marks, error: marksError } = useAssessmentMarks(sessionId);
   const { passMark } = useAssessmentPassMark(assessmentId);
 
-  const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
-  const [selectedId, setSelectedId] = useState('');
-
-  const cohort = useMemo(() => buildCohortReport({
-    participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
-  }), [participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks]);
-
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
   }
+  return (
+    <AssessmentReportView
+      session={session}
+      participants={participants}
+      sections={sections}
+      blocks={blocks}
+      answers={answers}
+      answerKey={answerKey}
+      answerPoints={answerPoints}
+      answerModes={answerModes}
+      marks={marks}
+      passMark={passMark}
+      loading={loading}
+      error={error}
+      notice={marksError}
+    />
+  );
+}
+
+// The report itself, from data rather than from the database. The live Report
+// tab feeds it from the session's tables; a CLOSED session feeds it from the
+// saved summary (ClosedAssessmentReport). One component, so a report printed
+// after close is laid out and scored exactly like one printed before it.
+//
+// `recorded` — scores saved at close, used when the answers themselves are
+// gone (a session slimmed by the retention job). The group sheet needs only
+// scores, so it still prints; the individual sheet, which lists areas of
+// error, is not offered because there is nothing left to list.
+export function AssessmentReportView({
+  session, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
+  passMark, loading, error, notice, recorded = null, recordedNote = null, closed = false,
+}) {
+  const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
+  const [selectedId, setSelectedId] = useState('');
+
+  const cohort = useMemo(() => {
+    if (recorded) {
+      // Shaped like buildCohortReport's reports, so GroupReport reads both.
+      const reports = recorded
+        .map(r => ({
+          participant: r.participant,
+          score: { earned: r.earned, possible: r.possible, pct: r.pct, unmarked: r.unmarked },
+          unmarked: Array.from({ length: r.unmarked || 0 }),
+          errors: [],
+        }))
+        .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
+      return { reports, commonErrors: [], totalUnmarked: reports.reduce((n, r) => n + r.unmarked.length, 0) };
+    }
+    return buildCohortReport({
+      participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
+    });
+  }, [recorded, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks]);
+
   if (loading) return <div className="loading">Loading assessment report…</div>;
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
+  const marksError = notice;
 
   const chosen = cohort.reports.find(r => r.participant.id === selectedId) || cohort.reports[0] || null;
   const outstanding = scope === 'individual'
@@ -52,6 +99,7 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
   return (
     <div className="assessment-report">
       {marksError && <div className="error no-print" style={{ padding: '0.5rem 1rem' }}>{marksError}</div>}
+      {recordedNote && <div className="report-warning no-print">{recordedNote}</div>}
 
       <div className="report-controls no-print">
         <div className="report-scope">
@@ -60,10 +108,12 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
             Group (GRP)
             <span className="muted"> — {cohort.reports.length} participant{cohort.reports.length === 1 ? '' : 's'}, one file</span>
           </label>
-          <label className={`report-scope-opt ${scope === 'individual' ? 'active' : ''}`}>
-            <input type="radio" name="report-scope" checked={scope === 'individual'} onChange={() => setScope('individual')} />
-            Individual (IND)
-          </label>
+          {!recorded && (
+            <label className={`report-scope-opt ${scope === 'individual' ? 'active' : ''}`}>
+              <input type="radio" name="report-scope" checked={scope === 'individual'} onChange={() => setScope('individual')} />
+              Individual (IND)
+            </label>
+          )}
           {scope === 'individual' && (
             <select
               className="form-input report-picker"
@@ -91,16 +141,27 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
           has no row for it, so it sits above the sheet rather than inside it. */}
       {outstanding > 0 && (
         <div className="report-warning">
-          ✋ {outstanding} question{outstanding === 1 ? '' : 's'} still to mark by hand
-          {scope === 'individual' ? ' for this participant' : ' across the cohort'}.
-          Scores below are interim, and Result stays blank until marking is finished.
+          {closed ? (
+            <>
+              ✋ {outstanding} question{outstanding === 1 ? ' was' : 's were'} left unmarked when the session closed
+              {scope === 'individual' ? ' for this participant' : ' across the cohort'}.
+              Those scores are incomplete, and Result is blank for them.
+            </>
+          ) : (
+            <>
+              ✋ {outstanding} question{outstanding === 1 ? '' : 's'} still to mark by hand
+              {scope === 'individual' ? ' for this participant' : ' across the cohort'}.
+              Scores below are interim, and Result stays blank until marking is finished.
+            </>
+          )}
         </div>
       )}
 
       {passMark == null && (
         <div className="report-warning no-print">
-          No pass mark is set for this assessment, so Result prints blank.
-          Set one in the assessment editor.
+          {closed
+            ? 'No pass mark was set when this session closed, so Result prints blank.'
+            : 'No pass mark is set for this assessment, so Result prints blank. Set one in the assessment editor.'}
         </div>
       )}
 
