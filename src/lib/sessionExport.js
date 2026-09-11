@@ -83,7 +83,7 @@ export function buildAnswersCsv({
   return rows.map(r => r.map(csvEscape).join(',')).join('\n');
 }
 
-function csvEscape(v) {
+export function csvEscape(v) {
   const s = String(v ?? '');
   if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
   return s;

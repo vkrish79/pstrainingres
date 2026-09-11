@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { csvEscape, downloadCsv } from '../../lib/sessionExport.js';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -89,6 +91,154 @@ function monthlyAverage(sessions) {
     if (mo > 12) { mo = 1; y += 1; }
   }
   return out;
+}
+
+// One person's standing, in the order a reader cares about: a paper that was
+// never sat, or that still had questions to mark, has no verdict to show —
+// printing FAIL against either would be wrong.
+const STATUS = {
+  pass: { label: 'Passed', pill: 'PASS' },
+  fail: { label: 'Failed', pill: 'FAIL' },
+  incomplete: { label: 'Not fully marked', pill: 'Not fully marked' },
+  absent: { label: 'Did not sit', pill: 'Did not sit' },
+  noresult: { label: 'No pass mark', pill: '—' },
+};
+function statusOf(r) {
+  if (!r.sat) return 'absent';
+  if ((r.unmarked || 0) > 0) return 'incomplete';
+  if (r.result === 'PASS') return 'pass';
+  if (r.result === 'FAIL') return 'fail';
+  return 'noresult';
+}
+
+const PAGE = 50;
+
+function ParticipantResults({ sessions }) {
+  const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(PAGE);
+
+  // Newest session first, then by name — the order someone looking for
+  // "who failed last week" reads in.
+  const all = useMemo(() => sessions
+    .flatMap(s => s.assessment.results.map(r => ({ ...r, status: statusOf(r), session: s })))
+    .sort((a, b) => String(b.session.closedAt || '').localeCompare(String(a.session.closedAt || ''))
+      || String(a.full_name || '').localeCompare(String(b.full_name || ''))),
+  [sessions]);
+
+  const counts = useMemo(() => {
+    const c = { all: all.length };
+    for (const r of all) c[r.status] = (c[r.status] || 0) + 1;
+    return c;
+  }, [all]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return all.filter(r => (filter === 'all' || r.status === filter)
+      && (!q || [r.full_name, r.username, r.session.name, r.session.assessment.title]
+        .some(v => String(v || '').toLowerCase().includes(q))));
+  }, [all, filter, query]);
+
+  const unlisted = sessions.filter(s => s.assessment.results.length === 0).length;
+
+  function exportCsv() {
+    const rows = [['participant', 'username', 'session', 'assessment', 'closed', 'score_pct', 'earned', 'possible', 'pass_mark', 'result', 'dropped_out']];
+    for (const r of shown) {
+      rows.push([
+        r.full_name || '', r.username || '', r.session.name, r.session.assessment.title,
+        r.session.closedAt ? r.session.closedAt.slice(0, 10) : '',
+        r.sat && r.pct != null ? r.pct : '', r.sat ? r.earned : '', r.sat ? r.possible : '',
+        r.session.assessment.passMark ?? '', STATUS[r.status].label, r.deactivated ? 'yes' : '',
+      ]);
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadCsv(`assessment-results_${stamp}.csv`, rows.map(row => row.map(csvEscape).join(',')).join('\n'));
+  }
+
+  return (
+    <section className="closed-by-exercise">
+      <div className="asmt-group-head">
+        <h2 className="closed-subhead" style={{ margin: 0 }}>Participant results</h2>
+        <div className="asmt-results-controls">
+          <input
+            className="form-input"
+            type="search"
+            placeholder="Search name, session…"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setLimit(PAGE); }}
+            aria-label="Search participant results"
+          />
+          <select
+            className="form-input"
+            value={filter}
+            onChange={e => { setFilter(e.target.value); setLimit(PAGE); }}
+            aria-label="Filter by result"
+          >
+            <option value="all">All ({counts.all || 0})</option>
+            {['pass', 'fail', 'incomplete', 'absent', 'noresult'].filter(k => counts[k]).map(k => (
+              <option key={k} value={k}>{STATUS[k].label} ({counts[k]})</option>
+            ))}
+          </select>
+          <button type="button" className="ghost" onClick={exportCsv} disabled={shown.length === 0}>
+            ↓ CSV
+          </button>
+        </div>
+      </div>
+
+      {unlisted > 0 && (
+        <p className="muted asmt-analytics-note">
+          {unlisted} assessed session{unlisted === 1 ? ' was' : 's were'} closed before names were recorded,
+          so {unlisted === 1 ? 'it is' : 'they are'} counted above but not listed here. Open the session
+          under Closed sessions for its results.
+        </p>
+      )}
+
+      {shown.length === 0 ? (
+        <p className="muted">{all.length === 0 ? 'No per-person results recorded yet.' : 'No one matches this filter.'}</p>
+      ) : (
+        <div className="asmt-results-scroll">
+          <table className="srt-table">
+            <thead>
+              <tr>
+                <th>Participant</th>
+                <th>Session</th>
+                <th>Assessment</th>
+                <th>Closed</th>
+                <th className="srt-num">Score</th>
+                <th className="srt-num">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.slice(0, limit).map(r => (
+                <tr key={`${r.session.id}:${r.participant_id}`}>
+                  <td className="srt-name">
+                    {r.full_name || '(unnamed)'}
+                    {r.username && r.username !== r.full_name && <span className="muted"> ({r.username})</span>}
+                    {r.deactivated && <span className="dropout-tag">Dropped out</span>}
+                  </td>
+                  <td><Link className="asmt-link" to={`/trainer/sessions/${r.session.id}`}>{r.session.name}</Link></td>
+                  <td>{r.session.assessment.title}</td>
+                  <td className="asmt-nowrap">{r.session.closedAt ? new Date(r.session.closedAt).toLocaleDateString() : '—'}</td>
+                  <td className="srt-num">
+                    {r.sat && r.pct != null ? `${r.pct}%` : '—'}
+                    {r.sat && r.possible ? <span className="muted asmt-points"> {r.earned}/{r.possible}</span> : null}
+                  </td>
+                  <td className="srt-num">
+                    <span className={`asmt-result asmt-result-${r.status}`}>{STATUS[r.status].pill}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {shown.length > limit && (
+        <button type="button" className="ghost asmt-more" onClick={() => setLimit(shown.length)}>
+          Show all {shown.length}
+        </button>
+      )}
+    </section>
+  );
 }
 
 function Stat({ icon, value, label, sub }) {
@@ -255,6 +405,8 @@ export default function AssessmentAnalytics({ sessions, filterName }) {
               </tbody>
             </table>
           </section>
+
+          <ParticipantResults sessions={assessed} />
         </>
       )}
     </section>

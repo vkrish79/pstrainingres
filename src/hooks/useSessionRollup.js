@@ -33,7 +33,7 @@ export function useSessionRollup() {
       try {
         const [s, a, c] = await Promise.all([
           supabase.from('sessions').select(`
-            id, vendor_id, trainer_id, program_id, city_code, closed_at, created_at, starts_at,
+            id, name, vendor_id, trainer_id, program_id, city_code, closed_at, created_at, starts_at,
             vendors ( id, name ),
             program:programs ( id, program_type_id, program_type:program_types ( id, name ) ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name, role ),
@@ -61,6 +61,8 @@ export function useSessionRollup() {
           const code = row.city_code || null;
           return {
             id: row.id,
+            name: row.name || '(untitled session)',
+            closedAt: row.closed_at || null,
             isClosed,
             // Time axis: when the session runs (starts_at), falling back to when
             // it was set up (created_at, always present).
@@ -80,6 +82,9 @@ export function useSessionRollup() {
               pass: sa.assessment_pass_count || 0,
               fail: sa.assessment_fail_count || 0,
               scorePcts: Array.isArray(sa.assessment_score_pcts) ? sa.assessment_score_pcts.map(Number) : [],
+              // Per person, by name. Empty for a session closed before
+              // close-session wrote the list and before the backfill.
+              results: Array.isArray(sa.assessment_results) ? sa.assessment_results : [],
             } : null,
             vendorId: row.vendor_id,
             vendorName: row.vendors?.name || null,

@@ -243,6 +243,33 @@ function computeCloseExtras(snap: any) {
   return extras;
 }
 
+// Who passed and who failed, by name — the per-person list Analytics shows.
+// Every participant is listed, dropouts included (flagged), so the list and
+// the closed-session view agree; the counts above are what exclude them.
+function assessmentResultsList(snap: any) {
+  const asmt = snap.assessment;
+  if (!asmt) return null;
+  const byId: Record<string, any> = {};
+  for (const p of snap.participants || []) byId[p.id] = p;
+  return (asmt.results || [])
+    .map((r: any) => {
+      const p = byId[r.participant_id] || {};
+      return {
+        participant_id: r.participant_id,
+        full_name: p.full_name ?? null,
+        username: p.username ?? null,
+        deactivated: p.status === 'deactivated',
+        sat: r.sat,
+        earned: r.earned,
+        possible: r.possible,
+        pct: r.pct,
+        unmarked: r.unmarked,
+        result: r.result,
+      };
+    })
+    .sort((a: any, b: any) => String(a.full_name || '').localeCompare(String(b.full_name || '')));
+}
+
 // The browser's per-participant assessment scores, reduced to the fields we
 // keep and to participants actually in this session.
 function cleanAssessmentResults(raw: unknown, allowedIds: Set<string>) {
@@ -631,6 +658,20 @@ Deno.serve(async (req: Request) => {
       if (xErr) analyticsError = `Dropout/assessment analytics not saved: ${xErr.message}`;
     } catch (e) {
       analyticsError = `Dropout/assessment analytics not saved: ${(e as { message?: string })?.message || String(e)}`;
+    }
+  }
+  // The names list, as its own write: until
+  // 20260917000001_assessment_results_list.sql adds the column, this fails
+  // alone and the counts above are kept.
+  if (!analyticsError && snapshot.assessment) {
+    try {
+      const { error: lErr } = await admin
+        .from('session_analytics')
+        .update({ assessment_results: assessmentResultsList(snapshot) })
+        .eq('session_id', session_id);
+      if (lErr) analyticsError = `Assessment results list not saved: ${lErr.message}`;
+    } catch (e) {
+      analyticsError = `Assessment results list not saved: ${(e as { message?: string })?.message || String(e)}`;
     }
   }
 

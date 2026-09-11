@@ -231,6 +231,23 @@
 .asmt-score-track { height: 14px; border-radius: 999px; overflow: hidden; background: #eef1f5; }
 .asmt-score-bar { height: 100%; background: var(--midnight); border-radius: 999px; min-width: 3px; }
 .stat-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+.asmt-results-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.asmt-results-controls .form-input { width: auto; min-width: 11rem; }
+.asmt-results-scroll { overflow-x: auto; }
+.asmt-nowrap { white-space: nowrap; }
+.asmt-points { font-size: 0.78rem; }
+.asmt-more { margin-top: 0.6rem; }
+.asmt-link { color: var(--accent); text-decoration: none; }
+.asmt-link:hover { text-decoration: underline; }
+/* Result pills: always a word, never colour alone. */
+.asmt-result {
+  display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em;
+  padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.asmt-result-pass { color: #1d7a44; background: #e9f6ee; border-color: #bfe3cc; }
+.asmt-result-fail { color: #a5342a; background: #fbecea; border-color: #f0c7c2; }
+.asmt-result-incomplete { color: #8a5a00; background: #fdf3e0; border-color: #f0d9af; font-weight: 600; }
+.asmt-result-absent, .asmt-result-noresult { color: var(--muted); background: #f3f2ef; border-color: var(--border); font-weight: 600; }
 
 .srt-filter { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 1rem; }
 .srt-filter label {
