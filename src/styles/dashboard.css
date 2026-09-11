@@ -1067,6 +1067,37 @@
   margin-left: 0.6rem; font-size: 0.8rem; font-weight: 500; color: var(--muted);
 }
 
+/* Settings → Data retention. */
+.ret-kept {
+  background: #eef6f0; border: 1px solid #c9e3d2; border-radius: 8px;
+  padding: 0.55rem 0.8rem; font-size: 0.87rem; line-height: 1.45; margin: 0.6rem 0 0.9rem;
+}
+.ret-warn {
+  background: #fff7e8; border: 1px solid #ecd9a8; border-radius: 8px;
+  padding: 0.5rem 0.75rem; font-size: 0.87rem; margin: 0 0 0.75rem;
+}
+.ret-scroll { overflow-x: auto; }
+.ret-table td { vertical-align: top; }
+.ret-table tr:hover { background: transparent; }
+.ret-table tr.ret-off .ret-label { color: var(--muted); }
+.ret-label { font-weight: 600; color: var(--midnight); }
+.ret-note { font-size: 0.78rem; color: var(--muted); line-height: 1.4; margin-top: 0.15rem; max-width: 30rem; }
+.ret-due { font-size: 0.78rem; color: #8a5a00; margin-top: 0.25rem; }
+.ret-right { text-align: right; white-space: nowrap; }
+.ret-right .ret-note { white-space: normal; }
+.ret-days { width: 6.5rem; display: inline-block; text-align: right; }
+.ret-days-bad { border-color: var(--danger); }
+.ret-unit { margin-left: 0.4rem; font-size: 0.85rem; color: var(--muted); }
+.ret-ok { font-size: 0.82rem; color: #2e7d4f; margin-left: 0.4rem; }
+.ret-err { font-size: 0.8rem; white-space: normal; margin-top: 0.25rem; }
+.ret-run { margin-top: 0.75rem; font-size: 0.82rem; }
+
+/* Archived (retention-slimmed) closed session. */
+.archived-banner {
+  background: #f3f2ef; border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.6rem 0.85rem; font-size: 0.88rem; line-height: 1.45; margin: 0 0 1rem;
+}
+
 /* Close-session dialog: progress check + assessment summary. */
 .close-session-modal { max-width: 600px; }
 .close-check { border-top: 1px solid var(--border); margin-top: 0.9rem; padding-top: 0.8rem; }

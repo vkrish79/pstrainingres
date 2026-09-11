@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import TopBar from '../TopBar.jsx';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
+import { useClosedSessionFigures } from '../../hooks/useClosedSessionFigures.js';
 
 // Read-only summary view rendered when sessions.closed_at is set. Driven
 // entirely by sessions.closed_summary (the snapshot saved at close time)
@@ -13,6 +14,11 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
   // Snapshots from before schema_version 2 carry no status — everyone was active.
   const dropoutCount = participants.filter(p => p.status === 'deactivated').length;
   const justifiedCount = participants.filter(p => p.close_check?.below?.length).length;
+  // Slimmed by the retention job: the answers this view normally counts from
+  // are gone, so the figures come from the analytics kept for the session.
+  const archivedAt = snapshot.retention?.detail_removed_at || null;
+  const namesAnonymisedAt = snapshot.retention?.names_anonymised_at || null;
+  const figures = useClosedSessionFigures(session?.id, !!archivedAt);
 
   // Snapshots store block.type, but blockHelpers (isFillableBlock/isAnswered/
   // labelOf) read block.block_type. Alias both so the helpers work — without
@@ -125,6 +131,24 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
       .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
   }, [workbook, participants, trainer_notes]);
 
+  const fig = figures?.session || null;
+  const shownStats = !archivedAt ? stats : fig ? {
+    avgPct: Math.round(Number(fig.completion_pct) || 0),
+    fullyCompleted: fig.fully_completed_count ?? 0,
+    notStarted: fig.not_started_count ?? 0,
+    flagged: fig.flagged_count ?? 0,
+  } : { avgPct: '…', fullyCompleted: '…', notStarted: '…', flagged: '…' };
+  const shownSections = !archivedAt ? sectionStats : (figures?.sections || [])
+    .filter(s => (s.block_count || 0) > 0)
+    .map(s => ({
+      id: s.section_id,
+      title: s.title,
+      answered: s.answered_slots,
+      total: s.total_slots,
+      pct: Math.round(Number(s.completion_pct) || 0),
+      flagged: s.flagged_count || 0,
+    }));
+
   const [query, setQuery] = useState('');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'flagged' | 'noted'
   const [expanded, setExpanded] = useState(() => new Set());
@@ -197,12 +221,22 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
           </div>
         </section>
 
+        {archivedAt && (
+          <div className="archived-banner">
+            <strong>Archived.</strong> This session's detail — each person's answers, notes and prep, and the raw
+            assessment answers and marks — was removed on {new Date(archivedAt).toLocaleDateString('en-GB')} under
+            the data-retention policy. The figures below are the analytics kept for it; dropout reasons,
+            justifications and assessment results are kept too.
+            {namesAnonymisedAt && <> Participant names were anonymised on {new Date(namesAnonymisedAt).toLocaleDateString('en-GB')}.</>}
+          </div>
+        )}
+
         <div className="stat-strip">
           <div className="stat-card"><div className="stat-icon">P</div><div><div className="stat-num">{participants.length}</div><div className="stat-label">Participant{participants.length === 1 ? '' : 's'}</div></div></div>
-          <div className="stat-card"><div className="stat-icon">%</div><div><div className="stat-num">{stats.avgPct}%</div><div className="stat-label">Avg completion</div></div></div>
-          <div className="stat-card"><div className="stat-icon">✓</div><div><div className="stat-num">{stats.fullyCompleted}</div><div className="stat-label">Fully complete</div></div></div>
-          <div className="stat-card"><div className="stat-icon">∅</div><div><div className="stat-num">{stats.notStarted}</div><div className="stat-label">Not started</div></div></div>
-          <div className="stat-card"><div className="stat-icon">🚩</div><div><div className="stat-num">{stats.flagged}</div><div className="stat-label">Flagged answer{stats.flagged === 1 ? '' : 's'}</div></div></div>
+          <div className="stat-card"><div className="stat-icon">%</div><div><div className="stat-num">{shownStats.avgPct}%</div><div className="stat-label">Avg completion</div></div></div>
+          <div className="stat-card"><div className="stat-icon">✓</div><div><div className="stat-num">{shownStats.fullyCompleted}</div><div className="stat-label">Fully complete</div></div></div>
+          <div className="stat-card"><div className="stat-icon">∅</div><div><div className="stat-num">{shownStats.notStarted}</div><div className="stat-label">Not started</div></div></div>
+          <div className="stat-card"><div className="stat-icon">🚩</div><div><div className="stat-num">{shownStats.flagged}</div><div className="stat-label">Flagged answer{shownStats.flagged === 1 ? '' : 's'}</div></div></div>
           {dropoutCount > 0 && (
             <div className="stat-card"><div className="stat-icon">⊘</div><div><div className="stat-num">{dropoutCount}</div><div className="stat-label">Dropped out</div></div></div>
           )}
@@ -213,7 +247,7 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
 
         {assessment && <ClosedAssessmentResults assessment={assessment} participants={participants} />}
 
-        {sectionStats.length > 0 && (
+        {shownSections.length > 0 && (
           <section className="closed-by-exercise">
             <h2 className="closed-subhead">By exercise</h2>
             <table className="closed-exercise-table">
@@ -221,7 +255,7 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
                 <tr><th>Exercise</th><th>Completion</th><th className="cet-num">Flags</th></tr>
               </thead>
               <tbody>
-                {sectionStats.map(s => (
+                {shownSections.map(s => (
                   <tr key={s.id}>
                     <td className="cet-title">{s.title || '(untitled)'}</td>
                     <td>
@@ -248,8 +282,8 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
           />
           <select className="form-input exresp-toolbar-select" value={filterMode} onChange={e => setFilterMode(e.target.value)}>
             <option value="all">All ({participants.length})</option>
-            <option value="flagged">Has flags</option>
-            <option value="noted">Has section notes</option>
+            {!archivedAt && <option value="flagged">Has flags</option>}
+            {!archivedAt && <option value="noted">Has section notes</option>}
           </select>
           <div className="exresp-toolbar-spacer" />
           <button className="ghost" onClick={() => setExpanded(new Set(participants.map(p => p.id)))}>Expand all</button>
@@ -268,6 +302,7 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
               workbook={workbook}
               fillable={fillable}
               notesForP={notesByParticipant[p.id] || {}}
+              archived={!!archivedAt}
               expanded={expanded.has(p.id)}
               onToggle={() => toggle(p.id)}
             />
@@ -279,7 +314,7 @@ export default function ClosedSessionView({ snapshot, onDelete, deleteModal = nu
   );
 }
 
-function ParticipantRecord({ participant, workbook, fillable, notesForP, expanded, onToggle }) {
+function ParticipantRecord({ participant, workbook, fillable, notesForP, archived, expanded, onToggle }) {
   const answered = fillable.reduce(
     (n, b) => n + filledInputs(b, participant.answers?.[b.id]?.value),
     0,
@@ -307,10 +342,13 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, expande
         {participant.close_check?.below?.length > 0 && (
           <span className="exresp-note-badge" title="Closed under 50% on an exercise — justified">✎ under 50%</span>
         )}
-        <span className="exresp-progress-pill">{answered} / {totalInputs} ({pct}%)</span>
+        {!archived && <span className="exresp-progress-pill">{answered} / {totalInputs} ({pct}%)</span>}
       </button>
       {expanded && (
         <div className="closed-record-body">
+          {archived && (
+            <p className="muted">Answers, notes and prep were removed under the data-retention policy.</p>
+          )}
           {participant.deactivation && (
             <section className="closed-section">
               <h3>Dropped out</h3>

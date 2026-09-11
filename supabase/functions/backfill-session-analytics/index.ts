@@ -203,6 +203,10 @@ Deno.serve(async (req: Request) => {
   for (const row of rows || []) {
     const snap = row.closed_summary;
     if (!snap || typeof snap !== 'object') { skipped += 1; continue; }
+    // A summary the retention job has slimmed no longer holds the answers
+    // these figures are computed from. Recomputing would overwrite the
+    // analytics kept for it — which are meant to last forever — with zeros.
+    if (snap.retention?.detail_removed_at) { skipped += 1; continue; }
     try {
       const { sessionRow, sectionRows } = computeAnalytics(snap);
       const { error: aErr } = await admin

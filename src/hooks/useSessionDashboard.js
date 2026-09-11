@@ -65,17 +65,24 @@ export function useSessionDashboard(sessionId) {
         const wb = sess.workbooks;
         const parts = toParticipants(sess.session_participants);
 
+        // A closed session whose copies the retention job has removed has no
+        // workbook any more — the closed view reads only the saved summary, so
+        // that is fine. A LIVE session without one cannot happen (a table
+        // constraint forbids it) and would be a real fault, so it says so.
+        if (!wb && !sess.closed_at) throw new Error('This session has no workbook.');
+
         // Does this session's workbook expect prep? The prep template lives on
         // the MASTER (template) workbook, not the per-session clone.
         let prepIsEnabled = false;
-        if (wb.template_id) {
+        if (wb?.template_id) {
           const { data: master } = await supabase
             .from('workbooks').select('prep_template').eq('id', wb.template_id).maybeSingle();
           prepIsEnabled = Array.isArray(master?.prep_template) && master.prep_template.length > 0;
         }
 
-        const { data: secs, error: e2 } = await supabase
-          .from('sections').select('*').eq('workbook_id', wb.id).order('order_index');
+        const { data: secs, error: e2 } = wb
+          ? await supabase.from('sections').select('*').eq('workbook_id', wb.id).order('order_index')
+          : { data: [], error: null };
         if (e2) throw e2;
 
         const sectionIds = (secs || []).map(s => s.id);

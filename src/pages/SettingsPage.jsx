@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useProgramTypes } from '../hooks/useProgramTypes.js';
 import CitiesSettings from '../components/settings/CitiesSettings.jsx';
+import RetentionSettings from '../components/settings/RetentionSettings.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
@@ -169,6 +170,8 @@ export default function SettingsPage() {
         </section>
 
         <CitiesSettings />
+
+        <RetentionSettings />
       </main>
     </>
   );
