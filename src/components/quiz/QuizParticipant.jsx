@@ -226,13 +226,16 @@ export default function QuizParticipant({ runId, onDismiss }) {
 
       {['podium', 'ended'].includes(phase) && (
         <div className="qlive-stage qlive-centre">
-          <h1 className="qlive-big">That's the quiz</h1>
-          {result && (
-            <p className="qlive-rank">
-              You finished with {result.total_points} points.
-            </p>
-          )}
-          <p className="qlive-sub">It was a knowledge check — the score is not recorded anywhere.</p>
+          {/* The score, and the way out. Nothing else — the room is looking at
+              the podium, and this screen has one thing to tell its owner.
+
+              The placeholder matters: quiz_my_result is a round trip, and
+              rendering the number before it lands would tell everyone they
+              finished with 0 points for a moment. A wrong score is worse than
+              a short wait. */}
+          <h1 className="qlive-big">
+            {result ? `You finished with ${result.total_points} points` : 'Counting up…'}
+          </h1>
           <button type="button" className="qlive-go" onClick={onDismiss}>Back to my workbook</button>
         </div>
       )}
