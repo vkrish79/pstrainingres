@@ -7,12 +7,19 @@ import QuizJoinCode from './QuizJoinCode.jsx';
 import QuizImage from './QuizImage.jsx';
 import QuizFlame from './QuizFlame.jsx';
 import QuizMedal from './QuizMedal.jsx';
+import { ordinal } from '../../lib/ordinal.js';
 import '../../styles/quiz-live.css';
 
-// How long each podium plinth waits before the next appears. Third, second,
-// first — the order an award ceremony uses, because the winner landing last is
-// the only arrangement with any suspense in it.
-const PODIUM_STEP_MS = 1100;
+// How long the drum roll runs between the trainer asking for a place and that
+// place arriving. Third, second, first — the order an award ceremony uses,
+// because the winner landing last is the only arrangement with any suspense
+// in it.
+//
+// The podium used to run itself on a timer. It does not any more: a
+// ceremony is paced by the person running the room, who can see whether
+// everyone is looking at the screen yet, and a wall that reveals the winner
+// while the trainer is still talking has taken the moment away from them.
+const PODIUM_ROLL_MS = 1400;
 
 // The screen on the wall. It carries the question and the four answers — the
 // handsets show only shapes — and it never shows anything a participant should
@@ -26,6 +33,8 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [podiumStep, setPodiumStep] = useState(0);
+  const [rolling, setRolling] = useState(false);
+  const rollTimer = useRef(null);
 
   const music = useMemo(() => createQuizMusic(), []);
   const [muted, setMuted] = useState(() => music.muted);
@@ -84,7 +93,9 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
     } else {
       music.stop();
       if (phase === 'reveal') music.sting('reveal');
-      if (phase === 'podium') music.sting('podium');
+      // The podium is NOT a cue fired here. It is a roll and three landings
+      // timed against the plinths, and it lives in the staging effect below
+      // so the two cannot drift apart.
     }
     return () => music.stop();
   }, [phase, idx, music, run?.phase_ends_at, run?.phase_started_at]);
@@ -102,7 +113,10 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
   useEffect(() => {
     if (secondsLeft === null || secondsLeft > 0 || busy) return;
     if (phase === 'ready') setPhase('question', idx);
-    else if (phase === 'question') { music.sting('timeup'); setPhase('reveal'); }
+    // timeUp(), not sting('timeup'): the bed has to be let down as part of
+    // the same gesture. Left to the phase change that follows, it is cut off
+    // in a quarter of a second and the music appears to be yanked off the air.
+    else if (phase === 'question') { music.timeUp(); setPhase('reveal'); }
   }, [phase, secondsLeft, busy, idx, setPhase, music]);
 
   useEffect(() => {
@@ -118,23 +132,47 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
     supabase.rpc('quiz_standings', { p_run_id: runId }).then(({ data }) => setBoard(data || []));
   }, [phase, runId, idx]);
 
-  // Podium: 3rd, then 2nd, then 1st. Skipped when the viewer has asked for
-  // reduced motion — they get the finished podium immediately rather than
-  // nothing, because the content matters and only the staging is decoration.
+  // Nothing is revealed on arriving at the podium — an empty stage, waiting
+  // for the trainer. Leaving it also clears any roll still counting down, or
+  // a plinth lands on a screen that has moved on.
   useEffect(() => {
-    if (phase !== 'podium') { setPodiumStep(0); return undefined; }
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    if (reduced) { setPodiumStep(3); return undefined; }
+    if (phase === 'podium') return undefined;
     setPodiumStep(0);
-    const timers = [1, 2, 3].map(n => setTimeout(() => setPodiumStep(n), n * PODIUM_STEP_MS));
-    return () => timers.forEach(clearTimeout);
+    setRolling(false);
+    return undefined;
   }, [phase]);
+
+  useEffect(() => () => { if (rollTimer.current) clearTimeout(rollTimer.current); }, []);
 
   const answered = counts?.answered ?? 0;
   const players = counts?.players ?? 0;
   const totalVotes = reveal.reduce((n, o) => n + (o.votes || 0), 0);
   const isLast = idx >= total - 1;
   const top3 = [board[0], board[1], board[2]];
+
+  // The next place still to be revealed, SKIPPING any nobody is standing in.
+  // With two players there is no third place, and a drum roll into a cymbal
+  // crash over an empty step is a joke at the room's expense.
+  function nextReveal() {
+    let step = podiumStep + 1;
+    while (step <= 3 && !top3[(4 - step) - 1]) step += 1;
+    return step <= 3 ? { step, place: 4 - step } : null;
+  }
+
+  // Roll first, then the place lands on it. The click is the cue to the room
+  // that something is coming; the roll is the second in which they look up.
+  function revealNext() {
+    const next = nextReveal();
+    if (!next || rolling) return;
+    music.unlock();
+    setRolling(true);
+    music.podiumRoll(PODIUM_ROLL_MS / 1000);
+    rollTimer.current = setTimeout(() => {
+      setPodiumStep(next.step);
+      music.podiumLand(next.place);
+      setRolling(false);
+    }, PODIUM_ROLL_MS);
+  }
 
   function toggleMute() {
     const next = !muted;
@@ -398,9 +436,20 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
               );
             })}
           </ol>
-          <button type="button" className="ghost" disabled={busy} onClick={() => setPhase('ended')}>
-            End the quiz
-          </button>
+          {nextReveal() ? (
+            <button
+              type="button"
+              className="qlive-go"
+              disabled={rolling}
+              onClick={revealNext}
+            >
+              {rolling ? 'Drum roll…' : `Reveal ${ordinal(nextReveal().place)} place`}
+            </button>
+          ) : (
+            <button type="button" className="ghost" disabled={busy} onClick={() => setPhase('ended')}>
+              End the quiz
+            </button>
+          )}
         </div>
       )}
 

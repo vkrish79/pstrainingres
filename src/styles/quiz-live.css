@@ -701,3 +701,11 @@
 @media (prefers-reduced-motion: reduce) {
   .qlive-answered-fill { transition: none; }
 }
+
+/* The podium is revealed by the trainer now, one place at a time, so the
+   staging is no longer something to skip past — but the movement of a plinth
+   arriving is still decoration, and still goes when asked. */
+@media (prefers-reduced-motion: reduce) {
+  .qlive-podium-slot,
+  .qlive-podium-slot > * { transition: none; }
+}

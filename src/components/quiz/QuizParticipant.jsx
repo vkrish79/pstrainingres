@@ -29,6 +29,10 @@ export default function QuizParticipant({ runId, onDismiss }) {
   // The sequence being built for a reorder question: option ids, in tap order.
   const [seq, setSeq] = useState([]);
   const [sending, setSending] = useState(false);
+  // An ordering is sitting on the server for this question. NOT cleared by
+  // "Start again": starting again clears the sequence on screen, and the
+  // answer already sent goes on counting until a new one replaces it.
+  const [submitted, setSubmitted] = useState(false);
   const [note, setNote] = useState('');
   const [result, setResult] = useState(null);
 
@@ -36,7 +40,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
   const idx = run?.current_index ?? -1;
 
   // A new question clears the last one's answer and verdict.
-  useEffect(() => { setPicked(null); setSeq([]); setNote(''); setResult(null); }, [idx]);
+  useEffect(() => { setPicked(null); setSeq([]); setSubmitted(false); setNote(''); setResult(null); }, [idx]);
 
   useEffect(() => {
     if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase)) return;
@@ -45,10 +49,18 @@ export default function QuizParticipant({ runId, onDismiss }) {
     });
   }, [phase, runId, idx]);
 
+  // Changeable until the clock stops. Gated on `sending` alone — gating on
+  // `picked` as well, as this did, means the first tap is the only tap.
+  //
+  // Changing is not free: the server re-stamps the clock on every change, so
+  // a mind changed at nineteen seconds scores as a nineteen-second answer.
+  // That is what stops the winning move being to slap a shape instantly and
+  // fix it later.
   async function answer(optionId) {
-    if (picked || sending) return;
+    if (sending) return;
+    const previous = picked;
     setSending(true);
-    // Locked immediately, before the round trip. On a slow connection an
+    // Shown immediately, before the round trip. On a slow connection an
     // unresponsive button gets pressed again, and the second press is the one
     // that would be refused — leaving the screen saying nothing happened when
     // the first press was in fact recorded.
@@ -58,13 +70,16 @@ export default function QuizParticipant({ runId, onDismiss }) {
     });
     setSending(false);
     const row = Array.isArray(data) ? data[0] : data;
-    if (error) { setPicked(null); setNote(error.message); return; }
+    // Back to whatever was chosen BEFORE this tap, and not to nothing: a
+    // refused CHANGE must not leave the screen blank while an earlier answer
+    // is still sitting on the server, counting.
+    if (error) { setPicked(previous); setNote(error.message); return; }
     if (row && row.accepted === false) {
-      // 'too late' and 'already answered' are both final; the pick stays shown.
+      setPicked(previous);
       setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
       return;
     }
-    setNote('Answer locked in');
+    setNote('Answer in. Tap another shape to change it.');
   }
 
   // TAP IN ORDER, not drag. Dragging on a phone is fiddly at the best of
@@ -72,28 +87,32 @@ export default function QuizParticipant({ runId, onDismiss }) {
   // costs the question. Tapping is one gesture everybody already has.
   //
   // The fourth tap submits: with four items the last one is forced anyway, so
-  // a confirm step would only add a tap to every answer. Before that, "Start
-  // again" undoes the lot.
+  // a confirm step would only add a tap to every answer. "Start again" clears
+  // the sequence and is available AFTER submitting too — the ordering already
+  // sent stands until a new one is finished, so an abandoned second attempt
+  // costs nothing.
   async function tapItem(optionId) {
-    if (sending || seq.includes(optionId) || picked) return;
+    if (sending || seq.includes(optionId)) return;
     const next = [...seq, optionId];
     setSeq(next);
     const all = run?.options ?? [];
     if (next.length < all.length) return;
 
     setSending(true);
-    setPicked(next[0]);          // locks the buttons while the write is away
     const { data, error } = await supabase.rpc('quiz_answer_order', {
       p_run_id: runId, p_option_ids: next,
     });
     setSending(false);
     const row = Array.isArray(data) ? data[0] : data;
-    if (error) { setPicked(null); setSeq([]); setNote(error.message); return; }
+    // The sequence stays on screen either way: it is what they built, and
+    // "Start again" is right there if they want another go.
+    if (error) { setNote(error.message); return; }
     if (row && row.accepted === false) {
       setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
       return;
     }
-    setNote('Order locked in');
+    setSubmitted(true);
+    setNote('Order in. Start again to change it.');
   }
 
   return (
@@ -147,7 +166,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
                       key={o.id}
                       type="button"
                       className={`qlive-pick qlive-pick-bare qlive-opt-${i}${used ? ' is-dimmed' : ''}`}
-                      disabled={used || !!picked || sending}
+                      disabled={used || sending}
                       onClick={() => tapItem(o.id)}
                       aria-label={`${shapeFor(i).label}${used ? `, placed ${seq.indexOf(o.id) + 1}` : ''}`}
                     >
@@ -159,13 +178,21 @@ export default function QuizParticipant({ runId, onDismiss }) {
               {note && <p className="qlive-note">{note}</p>}
               {!note && (
                 <p className="qlive-note qlive-muted">
-                  {seq.length === 0
-                    ? 'Tap the shapes in order — speed counts.'
-                    : `${seq.length} of ${(run?.options ?? []).length} placed`}
+                  {seq.length > 0
+                    ? `${seq.length} of ${(run?.options ?? []).length} placed`
+                    : submitted
+                      // Said out loud, because an empty row of slots after
+                      // "Start again" looks exactly like having no answer.
+                      ? 'Your last order still counts until you finish a new one.'
+                      : 'Tap the shapes in order — speed counts.'}
                 </p>
               )}
-              {!note && seq.length > 0 && !picked && (
-                <button type="button" className="ghost qlive-restart" onClick={() => setSeq([])}>
+              {seq.length > 0 && !sending && (
+                <button
+                  type="button"
+                  className="ghost qlive-restart"
+                  onClick={() => { setSeq([]); setNote(''); }}
+                >
                   Start again
                 </button>
               )}
@@ -178,7 +205,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
                     key={o.id}
                     type="button"
                     className={`qlive-pick qlive-pick-bare qlive-opt-${i}${picked === o.id ? ' is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
-                    disabled={!!picked || sending}
+                    disabled={sending}
                     onClick={() => answer(o.id)}
                     // The shape's name is now the ONLY name this control has, so
                     // it has to be the accessible one — there is no visible text
