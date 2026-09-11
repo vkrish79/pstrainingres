@@ -275,8 +275,31 @@ function IndividualReport({ session, report, passMark }) {
 
 // ── shared furniture ────────────────────────────────────────────────────────
 
+// The masthead both reports share, so the logo sits in exactly one place
+// rather than being pasted into the cohort sheet and the individual one.
+//
+// Served from public/ rather than imported: an import would be inlined or
+// hashed into the bundle, and this file is also the one a trainer replaces
+// when the branding changes — dropping a new public/logo.png should be the
+// whole job, with no rebuild.
+//
+// alt is EMPTY on purpose. The organisation's name is already the first
+// thing under it, and a screen reader announcing it twice is worse than not
+// announcing the picture at all.
 function ReportTitle({ children }) {
-  return <h2 className="ld-title">{children}</h2>;
+  return (
+    <header className="ld-masthead">
+      {/* Hidden rather than left broken: a missing-image icon at the top of
+          a report about to be printed and filed is worse than no logo. */}
+      <img
+        className="ld-logo"
+        src="/logo.png"
+        alt=""
+        onError={e => { e.currentTarget.style.display = 'none'; }}
+      />
+      <h2 className="ld-title">{children}</h2>
+    </header>
+  );
 }
 
 // The source documents put the facilitator's written comments in a ruled box.

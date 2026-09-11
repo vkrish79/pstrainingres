@@ -68,13 +68,31 @@
 
 .ld-report { font-size: 0.9rem; }
 
-.ld-title {
+/* Logo left, title beside it, and the gold rule now runs under BOTH — it
+   used to belong to the heading alone, which would have left the logo
+   floating above an underlined title rather than sharing a masthead with it. */
+.ld-masthead {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.9rem;
   margin: 0 0 1rem;
   padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--ld-gold);
+}
+
+.ld-logo {
+  flex: 0 0 auto;
+  height: 2.4rem;
+  width: auto;
+  display: block;
+}
+
+.ld-title {
+  flex: 1 1 auto;
+  margin: 0;
   font-size: 1.3rem;
   letter-spacing: 0.02em;
   color: var(--ld-midnight);
-  border-bottom: 3px solid var(--ld-gold);
 }
 
 .ld-heading {
@@ -231,13 +249,20 @@
 @media print {
   /* Everything that is not the report. The left rail and dark app bar came
      with the HUB shell and are NOT covered by print.css, which predates them —
-     without these the sheet prints with a black column down the side. */
+     without these the sheet prints with a black column down the side.
+
+     .assessment-run is the live timer strip — "Time's up", and buttons to
+     reopen the paper for another five minutes. It sits above the Report
+     subtab because it belongs to the whole assessment, and it was printing
+     at the top of the sheet: a filed report carrying controls that invite
+     someone to reopen an assessment that closed weeks ago. */
   .sidenav,
   .topbar,
   .no-print,
   .page-hero,
   .view-tabs,
   .assessment-subtabs,
+  .assessment-run,
   .report-controls {
     display: none !important;
   }
@@ -292,7 +317,7 @@
   }
   .ld-table thead th { border: 1px solid #16293c !important; }
 
-  .ld-title, .ld-heading, .ld-error-q, .result-pass, .result-fail {
+  .ld-masthead, .ld-title, .ld-heading, .ld-error-q, .result-pass, .result-fail {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
