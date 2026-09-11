@@ -1085,7 +1085,7 @@
 .ret-due { font-size: 0.78rem; color: #8a5a00; margin-top: 0.25rem; }
 .ret-right { text-align: right; white-space: nowrap; }
 .ret-right .ret-note { white-space: normal; }
-.ret-days { width: 6.5rem; display: inline-block; text-align: right; }
+.ret-table input.ret-days { width: 6.5rem; display: inline-block; text-align: right; }
 .ret-days-bad { border-color: var(--danger); }
 .ret-unit { margin-left: 0.4rem; font-size: 0.85rem; color: var(--muted); }
 .ret-ok { font-size: 0.82rem; color: #2e7d4f; margin-left: 0.4rem; }
