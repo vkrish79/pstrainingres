@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { useVendors } from '../../hooks/useVendors.js';
@@ -423,12 +423,6 @@ export default function PrepUploadModal({ onClose, profile, variant = 'modal', i
   if (isPage) {
     return (
       <main className="page prep-page">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">← Back</Link>
-            <h1>🎯 Prep — balance &amp; upload</h1>
-          </div>
-        </section>
         <section className="editor-card prep-page-card">{inner}</section>
         {showFooter && <div className="prep-page-foot">{footerActions}</div>}
       </main>
