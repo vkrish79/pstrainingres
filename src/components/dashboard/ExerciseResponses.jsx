@@ -6,6 +6,7 @@ import { scoreBlocks, earnedFor, pointsFor, manualResultFor } from '../../lib/as
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import Block from '../blocks/Block.jsx';
 import NoteRow from './NoteRow.jsx';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 // Layout: sidebar nav (one row per exercise, with cohort progress) → tile grid
 // of participant responses on the right. Toolbar above the grid lets the
@@ -179,6 +180,10 @@ export default function ExerciseResponses({
   });
 
   const isExpanded = (pid) => defaultExpanded !== toggleSet.has(pid);
+  // The participant whose answers are open full-width. Marking a long paper
+  // in a 320px column meant scrolling inside a scroll; this is the way out.
+  const [focusId, setFocusId] = useState(null);
+
   function toggleTile(pid) {
     setToggleSet(prev => {
       const next = new Set(prev);
@@ -290,6 +295,7 @@ export default function ExerciseResponses({
               prepText={prepBy[s.participant.id]?.[selectedSection.id]?.content || ''}
               expanded={isExpanded(s.participant.id)}
               onToggle={() => toggleTile(s.participant.id)}
+              onFocus={() => setFocusId(s.participant.id)}
               onSaveNote={onSaveNote}
               onDeleteNote={onDeleteNote}
               showNotes={showNotes}
@@ -305,6 +311,38 @@ export default function ExerciseResponses({
           ))}
         </div>
       </div>
+
+      {focusId && (() => {
+        const idx = sorted.findIndex(x => x.participant.id === focusId);
+        if (idx === -1) return null;   // filtered out from under us
+        const s = sorted[idx];
+        return (
+          <ParticipantFocus
+            stat={s}
+            position={`${idx + 1} of ${sorted.length}`}
+            sectionTitle={selectedSection?.title}
+            onPrev={idx > 0 ? () => setFocusId(sorted[idx - 1].participant.id) : null}
+            onNext={idx < sorted.length - 1 ? () => setFocusId(sorted[idx + 1].participant.id) : null}
+            onClose={() => setFocusId(null)}
+            blocks={fillableInSection}
+            answersForP={answers[s.participant.id] || {}}
+            notesForP={notes[s.participant.id] || {}}
+            sectionNote={participantNotes[s.participant.id]?.[selectedSection.id]?.note || ''}
+            prepText={prepBy[s.participant.id]?.[selectedSection.id]?.content || ''}
+            onSaveNote={onSaveNote}
+            onDeleteNote={onDeleteNote}
+            showNotes={showNotes}
+            answerKey={answerKey}
+            answerPoints={answerPoints}
+            questionNumbers={questionNumbers}
+            answerModes={answerModes}
+            marksForP={marks ? (marks[s.participant.id] || {}) : null}
+            onMark={onMark}
+            onComment={onComment}
+            markingIds={markingIds}
+          />
+        );
+      })()}
 
       {popover && (() => {
         const here = liveBySection[popover.sectionId] || [];
@@ -343,7 +381,82 @@ export default function ExerciseResponses({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null }) {
+// One participant's answers, full width. A modal rather than a wider tile:
+// marking is one person at a time, and ← / → walk the same filtered, sorted
+// list the tiles are in, so a trainer can work down the cohort without
+// going back to the grid between each one.
+function ParticipantFocus({
+  stat, position, sectionTitle, onPrev, onNext, onClose, blocks, answersForP, notesForP,
+  sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints,
+  questionNumbers, answerModes, marksForP, onMark, onComment, markingIds,
+}) {
+  const { participant, answered, total, lastTs } = stat;
+  const pct = total ? Math.round((answered / total) * 100) : 0;
+  const score = (answerKey || answerModes)
+    ? scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP)
+    : null;
+
+  useBodyScrollLock(true);
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+      // Only when the trainer is not typing a comment or a mark.
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+      if (typing) return;
+      if (e.key === 'ArrowLeft' && onPrev) onPrev();
+      if (e.key === 'ArrowRight' && onNext) onNext();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, onPrev, onNext]);
+
+  return createPortal(
+    <div className="modal-backdrop visible" onClick={onClose}>
+      <div className="modal-card exresp-focus" onClick={e => e.stopPropagation()}>
+        <header className="modal-head">
+          <div className="exresp-focus-title">
+            <h2>{participant.full_name || '(unnamed)'}</h2>
+            <span className="muted">
+              {sectionTitle ? `${sectionTitle} · ` : ''}{answered} / {total} ({pct}%)
+              {score && score.possible > 0 ? ` · ${score.earned}/${score.possible} marks` : ''}
+              {lastTs ? ` · ${relativeTime(lastTs)}` : ''}
+            </span>
+          </div>
+          <div className="exresp-focus-nav">
+            <span className="muted">{position}</span>
+            <button type="button" className="ghost btn-sm" onClick={onPrev} disabled={!onPrev} title="Previous participant (←)">←</button>
+            <button type="button" className="ghost btn-sm" onClick={onNext} disabled={!onNext} title="Next participant (→)">→</button>
+            <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
+          </div>
+        </header>
+        <div className="modal-body exresp-focus-body">
+          <ParticipantAnswers
+            participant={participant}
+            blocks={blocks}
+            answersForP={answersForP}
+            notesForP={notesForP}
+            sectionNote={sectionNote}
+            prepText={prepText}
+            onSaveNote={onSaveNote}
+            onDeleteNote={onDeleteNote}
+            showNotes={showNotes}
+            answerKey={answerKey}
+            answerPoints={answerPoints}
+            questionNumbers={questionNumbers}
+            answerModes={answerModes}
+            marksForP={marksForP}
+            onMark={onMark}
+            onComment={onComment}
+            markingIds={markingIds}
+          />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
@@ -358,7 +471,8 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
 
   return (
     <div id={`exresp-tile-${participant.id}`} className={`exresp-tile ${expanded ? 'expanded' : 'collapsed'} ${flaggedCount > 0 ? 'has-flag' : ''}`}>
-      <button className="exresp-tile-head" onClick={onToggle} aria-expanded={expanded}>
+      <div className="exresp-tile-head">
+      <button className="exresp-tile-headbtn" onClick={onToggle} aria-expanded={expanded}>
         <div className="exresp-tile-head-left">
           <span className="exresp-chevron" aria-hidden>{expanded ? '▾' : '▸'}</span>
           <span className="exresp-tile-name">{participant.full_name || '(unnamed)'}</span>
@@ -388,8 +502,49 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
           <span className={`exresp-progress-pill ${progressClass}`}>{answered} / {total} ({pct}%)</span>
         </div>
       </button>
+      {onFocus && (
+        <button
+          type="button"
+          className="exresp-tile-expand"
+          onClick={onFocus}
+          title={`Open ${participant.full_name || 'this participant'}'s answers in a full-width view`}
+          aria-label={`Expand ${participant.full_name || 'participant'}'s answers`}
+        >⤢</button>
+      )}
+      </div>
       {expanded && (
         <div className="exresp-tile-body">
+          <ParticipantAnswers
+            participant={participant}
+            blocks={blocks}
+            answersForP={answersForP}
+            notesForP={notesForP}
+            sectionNote={sectionNote}
+            prepText={prepText}
+            onSaveNote={onSaveNote}
+            onDeleteNote={onDeleteNote}
+            showNotes={showNotes}
+            answerKey={answerKey}
+            answerPoints={answerPoints}
+            questionNumbers={questionNumbers}
+            answerModes={answerModes}
+            marksForP={marksForP}
+            onMark={onMark}
+            onComment={onComment}
+            markingIds={markingIds}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One participant's answers for the selected exercise. Rendered inside the
+// tile, and again in the expanded view — same component, so a mark awarded in
+// either place is the same control with the same rules.
+function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds }) {
+  return (
+    <>
           {prepText && (
             <div className="participant-prep-callout">
               <span className="participant-prep-callout-label">Prep</span>
@@ -423,9 +578,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
             />
           ))}
           {blocks.length === 0 && <p className="muted" style={{ margin: 0 }}>No questions in this exercise.</p>}
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 

@@ -781,6 +781,39 @@
 }
 .exresp-tile.collapsed { background: #fbfcfe; }
 
+/* The head is a row, not a button: it carries the collapse toggle AND the
+   expand control, and a button cannot contain a button. */
+.exresp-tile-head { display: flex; align-items: stretch; padding: 0 !important; }
+.exresp-tile-headbtn {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.7rem 0.95rem;
+  background: transparent; border: none; color: inherit; text-align: left; cursor: pointer;
+  font: inherit;
+}
+.exresp-tile-headbtn:hover { background: #eef2f7; }
+.exresp-tile-expand {
+  flex: 0 0 auto; align-self: center;
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  font-size: 0.95rem; line-height: 1; padding: 0.3rem 0.55rem; margin-right: 0.5rem;
+  border-radius: 6px; cursor: pointer;
+}
+.exresp-tile-expand:hover { background: var(--border); color: var(--text); }
+
+/* One participant's answers, full width. */
+.modal-card.exresp-focus { max-width: 1100px; width: 100%; }
+.exresp-focus-title h2 { margin: 0; font-size: 1.05rem; color: var(--midnight); }
+.exresp-focus-title .muted { font-size: 0.8rem; }
+.exresp-focus-nav { display: flex; align-items: center; gap: 0.4rem; }
+.exresp-focus-nav .muted { font-size: 0.78rem; white-space: nowrap; }
+/* The tile's own body caps its height and scrolls; in here the modal is the
+   scroller, so an answer is read at full width without a scroll inside a scroll. */
+.exresp-focus-body {
+  max-height: none;
+  display: flex; flex-direction: column; gap: 0.9rem;
+}
+.exresp-focus-body .exresp-answer { break-inside: avoid; }
+
 .exresp-tile-head {
   width: 100%;
   display: flex;
