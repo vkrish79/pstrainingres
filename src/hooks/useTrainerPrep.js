@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
-// Trainer-side, SESSION-scoped practice prep (the trainer's "My copy" prep).
+// Trainer-side, SESSION-scoped practice prep (the trainer's Workbook-tab prep).
 // Mirrors useParticipantPrep but keyed by session, not participant — see the
 // 20260523000000_trainer_prep migration for why.
 //   prep[sectionId] = { content, updated_at }   — exercise-linked

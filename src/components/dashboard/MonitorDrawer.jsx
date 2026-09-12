@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Block from '../blocks/Block.jsx';
 import { isFillableBlock, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 
-// Right push-in drawer for the trainer's "My copy": a live monitor of the
+// Right push-in drawer for the trainer's Workbook tab: a live monitor of the
 // cohort on the currently-SELECTED exercise. Driven by the sidebar selection
 // (not a scroll-spy) — in teaching, "I'm on this exercise now" is a deliberate
 // gesture, and a scroll-spy would flicker as the trainer scrolls past.

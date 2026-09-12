@@ -514,7 +514,7 @@ export default function SessionDashboardPage() {
         <div className="view-tabs">
           <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>
           <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => setView('exercise')}>By exercise</button>
-          <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>My copy</button>
+          <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
           {session?.assessment_id && (
             <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
           )}
