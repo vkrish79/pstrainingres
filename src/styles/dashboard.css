@@ -805,6 +805,16 @@
 .exresp-focus-title h2 { margin: 0; font-size: 1.05rem; color: var(--midnight); }
 .exresp-focus-title .muted { font-size: 0.8rem; }
 .exresp-focus-nav { display: flex; align-items: center; gap: 0.4rem; }
+/* One row of controls, so they are one size: the close button inherits a
+   border and a 1.4rem glyph from the shared modal head, which left it a
+   taller, boxed odd-one-out beside the arrows. */
+.exresp-focus-nav .ghost.btn-sm,
+.exresp-focus-nav .icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 28px; min-width: 32px; padding: 0 0.5rem;
+  border-radius: 6px; line-height: 1;
+}
+.exresp-focus-nav .icon-btn { border: 1px solid transparent; font-size: 1.25rem; }
 .exresp-focus-nav .muted { font-size: 0.78rem; white-space: nowrap; }
 /* The tile's own body caps its height and scrolls; in here the modal is the
    scroller, so an answer is read at full width without a scroll inside a scroll. */
