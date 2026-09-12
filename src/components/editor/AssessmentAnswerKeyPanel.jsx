@@ -67,7 +67,7 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
           {setUpCount}/{markable.length} set up
         </span>
         {manualCount > 0 && (
-          <span className="answer-key-manualcount">✋ {manualCount} by hand</span>
+          <span className="answer-key-manualcount">✋ {manualCount} manual</span>
         )}
         {totalMarks > 0 && (
           <span className="answer-key-total">{totalMarks} mark{totalMarks === 1 ? '' : 's'} total</span>
@@ -143,8 +143,8 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
         {partLabel && <span className="answer-key-part">{partLabel}</span>}
         <span className="answer-key-q-label">{label}</span>
 
-        {/* Auto or by hand. Long-text questions cannot be auto-marked at all,
-            so they are shown as by-hand with no choice to make rather than
+        {/* Auto or manual. Long-text questions cannot be auto-marked at all,
+            so they are shown as manual with no choice to make rather than
             being offered a switch that only has one working position. */}
         {canAuto ? (
           <div className="mark-mode" role="group" aria-label="How this question is marked">
@@ -162,12 +162,12 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
               onClick={() => { if (!manual) onMode('manual'); }}
               title="You award the marks yourself when you see the answer"
             >
-              ✋ By hand
+              Manual
             </button>
           </div>
         ) : manual ? (
           <span className="mark-mode-fixed" title="A written answer can only be judged by a person">
-            ✋ By hand
+            ✋ Manual
           </span>
         ) : (
           /* A written answer has no automatic option, but it is not marked
@@ -179,7 +179,7 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
             onClick={() => onMode('manual')}
             title="A written answer can only be judged by a person"
           >
-            + Mark this by hand
+            + Mark this manually
           </button>
         )}
 
@@ -213,7 +213,7 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
         ) : (
           <p className="mark-manual-note muted">
             Not marked. A written answer can't be checked automatically, so it
-            scores nothing until you set it to be marked by hand.
+            scores nothing until you set it to manual marking.
           </p>
         )}
       </div>

@@ -586,7 +586,11 @@ button.ghost.compact, button.danger.compact {
 .answer-key-row:first-of-type { border-top: none; }
 .answer-key-row.has-key { background: #fcfbf7; }
 .answer-key-q { display: flex; align-items: baseline; gap: 0.5rem; }
-.answer-key-q-label { font-size: 0.9rem; color: var(--text); }
+.answer-key-q-label {
+  font-size: 0.9rem; color: var(--text);
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .answer-key-clear {
   background: transparent; border: none; cursor: pointer;
   color: var(--muted); font-size: 0.75rem; text-decoration: underline; padding: 0;
@@ -826,7 +830,7 @@ button.ghost.compact, button.danger.compact {
   border-radius: 0 6px 6px 0;
 }
 
-/* ── Marking mode: auto or by hand ──────────────────────────────────────────
+/* ── Marking mode: auto or manual ───────────────────────────────────────────
    See supabase/migrations/20260909000000_manual_marking.sql. */
 .mark-mode {
   display: inline-flex;
@@ -857,6 +861,11 @@ button.ghost.compact, button.danger.compact {
   white-space: nowrap;
 }
 .mark-mode-enable { font-size: 0.75rem; padding: 0.2rem 0.6rem; }
+
+/* Never squeezed by a long question: the row is a flex line, and without
+   these the toggle shrinks until "Manual" reads "M". */
+.mark-mode { flex: 0 0 auto; }
+.mark-mode-btn { white-space: nowrap; }
 
 .answer-key-row.is-manual { border-left: 3px solid var(--gold, #b5985a); }
 .mark-manual-note { margin: 0; font-size: 0.83rem; color: var(--muted); }
