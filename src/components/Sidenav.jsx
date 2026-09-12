@@ -44,6 +44,9 @@ const GROUPS = [
       // NOT superOnly: vendor trainers author and run quizzes too, unlike
       // assessments. quiz_can_author() in the DB is the matching rule.
       { to: '/trainer/quizzes', icon: '◑', label: 'Quizzes' },
+      // Its own section, not a corner of Quizzes: a poll has no right answer,
+      // no score and no leaderboard, and is asked mid-topic rather than run.
+      { to: '/trainer/polls', icon: '▤', label: 'Polls' },
       { to: '/trainer/programs', icon: '◈', label: 'Programs' },
       { to: '/trainer/changes', icon: '⇄', label: 'Session changes', superOnly: true },
     ],

@@ -1,0 +1,166 @@
+/* Polls — authoring and the session tab.
+ *
+ * Deliberately narrow: only what the poll library and the Polls tab need that
+ * the shared editor.css / dashboard.css vocabulary does not already provide.
+ * The room-facing screens live in poll-live.css.
+ */
+
+/* The same four identities as the wall, at list size. Defined here too because
+   these pages do not import the live sheet. */
+.poll-badge,
+.poll-chip-dot { background: #1f6fb2; }
+.poll-opt-0 { background: #1f6fb2; }
+.poll-opt-1 { background: #b1512f; }
+.poll-opt-2 { background: #2f7d52; }
+.poll-opt-3 { background: #6a4b9c; }
+
+.poll-badge {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Without this the SVG has no fill and no size — these pages do not import the
+   quiz sheets where .quiz-shape is otherwise defined. */
+.poll-badge .quiz-shape {
+  width: 64%;
+  height: 64%;
+  display: block;
+  fill: #fff;
+}
+
+/* ── The library ────────────────────────────────────────────────────────── */
+
+.poll-cards {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+}
+.poll-card {
+  background: var(--card, #fff);
+  border: 1px solid var(--line, #e3e6ea);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+/* An unfinished poll cannot be asked, so the card says so before the trainer
+   goes looking for the button (case 06). */
+.poll-card.is-unfinished { border-style: dashed; }
+
+.poll-card-head { display: flex; align-items: flex-start; gap: 0.5rem; }
+.poll-card-q { font-weight: 600; flex: 1 1 auto; overflow-wrap: anywhere; }
+.poll-flag {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #fdf0d5;
+  color: #7a5314;
+}
+
+.poll-card-answers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.poll-card-answers li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.poll-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.poll-edit { display: flex; flex-direction: column; gap: 0.5rem; }
+.poll-edit-answer { display: flex; align-items: center; gap: 0.5rem; }
+.poll-edit-answer .form-input { flex: 1 1 auto; min-width: 0; }
+
+/* ── The session tab ────────────────────────────────────────────────────── */
+
+.poll-tab { display: flex; flex-direction: column; gap: 1rem; }
+.poll-section-head { margin: 0.5rem 0 0; font-size: 1rem; }
+
+.poll-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #eef5fb;
+  border: 1px solid #cfe0f0;
+}
+.poll-live-tools { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.poll-live-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #2f7d52;
+  margin-right: 0.5rem;
+  animation: poll-pulse 1.8s ease-in-out infinite;
+}
+@keyframes poll-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.poll-fire-list,
+.poll-past-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.poll-fire-row,
+.poll-past-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line, #e3e6ea);
+  border-radius: 10px;
+  background: var(--card, #fff);
+}
+.poll-fire-main { flex: 1 1 18rem; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.poll-fire-q { font-weight: 600; overflow-wrap: anywhere; }
+.poll-fire-tools { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+.poll-fire-btn { white-space: nowrap; }
+
+.poll-past-row { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+.poll-past-q { font-weight: 600; overflow-wrap: anywhere; }
+.poll-past-counts { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.poll-past-chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
+.poll-chip-dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poll-live-dot { animation: none; }
+}

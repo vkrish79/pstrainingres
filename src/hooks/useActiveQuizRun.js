@@ -18,11 +18,24 @@ export function useActiveQuizRun(sessionId) {
 
   const look = useCallback(async () => {
     if (!sessionId) return;
+    // TWELVE HOURS, matching poll_fire's guard in 20260921000000_polls.sql.
+    //
+    // Without it "active" meant "never ended", so a lobby somebody abandoned
+    // weeks ago kept every handset in that session showing a dead quiz, with no
+    // way out and nothing on the trainer's screen to explain it. The database
+    // already took this view — poll_fire lets a poll through over a run that
+    // old — so the two halves of the app disagreed about what was running, and
+    // the poll would have arrived at handsets still holding the ghost quiz.
+    //
+    // The boundary is twelve hours wide, so the ~32s the server runs ahead of
+    // the browser (project_server_clock_ahead_of_laptop) cannot matter here.
+    const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from('quiz_runs')
       .select('id, phase')
       .eq('session_id', sessionId)
       .is('ended_at', null)
+      .gt('started_at', cutoff)
       .order('started_at', { ascending: false })
       .limit(1);
     const row = data?.[0];

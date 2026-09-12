@@ -27,6 +27,7 @@ import AssessmentsListPage from './pages/AssessmentsListPage.jsx';
 import AssessmentEditorPage from './pages/AssessmentEditorPage.jsx';
 import QuizzesListPage from './pages/QuizzesListPage.jsx';
 import QuizEditorPage from './pages/QuizEditorPage.jsx';
+import PollsListPage from './pages/PollsListPage.jsx';
 import ImportAssessmentPage from './pages/ImportAssessmentPage.jsx';
 import PrepPage from './pages/PrepPage.jsx';
 import SessionPrepPage from './pages/SessionPrepPage.jsx';
@@ -118,6 +119,12 @@ export default function App() {
       } />
       <Route path="/trainer/quizzes/:id" element={
         <ProtectedRoute role="trainer"><QuizEditorPage /></ProtectedRoute>
+      } />
+      {/* One route, not two: a poll is one question and four short answers, so
+          it is edited in place in the list. Matches poll_can_author() in the DB,
+          which admits the same roles as quizzes. */}
+      <Route path="/trainer/polls" element={
+        <ProtectedRoute role="trainer"><PollsListPage /></ProtectedRoute>
       } />
       <Route path="/workbook" element={
         <ProtectedRoute role="participant"><ParticipantWorkbookPage /></ProtectedRoute>

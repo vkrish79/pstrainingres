@@ -1,0 +1,246 @@
+/* Live poll — the wall and the handset.
+ *
+ * Its own sheet rather than a few more rules in quiz-live.css. The two features
+ * share a VOCABULARY (four shapes, four colours, a dark room-facing screen) but
+ * not a lifecycle, and a poll has no timer, no reveal, no score and no podium.
+ * Folding it in would mean every future quiz change having to be checked
+ * against a poll, which is how the "harmless" CSS edit gets made.
+ *
+ * The four colours are copied deliberately, not imported: slot 0 is the blue
+ * triangle everywhere in this product, so a trainer can say "hit the triangle"
+ * and mean it whatever is on the wall. If they ever change, they change in both.
+ */
+
+.plive {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--midnight, #16304d);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The shape itself: solid white on the answer's own colour. Defined here as
+   well as in the quiz sheets because these components do not import those —
+   without it the shapes render as unfilled, unsized SVG, which is to say
+   nothing at all. */
+.plive .quiz-shape {
+  width: 62%;
+  height: 62%;
+  display: block;
+  fill: #fff;
+}
+
+.plive-opt-0 { --plive-c: #1f6fb2; background: var(--plive-c); }
+.plive-opt-1 { --plive-c: #b1512f; background: var(--plive-c); }
+.plive-opt-2 { --plive-c: #2f7d52; background: var(--plive-c); }
+.plive-opt-3 { --plive-c: #6a4b9c; background: var(--plive-c); }
+
+.plive-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: clamp(0.75rem, 3vw, 2rem);
+}
+
+.plive-note { text-align: center; margin: 0; flex: 0 0 auto; }
+.plive-muted { opacity: 0.7; }
+.plive-shut {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+/* ── The handset: shapes and nothing else ───────────────────────────────── */
+
+.plive-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+.plive-tag { font-weight: 600; letter-spacing: 0.02em; opacity: 0.75; }
+.plive-top .plive-shut { margin-left: auto; }
+
+.plive-picks {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  gap: clamp(0.5rem, 2vw, 1rem);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+}
+/* Two answers get a column each and the full height — a 2x2 with two empty
+   cells reads as two missing options rather than two deliberate ones. */
+.plive-picks-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; }
+/* Three fills the grid by letting the last one take the whole bottom row.
+   Left in its own half-width cell it sits beside a hole, which reads as a
+   fourth answer that failed to load rather than a poll with three. */
+.plive-picks-3 > :last-child { grid-column: 1 / -1; }
+
+.plive-pick {
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.5rem, 3vw, 1.5rem);
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+.plive-pick .quiz-shape {
+  width: min(52%, 7rem);
+  height: auto;
+  aspect-ratio: 1;
+}
+/* index.css styles every <button> and its :hover at (0,1,1), which outranks the
+   (0,1,0) of .plive-opt-N — so a hovered tile was repainting itself midnight
+   and losing the only identity it has. These two selectors are (0,2,0) and win
+   it back. A shape that changes colour under the thumb is not a small bug on a
+   screen whose entire content is four colours. */
+.plive-pick,
+.plive-pick:hover:not(:disabled) { background: var(--plive-c, #1f6fb2); }
+.plive-pick:hover:not(:disabled) { transform: translateY(-2px); }
+.plive-pick:disabled { cursor: default; opacity: 1; }
+
+/* The one they chose stays lit and the rest step back, so a glance down
+   confirms the vote without anything having to be read. Not so far back that
+   they read as broken — they are still live targets, one tap away. */
+.plive-pick.is-picked { box-shadow: 0 0 0 4px #fff inset; }
+.plive-pick.is-dimmed { opacity: 0.55; }
+
+/* ── The wall ───────────────────────────────────────────────────────────── */
+
+.plive-projector .plive-wall {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 3vh, 2.25rem);
+  padding: clamp(1rem, 4vw, 3rem);
+  justify-content: center;
+}
+
+.plive-question {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: clamp(1.6rem, 4.2vw, 3.4rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.plive-bars {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 2vh, 1.1rem);
+  flex: 0 1 auto;
+}
+.plive-bar-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+}
+.plive-badge {
+  flex: 0 0 auto;
+  width: clamp(2rem, 4vw, 3.2rem);
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plive-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: clamp(2rem, 4vw, 3.2rem);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+/* Behind the label, not around it. An answer with no votes must still read as
+   an answer — a bar of zero length is the correct picture, but an invisible
+   label is not. */
+.plive-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 10px;
+  /* The bars move as the votes land — that movement is most of why a poll is
+     worth doing in a room. Slow enough to read, quick enough to feel live. */
+  transition: width 0.45s ease;
+}
+.plive-label {
+  position: relative;
+  padding: 0 0.75rem;
+  font-size: clamp(0.9rem, 1.8vw, 1.5rem);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Legible over the fill and over the empty track alike. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.plive-n {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  text-align: right;
+  font-size: clamp(1.1rem, 2.6vw, 2.2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.plive-foot {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+.plive-tally {
+  font-size: clamp(0.95rem, 1.8vw, 1.4rem);
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.plive-exit {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  border-radius: 8px;
+  width: 2.2rem;
+  height: 2.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.plive-exit:hover { background: rgba(255, 255, 255, 0.12); }
+
+.plive .btn,
+.plive button.btn {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: clamp(0.9rem, 1.6vw, 1.15rem);
+}
+.plive .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.24); }
+.plive .btn:disabled { opacity: 0.5; cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .plive-pick, .plive-fill { transition: none; }
+  .plive-pick:hover:not(:disabled) { transform: none; }
+}

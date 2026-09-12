@@ -9,6 +9,7 @@ import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { useActiveQuizRun } from '../hooks/useActiveQuizRun.js';
+import { useActivePoll } from '../hooks/useActivePoll.js';
 import { progressOf } from '../lib/blockHelpers.js';
 import { useJustCompleted } from '../hooks/useJustCompleted.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
@@ -16,6 +17,7 @@ import Block from '../components/blocks/Block.jsx';
 import MaterialsList from '../components/MaterialsList.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
+import PollParticipant from '../components/poll/PollParticipant.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -42,6 +44,10 @@ export default function ParticipantWorkbookPage() {
   // final screen or their score. Holding the id until they dismiss it means
   // the quiz ends the way it should: they close it.
   const { runId: activeQuizRunId } = useActiveQuizRun(session?.id);
+  // Polls ask every couple of seconds rather than subscribing: `tally` is a
+  // column on poll_runs, so letting a handset SELECT that row to hang a
+  // subscription on would hand it the live counts. See useActivePoll.
+  const { run: activePoll, refresh: refreshPoll } = useActivePoll(session?.id);
   const [stickyQuizRunId, setStickyQuizRunId] = useState(null);
   const [quizDismissed, setQuizDismissed] = useState(null);
   useEffect(() => {
@@ -286,6 +292,21 @@ export default function ParticipantWorkbookPage() {
   // itself, above.
   if (quizRunId) {
     return <QuizParticipant runId={quizRunId} onDismiss={() => setQuizDismissed(quizRunId)} />;
+  }
+
+  // A poll takes the screen the same way, and for the same reason — the trainer
+  // says "have a look at your phones" and it is already there.
+  //
+  // BELOW the quiz, not above it: if both were somehow live the quiz is the one
+  // with a clock running, so it wins. The database keeps that from happening in
+  // the first place (poll_fire refuses over a running quiz), and the twelve-hour
+  // guard added to useActiveQuizRun is what makes the two agree on "running".
+  //
+  // NOT sticky, unlike the quiz. A quiz is held until the participant closes it
+  // so they see their score; a poll has no final screen of their own, so when
+  // the trainer takes it down they should be back in their workbook at once.
+  if (activePoll) {
+    return <PollParticipant run={activePoll} onRefresh={refreshPoll} />;
   }
 
   if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
