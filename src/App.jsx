@@ -12,12 +12,12 @@ import ImportWorkbookPage from './pages/ImportWorkbookPage.jsx';
 import NewWorkbookPage from './pages/NewWorkbookPage.jsx';
 import SessionDashboardPage from './pages/SessionDashboardPage.jsx';
 import NewSessionPage from './pages/NewSessionPage.jsx';
-import VendorsAdminPage from './pages/VendorsAdminPage.jsx';
+// Vendors and Staff are Settings tabs now; their old URLs redirect.
 import VendorSessionsPage from './pages/VendorSessionsPage.jsx';
 import ClosedSessionsPage from './pages/ClosedSessionsPage.jsx';
 // Lazy: pulls in recharts, so keep it out of the main bundle.
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'));
-import StaffAdminPage from './pages/StaffAdminPage.jsx';
+
 import SettingsPage from './pages/SettingsPage.jsx';
 import ChangeLogPage from './pages/ChangeLogPage.jsx';
 import ProgramsListPage from './pages/ProgramsListPage.jsx';
@@ -81,13 +81,13 @@ export default function App() {
         </ProtectedRoute>
       } />
       <Route path="/trainer/vendors" element={
-        <ProtectedRoute role="super"><VendorsAdminPage /></ProtectedRoute>
+        <Navigate to="/trainer/settings?tab=vendors" replace />
       } />
       <Route path="/trainer/vendors/:vendorId/sessions" element={
         <ProtectedRoute role="super"><VendorSessionsPage /></ProtectedRoute>
       } />
       <Route path="/trainer/staff" element={
-        <ProtectedRoute role="super"><StaffAdminPage /></ProtectedRoute>
+        <Navigate to="/trainer/settings?tab=staff" replace />
       } />
       <Route path="/trainer/settings" element={
         <ProtectedRoute role="super"><SettingsPage /></ProtectedRoute>

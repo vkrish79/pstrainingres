@@ -83,7 +83,7 @@ export default function GlobalSearch() {
                   {results.staff && (
                     <Group title="Staff" items={results.staff}
                       render={s => <Row key={s.id} title={s.full_name || s.email} sub={s.email}
-                        onClick={() => go('/trainer/staff')} />} />
+                        onClick={() => go('/trainer/settings?tab=staff')} />} />
                   )}
                   {results.vendors && (
                     <Group title="Vendors" items={results.vendors}

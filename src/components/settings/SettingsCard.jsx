@@ -5,7 +5,7 @@ import KebabMenu from '../KebabMenu.jsx';
 //
 // It exists because Program types and Cities are the same screen twice, and
 // they had drifted apart in spacing and wording. One frame keeps them honest.
-export function SettingsCard({ title, note, addLabel, addOpen, onToggleAdd, addForm, children }) {
+export function SettingsCard({ title, note, addLabel, addOpen, onToggleAdd, addForm, headerExtra, children }) {
   return (
     <section className="editor-card settings-card">
       <div className="settings-card-head">
@@ -13,11 +13,14 @@ export function SettingsCard({ title, note, addLabel, addOpen, onToggleAdd, addF
           <h2 className="section-title" style={{ margin: 0 }}>{title}</h2>
           {note && <p className="muted settings-card-note">{note}</p>}
         </div>
-        {addLabel && (
-          <button type="button" className="ghost" onClick={onToggleAdd}>
-            {addOpen ? 'Cancel' : addLabel}
-          </button>
-        )}
+        <div className="settings-card-actions">
+          {headerExtra}
+          {addLabel && (
+            <button type="button" className="ghost" onClick={onToggleAdd}>
+              {addOpen ? 'Cancel' : addLabel}
+            </button>
+          )}
+        </div>
       </div>
       {addOpen && addForm && <div className="settings-add">{addForm}</div>}
       {children}

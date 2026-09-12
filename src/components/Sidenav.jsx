@@ -56,8 +56,6 @@ const GROUPS = [
     items: [
       { to: '/trainer/archive', icon: '◫', label: 'Closed sessions' },
       { to: '/trainer/analytics', icon: '◔', label: 'Analytics' },
-      { to: '/trainer/vendors', icon: '◇', label: 'Vendors', superOnly: true },
-      { to: '/trainer/staff', icon: '◎', label: 'Staff', superOnly: true },
       { to: '/trainer/settings', icon: '⚙', label: 'Settings', superOnly: true },
     ],
   },

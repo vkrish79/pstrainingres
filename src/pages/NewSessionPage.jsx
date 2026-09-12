@@ -204,7 +204,7 @@ export default function NewSessionPage() {
                 </select>
                 {trainerOptions.length === 0 && (isSuper ? vendorId : true) && (
                   <p className="muted" style={{ marginTop: '0.25rem' }}>
-                    No trainers in this vendor yet. Add one in <Link to="/trainer/staff">Staff</Link>.
+                    No trainers in this vendor yet. Add one in <Link to="/trainer/settings?tab=staff">Staff</Link>.
                   </p>
                 )}
               </>

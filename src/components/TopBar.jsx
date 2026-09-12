@@ -30,7 +30,7 @@ const SECTIONS = [
   ['/trainer/archive', 'Closed sessions'],
   ['/trainer/analytics', 'Analytics'],
   ['/trainer/vendors', 'Vendors'],
-  ['/trainer/staff', 'Staff'],
+
   ['/trainer/settings', 'Settings'],
   ['/trainer/prep', 'Prep'],
   ['/trainer', 'Sessions'],

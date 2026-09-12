@@ -1100,10 +1100,17 @@
 }
 .settings-table tr:last-child td { border-bottom: 0; }
 .settings-table tr.st-inactive td { color: var(--muted); }
+.settings-card-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .st-order { width: 5.5rem; }
 .st-code { width: 7rem; }
 .st-status { width: 7rem; }
+.st-state { width: 11rem; }
+.st-vendor { width: 12rem; }
+.st-num { width: 5.5rem; text-align: right; font-variant-numeric: tabular-nums; }
 .st-actions { width: 3rem; text-align: right; }
+/* Staff: the two role radios on one line, and the add form's own grid. */
+.staff-roles { display: flex; gap: 1rem; align-items: center; padding-top: 0.35rem; flex-wrap: wrap; }
+.staff-role-opt { display: flex; gap: 0.35rem; align-items: center; }
 .order-btns { display: inline-flex; gap: 0.25rem; }
 .btn-xs { padding: 0.15rem 0.45rem; font-size: 0.78rem; line-height: 1.3; }
 .settings-edit { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }

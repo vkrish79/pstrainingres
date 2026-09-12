@@ -1,6 +1,8 @@
 import { useSearchParams } from 'react-router-dom';
 import ProgramTypesSettings from '../components/settings/ProgramTypesSettings.jsx';
 import CitiesSettings from '../components/settings/CitiesSettings.jsx';
+import VendorsSettings from '../components/settings/VendorsSettings.jsx';
+import StaffSettings from '../components/settings/StaffSettings.jsx';
 import RetentionSettings from '../components/settings/RetentionSettings.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -16,6 +18,8 @@ import '../styles/editor.css';
 const TABS = [
   { id: 'types', label: 'Program types', render: () => <ProgramTypesSettings /> },
   { id: 'cities', label: 'Cities & venues', render: () => <CitiesSettings /> },
+  { id: 'vendors', label: 'Vendors', render: () => <VendorsSettings /> },
+  { id: 'staff', label: 'Staff', render: () => <StaffSettings /> },
   { id: 'retention', label: 'Data retention', render: () => <RetentionSettings /> },
 ];
 
