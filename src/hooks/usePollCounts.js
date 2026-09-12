@@ -12,6 +12,18 @@ import { supabase } from '../lib/supabase.js';
 // Votes go up as they land. There is no right answer, so there is nothing to
 // give away by showing them — which is the whole difference between a poll and
 // a quiz question.
+//
+//
+// THE WALL SUBSCRIBES; THE HANDSET DOES NOT. This is not an inconsistency.
+//
+// A participant cannot subscribe to poll_runs because `tally` is a column on
+// it and RLS is row-level — see useActivePoll. But poll_votes is a table the
+// TRAINER is already allowed to read, by an explicit decision, and the
+// projector is the trainer's own screen. So the wall may watch votes land
+// without anything new being exposed.
+//
+// On a two-second timer alone, votes arrived in clumps and the bars jumped.
+// One vote at a time is the point.
 const EVERY_MS = 2000;
 
 export function usePollCounts(runId, { live = true } = {}) {
@@ -30,8 +42,27 @@ export function usePollCounts(runId, { live = true } = {}) {
 
   useEffect(() => { setLoading(true); refresh(); }, [refresh]);
 
-  // Stops ticking once voting has closed: the numbers cannot move again, and a
-  // closed poll can sit on the wall for a long discussion.
+  // A vote lands -> redraw at once. The payload is discarded and the counts
+  // re-read through poll_counts rather than being adjusted locally: the
+  // function is the only thing that knows the denominator, and a missed event
+  // would leave a locally-tracked number wrong for the rest of the poll.
+  useEffect(() => {
+    if (!runId || !live) return undefined;
+    const channel = supabase
+      .channel(`poll-votes-${runId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'poll_votes', filter: `run_id=eq.${runId}` },
+        () => { refresh(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [runId, live, refresh]);
+
+  // The safety net, same reasoning as useQuizRun: realtime can drop a message,
+  // and a wall stuck on the wrong number in front of a room is worse than a
+  // wall that is occasionally two seconds late. Stops once voting closes — the
+  // numbers cannot move again, and a closed poll sits there for the discussion.
   useEffect(() => {
     if (!runId || !live) return undefined;
     const t = setInterval(refresh, EVERY_MS);

@@ -1,6 +1,33 @@
+import { useEffect, useRef, useState } from 'react';
 import QuizShape from '../quiz/QuizShape.jsx';
+import PollCount from './PollCount.jsx';
 import { usePollCounts } from '../../hooks/usePollCounts.js';
 import '../../styles/poll-live.css';
+
+// Which answers gained a vote just now, so the shape can acknowledge it.
+//
+// A trainer running a poll is looking at the room, not at the wall. A bar
+// quietly getting longer in their peripheral vision is easy to miss; a shape
+// that flinches is not. It clears itself, so nothing is left highlighted.
+function useJustGained(rows) {
+  const [gained, setGained] = useState(() => new Set());
+  const previous = useRef(new Map());
+
+  useEffect(() => {
+    const bumped = new Set();
+    for (const r of rows) {
+      const before = previous.current.get(r.option_index);
+      if (before !== undefined && r.votes > before) bumped.add(r.option_index);
+      previous.current.set(r.option_index, r.votes);
+    }
+    if (bumped.size === 0) return undefined;
+    setGained(bumped);
+    const t = setTimeout(() => setGained(new Set()), 700);
+    return () => clearTimeout(t);
+  }, [rows]);
+
+  return gained;
+}
 
 // The room-facing screen. Question at the top, bars underneath, and the votes
 // go up AS THEY LAND.
@@ -18,6 +45,7 @@ export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, b
   // Once voting shuts the numbers cannot move, and a closed poll sits on the
   // wall for as long as the discussion takes — so stop asking.
   const { rows, voted, people, most } = usePollCounts(run?.run_id, { live: run?.is_open });
+  const gained = useJustGained(rows);
 
   const width = (n) => {
     if (!n) return 0;
@@ -37,7 +65,10 @@ export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, b
         <div className="plive-bars">
           {rows.map((r) => (
             <div className="plive-bar-row" key={r.option_index}>
-              <span className={`plive-badge plive-opt-${r.option_index}`}>
+              <span
+                className={`plive-badge plive-opt-${r.option_index}`
+                  + (gained.has(r.option_index) ? ' has-gained' : '')}
+              >
                 <QuizShape index={r.option_index} title={r.label} />
               </span>
               {/* The label sits ON the track and the fill runs behind it. With
@@ -52,7 +83,7 @@ export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, b
                 />
                 <span className="plive-label">{r.label}</span>
               </div>
-              <span className="plive-n">{r.votes}</span>
+              <span className="plive-n"><PollCount value={r.votes} /></span>
             </div>
           ))}
         </div>
@@ -60,7 +91,7 @@ export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, b
         <div className="plive-foot">
           {/* CASE 11: nobody has voted yet is a normal state, not an error. */}
           <span className="plive-tally">
-            {voted} of {people} voted
+            <PollCount value={voted} /> of {people} voted
           </span>
           {run?.is_open ? (
             <button type="button" className="btn" onClick={onCloseVoting} disabled={busy}>

@@ -154,6 +154,15 @@
   align-items: center;
   justify-content: center;
 }
+/* A vote just landed on this one. The trainer is looking at the room, not at
+   the wall — a bar quietly lengthening in the corner of the eye is easy to
+   miss, a shape that flinches is not. Brief, and it clears itself. */
+.plive-badge.has-gained { animation: plive-bump 0.7s ease; }
+@keyframes plive-bump {
+  0%   { transform: none; box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.55); }
+  28%  { transform: scale(1.18); box-shadow: 0 0 0 7px rgba(255, 255, 255, 0); }
+  100% { transform: none; box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
 .plive-track {
   position: relative;
   flex: 1 1 auto;
@@ -243,4 +252,5 @@
 @media (prefers-reduced-motion: reduce) {
   .plive-pick, .plive-fill { transition: none; }
   .plive-pick:hover:not(:disabled) { transform: none; }
+  .plive-badge.has-gained { animation: none; }
 }
