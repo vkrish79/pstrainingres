@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useCities, CITY_CODE_PATTERN } from '../../hooks/useCities.js';
+import { SettingsCard, OrderButtons, RowActions, NameEditor } from './SettingsCard.jsx';
 
-// City/venue managed list for the Settings page. Mirrors the Session Types
-// section but carries an immutable `code` (the value stored on sessions).
+// Settings → Cities / venues. Mirrors Program types exactly, but carries an
+// immutable `code` — the value stored on every session, which is why it can be
+// set once and never renamed.
 export default function CitiesSettings() {
   const { loading, error, cities, createCity, renameCity, setActive, moveCity } =
     useCities({ includeInactive: true });
 
+  const [adding, setAdding] = useState(false);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,6 +29,7 @@ export default function CitiesSettings() {
     setBusy(false);
     if (err) { setFormError(err.message); return; }
     setCode(''); setName('');
+    setAdding(false);
   }
 
   function startEdit(c) { setEditingId(c.id); setEditingName(c.name); setRowError(''); }
@@ -43,95 +47,86 @@ export default function CitiesSettings() {
   }
 
   return (
-    <section className="editor-card">
-      <h2 className="section-title" style={{ marginTop: 0 }}>Cities / venues</h2>
-      <p className="muted" style={{ marginTop: '-0.25rem' }}>
-        Picked when a session is created and reported on in Analytics. The code is stored on the
-        session and can't change once added; deactivate to hide a city from the picker while keeping
-        it on past sessions.
-      </p>
-
-      <form onSubmit={handleCreate} className="add-person-form" style={{ marginTop: '1rem' }}>
-        <div className="form-grid">
-          <div>
-            <label className="form-label">Code</label>
+    <SettingsCard
+      title="Cities / venues"
+      note="Picked when a session is created, and grouped by in Analytics. The code is stored on the session and can't change once added; deactivating a city hides it from the picker while keeping it on past sessions."
+      addLabel="+ Add city"
+      addOpen={adding}
+      onToggleAdd={() => { setAdding(a => !a); setFormError(''); }}
+      addForm={(
+        <form onSubmit={handleCreate} className="settings-add-form">
+          <div className="settings-add-row">
+            <label className="form-label" htmlFor="new-city-code">Code</label>
             <input
-              className="form-input"
+              id="new-city-code"
+              className="form-input st-mono st-code-input"
               required
               value={code}
               onChange={e => setCode(e.target.value.toUpperCase())}
               placeholder="AUH"
               maxLength={6}
-              style={{ fontFamily: 'ui-monospace, monospace', textTransform: 'uppercase' }}
+              autoFocus
             />
-            {code && !codeValid && (
-              <p className="error" style={{ marginTop: '0.25rem' }}>2–6 chars, A–Z / 0–9 only.</p>
-            )}
-          </div>
-          <div>
-            <label className="form-label">Name</label>
+            <label className="form-label" htmlFor="new-city-name">Name</label>
             <input
+              id="new-city-name"
               className="form-input"
               required
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Abu Dhabi"
             />
+            <button type="submit" disabled={busy || !code || !name.trim() || !codeValid}>
+              {busy ? 'Adding…' : 'Add city'}
+            </button>
           </div>
-        </div>
-        {formError && <p className="error">{formError}</p>}
-        <div className="form-actions">
-          <button type="submit" disabled={busy || !code || !name.trim() || !codeValid}>
-            {busy ? 'Adding…' : 'Add city'}
-          </button>
-        </div>
-      </form>
-
+          {code && !codeValid && <p className="error">2–6 characters, A–Z / 0–9 only.</p>}
+          {formError && <p className="error">{formError}</p>}
+        </form>
+      )}
+    >
       {loading && <div className="loading">Loading…</div>}
       {error && <p className="error">{error}</p>}
       {!loading && !error && cities.length === 0 && (
         <p className="muted">No cities yet. Add the first one above.</p>
       )}
       {!loading && cities.length > 0 && (
-        <table className="participants-table" style={{ marginTop: '1rem' }}>
+        <table className="settings-table">
           <thead>
             <tr>
-              <th style={{ width: '5rem' }}>Order</th>
-              <th style={{ width: '7rem' }}>Code</th>
+              <th className="st-order">Order</th>
+              <th className="st-code">Code</th>
               <th>Name</th>
-              <th style={{ width: '7rem' }}>Status</th>
-              <th style={{ width: '16rem' }}>Actions</th>
+              <th className="st-status">Status</th>
+              <th className="st-actions" />
             </tr>
           </thead>
           <tbody>
             {cities.map((c, i) => (
-              <tr key={c.id} style={c.is_active ? undefined : { opacity: 0.55 }}>
-                <td>
-                  <button type="button" className="ghost" title="Move up" disabled={i === 0}
-                    onClick={() => rowAction(() => moveCity(c.id, 'up'))}>↑</button>
-                  <button type="button" className="ghost" title="Move down" disabled={i === cities.length - 1}
-                    onClick={() => rowAction(() => moveCity(c.id, 'down'))} style={{ marginLeft: '0.25rem' }}>↓</button>
+              <tr key={c.id} className={c.is_active ? '' : 'st-inactive'}>
+                <td className="st-order">
+                  <OrderButtons index={i} count={cities.length} onMove={dir => rowAction(() => moveCity(c.id, dir))} />
                 </td>
-                <td style={{ fontFamily: 'ui-monospace, monospace' }}>{c.code}</td>
+                <td className="st-code st-mono">{c.code}</td>
                 <td>
                   {editingId === c.id ? (
-                    <input className="form-input" value={editingName} onChange={e => setEditingName(e.target.value)} autoFocus />
+                    <NameEditor
+                      value={editingName}
+                      onChange={setEditingName}
+                      onSave={() => saveEdit(c.id)}
+                      onCancel={cancelEdit}
+                    />
                   ) : c.name}
                 </td>
-                <td>{c.is_active ? 'Active' : 'Inactive'}</td>
-                <td>
-                  {editingId === c.id ? (
-                    <>
-                      <button type="button" onClick={() => saveEdit(c.id)} disabled={!editingName.trim()}>Save</button>
-                      <button type="button" className="ghost" onClick={cancelEdit} style={{ marginLeft: '0.5rem' }}>Cancel</button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" className="ghost" onClick={() => startEdit(c)}>Edit</button>
-                      <button type="button" className="ghost" onClick={() => rowAction(() => setActive(c.id, !c.is_active))} style={{ marginLeft: '0.5rem' }}>
-                        {c.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                    </>
+                <td className="st-status">{c.is_active ? 'Active' : 'Inactive'}</td>
+                <td className="st-actions">
+                  {editingId !== c.id && (
+                    <RowActions
+                      label={`Actions for ${c.name || c.code}`}
+                      isActive={c.is_active}
+                      onEdit={() => startEdit(c)}
+                      onToggleActive={() => rowAction(() => setActive(c.id, !c.is_active))}
+                    />
                   )}
                 </td>
               </tr>
@@ -140,6 +135,6 @@ export default function CitiesSettings() {
         </table>
       )}
       {rowError && <p className="error" style={{ marginTop: '0.75rem' }}>{rowError}</p>}
-    </section>
+    </SettingsCard>
   );
 }
