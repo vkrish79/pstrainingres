@@ -26,7 +26,7 @@ export function useQuizEditor(quizId) {
       .select(`
         id, title, is_template, session_id, vendor_id, updated_at,
         quiz_questions (
-          id, order_index, prompt, time_limit_seconds, image_path, kind,
+          id, order_index, prompt, time_limit_seconds, image_path, kind, allow_wager,
           quiz_options ( id, order_index, label, is_correct, correct_rank )
         )
       `)
@@ -94,8 +94,9 @@ export function useQuizEditor(quizId) {
       // image_path is in this list because it is in the patches this function
       // is given. Leave it out and the write lands, the row comes back without
       // it, and the spread below quietly restores the OLD path in local state —
-      // an upload that worked, showing no picture.
-      .select('id, prompt, time_limit_seconds, image_path');
+      // an upload that worked, showing no picture. allow_wager is here for
+      // exactly the same reason: the checkbox would tick and untick itself.
+      .select('id, prompt, time_limit_seconds, image_path, allow_wager');
     if (e) return { error: new Error(e.message) };
     if (!data?.length) return { error: new Error('That change was not saved — you may not have permission to edit this quiz.') };
     setQuestions(prev => prev.map(q => (q.id === questionId ? { ...q, ...data[0] } : q)));
@@ -196,6 +197,30 @@ export function useQuizEditor(quizId) {
     return { data: true };
   }, []);
 
+  // Opening or closing the betting on one question.
+  //
+  // Optimistic for the same reason setCorrect is, and the reason is worth
+  // repeating because it is invisible in code review: this is a CONTROLLED
+  // checkbox. Update local state after the await and React re-renders the old
+  // value first, so the box ticks and then visibly unticks itself until the
+  // server answers — the trainer clicks and watches nothing happen. Rolled back
+  // if the write is refused, so a refusal is never left looking like a save.
+  const setAllowWager = useCallback(async (questionId, on) => {
+    let rollback = null;
+    setQuestions(prev => {
+      rollback = prev;
+      return prev.map(q => (q.id === questionId ? { ...q, allow_wager: on } : q));
+    });
+    const { data, error: e } = await supabase
+      .from('quiz_questions').update({ allow_wager: on }).eq('id', questionId)
+      .select('id, allow_wager');
+    if (e || !data?.length) {
+      if (rollback) setQuestions(rollback);
+      return { error: new Error(e?.message || 'That change was not saved — you may not have permission to edit this quiz.') };
+    }
+    return { data: data[0] };
+  }, []);
+
   // Move an ITEM within a reorder question. Sends the whole sequence, like
   // quiz_reorder_questions, so what is stored cannot drift from what the
   // editor is showing.
@@ -234,6 +259,6 @@ export function useQuizEditor(quizId) {
     loading, error, quiz, questions,
     renameQuiz, addQuestion, updateQuestion, deleteQuestion,
     setQuestionImage, clearQuestionImage,
-    updateOption, setCorrect, moveQuestion, moveItem, refresh,
+    updateOption, setCorrect, setAllowWager, moveQuestion, moveItem, refresh,
   };
 }

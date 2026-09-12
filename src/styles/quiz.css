@@ -141,6 +141,34 @@
 .quiz-opt-badge.s2 { background: #2f7d52; }
 .quiz-opt-badge.s3 { background: #6a4b9c; }
 
+/* The wager tag is amber, not the blue every other kind tag uses: it is not
+   another question type sitting alongside them, it is a rule change layered on
+   top of one — and it can appear beside a kind tag, so it has to read as a
+   different sort of thing. */
+.quiz-kind-wager {
+  background: rgba(180, 130, 20, 0.16);
+  border-color: rgba(180, 130, 20, 0.55);
+  color: #8a6410;
+}
+
+.quiz-wager-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.quiz-wager-opt input { margin-top: 0.2rem; flex: 0 0 auto; }
+.quiz-wager-opt:has(input:checked) {
+  border-style: solid;
+  border-color: rgba(180, 130, 20, 0.55);
+  background: rgba(180, 130, 20, 0.06);
+}
+
 /* True/false: two rows, and they keep the two-column grid rather than
    stretching across the card. Two half-width rows read as a pair to choose
    between; two full-width ones read as the start of a list of four. */

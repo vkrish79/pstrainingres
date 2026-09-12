@@ -121,6 +121,7 @@ function QuestionCard({ q, index, total, actions, onError }) {
         <span className="quiz-q-num">Q{index + 1}</span>
         {q.kind === 'order' && <span className="quiz-kind">Put in order</span>}
         {q.kind === 'boolean' && <span className="quiz-kind">True or false</span>}
+        {q.allow_wager && <span className="quiz-kind quiz-kind-wager">Wager</span>}
         {missing && <span className="quiz-q-flag" title="This question cannot be used yet">{missing}</span>}
         <div className="quiz-q-tools">
           <button type="button" className="ghost" title="Move up" disabled={index === 0}
@@ -151,6 +152,27 @@ function QuestionCard({ q, index, total, actions, onError }) {
       />
 
       <QuestionImage q={q} actions={actions} onError={onError} />
+
+      {/* Only where the answer is simply right or wrong. A reorder question is
+          scored by partial credit, so "you lost three times a partially-right
+          answer" is not a sentence anyone can say to a room. */}
+      {q.kind !== 'order' && (
+        <label className="quiz-wager-opt">
+          <input
+            type="checkbox"
+            checked={!!q.allow_wager}
+            onChange={e => call(() => actions.setAllowWager(q.id, e.target.checked))}
+          />
+          <span>
+            <strong>Let the room raise the stakes.</strong>{' '}
+            <span className="muted">
+              Everyone picks 1×, 2× or 3× with their answer. At 1× nothing changes — win the
+              ordinary points, lose nothing. Raise it and a right answer pays double or triple,
+              a wrong one costs the same, so a score can go down. Best saved for the last question.
+            </span>
+          </span>
+        </label>
+      )}
 
       {q.kind === 'order' ? (
         <>

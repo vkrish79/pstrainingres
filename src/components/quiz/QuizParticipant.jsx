@@ -26,6 +26,9 @@ import '../../styles/quiz-live.css';
 export default function QuizParticipant({ runId, onDismiss }) {
   const { run, secondsLeft } = useQuizRun(runId);
   const [picked, setPicked] = useState(null);
+  // What this participant is staking on a wager question. 1 unless they raise
+  // it, so doing nothing is always the ordinary question.
+  const [stake, setStake] = useState(1);
   // The sequence being built for a reorder question: option ids, in tap order.
   const [seq, setSeq] = useState([]);
   const [sending, setSending] = useState(false);
@@ -40,7 +43,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
   const idx = run?.current_index ?? -1;
 
   // A new question clears the last one's answer and verdict.
-  useEffect(() => { setPicked(null); setSeq([]); setSubmitted(false); setNote(''); setResult(null); }, [idx]);
+  useEffect(() => { setPicked(null); setStake(1); setSeq([]); setSubmitted(false); setNote(''); setResult(null); }, [idx]);
 
   useEffect(() => {
     if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase)) return;
@@ -66,7 +69,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
     // the first press was in fact recorded.
     setPicked(optionId);
     const { data, error } = await supabase.rpc('quiz_answer', {
-      p_run_id: runId, p_option_id: optionId,
+      p_run_id: runId, p_option_id: optionId, p_wager: stake,
     });
     setSending(false);
     const row = Array.isArray(data) ? data[0] : data;
@@ -80,6 +83,35 @@ export default function QuizParticipant({ runId, onDismiss }) {
       return;
     }
     setNote('Answer in. Tap another shape to change it.');
+  }
+
+  // Raising or lowering the stake. If an answer is already in, the stake has to
+  // go back to the server with it — the score is computed there and a
+  // multiplier held only on this phone would be a number nobody is counting.
+  //
+  // Re-sending also re-stamps the clock, which is the intended cost: raising to
+  // 3x at nineteen seconds is scored as a nineteen-second answer, so there is
+  // no free late nerve.
+  async function chooseStake(n) {
+    if (sending || n === stake) return;
+    const previous = stake;
+    setStake(n);
+    if (!picked) return;              // nothing to re-score until they answer
+    setSending(true);
+    const { data, error } = await supabase.rpc('quiz_answer', {
+      p_run_id: runId, p_option_id: picked, p_wager: n,
+    });
+    setSending(false);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error) { setStake(previous); setNote(error.message); return; }
+    if (row && row.accepted === false) {
+      setStake(previous);
+      setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
+      return;
+    }
+    setNote(n === 1
+      ? 'Playing it safe — nothing to lose at 1×.'
+      : `Staked ${n}× — win or lose ${n} times as much.`);
   }
 
   // TAP IN ORDER, not drag. Dragging on a phone is fiddly at the best of
@@ -199,6 +231,32 @@ export default function QuizParticipant({ runId, onDismiss }) {
             </>
           ) : (
             <>
+              {/* The stake, ABOVE the shapes and available before answering.
+                  Choosing it first costs nothing; choosing it after seeing
+                  which shape you want is the whole point — the bet is on how
+                  sure you are of your OWN answer, not a blind gamble. */}
+              {run?.allow_wager && (
+                <div className="qlive-stake">
+                  {/* Says the safe option is safe. Without it the honest read
+                      of three buttons is that all three are bets, and the
+                      cautious play becomes not answering at all. */}
+                  <p className="qlive-stake-label">How sure are you? <span className="qlive-muted">1× risks nothing</span></p>
+                  <div className="qlive-stake-row" role="group" aria-label="Your stake">
+                    {[1, 2, 3].map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        className={`qlive-stake-btn${stake === n ? ' is-on' : ''}`}
+                        disabled={sending}
+                        aria-pressed={stake === n}
+                        onClick={() => chooseStake(n)}
+                      >
+                        {n}×
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="qlive-picks qlive-picks-bare">
                 {(run?.options ?? []).map((o, i) => (
                   <button
@@ -235,8 +293,16 @@ export default function QuizParticipant({ runId, onDismiss }) {
               <h1 className={`qlive-big ${result?.was_correct ? 'is-right' : 'is-wrong'}`}>
                 {result?.was_correct ? 'Correct' : 'Not this time'}
               </h1>
+              {/* A wager can make this a LOSS, so the sign is not decoration.
+                  points already carries it; the minus is rendered as a real
+                  minus sign rather than a hyphen. */}
               <p className="qlive-sub">
-                {result?.was_correct ? `+${result.points} points` : 'No points for that one'}
+                {result?.was_correct
+                  ? `+${result.points} points`
+                  : result?.points < 0
+                    ? `${String(result.points).replace('-', '−')} points`
+                    : 'No points for that one'}
+                {result?.wager > 1 && <> · you staked {result.wager}×</>}
               </p>
             </>
           )}

@@ -275,6 +275,14 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
           {run?.kind === 'order' && (
             <p className="qlive-instruction">Tap the shapes in the right order</p>
           )}
+          {/* The room has to know the stakes are open BEFORE it answers, and
+              the stake buttons are on the handsets where a trainer cannot see
+              them. This is the only announcement there is. */}
+          {run?.allow_wager && (
+            <p className="qlive-instruction qlive-instruction-wager">
+              Wager round — raise your stake on your handset. 1× risks nothing.
+            </p>
+          )}
           {/* Keyed off the option COUNT rather than the kind: what makes the
               wall look empty is two answers, whatever type produced them. */}
           <ul className={`qlive-opts${run?.kind === 'order' ? ' qlive-opts-list' : ''}${(run?.options ?? []).length === 2 ? ' qlive-opts-two' : ''}`}>
@@ -391,7 +399,14 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
                   <span className="qlive-name">{r.full_name}</span>
                   {/* A streak of one is just a correct answer. Two is a run. */}
                   {r.streak >= 2 && <QuizFlame streak={r.streak} />}
-                  {r.gained > 0 && <span className="qlive-gain">+{r.gained}</span>}
+                  {/* A lost wager is the most interesting thing that can
+                      happen on this board, so it is shown, not filtered out
+                      by a `> 0` test that predates scores being able to fall. */}
+                  {r.gained !== 0 && (
+                    <span className={`qlive-gain${r.gained < 0 ? ' is-loss' : ''}`}>
+                      {r.gained > 0 ? `+${r.gained}` : String(r.gained).replace('-', '−')}
+                    </span>
+                  )}
                   <span className="qlive-pts">{r.points}</span>
                 </li>
               );
