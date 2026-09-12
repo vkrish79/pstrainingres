@@ -34,6 +34,7 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
   const [err, setErr] = useState('');
   const [podiumStep, setPodiumStep] = useState(0);
   const [rolling, setRolling] = useState(false);
+  const [closing, setClosing] = useState(false);
   const rollTimer = useRef(null);
 
   const music = useMemo(() => createQuizMusic(), []);
@@ -59,9 +60,27 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
     if (index !== undefined) args.p_index = index;
     const { error } = await supabase.rpc('quiz_set_phase', args);
     setBusy(false);
-    if (error) { setErr(error.message); return; }
+    // Reports whether it landed, so a caller that must not continue on failure
+    // can tell. endForEveryone is that caller: exiting after a refused "ended"
+    // would put the projector away and leave the room stuck, which is the bug.
+    if (error) { setErr(error.message); return false; }
     await reload();
+    return true;
   }, [runId, reload, music]);
+
+  // Ending the run is what releases the handsets: quiz_set_phase('ended')
+  // stamps ended_at, useActiveQuizRun stops reporting it, and the participant
+  // finally gets the screen with a way back to their workbook on it.
+  //
+  // Exit only AFTER the phase change lands. Closing the projector first would
+  // unmount this component mid-request and leave the run open — the very bug
+  // this is fixing, with an extra step.
+  const endForEveryone = useCallback(async () => {
+    const landed = await setPhase('ended');
+    if (!landed) return;          // the error is on screen; the room is still in it
+    setClosing(false);
+    onExit?.();
+  }, [setPhase, onExit]);
 
   // Live "11 of 16 answered" while a question is open.
   useEffect(() => {
@@ -234,7 +253,32 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
           >
             {muted ? 'Music off' : 'Music on'}
           </button>
-          <button type="button" className="ghost" onClick={onExit}>Close</button>
+          {/* CLOSE USED TO LIE. It called onExit, which puts this screen away
+              on the trainer's laptop and does nothing else — so the run stayed
+              open and sixteen handsets stayed in the quiz with no way out,
+              because their "Back to my workbook" button only appears once the
+              run has ENDED. A trainer who abandoned a quiz left the room
+              stranded and had no way of knowing.
+
+              So Close now asks, and "End the quiz" is the answer that matches
+              what pressing Close looks like it means. Hiding is still offered,
+              because stepping off the projector to look something up and coming
+              back is a real thing — but it now says out loud that the room is
+              still in the quiz. */}
+          {phase === 'ended' ? (
+            <button type="button" className="ghost" onClick={onExit}>Close</button>
+          ) : closing ? (
+            <>
+              <span className="qlive-confirm">End the quiz for everyone?</span>
+              <button type="button" onClick={endForEveryone} disabled={busy}>End the quiz</button>
+              <button type="button" className="ghost" onClick={onExit}>
+                Just hide this — the room stays in the quiz
+              </button>
+              <button type="button" className="ghost" onClick={() => setClosing(false)}>Cancel</button>
+            </>
+          ) : (
+            <button type="button" className="ghost" onClick={() => setClosing(true)}>Close</button>
+          )}
         </div>
       </header>
 

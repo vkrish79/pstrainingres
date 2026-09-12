@@ -332,3 +332,38 @@
   font-size: 0.88rem;
   line-height: 1.45;
 }
+
+/* ── A quiz left open while the projector is put away ───────────────────── */
+/* The handsets are held by the RUN, not by the projector. A trainer who closed
+   the screen has no other way of seeing that the room is still in it. */
+.quiz-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #fdf0d5;
+  border: 1px solid #e8d3a4;
+  color: #5c4410;
+}
+.quiz-live-tools { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.quiz-live-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #b4761a;
+  margin-right: 0.5rem;
+  animation: quiz-live-pulse 1.8s ease-in-out infinite;
+}
+@keyframes quiz-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+/* The confirm that replaced a Close button which used to lie. */
+.qlive-confirm { font-weight: 600; opacity: 0.9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-live-dot { animation: none; }
+}

@@ -3,6 +3,7 @@ import { SkeletonCards } from '../Skeleton.jsx';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSessionQuizzes } from '../../hooks/useSessionQuizzes.js';
+import { useActiveQuizRun } from '../../hooks/useActiveQuizRun.js';
 import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
 import QuizProjector from '../quiz/QuizProjector.jsx';
 import '../../styles/quiz.css';
@@ -16,6 +17,20 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
   const [rowError, setRowError] = useState('');
   const [confirming, setConfirming] = useState(null);
   const [runId, setRunId] = useState(null);
+  // A run this session already has open, whether or not this trainer is looking
+  // at the projector. The 12-hour guard inside the hook is what stops a quiz
+  // abandoned last week from showing up here as live.
+  const { runId: liveRunId } = useActiveQuizRun(sessionId);
+
+  // Releases the room. The handsets are held by the RUN, not by the projector,
+  // so a trainer who put the screen away still has sixteen people waiting.
+  async function handleEndRun(id) {
+    setRowError('');
+    const { error: err } = await runBusy('Ending the quiz…', () =>
+      supabase.rpc('quiz_set_phase', { p_run_id: id, p_phase: 'ended' }));
+    if (err) { setRowError(err.message); return; }
+    if (runId === id) setRunId(null);
+  }
 
   // quiz_start_run returns the new run's id. It also snapshots the roster and
   // closes any run still open on this session, in one transaction — see
@@ -59,6 +74,28 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
       {loading && <SkeletonCards count={3} label="Loading quizzes…" />}
       {error && <p className="error">{error}</p>}
       {rowError && <p className="error">{rowError}</p>}
+
+      {/* A quiz is open on this session and the projector is not on screen —
+          which means the trainer has stepped away from it while the room is
+          still holding it. They cannot see the handsets, so this is the only
+          thing that can tell them, and it is one click from letting everyone
+          go. Without it, "I closed the quiz" and "the room is out of the quiz"
+          are two different facts with nothing connecting them. */}
+      {liveRunId && !runId && (
+        <div className="quiz-live-banner">
+          <div>
+            <span className="quiz-live-dot" aria-hidden="true" />
+            <strong>A quiz is still open on this session</strong>
+            <span className="muted"> — everyone's handset is showing it.</span>
+          </div>
+          <div className="quiz-live-tools">
+            <button type="button" onClick={() => setRunId(liveRunId)}>Back to the quiz</button>
+            <button type="button" className="ghost" onClick={() => handleEndRun(liveRunId)}>
+              End it for everyone
+            </button>
+          </div>
+        </div>
+      )}
 
       {!loading && (
         <>

@@ -24,7 +24,7 @@ import '../../styles/quiz-live.css';
 // at once — telling an early answerer sooner lets them tell the person beside
 // them while the clock is still running.
 export default function QuizParticipant({ runId, onDismiss }) {
-  const { run, secondsLeft } = useQuizRun(runId);
+  const { run, secondsLeft, loading } = useQuizRun(runId);
   const [picked, setPicked] = useState(null);
   // What this participant is staking on a wager question. 1 unless they raise
   // it, so doing nothing is always the ordinary question.
@@ -329,6 +329,26 @@ export default function QuizParticipant({ runId, onDismiss }) {
           <h1 className="qlive-big">
             {result ? `You finished with ${result.total_points} points` : 'Counting up…'}
           </h1>
+          <button type="button" className="qlive-go" onClick={onDismiss}>Back to my workbook</button>
+        </div>
+      )}
+
+      {/* THE WAY OUT WHEN THERE IS NO PHASE AT ALL.
+          Every block above is keyed to a phase, so a run this handset can no
+          longer read — deleted, retention-slimmed, or refused by RLS — rendered
+          an empty dark screen with nothing on it and no way back. A participant
+          could not leave without knowing to reload the page.
+
+          The known cause was the trainer abandoning a quiz, which is fixed at
+          the other end now. This is the backstop for every other cause,
+          including the ones not thought of yet: if this screen cannot say what
+          is happening, it must at least let go of the person reading it. */}
+      {/* `loading` is load-bearing: without it this flashes "the quiz has
+          finished" at everyone for the moment before the first read lands. */}
+      {!phase && !loading && (
+        <div className="qlive-stage qlive-centre">
+          <h1 className="qlive-big">The quiz has finished</h1>
+          <p className="qlive-sub">Nothing more to answer here.</p>
           <button type="button" className="qlive-go" onClick={onDismiss}>Back to my workbook</button>
         </div>
       )}
