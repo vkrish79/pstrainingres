@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SkeletonCards } from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
@@ -42,7 +43,7 @@ export default function WorkbooksPage() {
           </section>
         )}
 
-        {loading && <div className="loading">Loading…</div>}
+        {loading && <SkeletonCards count={6} label="Loading workbooks…" />}
 
         {!loading && workbooks.length === 0 && (
           <p className="muted">

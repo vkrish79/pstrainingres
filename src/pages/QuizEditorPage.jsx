@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { SkeletonLines } from '../components/Skeleton.jsx';
 import { Link, useParams } from 'react-router-dom';
 import { useQuizEditor } from '../hooks/useQuizEditor.js';
 import QuizShape from '../components/quiz/QuizShape.jsx';
@@ -221,7 +222,7 @@ export default function QuizEditorPage() {
     <>
       <TopBar />
       <main className="page">
-        {loading && <div className="loading">Loading…</div>}
+        {loading && <SkeletonLines rows={5} label="Loading quiz…" />}
         {error && <p className="error">{error}</p>}
 
         {!loading && quiz && (

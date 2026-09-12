@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SkeletonPage } from '../components/Skeleton.jsx';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -23,7 +24,7 @@ export default function ProgramEditorPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState('');
 
-  if (loading) return <><TopBar /><main className="page"><div className="loading">Loading…</div></main></>;
+  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={5} label="Loading program…" /></>;
   if (error)   return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
   if (!program) return <><TopBar /><main className="page"><p className="muted">Program not found.</p></main></>;
 

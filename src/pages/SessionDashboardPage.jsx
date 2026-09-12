@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
@@ -374,7 +375,7 @@ export default function SessionDashboardPage() {
   }
 
 
-  if (loading) return <><TopBar /><div className="loading">Loading session…</div></>;
+  if (loading) return <><TopBar /><SkeletonPage body="table" rows={6} label="Loading session…" /></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
 
   async function doDeleteSession() {

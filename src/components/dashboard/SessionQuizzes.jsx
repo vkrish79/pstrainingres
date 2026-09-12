@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonCards } from '../Skeleton.jsx';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSessionQuizzes } from '../../hooks/useSessionQuizzes.js';
@@ -55,7 +56,7 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
 
   return (
     <section className="quiz-tab">
-      {loading && <div className="loading">Loading…</div>}
+      {loading && <SkeletonCards count={3} label="Loading quizzes…" />}
       {error && <p className="error">{error}</p>}
       {rowError && <p className="error">{rowError}</p>}
 

@@ -1,4 +1,5 @@
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
+import { SkeletonTable } from '../Skeleton.jsx';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
@@ -24,7 +25,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
   }
-  if (loading) return <div className="loading">Loading assessment responses…</div>;
+  if (loading) return <SkeletonTable rows={5} label="Loading assessment responses…" />;
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
 
   // A withdrawn question is out of the paper: not shown, not marked, and out of

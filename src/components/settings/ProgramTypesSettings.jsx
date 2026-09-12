@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonTable } from '../Skeleton.jsx';
 import { useProgramTypes } from '../../hooks/useProgramTypes.js';
 import { SettingsCard, OrderButtons, RowActions, NameEditor } from './SettingsCard.jsx';
 
@@ -70,7 +71,7 @@ export default function ProgramTypesSettings() {
         </form>
       )}
     >
-      {loading && <div className="loading">Loading…</div>}
+      {loading && <SkeletonTable rows={4} label="Loading…" />}
       {error && <p className="error">{error}</p>}
       {!loading && !error && types.length === 0 && (
         <p className="muted">No program types yet. Add the first one above.</p>

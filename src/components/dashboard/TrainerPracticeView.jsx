@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SkeletonLines } from '../Skeleton.jsx';
 import { useTrainerPractice } from '../../hooks/useTrainerPractice.js';
 import { useTrainerPrep } from '../../hooks/useTrainerPrep.js';
 import { useTrainerNotes } from '../../hooks/useTrainerNotes.js';
@@ -200,7 +201,7 @@ export default function TrainerPracticeView({
     }
   }
 
-  if (loading) return <div className="loading">Loading practice copy…</div>;
+  if (loading) return <SkeletonLines rows={6} label="Loading your copy…" />;
   if (error) return <p className="error">{error}</p>;
 
   const visibleSections = selectedSectionId === ALL_KEY

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonTable } from '../Skeleton.jsx';
 import { Link } from 'react-router-dom';
 import { useVendors, VENDOR_CODE_PATTERN } from '../../hooks/useVendors.js';
 import { SettingsCard, NameEditor } from './SettingsCard.jsx';
@@ -100,7 +101,7 @@ export default function VendorsSettings() {
         </form>
       )}
     >
-      {loading && <div className="loading">Loading…</div>}
+      {loading && <SkeletonTable rows={4} label="Loading…" />}
       {error && <p className="error">{error}</p>}
       {!loading && !error && vendors.length === 0 && (
         <p className="muted">No vendors yet. Add the first one above.</p>

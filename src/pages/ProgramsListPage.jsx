@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonCards } from '../components/Skeleton.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
@@ -63,7 +64,7 @@ export default function ProgramsListPage() {
           </form>
         </section>
 
-        {loading && <div className="loading">Loading…</div>}
+        {loading && <SkeletonCards count={6} label="Loading programs…" />}
         {error && <p className="error">{error}</p>}
         {!loading && !error && programs.length === 0 && (
           <p className="muted">No programs yet. Create the first one above.</p>

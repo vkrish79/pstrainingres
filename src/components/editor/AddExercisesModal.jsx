@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { SkeletonLines } from '../Skeleton.jsx';
 import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
@@ -158,7 +159,7 @@ export default function AddExercisesModal({
             </p>
           )}
 
-          {loadingSrc && <div className="loading">Loading…</div>}
+          {loadingSrc && <SkeletonLines rows={4} label="Loading exercises…" />}
 
           {!loadingSrc && sourceId && sections.length === 0 && (
             <p className="muted">This {label} has no exercises.</p>

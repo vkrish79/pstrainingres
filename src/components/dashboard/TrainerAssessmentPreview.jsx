@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { SkeletonLines } from '../Skeleton.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import Block from '../blocks/Block.jsx';
@@ -79,7 +80,7 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
   }
-  if (loading) return <div className="loading">Loading assessment…</div>;
+  if (loading) return <SkeletonLines rows={6} label="Loading assessment…" />;
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
   if (!assessment) return <div className="muted" style={{ padding: '1rem' }}>Assessment unavailable.</div>;
 

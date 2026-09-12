@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { SkeletonPage } from '../components/Skeleton.jsx';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -138,7 +139,7 @@ export default function AssessmentEditorPage() {
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  if (loading) return <><TopBar /><div className="loading">Loading assessment…</div></>;
+  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading assessment…" /></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
 
   const { questions: qList } = buildQuestions(sections, blocks);

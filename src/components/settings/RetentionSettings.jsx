@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonTable } from '../Skeleton.jsx';
 import { useRetention } from '../../hooks/useRetention.js';
 
 // Settings → Data retention. How long closed-session detail is kept before the
@@ -75,7 +76,7 @@ export default function RetentionSettings() {
       </div>
 
       {error && <p className="error">{error}</p>}
-      {!data && !error && <div className="loading">Loading…</div>}
+      {!data && !error && <SkeletonTable rows={3} label="Loading retention settings…" />}
 
       {data && (
         <>

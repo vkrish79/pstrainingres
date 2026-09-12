@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SkeletonCards } from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove } from '../lib/roles.js';
@@ -52,6 +53,7 @@ function SuperHome({ userId }) {
 
   return (
     <>
+      {msl && <SkeletonCards count={6} label="Loading sessions…" />}
       {error && <div className="error">{error}</div>}
       {/* With no sessions there is no filter row, so the action has to be
           drawn here or there is no way to make the first one. */}
@@ -88,7 +90,7 @@ function VendorManagerHome({ userId }) {
 
   return (
     <>
-      {sl && <div className="loading">Loading…</div>}
+      {sl && <SkeletonCards count={6} label="Loading sessions…" />}
       {error && <div className="error">{error}</div>}
       {!sl && !error && sessions.length === 0 && (
         <EmptySessions>No sessions in this vendor yet.</EmptySessions>
@@ -113,7 +115,7 @@ function VendorTrainerHome({ userId }) {
 
   return (
     <>
-      {sl && <div className="loading">Loading…</div>}
+      {sl && <SkeletonCards count={6} label="Loading sessions…" />}
       {error && <div className="error">{error}</div>}
       {!sl && !error && sessions.length === 0 && (
         <EmptySessions>You have no sessions yet.</EmptySessions>

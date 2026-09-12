@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -93,7 +94,7 @@ export default function WorkbookEditorPage() {
   const backTo = ownerSessionId ? `/trainer/sessions/${ownerSessionId}` : '/trainer/workbooks';
   const backLabel = ownerSessionId ? '← Back to session' : '← Back to Workbooks';
 
-  if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
+  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
 
   const title = titleDraft !== '' ? titleDraft : (workbook?.title || '');

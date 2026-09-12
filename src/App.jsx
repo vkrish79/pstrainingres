@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { SkeletonPage } from './components/Skeleton.jsx';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage.jsx';
 import JoinSessionLoginPage from './pages/JoinSessionLoginPage.jsx';
@@ -75,7 +76,7 @@ export default function App() {
       } />
       <Route path="/trainer/analytics" element={
         <ProtectedRoute role="trainer">
-          <Suspense fallback={<div className="loading" style={{ padding: '2rem' }}>Loading analytics…</div>}>
+          <Suspense fallback={<SkeletonPage body="cards" rows={4} label="Loading analytics…" />}>
             <AnalyticsPage />
           </Suspense>
         </ProtectedRoute>

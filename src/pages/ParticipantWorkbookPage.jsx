@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
@@ -287,7 +288,7 @@ export default function ParticipantWorkbookPage() {
     return <QuizParticipant runId={quizRunId} onDismiss={() => setQuizDismissed(quizRunId)} />;
   }
 
-  if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
+  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
   if (error) {
     return (
       <>

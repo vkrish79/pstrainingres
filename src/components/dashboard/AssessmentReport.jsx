@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { SkeletonTable } from '../Skeleton.jsx';
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
 import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
@@ -87,7 +88,7 @@ export function AssessmentReportView({
     });
   }, [recorded, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks]);
 
-  if (loading) return <div className="loading">Loading assessment report…</div>;
+  if (loading) return <SkeletonTable rows={6} label="Loading assessment report…" />;
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
   const marksError = notice;
 

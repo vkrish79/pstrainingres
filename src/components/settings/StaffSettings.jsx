@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { SkeletonTable } from '../Skeleton.jsx';
 import { useStaff } from '../../hooks/useStaff.js';
 import { useVendors } from '../../hooks/useVendors.js';
 import { generateTempPassword } from '../../lib/passwords.js';
@@ -198,7 +199,7 @@ export default function StaffSettings() {
         </div>
       )}
 
-      {loading && <div className="loading">Loading…</div>}
+      {loading && <SkeletonTable rows={4} label="Loading…" />}
       {error && <p className="error">{error}</p>}
       {!loading && filtered.length === 0 && (
         <p className="muted">{staff.length === 0 ? 'No staff yet. Add the first one above.' : 'No staff match this filter.'}</p>

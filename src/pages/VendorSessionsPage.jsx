@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SkeletonCards } from '../components/Skeleton.jsx';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
@@ -44,7 +45,7 @@ export default function VendorSessionsPage() {
           </div>
         </section>
 
-        {sl && <div className="loading">Loading…</div>}
+        {sl && <SkeletonCards count={6} label="Loading sessions…" />}
         {error && <div className="error">{error}</div>}
         {!sl && !error && (
           <SessionViews

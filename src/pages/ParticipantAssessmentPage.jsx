@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useCountdown } from '../lib/assessmentTimer.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -67,7 +68,7 @@ export default function ParticipantAssessmentPage() {
     return null;
   }, [savingMap]);
 
-  if (loading) return <><TopBar /><div className="loading">Loading assessment…</div></>;
+  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading assessment…" /></>;
   if (error) {
     return (
       <>

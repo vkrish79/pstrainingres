@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SkeletonTable } from '../Skeleton.jsx';
 import { useCities, CITY_CODE_PATTERN } from '../../hooks/useCities.js';
 import { SettingsCard, OrderButtons, RowActions, NameEditor } from './SettingsCard.jsx';
 
@@ -85,7 +86,7 @@ export default function CitiesSettings() {
         </form>
       )}
     >
-      {loading && <div className="loading">Loading…</div>}
+      {loading && <SkeletonTable rows={4} label="Loading…" />}
       {error && <p className="error">{error}</p>}
       {!loading && !error && cities.length === 0 && (
         <p className="muted">No cities yet. Add the first one above.</p>
