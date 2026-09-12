@@ -140,6 +140,49 @@
 }
 .qlive-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 
+/* TWO options on the wall, which today means a true/false.
+   Four options fill the 2x2 grid and reach the bottom of the screen; two fill
+   only the top row and leave the wall two-thirds empty, with the answers a
+   thin strip under the question. So a two-option question grows into the space
+   instead — the same thing the handset already does, and for the same reason:
+   there are only two things to look at, so they should be the biggest things
+   on the screen.
+
+   The vote bar at the reveal stays anchored to the bottom of each block, so
+   this affects how big the answers are and nothing about what they say. */
+.qlive-opts-two {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-auto-rows: 1fr;
+  align-content: stretch;
+}
+.qlive-opts-two .qlive-opt {
+  justify-content: center;
+  gap: clamp(0.75rem, 2vw, 1.6rem);
+  font-size: clamp(1.3rem, 4vw, 3rem);
+}
+.qlive-opts-two .qlive-label { flex: 0 1 auto; }
+.qlive-opts-two .qlive-badge {
+  width: clamp(2.4rem, 6vw, 5rem);
+  height: clamp(2.4rem, 6vw, 5rem);
+  border-radius: 14px;
+}
+/* At the reveal the wording is centred in the block, which leaves the vote
+   count sitting immediately after it — "False 1" reads as part of the answer.
+   Pinned to the corner instead, where it is a tally and not a word. */
+.qlive-opts-two .qlive-votes {
+  position: absolute;
+  top: clamp(0.5rem, 1.5vw, 1rem);
+  right: clamp(0.75rem, 2vw, 1.4rem);
+  font-size: clamp(1.1rem, 2.6vw, 2rem);
+  opacity: 0.9;
+}
+@media (max-width: 640px) {
+  /* Overrides the one-column rule .qlive-opts takes on a narrow screen: with
+     two answers, side by side still fits and keeps both fully visible. */
+  .qlive-opts-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .qlive-pick { cursor: pointer; transition: transform 0.08s ease, opacity 0.2s ease; }
 .qlive-pick:hover:not(:disabled) { transform: translateY(-1px); }
 .qlive-pick:disabled { cursor: default; }

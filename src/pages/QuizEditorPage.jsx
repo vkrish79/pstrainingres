@@ -25,6 +25,10 @@ function whatsMissing(q) {
   if (q.kind === 'order') {
     return filled.length === q.quiz_options.length ? null : 'every step needs wording';
   }
+  // A true/false question has nothing that can be left blank below the
+  // statement: its two answers are the type's own words, written by the
+  // database, and one of them is always marked correct.
+  if (q.kind === 'boolean') return null;
   if (filled.length < 2) return 'needs at least two answers';
   const correct = q.quiz_options.find(o => o.is_correct);
   if (!correct || !correct.label.trim()) return 'the correct answer is blank';
@@ -116,6 +120,7 @@ function QuestionCard({ q, index, total, actions, onError }) {
       <header className="quiz-q-head">
         <span className="quiz-q-num">Q{index + 1}</span>
         {q.kind === 'order' && <span className="quiz-kind">Put in order</span>}
+        {q.kind === 'boolean' && <span className="quiz-kind">True or false</span>}
         {missing && <span className="quiz-q-flag" title="This question cannot be used yet">{missing}</span>}
         <div className="quiz-q-tools">
           <button type="button" className="ghost" title="Move up" disabled={index === 0}
@@ -176,6 +181,39 @@ function QuestionCard({ q, index, total, actions, onError }) {
               </li>
             ))}
           </ol>
+        </>
+      ) : q.kind === 'boolean' ? (
+        <>
+          <p className="muted quiz-q-hint">
+            Write a <strong>statement</strong> above, then mark whether it is true or false.
+            The two answers are fixed, so there is nothing else to fill in — the room sees them
+            on the projector as these two shapes.
+          </p>
+          <div className="quiz-opts quiz-opts-two">
+            {q.quiz_options.map((o, i) => (
+              <div key={o.id} className={`quiz-opt${o.is_correct ? ' is-correct' : ''}`}>
+                <label
+                  className="quiz-opt-pick"
+                  title={o.is_correct
+                    ? `The statement is ${o.label.toLowerCase()}`
+                    : `Mark the statement as ${o.label.toLowerCase()}`}
+                >
+                  <input
+                    type="radio"
+                    name={`correct-${q.id}`}
+                    checked={o.is_correct}
+                    onChange={() => call(() => actions.setCorrect(q.id, o.id))}
+                  />
+                  <span className={`quiz-opt-badge s${i}`}><QuizShape index={i} /></span>
+                </label>
+                {/* Text, not an input. A true/false question whose words a
+                    trainer can retype is a two-option choice question wearing
+                    a different hat — and one typed as "Flase" is live in a
+                    room before anybody notices. */}
+                <span className="quiz-opt-fixed">{o.label}</span>
+              </div>
+            ))}
+          </div>
         </>
       ) : (
         <>
@@ -278,7 +316,8 @@ export default function QuizEditorPage() {
             {questions.length === 0 && (
               <p className="muted">
                 No questions yet. A question has four answers and a timer — or make it a
-                "put in order" question, where the room arranges four steps into a sequence.
+                "put in order" question, where the room arranges four steps into a sequence,
+                or a true/false, which is one statement and two big shapes.
                 Participants see the answers but never which is correct.
               </p>
             )}
@@ -307,6 +346,13 @@ export default function QuizEditorPage() {
                 onClick={async () => { const { error: e } = await editor.addQuestion('order'); if (e) setRowError(e.message); }}
               >
                 + Add "put in order"
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={async () => { const { error: e } = await editor.addQuestion('boolean'); if (e) setRowError(e.message); }}
+              >
+                + Add true/false
               </button>
             </div>
           </>

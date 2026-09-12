@@ -141,7 +141,22 @@
 .quiz-opt-badge.s2 { background: #2f7d52; }
 .quiz-opt-badge.s3 { background: #6a4b9c; }
 
-.quiz-add { margin: 0.25rem 0 2rem; }
+/* True/false: two rows, and they keep the two-column grid rather than
+   stretching across the card. Two half-width rows read as a pair to choose
+   between; two full-width ones read as the start of a list of four. */
+.quiz-opts-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* The answer words, which are the type's own and cannot be edited. Sized and
+   weighted like the text in the input beside it on a choice question, so the
+   row does not look like it failed to load an input. */
+.quiz-opt-fixed {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.15rem;
+  font-weight: 600;
+}
+
+.quiz-add { margin: 0.25rem 0 2rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* ── The Quiz tab on a session ──────────────────────────────────────────── */
 

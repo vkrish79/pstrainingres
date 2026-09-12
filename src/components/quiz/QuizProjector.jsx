@@ -275,7 +275,9 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
           {run?.kind === 'order' && (
             <p className="qlive-instruction">Tap the shapes in the right order</p>
           )}
-          <ul className={`qlive-opts${run?.kind === 'order' ? ' qlive-opts-list' : ''}`}>
+          {/* Keyed off the option COUNT rather than the kind: what makes the
+              wall look empty is two answers, whatever type produced them. */}
+          <ul className={`qlive-opts${run?.kind === 'order' ? ' qlive-opts-list' : ''}${(run?.options ?? []).length === 2 ? ' qlive-opts-two' : ''}`}>
             {(run?.options ?? []).map((o, i) => (
               <li key={o.id} className={`qlive-opt qlive-opt-${i}`}>
                 <span className="qlive-badge"><QuizShape index={i} /></span>
@@ -333,7 +335,7 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
               </ol>
             </>
           ) : (
-          <ul className="qlive-opts qlive-opts-reveal">
+          <ul className={`qlive-opts qlive-opts-reveal${reveal.length === 2 ? ' qlive-opts-two' : ''}`}>
             {reveal.map((o, i) => (
               <li key={o.option_id} className={`qlive-opt qlive-opt-${i}${o.is_correct ? ' is-right' : ' is-wrong'}`}>
                 <span className="qlive-badge"><QuizShape index={i} /></span>
