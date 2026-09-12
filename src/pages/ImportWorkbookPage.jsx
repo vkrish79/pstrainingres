@@ -94,7 +94,7 @@ export default function ImportWorkbookPage() {
       <main className="page editor">
         <section className="page-hero compact">
           <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
+            <Link to="/trainer/workbooks" className="back-link">&larr; Back to Workbooks</Link>
             <h1>Import workbook from Word</h1>
             <p>Author the workbook in Word using the conventions below, then upload the .docx file.</p>
           </div>

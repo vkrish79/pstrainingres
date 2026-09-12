@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -74,6 +74,25 @@ export default function WorkbookEditorPage() {
     bySection, byBlock, openSections, totalSections, refresh: refreshHeat,
   } = useWorkbookEditHeat(id, heatEnabled);
 
+  // Where "Back" goes. A workbook in the library belongs to the library; a
+  // SESSION's copy belongs to its session, and sending a trainer to the
+  // library from there drops them next to the master they did not just edit —
+  // the same trap the quiz editor avoids.
+  const [ownerSessionId, setOwnerSessionId] = useState(null);
+  useEffect(() => {
+    if (!workbook || workbook.is_template !== false) { setOwnerSessionId(null); return undefined; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('sessions').select('id').eq('workbook_id', workbook.id).limit(1).maybeSingle();
+      if (!cancelled) setOwnerSessionId(data?.id || null);
+    })();
+    return () => { cancelled = true; };
+  }, [workbook?.id, workbook?.is_template]);
+
+  const backTo = ownerSessionId ? `/trainer/sessions/${ownerSessionId}` : '/trainer/workbooks';
+  const backLabel = ownerSessionId ? '← Back to session' : '← Back to Workbooks';
+
   if (loading) return <><TopBar /><div className="loading">Loading workbook…</div></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
 
@@ -90,7 +109,7 @@ export default function WorkbookEditorPage() {
     setDelErr('');
     const { error: e } = await runBusy('Deleting workbook…', () => deleteWorkbook());
     if (e) { setDelErr(e.message); return; }
-    navigate('/trainer');
+    navigate('/trainer/workbooks');
   }
 
   const isTemplate = workbook?.is_template === true;
@@ -110,7 +129,7 @@ export default function WorkbookEditorPage() {
         <main className="page workbook">
           <section className="page-hero compact">
             <div className="page-hero-text">
-              <Link to="/trainer" className="back-link">&larr; Back</Link>
+              <Link to={backTo} className="back-link">{backLabel}</Link>
               <h1>{title || 'Untitled workbook'}</h1>
             </div>
           </section>
@@ -190,7 +209,7 @@ export default function WorkbookEditorPage() {
         <main className="page workbook">
           <section className="page-hero compact">
             <div className="page-hero-text">
-              <Link to="/trainer" className="back-link">&larr; Back</Link>
+              <Link to={backTo} className="back-link">{backLabel}</Link>
               <h1>{title || 'Untitled workbook'}</h1>
               <p>Session workbook — edit the wording of any exercise. Layout and answer fields are fixed; changes show to enrolled participants live.</p>
             </div>
@@ -207,7 +226,7 @@ export default function WorkbookEditorPage() {
       <main className={`page editor ${showPreview ? 'with-preview' : ''}`}>
         <section className="page-hero compact">
           <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
+            <Link to={backTo} className="back-link">{backLabel}</Link>
             <h1>Workbook editor</h1>
             <p>Edits broadcast live to enrolled participants. Their answers stay attached to stable block IDs, so renames and reorders don't lose data.</p>
             {/* The way in that needs no scrolling. Shown whenever this workbook

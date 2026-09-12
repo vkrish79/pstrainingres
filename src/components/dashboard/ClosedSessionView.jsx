@@ -228,7 +228,7 @@ export default function ClosedSessionView({ snapshot, liveAssessmentId = null, o
       <main className="page closed-session">
         <section className="page-hero compact">
           <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
+            <Link to="/trainer/archive" className="back-link">&larr; Back to Closed sessions</Link>
             <h1>
               {session?.name}
               {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}

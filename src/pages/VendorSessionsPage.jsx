@@ -35,7 +35,7 @@ export default function VendorSessionsPage() {
       <main className="page">
         <section className="page-hero compact">
           <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
+            <Link to="/trainer/settings?tab=vendors" className="back-link">&larr; Back to Vendors</Link>
             <h1>{vendor ? `${vendor.name} sessions` : 'Vendor sessions'}</h1>
             {vendor?.code && <p className="muted">Vendor code: {vendor.code}</p>}
           </div>

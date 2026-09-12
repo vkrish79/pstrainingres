@@ -51,7 +51,7 @@ export default function NewWorkbookPage() {
       <main className="page">
         <section className="page-hero compact">
           <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
+            <Link to="/trainer/workbooks" className="back-link">&larr; Back to Workbooks</Link>
             <h1>New workbook</h1>
             <p>Start blank, then add sections and blocks. Or <Link to="/trainer/workbooks/import">import a Word file</Link>.</p>
           </div>
