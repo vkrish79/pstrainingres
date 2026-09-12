@@ -787,13 +787,14 @@
 .exresp-tile-headbtn {
   flex: 1 1 auto; min-width: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-  padding: 0.7rem 0.95rem;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.7rem;
   background: transparent; border: none; color: inherit; text-align: left; cursor: pointer;
   font: inherit;
 }
 .exresp-tile-headbtn:hover { background: #eef2f7; }
 .exresp-tile-expand {
-  flex: 0 0 auto; align-self: center;
+  flex: 0 0 auto; align-self: flex-start; margin-top: 0.3rem;
   background: transparent; border: 1px solid transparent; color: var(--muted);
   font-size: 0.95rem; line-height: 1; padding: 0.3rem 0.55rem; margin-right: 0.5rem;
   border-radius: 6px; cursor: pointer;
@@ -854,11 +855,15 @@
    So: the header wraps, and the left side reserves enough width to stay
    readable. When the pills no longer fit beside a name, they drop to a second
    line instead of evicting it. */
-.exresp-tile-head { flex-wrap: wrap; }
-.exresp-tile-head-left { display: flex; align-items: center; gap: 0.5rem; min-width: 9rem; flex: 1 1 auto; }
+.exresp-tile-head { flex-wrap: nowrap; }
+.exresp-tile-head-left {
+  display: flex; align-items: center; gap: 0.4rem;
+  min-width: 0; flex: 1 1 auto;
+}
+.exresp-tile-name { white-space: nowrap; }
 .exresp-tile-head-right {
   display: flex; align-items: center; flex-wrap: wrap;
-  justify-content: flex-end; gap: 0.4rem; flex: 0 1 auto;
+  justify-content: flex-end; gap: 0.3rem; flex: 1 1 auto;
 }
 .exresp-chevron { color: var(--muted); font-size: 0.75rem; width: 12px; }
 .exresp-tile-meta { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
