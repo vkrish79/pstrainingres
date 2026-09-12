@@ -1,4 +1,29 @@
-.workbook { max-width: 900px; }
+/* THE WIDTH OF A WORKBOOK PAGE.
+   Two classes, not one, and deliberately so: this used to read
+   `.workbook { max-width: 900px }`, which has never once applied. It collides
+   with `.page { max-width: 1280px }` from index.css at equal specificity, and
+   index.css is imported last, so the 900 lost every time. The rule was dead
+   and read as though it were doing the job.
+
+   1280 is a reading width, and it was starving the thing this page actually
+   shows. A workbook exercise is mostly TABLES — sector/date/RBD/airline grids
+   the participant types into — and on a 1900px screen 310px was standing empty
+   down each side while those tables scrolled or wrapped.
+
+   Applies to all three pages that render workbook content — the participant's
+   workbook, their assessment, and the trainer's editor — because they show the
+   same exercises and should agree about how wide one is. */
+.page.workbook { max-width: 1700px; }
+
+/* Prose inside an exercise keeps a reading measure even when the page is wide.
+   Tables want the whole canvas; a paragraph 1300px wide is one nobody can find
+   the start of the next line in.
+
+   Capped on .wb-prose, which is the rich-text container and — checked in the
+   browser, not assumed — never holds a table: tables sit in their own
+   .wb-table-wrap beside it. So this widens the grids a participant types into
+   without stretching the paragraphs they read. */
+.page.workbook .wb-prose { max-width: 78ch; }
 
 .workbook .muted { color: var(--muted); margin: 0.25rem 0 0; font-size: 0.9rem; }
 
