@@ -134,12 +134,23 @@
 /* Prep drawer — narrow slide-in on the right that PUSHES the canvas (not an
    overlay). Narrow because prep values are short (a PNR / ticket number). */
 .prep-drawer {
+  /* HALF THE PAGE'S CONTENT WIDTH — the number the drawer's right edge is
+     measured in from. The drawer is position:fixed and is rendered OUTSIDE
+     <main>, so it cannot inherit this from .page; it has to be told.
+
+     Default is the 1280px page: 1280/2 - 1.5rem gutter = 616. The participant's
+     workbook is not that page any more — it is 1700 wide — and it says so
+     below, via the class it already carries for a different reason. Get this
+     wrong and the drawer opens ON TOP of the exercise tables, because it
+     positions itself against a page edge that is no longer where it thinks. */
+  --prep-page-half: 616px;
+
   position: fixed;
   /* Floating rounded card. Right edge tracks the page content's right edge
-     (.page is max-width 1280 + 1.5rem gutter, centered) rather than the raw
-     viewport edge, so the drawer doesn't spill past the sticky bar on wide
-     screens. Clamps to the 1.5rem gutter on narrower viewports. */
-  top: 60px; right: max(1.5rem, calc(50vw - 616px)); bottom: 12px;
+     rather than the raw viewport edge, so the drawer doesn't spill past the
+     sticky bar on wide screens. Clamps to the 1.5rem gutter on narrower
+     viewports, where the page fills the window anyway. */
+  top: 60px; right: max(1.5rem, calc(50vw - var(--prep-page-half))); bottom: 12px;
   width: min(218px, 100vw);
   background: var(--card, #fff);
   border: 1px solid var(--border);
@@ -147,7 +158,7 @@
   box-shadow: -8px 0 24px rgba(15, 22, 38, 0.08);
   /* Closed: slide fully off-screen — must clear the drawer's own width PLUS its
      right offset (which is no longer a flat 12px), or a sliver stays visible. */
-  transform: translateX(calc(100% + max(1.5rem, 50vw - 616px)));
+  transform: translateX(calc(100% + max(1.5rem, 50vw - var(--prep-page-half))));
   transition: transform 0.3s ease;
   /* Below the sticky TopBar (z-50) AND the sticky participant-actions bar
      (z-30) so the drawer slides UNDER them — like the exercise nav does —
@@ -193,6 +204,14 @@
      is kept in sync by the parent (scroll + resize + body ResizeObserver). */
   .prep-drawer.prep-drawer--track-page { top: var(--page-prep-top, 80px); }
 }
+
+/* The participant's workbook is the wide page (.page.workbook, max-width 1700),
+   so its drawer measures in from a different edge than the trainer's, which
+   still sits on the 1280 dashboard. 1700/2 - 1.5rem gutter = 826.
+   Outside the media query on purpose: the narrow-screen rules below make the
+   drawer a full-width bottom sheet, where both offsets clamp to the gutter and
+   this value stops mattering. */
+.prep-drawer.prep-drawer--track-page { --prep-page-half: 826px; }
 
 /* Narrow screens: bottom sheet; don't push. */
 @media (max-width: 899px) {
