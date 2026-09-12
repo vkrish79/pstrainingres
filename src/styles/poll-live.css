@@ -33,10 +33,22 @@
   fill: #fff;
 }
 
+/* Six answer identities. The first four are the quiz's, unchanged, so a blue
+   triangle means the same thing in both features.
+ *
+ * BE HONEST ABOUT WHAT COLOUR DOES HERE. Six categorical colours that are all
+ * mutually distinguishable do not exist in the lightness band a bar on this
+ * ground needs — checked against a validator rather than guessed, and the best
+ * available worst-pair is dE 11.5 for normal vision and about 4 for deutan.
+ * So at five and six answers the SHAPE is the identity and the colour is
+ * support, which is the whole reason the handset kept its shapes. The wall
+ * carries the written label as well, so nothing rests on colour alone. */
 .plive-opt-0 { --plive-c: #1f6fb2; background: var(--plive-c); }
 .plive-opt-1 { --plive-c: #b1512f; background: var(--plive-c); }
 .plive-opt-2 { --plive-c: #2f7d52; background: var(--plive-c); }
 .plive-opt-3 { --plive-c: #6a4b9c; background: var(--plive-c); }
+.plive-opt-4 { --plive-c: #bd3a72; background: var(--plive-c); }
+.plive-opt-5 { --plive-c: #8a8f1e; background: var(--plive-c); }
 
 .plive-stage {
   flex: 1 1 auto;
@@ -77,10 +89,12 @@
 /* Two answers get a column each and the full height — a 2x2 with two empty
    cells reads as two missing options rather than two deliberate ones. */
 .plive-picks-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; }
-/* Three fills the grid by letting the last one take the whole bottom row.
-   Left in its own half-width cell it sits beside a hole, which reads as a
-   fourth answer that failed to load rather than a poll with three. */
-.plive-picks-3 > :last-child { grid-column: 1 / -1; }
+/* Three and five fill the grid by letting the last one take the whole bottom
+   row. Left in its own half-width cell it sits beside a hole, which reads as a
+   missing answer that failed to load rather than a deliberate one. Four and six
+   divide evenly and need nothing. */
+.plive-picks-3 > :last-child,
+.plive-picks-5 > :last-child { grid-column: 1 / -1; }
 
 .plive-pick {
   border: none;
@@ -134,20 +148,31 @@
   text-wrap: balance;
 }
 
-.plive-bars {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.5rem, 2vh, 1.1rem);
-  flex: 0 1 auto;
+/* Rows are positioned by rank rather than stacked, so they can slide past one
+   another when the lead changes. The pitch has to be a single value both the
+   container height and every row's transform can be built from — hence the
+   variable; JS supplies only the slot number. */
+.plive {
+  --plive-bar: clamp(2rem, 4vw, 3.2rem);
+  --plive-gap: clamp(0.5rem, 2vh, 1.1rem);
+  --plive-row: calc(var(--plive-bar) + var(--plive-gap));
 }
+.plive-bars { position: relative; flex: 0 0 auto; }
 .plive-bar-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
   display: flex;
   align-items: center;
   gap: clamp(0.5rem, 1.5vw, 1rem);
+  /* Long enough to follow a bar overtaking another, short enough not to be
+     still moving when the next vote lands. */
+  transition: transform 0.55s cubic-bezier(0.22, 0.8, 0.28, 1);
 }
 .plive-badge {
   flex: 0 0 auto;
-  width: clamp(2rem, 4vw, 3.2rem);
+  width: var(--plive-bar);
   aspect-ratio: 1;
   border-radius: 10px;
   display: flex;
@@ -167,7 +192,7 @@
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  height: clamp(2rem, 4vw, 3.2rem);
+  height: var(--plive-bar);
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   overflow: hidden;

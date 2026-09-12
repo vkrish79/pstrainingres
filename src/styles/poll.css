@@ -13,6 +13,10 @@
 .poll-opt-1 { background: #b1512f; }
 .poll-opt-2 { background: #2f7d52; }
 .poll-opt-3 { background: #6a4b9c; }
+/* Slots 4 and 5 are poll-only — a quiz has four answers. See poll-live.css for
+   why colour stops being the identity once there are more than four. */
+.poll-opt-4 { background: #bd3a72; }
+.poll-opt-5 { background: #8a8f1e; }
 
 .poll-badge {
   flex: 0 0 auto;

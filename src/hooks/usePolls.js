@@ -12,10 +12,15 @@ import { supabase } from '../lib/supabase.js';
 // so this asks for what it wants and lets the database narrow it, rather than
 // filtering by role here where a mistake would be a security bug.
 
-// Answers are always carried as four slots, blanks included, so the editor can
-// render four inputs without inventing rows. The blanks are stripped when the
+// Answers are always carried as six slots, blanks included, so the editor can
+// render six inputs without inventing rows. The blanks are stripped when the
 // poll is fired (poll_fire), which is why nothing downstream ever sees a hole.
-export const POLL_SLOTS = 4;
+//
+// Six, not four: a five-point scale is the commonest thing a trainer asks a
+// room, and four cannot hold one. The ceiling is the room, not the schema —
+// slots 4 and 5 are the star and the plus, and the shapes after those are not
+// nameable at the back of a hall. See 20260921000004_polls_six_answers.sql.
+export const POLL_SLOTS = 6;
 const emptyOptions = () => Array(POLL_SLOTS).fill('');
 
 // Four slots in, four slots out, whatever the row actually holds. A poll saved

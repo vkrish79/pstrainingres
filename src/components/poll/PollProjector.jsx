@@ -41,11 +41,35 @@ function useJustGained(rows) {
 // in the room. On a wall at the back of a room what the trainer wants visible
 // is which way the room leaned; the exact figure is the number at the end of
 // the bar, which is precise and does not need a ruler.
+//
+//
+// THE BARS RE-ORDER AS VOTES LAND, leader first. This is only safe because the
+// SHAPE travels with its bar: a participant is told "hit the triangle", and the
+// triangle is still the triangle wherever it has moved to. If the handset ever
+// loses its shapes, this has to go with them.
+//
+// Ties keep the order they were written in, which is what stops two equal bars
+// swapping places on every redraw.
+//
+// One cost, accepted knowingly: the wall is the only place showing which shape
+// means which answer, so anybody still reading while the early votes land is
+// reading a moving target. It lands hardest on the slowest voter in the room.
+function rankOf(rows) {
+  const order = rows.map(r => r.option_index)
+    .sort((a, b) => {
+      const av = rows.find(r => r.option_index === a)?.votes ?? 0;
+      const bv = rows.find(r => r.option_index === b)?.votes ?? 0;
+      return bv - av || a - b;
+    });
+  return new Map(order.map((optionIndex, slot) => [optionIndex, slot]));
+}
+
 export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, busy }) {
   // Once voting shuts the numbers cannot move, and a closed poll sits on the
   // wall for as long as the discussion takes — so stop asking.
   const { rows, voted, people, most } = usePollCounts(run?.run_id, { live: run?.is_open });
   const gained = useJustGained(rows);
+  const rank = rankOf(rows);
 
   const width = (n) => {
     if (!n) return 0;
@@ -62,9 +86,15 @@ export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, b
       <div className="plive-wall">
         <h1 className="plive-question">{run?.question}</h1>
 
-        <div className="plive-bars">
+        {/* Height is set here because every row is taken out of the flow and
+            positioned by its rank — otherwise the container would collapse. */}
+        <div className="plive-bars" style={{ height: `calc(${rows.length} * var(--plive-row))` }}>
           {rows.map((r) => (
-            <div className="plive-bar-row" key={r.option_index}>
+            <div
+              className="plive-bar-row"
+              key={r.option_index}
+              style={{ transform: `translateY(calc(${rank.get(r.option_index) ?? 0} * var(--plive-row)))` }}
+            >
               <span
                 className={`plive-badge plive-opt-${r.option_index}`
                   + (gained.has(r.option_index) ? ' has-gained' : '')}
