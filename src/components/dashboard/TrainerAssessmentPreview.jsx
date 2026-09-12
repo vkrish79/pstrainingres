@@ -6,10 +6,15 @@ import WithdrawQuestion from '../WithdrawQuestion.jsx';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
 import { isWithdrawn, withdrawalOf, setQuestionWithdrawn } from '../../lib/questionWithdrawal.js';
 
-// The session's copy of the assessment, as the trainer sees it.
+// The session's copy of the assessment, as the trainer sees it — and can WORK.
 //
-// Read-only for CONTENT — answering is the participant's surface — but this is
-// where a question is WITHDRAWN. That is a session act by design: a trainer
+// The questions are live: the same Block components the participant answers on,
+// so a trainer can demonstrate the paper on the projector — type in a field,
+// drag the cards, match the pairs — before the room starts. Answers are held in
+// this component and nowhere else: nothing is written, nothing is scored, and
+// no participant sees them. Clearing is one button.
+//
+// This is also where a question is WITHDRAWN. That is a session act by design: a trainer
 // decides mid-course that a question is not working for the cohort in front of
 // them, and takes it out for that cohort only. The master keeps it for every
 // other session.
@@ -26,6 +31,10 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [busyId, setBusyId] = useState(null);
+  // The demonstration's own answers. Deliberately component state: a preview
+  // that wrote to assessment_answers would put the trainer's demo in the
+  // cohort's results.
+  const [demo, setDemo] = useState({});
   const [rowError, setRowError] = useState({});
 
   const load = useCallback(async () => {
@@ -87,6 +96,20 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
           This session's copy. You can withdraw a question from this cohort — it stays in the
           master for every other session, and what you withdraw is recorded in Session changes.
         </p>
+        <div className="preview-demo-note">
+          <span>
+            <strong>Try it as a participant would.</strong> Type, drag and match to demonstrate the
+            paper — nothing here is saved, scored, or seen by anyone.
+          </span>
+          <button
+            type="button"
+            className="ghost btn-sm"
+            onClick={() => setDemo({})}
+            disabled={Object.keys(demo).length === 0}
+          >
+            Clear answers
+          </button>
+        </div>
       </header>
 
       {questions.map(q => {
@@ -119,7 +142,14 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
                 {partLabelByBlockId[b.id] && (
                   <div className="wb-part-label">{partLabelByBlockId[b.id]}</div>
                 )}
-                <Block block={b} value={undefined} onChange={() => {}} readOnly />
+                {/* A withdrawn question is out of the paper, so it cannot be
+                    demonstrated either — it stays visible but inert. */}
+                <Block
+                  block={b}
+                  value={demo[b.id]}
+                  onChange={v => setDemo(prev => ({ ...prev, [b.id]: v }))}
+                  readOnly={withdrawn}
+                />
               </div>
             ))}
           </section>

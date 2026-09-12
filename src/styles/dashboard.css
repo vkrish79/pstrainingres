@@ -1165,6 +1165,14 @@
 .settings-edit .form-input { width: auto; min-width: 12rem; }
 .st-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
+/* Assessment → Preview: the trainer's own demonstration answers. */
+.preview-demo-note {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  flex-wrap: wrap; margin-top: 0.6rem;
+  background: #eef6f0; border: 1px solid #c9e3d2; border-radius: 8px;
+  padding: 0.5rem 0.75rem; font-size: 0.85rem; line-height: 1.45;
+}
+
 /* Settings → Data retention. */
 .ret-kept {
   background: #eef6f0; border: 1px solid #c9e3d2; border-radius: 8px;
