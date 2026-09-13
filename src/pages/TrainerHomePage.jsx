@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove } from '../lib/roles.js';
 import SessionViews from '../components/dashboard/SessionViews.jsx';
 import LowPrepBanner from '../components/dashboard/LowPrepBanner.jsx';
+import NewSessionDrawer from '../components/sessions/NewSessionDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
@@ -12,6 +13,23 @@ export default function TrainerHomePage() {
   const { profile, session: authSession } = useAuth();
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   const isManager = isVendorManagerOrAbove(profile?.role) && !isSuper;
+
+  // ?new=1 OPENS THE DRAWER, rather than a useState in this component.
+  //
+  // The URL is already where this page keeps its view and month, so the new
+  // session form living there too is the same idea rather than a second one.
+  // It also buys three things a boolean cannot: Back closes the drawer,
+  // "+ New session" stays a real link you can middle-click into a new tab, and
+  // the old /trainer/sessions/new bookmark still lands somewhere sensible.
+  const [params, setParams] = useSearchParams();
+  const newOpen = params.get('new') === '1';
+  // `replace` so a cancelled drawer does not leave a step in the history that
+  // Back walks straight back INTO.
+  function closeNew() {
+    const next = new URLSearchParams(params);
+    next.delete('new');
+    setParams(next, { replace: true });
+  }
 
   return (
     <>
@@ -25,6 +43,7 @@ export default function TrainerHomePage() {
         {isManager && <VendorManagerHome userId={authSession?.user.id} />}
         {!isSuper && !isManager && <VendorTrainerHome userId={authSession?.user.id} />}
       </main>
+      <NewSessionDrawer open={newOpen} onClose={closeNew} />
     </>
   );
 }
@@ -144,8 +163,15 @@ function VendorTrainerHome({ userId }) {
 // So the action moved into the filter row, where the other controls for this
 // list live, and the heading went with the block that was carrying it. What is
 // left above the list is exactly the things you can act on.
+// Still a Link, not a button: it opens the drawer by putting ?new=1 on the URL
+// this page is already reading, which keeps middle-click-into-a-new-tab working
+// and leaves Back as a way out. `replace={false}` is the default and is what
+// makes Back close the drawer rather than leave the page.
 function NewSessionLink() {
-  return <Link to="/trainer/sessions/new" className="primary-link">+ New session</Link>;
+  const [params] = useSearchParams();
+  const next = new URLSearchParams(params);
+  next.set('new', '1');
+  return <Link to={{ search: `?${next}` }} className="primary-link">+ New session</Link>;
 }
 
 // The empty state carries the action itself. The filter row is where it

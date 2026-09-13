@@ -1,0 +1,145 @@
+/* The new-session slide-over. Anchored right on desktop, rising from the
+   bottom on a phone — the same two shapes the notes drawer uses, because a
+   panel pinned to the right edge of a 390px screen is just a bad full screen.
+
+   The transition is on transform and opacity ONLY. Animating width, height or
+   `right` moves layout on every frame, which is what makes a slide-over feel
+   cheap on a laptop driving a projector. */
+
+.session-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 22, 38, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+  /* 200 is this app's modal layer (.material-modal-backdrop, the search
+     overlay, the quiz and poll surfaces all sit there). It has to be ABOVE the
+     sidenav's 60 — at 59 the backdrop covered the page but not the left nav, so
+     the nav stayed bright and clickable next to a modal drawer, and clicking it
+     navigated out from under the open form. */
+  z-index: 200;
+}
+.session-drawer-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.session-drawer {
+  position: fixed;
+  /* Below the app bar, so the where-you-are strip stays readable behind. The
+     shell owns that height — reading it from the variable means the drawer
+     follows the bar instead of drifting off it the next time it changes. */
+  top: var(--topbar-h, 61px); right: 0; bottom: 0;
+  width: min(520px, 100vw);
+  background: var(--card, #fff);
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 32px rgba(15, 22, 38, 0.12);
+  transform: translateX(100%);
+  /* `visibility` is what takes a closed drawer out of the tab order. It is
+     stepped, not eased, and delayed by the length of the slide so the panel is
+     still visible on the way OUT and gone the instant it lands. */
+  visibility: hidden;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.28s;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.session-drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0s;
+}
+
+@media (max-width: 640px) {
+  .session-drawer {
+    width: 100vw;
+    top: auto;
+    height: 92vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    border-radius: 14px 14px 0 0;
+    transform: translateY(100%);
+    box-shadow: 0 -12px 32px rgba(15, 22, 38, 0.16);
+  }
+  .session-drawer.open { transform: translateY(0); }
+}
+
+/* Somebody who has asked for less motion gets the panel without the travel —
+   it still appears and still dismisses, it just does not slide. */
+@media (prefers-reduced-motion: reduce) {
+  .session-drawer,
+  .session-drawer-backdrop { transition-duration: 0.01ms; }
+}
+
+.session-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: #fafbfd;
+  flex-shrink: 0;
+}
+.session-drawer-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--midnight);
+}
+.session-drawer-sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+  max-width: 42ch;
+}
+.session-drawer-head .icon-btn {
+  background: transparent;
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.1rem 0.55rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.session-drawer-head .icon-btn:hover { background: var(--border); }
+
+/* The only scrolling region. Head and foot stay put, so Create is reachable
+   without scrolling to the bottom of a form. */
+.session-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.1rem 1.25rem;
+}
+
+.session-drawer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: #fafbfd;
+  flex-shrink: 0;
+}
+.session-drawer-confirm {
+  margin-right: auto;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--midnight);
+}
+.session-drawer-foot .danger {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
+}
+.session-drawer-foot .danger:hover { background: #8f1d17; border-color: #8f1d17; }
+
+@media print {
+  .session-drawer,
+  .session-drawer-backdrop { display: none !important; }
+}

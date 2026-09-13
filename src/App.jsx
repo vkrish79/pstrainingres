@@ -12,7 +12,6 @@ import WorkbooksPage from './pages/WorkbooksPage.jsx';
 import ImportWorkbookPage from './pages/ImportWorkbookPage.jsx';
 import NewWorkbookPage from './pages/NewWorkbookPage.jsx';
 import SessionDashboardPage from './pages/SessionDashboardPage.jsx';
-import NewSessionPage from './pages/NewSessionPage.jsx';
 // Vendors and Staff are Settings tabs now; their old URLs redirect.
 import VendorSessionsPage from './pages/VendorSessionsPage.jsx';
 import ClosedSessionsPage from './pages/ClosedSessionsPage.jsx';
@@ -60,9 +59,10 @@ export default function App() {
       <Route path="/trainer/workbooks/:id" element={
         <ProtectedRoute role="trainer"><WorkbookEditorPage /></ProtectedRoute>
       } />
-      <Route path="/trainer/sessions/new" element={
-        <ProtectedRoute role="trainer"><NewSessionPage /></ProtectedRoute>
-      } />
+      {/* The new-session form is a slide-over on the sessions list now, not a
+          page of its own. This keeps every bookmark, old link and muscle-memory
+          URL working — it lands on the list with the drawer already open. */}
+      <Route path="/trainer/sessions/new" element={<Navigate to="/trainer?new=1" replace />} />
       <Route path="/trainer/sessions/:id" element={
         <ProtectedRoute role="trainer"><SessionDashboardPage /></ProtectedRoute>
       } />

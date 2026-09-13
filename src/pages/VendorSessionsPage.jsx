@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { SkeletonCards } from '../components/Skeleton.jsx';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { supabase } from '../lib/supabase.js';
 import SessionViews from '../components/dashboard/SessionViews.jsx';
+import NewSessionDrawer from '../components/sessions/NewSessionDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 
@@ -17,6 +18,21 @@ export default function VendorSessionsPage() {
     authSession?.user.id, 'vendor', vendorId,
   );
   const [vendor, setVendor] = useState(null);
+
+  // Same ?new=1 contract as the trainer home, so the drawer behaves identically
+  // wherever the button is — including Back closing it.
+  const [params, setParams] = useSearchParams();
+  const newOpen = params.get('new') === '1';
+  const openSearch = (() => {
+    const next = new URLSearchParams(params);
+    next.set('new', '1');
+    return `?${next}`;
+  })();
+  function closeNew() {
+    const next = new URLSearchParams(params);
+    next.delete('new');
+    setParams(next, { replace: true });
+  }
 
   useEffect(() => {
     if (!vendorId) return;
@@ -41,7 +57,7 @@ export default function VendorSessionsPage() {
             {vendor?.code && <p className="muted">Vendor code: {vendor.code}</p>}
           </div>
           <div className="page-hero-actions">
-            <Link to="/trainer/sessions/new">+ New session</Link>
+            <Link to={{ search: openSearch }}>+ New session</Link>
           </div>
         </section>
 
@@ -55,6 +71,7 @@ export default function VendorSessionsPage() {
           />
         )}
       </main>
+      <NewSessionDrawer open={newOpen} onClose={closeNew} />
     </>
   );
 }
