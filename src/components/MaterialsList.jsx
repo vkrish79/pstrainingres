@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
 
 const KIND_LABEL = { handout: 'Handout', quick_ref: 'Quick ref' };
@@ -51,7 +52,10 @@ export default function MaterialsList({ materials, signedUrlFor, loading, title 
 
   return (
     <section className="materials-list">
-      <h3 className="materials-list-title">{title}</h3>
+      {/* Empty title = the container already names this list (the handouts
+          drawer's own header does), and an empty h3 leaves a heading-shaped
+          gap above the thumbnails. */}
+      {title && <h3 className="materials-list-title">{title}</h3>}
       {error && <p className="form-error">{error}</p>}
       <ul className="materials-thumbs">
         {sorted.map(m => (
@@ -82,7 +86,14 @@ export default function MaterialsList({ materials, signedUrlFor, loading, title 
         ))}
       </ul>
 
-      {open && (
+      {/* PORTALLED TO THE BODY, and it has to be.
+          This list now also renders inside the handouts drawer, and that drawer
+          slides with a transform. A transformed ancestor becomes the containing
+          block for position:fixed descendants — so left where it was, the
+          full-screen preview would be positioned against a 420px panel and then
+          clipped by its overflow:hidden. Nothing about the trainer's page
+          changes; a fixed overlay belongs on the body either way. */}
+      {open && createPortal((
         <div className="material-modal-backdrop" onClick={close} role="presentation">
           <div className="material-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={open.title}>
             <div className="material-modal-head">
@@ -97,7 +108,7 @@ export default function MaterialsList({ materials, signedUrlFor, loading, title 
             <iframe className="material-modal-frame" src={url} title={open.title} />
           </div>
         </div>
-      )}
+      ), document.body)}
     </section>
   );
 }

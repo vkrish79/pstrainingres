@@ -1644,6 +1644,86 @@
 .confirm-list li { margin: 0.3rem 0; line-height: 1.45; }
 
 /* Program materials thumbnails (shared by participant + trainer views) */
+/* ===== Handouts drawer (participant workbook) =====
+   The materials band used to run full-width above the paper: one thumbnail and
+   ~1,250px of empty row beside it, costing 175px of every first screen so a
+   handout could be seen once. It is a drawer now, opened from the same row as
+   Notes and Prep — which were already drawers. Nothing about the list itself
+   changed; MaterialsList is reused whole and only the container is new. */
+.materials-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 22, 38, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+  /* Above the sidenav (60), on the app's modal layer — a backdrop under the
+     nav leaves it bright and clickable beside a modal panel. */
+  z-index: 200;
+}
+.materials-drawer-backdrop.visible { opacity: 1; pointer-events: auto; }
+
+.materials-drawer {
+  position: fixed;
+  top: var(--topbar-h, 61px); right: 0; bottom: 0;
+  width: min(420px, 100vw);
+  background: var(--card, #fff);
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 32px rgba(15, 22, 38, 0.12);
+  transform: translateX(100%);
+  /* Stepped visibility, delayed by the slide, so a closed drawer is out of the
+     tab order rather than parked off-screen collecting focus. */
+  visibility: hidden;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.28s;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.materials-drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0s;
+}
+@media (max-width: 600px) {
+  .materials-drawer {
+    width: 100vw; top: auto; height: 85vh;
+    border-left: none; border-top: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    transform: translateY(100%);
+  }
+  .materials-drawer.open { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .materials-drawer, .materials-drawer-backdrop { transition-duration: 0.01ms; }
+}
+
+.materials-drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: #fafbfd;
+  font-size: 1.05rem; font-weight: 600; color: var(--midnight);
+  flex-shrink: 0;
+}
+.materials-drawer-head .icon-btn {
+  background: transparent; color: var(--text); font-size: 1.4rem;
+  border: none; padding: 0.1rem 0.6rem; border-radius: 4px; cursor: pointer;
+}
+.materials-drawer-head .icon-btn:hover { background: var(--border); }
+
+.materials-drawer-body { flex: 1; overflow-y: auto; padding: 0.9rem 1.25rem; }
+.materials-drawer-body .materials-list { margin: 0; }
+/* One per row in a 420px panel — the page grid would leave a lone tile in a
+   half-empty row. */
+.materials-drawer-body .materials-thumbs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.materials-drawer-body .material-thumb { width: 100%; }
+
+
 .materials-list { margin: 1rem 0; }
 .materials-list-title { margin: 0 0 0.5rem; font-size: 0.95rem; }
 .materials-thumbs {
@@ -1716,7 +1796,10 @@
   position: fixed; inset: 0;
   background: rgba(15, 22, 38, 0.55);
   display: flex; align-items: center; justify-content: center;
-  z-index: 200;
+  /* 260, not 200: this preview is opened FROM the handouts drawer, which sits
+     at 201. At the modal layer's usual 200 it opened UNDERNEATH the drawer that
+     launched it. */
+  z-index: 260;
   padding: 2rem;
 }
 .material-modal {

@@ -14,7 +14,7 @@ import { progressOf } from '../lib/blockHelpers.js';
 import { useJustCompleted } from '../hooks/useJustCompleted.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
-import MaterialsList from '../components/MaterialsList.jsx';
+import MaterialsDrawer from '../components/participant/MaterialsDrawer.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
 import PollParticipant from '../components/poll/PollParticipant.jsx';
@@ -62,6 +62,7 @@ export default function ParticipantWorkbookPage() {
   const [exFilter, setExFilter] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
 
   // Live presence: tell the trainer which exercise this participant is looking
   // at. The fill view defaults to one scrolling page (`__all__`), so the
@@ -369,12 +370,6 @@ export default function ParticipantWorkbookPage() {
           </div>
         </section>
 
-        <MaterialsList
-          materials={materials}
-          signedUrlFor={materialUrlFor}
-          loading={materialsLoading}
-        />
-
         <div className="participant-actions-bar no-print" ref={actionsBarRef}>
           {overallStatus && (
             <span className={`wb-save-indicator ${overallStatus}`}>
@@ -397,6 +392,22 @@ export default function ParticipantWorkbookPage() {
           >
             🎯 Prep{prepCount > 0 ? ` (${prepCount})` : ''}
           </button>
+          {/* Only when this program HAS handouts. A button that opens an empty
+              drawer is a promise of something to read that does not exist, and
+              most programs carry none.
+              `!materialsLoading` matters as much as the count: without it the
+              button pops into a row the participant may already be reaching
+              for, moving Assessment and Print out from under the cursor. */}
+          {!materialsLoading && materials.length > 0 && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => setMaterialsOpen(true)}
+              title="Handouts and quick references for this program"
+            >
+              📎 Handouts ({materials.length})
+            </button>
+          )}
           {session?.assessment_id && (
             <button
               type="button"
@@ -622,6 +633,14 @@ export default function ParticipantWorkbookPage() {
           </div>
         </div>
       </main>
+      <MaterialsDrawer
+        open={materialsOpen}
+        onClose={() => setMaterialsOpen(false)}
+        materials={materials}
+        signedUrlFor={materialUrlFor}
+        loading={materialsLoading}
+      />
+
       <NotesDrawer
         open={notesOpen}
         onClose={() => setNotesOpen(false)}
