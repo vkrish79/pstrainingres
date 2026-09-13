@@ -6,13 +6,19 @@
    `right` moves layout on every frame, which is what makes a slide-over feel
    cheap on a laptop driving a projector. */
 
+/* ONE duration for the whole drawer. The panel, the backdrop's fade and the
+   visibility step all have to agree — if visibility lands early the panel
+   disappears mid-slide, and if it lands late a closed drawer keeps catching
+   Tab. Changing the feel is changing this number, and nothing else. */
+:root { --session-drawer-ms: 420ms; }
+
 .session-drawer-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(15, 22, 38, 0.28);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.28s ease;
+  transition: opacity var(--session-drawer-ms) ease;
   /* 200 is this app's modal layer (.material-modal-backdrop, the search
      overlay, the quiz and poll surfaces all sit there). It has to be ABOVE the
      sidenav's 60 — at 59 the backdrop covered the page but not the left nav, so
@@ -40,7 +46,9 @@
      stepped, not eased, and delayed by the length of the slide so the panel is
      still visible on the way OUT and gone the instant it lands. */
   visibility: hidden;
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.28s;
+  transition:
+    transform var(--session-drawer-ms) cubic-bezier(0.32, 0.72, 0, 1),
+    visibility 0s linear var(--session-drawer-ms);
   z-index: 201;
   display: flex;
   flex-direction: column;
@@ -49,7 +57,9 @@
 .session-drawer.open {
   transform: translateX(0);
   visibility: visible;
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0s;
+  transition:
+    transform var(--session-drawer-ms) cubic-bezier(0.32, 0.72, 0, 1),
+    visibility 0s linear 0s;
 }
 
 @media (max-width: 640px) {

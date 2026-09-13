@@ -109,13 +109,20 @@ export default function NewSessionDrawer({ open, onClose }) {
   // abandoned one. Deferred past the slide-out: clearing immediately empties
   // the fields while the panel is still on screen, and the trainer watches
   // their own typing disappear on the way out.
+  //
+  // Must stay LONGER than --session-drawer-ms in session-drawer.css. Read from
+  // the variable rather than copied, so slowing the slide down cannot leave
+  // this behind — which would put the wipe back on screen.
   useEffect(() => {
     if (open) return undefined;
+    const ms = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--session-drawer-ms'),
+    ) || 420;
     const t = setTimeout(() => {
       setName(''); setStartsAt(''); setEndsAt(''); setCityCode('');
       setVendorId(''); setTrainerId(''); setSuperSelfDeliver(true);
       setError(''); setConfirmDiscard(false);
-    }, 300);
+    }, ms + 80);
     return () => clearTimeout(t);
   }, [open]);
 
