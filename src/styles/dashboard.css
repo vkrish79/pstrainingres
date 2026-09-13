@@ -562,6 +562,39 @@
 .exresp-sidebar-bar.full .exresp-sidebar-bar-fill { background: #6dbf85; }
 .exresp-sidebar-meta { font-size: 0.7rem; color: var(--muted); }
 
+/* "You are here" while reading All exercises.
+   DELIBERATELY NOT the gold of .active. Gold in this rail already means two
+   things — a selected exercise and a chapter banner — and a third gold state
+   would be indistinguishable from both. This is a cool marker with a dot, so
+   "where I am" and "what I picked" never look like the same claim. */
+.exresp-sidebar-item.is-here {
+  background: #f2f6fb;
+  box-shadow: inset 3px 0 0 #5680c5;
+}
+.exresp-sidebar-item.is-here .exresp-sidebar-title {
+  color: var(--midnight);
+  font-weight: 600;
+}
+/* Picked AND scrolled-to: the selection wins the fill, the marker keeps its
+   dot, so neither state has to be guessed at. */
+.exresp-sidebar-item.active.is-here { background: #fffaf0; }
+
+/* A chapter banner can be where you are too — the book opens on one. Its gold
+   edge turns to the marker's blue rather than gaining a second edge beside it.
+   Doubled class for the same specificity reason as the rules above. */
+.exresp-sidebar-group.exresp-sidebar-group.is-here { border-left-color: #5680c5; }
+.exresp-sidebar-group.is-here::before,
+.exresp-sidebar-item.is-here .exresp-sidebar-title::before {
+  content: "";
+  display: inline-block;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #5680c5;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
 /* Group-section divider in the sidebar — bold, tinted, and visually anchored
    to the exercises that follow it. Clickable (jumps to the banner) but no
    progress bar (group sections hold no fillable blocks).

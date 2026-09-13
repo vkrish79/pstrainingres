@@ -286,6 +286,25 @@ export default function ParticipantWorkbookPage() {
     return () => observer.disconnect();
   }, [loading, selectedSectionId, sections]);
 
+  // Keep the "you are here" row visible IN THE RAIL as the page scrolls.
+  //
+  // The rail is 85 entries with its own scrollbar, so marking the current
+  // exercise is only half of it — the mark lands on a row nobody can see, and
+  // the rail reads as though it has stopped following.
+  //
+  // Nudges the rail's own scrollTop rather than calling scrollIntoView, which
+  // would scroll the PAGE and fight the scroll that moved the marker.
+  useEffect(() => {
+    if (selectedSectionId !== ALL_KEY || !currentSectionId) return;
+    const rail = sidebarRef.current;
+    const item = rail?.querySelector(`[data-nav-id="${currentSectionId}"]`);
+    if (!rail || !item) return;
+    const r = rail.getBoundingClientRect();
+    const i = item.getBoundingClientRect();
+    if (i.top < r.top + 8) rail.scrollTop -= (r.top + 8 - i.top);
+    else if (i.bottom > r.bottom - 8) rail.scrollTop += (i.bottom - (r.bottom - 8));
+  }, [currentSectionId, selectedSectionId]);
+
   // Above the loading gate: once a quiz is running it IS the screen, and a
   // participant who reloads mid-quiz must land back in it rather than in a
   // workbook the room has moved on from. The dismiss check lives in quizRunId
@@ -471,10 +490,18 @@ export default function ParticipantWorkbookPage() {
                   // Click jumps to the banner in the "All" view rather than
                   // filtering to just the group (which would show an empty
                   // page — groups carry no exercise blocks of their own).
+                  //
+                  // Chapters get the here-marker too. The book OPENS on a
+                  // chapter (Cover), so without this the rail is blank about
+                  // position for exactly the first screens a participant sees,
+                  // which is the moment the marker exists for.
+                  const groupHere = selectedSectionId === ALL_KEY && currentSectionId === s.id;
                   return (
                     <li key={s.id} className="exresp-sidebar-group-li">
                       <button
-                        className="exresp-sidebar-group"
+                        className={`exresp-sidebar-group ${groupHere ? 'is-here' : ''}`}
+                        data-nav-id={s.id}
+                        aria-current={groupHere ? 'true' : undefined}
                         onClick={() => {
                           setSelectedSectionId(ALL_KEY);
                           requestAnimationFrame(() => {
@@ -491,11 +518,24 @@ export default function ParticipantWorkbookPage() {
                 }
                 const barClass = s.pct === 0 ? 'none' : s.pct === 100 ? 'full' : 'partial';
                 const isActive = selectedSectionId === s.id;
+                // WHERE THEY ARE, as opposed to what they picked.
+                //
+                // "All exercises" is the view this page opens on, and in it
+                // nothing was ever highlighted: isActive compares against
+                // selectedSectionId, which is ALL_KEY, so no row matched. On a
+                // book this long that leaves the rail saying nothing about a
+                // scroll position it already knows — the scroll-spy above has
+                // been computing currentSectionId all along and sending it to
+                // the TRAINER's "On now" column. The participant was the one
+                // person who could not see it.
+                const isHere = selectedSectionId === ALL_KEY && currentSectionId === s.id;
                 const noteWords = notesByCount[s.id] || 0;
                 return (
                   <li key={s.id}>
                     <button
-                      className={`exresp-sidebar-item ${isActive ? 'active' : ''}`}
+                      className={`exresp-sidebar-item ${isActive ? 'active' : ''} ${isHere ? 'is-here' : ''}`}
+                      data-nav-id={s.id}
+                      aria-current={isHere || isActive ? 'true' : undefined}
                       onClick={() => setSelectedSectionId(s.id)}
                     >
                       <div className="exresp-sidebar-row">
