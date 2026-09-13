@@ -8,6 +8,23 @@ import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
 import PollProjector from '../poll/PollProjector.jsx';
 import '../../styles/poll.css';
 
+// When a past poll was asked, in the SAME shape as the session's own dates
+// two inches up the page — "13 Sept 2026, 16:42", day first.
+//
+// en-GB and 24h are pinned rather than left to the browser. ChangeEntry's
+// formatWhen passes `undefined` for the locale, which on this machine renders
+// "Sep 13, 2026, 04:42 PM" — correct, and jarringly not what the session header
+// directly above it says. sessionDates.js exists because there were seven
+// disagreeing copies of a date formatter in here; this is not becoming the
+// eighth disagreement.
+function formatAskedAt(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
 // The Polls tab on a session.
 //
 // There is NO attach step, deliberately unlike the quiz. A session reads the
@@ -163,7 +180,20 @@ export default function SessionPolls({ sessionId }) {
               const tally = r.tally && typeof r.tally === 'object' ? r.tally : {};
               return (
                 <li key={r.id} className="poll-past-row">
-                  <span className="poll-past-q">{r.question}</span>
+                  <div className="poll-past-head">
+                    <span className="poll-past-q">{r.question}</span>
+                    {/* WHEN it was asked, not when it was taken down. A result
+                        without a time is just a number; with one it can be put
+                        against what was being taught at that point in the day,
+                        which is the only reason to keep looking at it after the
+                        room has moved on. A session can run over several days,
+                        so the date is as load-bearing as the clock. */}
+                    {r.opened_at && (
+                      <time className="poll-past-when" dateTime={r.opened_at}>
+                        {formatAskedAt(r.opened_at)}
+                      </time>
+                    )}
+                  </div>
                   <span className="poll-past-counts">
                     {opts.map((label, i) => (
                       <span className="poll-past-chip" key={i}>

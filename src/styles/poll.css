@@ -156,6 +156,23 @@
 
 .poll-past-row { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
 .poll-past-q { font-weight: 600; overflow-wrap: anywhere; }
+/* The question and its timestamp on one line, the time pushed right and
+   allowed to drop under the question on a narrow screen rather than squeezing
+   it. Kept out of .poll-past-counts so the result reads as one row of chips. */
+.poll-past-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.poll-past-when {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex: none;
+}
 .poll-past-counts { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 .poll-past-chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
 .poll-chip-dot {
