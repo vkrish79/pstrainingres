@@ -1166,12 +1166,39 @@
 .st-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* Assessment → Preview: the trainer's own demonstration answers. */
-.preview-demo-note {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  flex-wrap: wrap; margin-top: 0.6rem;
-  background: #eef6f0; border: 1px solid #c9e3d2; border-radius: 8px;
-  padding: 0.5rem 0.75rem; font-size: 0.85rem; line-height: 1.45;
+/* ===== Trainer assessment preview — question rail =====
+   The banner that used to sit here ("Try it as a participant would…") is gone.
+   It explained a thing the screen already demonstrates the moment a trainer
+   types in a field, and it cost a green box across the top of every paper.
+   Clear answers moved into the rail, where the demo answers are its subject. */
+.tap-nav .exresp-sidebar-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
 }
+.tap-nav-count {
+  font-size: 0.7rem; font-weight: 600; color: var(--muted);
+  background: #f0f4fa; padding: 0.05rem 0.4rem; border-radius: 999px;
+  letter-spacing: 0;
+}
+.tap-nav .exresp-sidebar-item { flex-direction: column; align-items: stretch; gap: 0.15rem; }
+.tap-nav-withdrawn { text-decoration: line-through; color: var(--muted); }
+.tap-nav-tag {
+  flex: none;
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #8a5a00; background: #fdf0d5; border: 1px solid #f0dcae;
+  padding: 0.02rem 0.35rem; border-radius: 4px;
+}
+.tap-nav-parts { font-size: 0.72rem; color: var(--muted); }
+.tap-nav-foot {
+  display: flex; flex-direction: column; align-items: stretch; gap: 0.45rem;
+  padding: 0.7rem 0.8rem;
+  border-top: 1px solid var(--border);
+  background: #fafbfd;
+  position: sticky; bottom: 0;
+}
+.tap-nav-foot-note { margin: 0; font-size: 0.75rem; color: var(--muted); }
+
+/* Smooth-scrolled questions must not land under the sticky app bar. */
+.trainer-assessment-preview .wb-question { scroll-margin-top: 84px; }
 
 /* Settings → Data retention. */
 .ret-kept {

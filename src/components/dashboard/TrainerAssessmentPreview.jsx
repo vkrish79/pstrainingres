@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonLines } from '../Skeleton.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
@@ -60,6 +60,66 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Withdrawn questions stay in this list — a trainer must be able to see what
+  // they took out and put it back. Only the participant's copy loses them.
+  //
+  // Computed here rather than after the early returns below, because the nav
+  // needs it and hooks cannot live under a conditional return.
+  const { questions, partLabelByBlockId } = useMemo(
+    () => buildQuestions(sections, blocks),
+    [sections, blocks],
+  );
+
+  // Which question the trainer is looking at, for the rail's highlight.
+  //
+  // Observed rather than set on click: a paper this long is mostly navigated by
+  // SCROLLING, and a rail that only updates when you click it starts lying the
+  // moment you touch the wheel. -45% at the bottom means "the question crossing
+  // the upper half of the screen", which is the one being read.
+  const [activeId, setActiveId] = useState(null);
+  const paperRef = useRef(null);
+  useEffect(() => {
+    if (loading || !questions.length) return undefined;
+    const seen = new Map();
+    const io = new IntersectionObserver(
+      entries => {
+        for (const e of entries) seen.set(e.target.dataset.sectionId, e.isIntersecting);
+        const first = questions.find(q => seen.get(q.section.id));
+        if (first) setActiveId(first.section.id);
+      },
+      { rootMargin: '-80px 0px -45% 0px', threshold: 0 },
+    );
+    const nodes = paperRef.current?.querySelectorAll('[data-section-id]') || [];
+    nodes.forEach(n => io.observe(n));
+    return () => io.disconnect();
+  }, [loading, questions]);
+
+  // Keep the highlighted question visible IN THE RAIL. On a 27-question paper
+  // the rail has its own scrollbar, so tracking the page scroll is only half
+  // the job — the highlight lands on a row nobody can see, and the rail looks
+  // like it has stopped following.
+  //
+  // Nudges rail.scrollTop by hand rather than calling scrollIntoView, which
+  // would also scroll the PAGE and fight the scroll that got us here.
+  const railRef = useRef(null);
+  useEffect(() => {
+    if (!activeId) return;
+    const rail = railRef.current;
+    const item = rail?.querySelector(`[data-nav-id="${activeId}"]`);
+    if (!rail || !item) return;
+    const r = rail.getBoundingClientRect();
+    const i = item.getBoundingClientRect();
+    if (i.top < r.top + 8) rail.scrollTop -= (r.top + 8 - i.top);
+    else if (i.bottom > r.bottom - 8) rail.scrollTop += (i.bottom - (r.bottom - 8));
+  }, [activeId]);
+
+  function jumpTo(sectionId) {
+    const el = paperRef.current?.querySelector(`[data-section-id="${sectionId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActiveId(sectionId);
+  }
+
   async function apply(sectionId, questionBlocks, withdrawn, reason) {
     setBusyId(sectionId);
     setRowError(prev => ({ ...prev, [sectionId]: null }));
@@ -84,9 +144,9 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
   if (!assessment) return <div className="muted" style={{ padding: '1rem' }}>Assessment unavailable.</div>;
 
-  // Withdrawn questions stay in this list — a trainer must be able to see what
-  // they took out and put it back. Only the participant's copy loses them.
-  const { questions, partLabelByBlockId } = buildQuestions(sections, blocks);
+  const withdrawnCount = questions.filter(
+    q => q.blocks.length > 0 && q.blocks.every(isWithdrawn),
+  ).length;
 
   return (
     <div className="trainer-assessment-preview">
@@ -97,22 +157,82 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
           This session's copy. You can withdraw a question from this cohort — it stays in the
           master for every other session, and what you withdraw is recorded in Session changes.
         </p>
-        <div className="preview-demo-note">
-          <span>
-            <strong>Try it as a participant would.</strong> Type, drag and match to demonstrate the
-            paper — nothing here is saved, scored, or seen by anyone.
-          </span>
-          <button
-            type="button"
-            className="ghost btn-sm"
-            onClick={() => setDemo({})}
-            disabled={Object.keys(demo).length === 0}
-          >
-            Clear answers
-          </button>
-        </div>
       </header>
 
+      {/* The same two-column shape as the workbook's exercise list, using its
+          classes rather than a second set that drifts from them. */}
+      <div className="exresp-layout">
+        <aside className="exresp-sidebar tap-nav" ref={railRef}>
+          <div className="exresp-sidebar-head">
+            Questions
+            <span className="tap-nav-count">{questions.length}</span>
+          </div>
+          <ul className="exresp-sidebar-list">
+            {questions.map(q => {
+              const withdrawn = q.blocks.length > 0 && q.blocks.every(isWithdrawn);
+              return (
+                <li key={q.section.id}>
+                  <button
+                    type="button"
+                    className={`exresp-sidebar-item ${activeId === q.section.id ? 'active' : ''}`}
+                    data-nav-id={q.section.id}
+                    onClick={() => jumpTo(q.section.id)}
+                    aria-current={activeId === q.section.id ? 'true' : undefined}
+                  >
+                    <div className="exresp-sidebar-row">
+                      <span className={`exresp-sidebar-title ${withdrawn ? 'tap-nav-withdrawn' : ''}`}>
+                        {q.heading}
+                      </span>
+                      {/* Withdrawn is the one thing about a question that a
+                          trainer needs to see WITHOUT scrolling to it — it is
+                          what they changed for this cohort. */}
+                      {withdrawn && <span className="tap-nav-tag">Withdrawn</span>}
+                    </div>
+                    {q.partCount > 1 && (
+                      <span className="tap-nav-parts">{q.partCount} parts</span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="tap-nav-foot">
+            {withdrawnCount > 0 && (
+              <p className="tap-nav-foot-note">
+                {withdrawnCount} withdrawn from this cohort
+              </p>
+            )}
+            {/* The demo answers are the trainer's, held in this component and
+                written nowhere — so the way to clear them belongs beside the
+                navigation, not in a banner over the paper. */}
+            <button
+              type="button"
+              className="ghost btn-sm"
+              onClick={() => setDemo({})}
+              disabled={Object.keys(demo).length === 0}
+            >
+              Clear answers
+            </button>
+          </div>
+        </aside>
+
+        {/* The rail is hidden under 800px by .exresp-sidebar, exactly as the
+            workbook's is, so a narrow screen needs its own way to jump. */}
+        <div className="exresp-mobile-nav">
+          <select
+            className="form-input"
+            value={activeId || ''}
+            onChange={e => jumpTo(e.target.value)}
+            aria-label="Jump to a question"
+          >
+            <option value="" disabled>Jump to a question…</option>
+            {questions.map(q => (
+              <option key={q.section.id} value={q.section.id}>{q.heading}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="exresp-main" ref={paperRef}>
       {questions.map(q => {
         const qBlocks = q.blocks;
         const withdrawn = qBlocks.length > 0 && qBlocks.every(isWithdrawn);
@@ -156,6 +276,8 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
           </section>
         );
       })}
+        </div>
+      </div>
     </div>
   );
 }
