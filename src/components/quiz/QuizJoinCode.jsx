@@ -12,10 +12,15 @@ import QRCode from 'qrcode';
 // phone, a camera that will not focus across a dark room, someone already
 // signed in on a laptop — and the six characters are the fallback that always
 // works.
-export default function QuizJoinCode({ joinCode }) {
+// TWO DESTINATIONS, and getting them the wrong way round is a room that cannot
+// join. /join is the participant SIGN-IN page — right for a session quiz, where
+// everyone has an account — and it would ask a standalone guest for a password
+// they have never had. /play is the name box. The caller knows which kind of
+// run it is; this component must not guess.
+export default function QuizJoinCode({ joinCode, guestRun = false }) {
   const canvasRef = useRef(null);
   const [failed, setFailed] = useState(false);
-  const url = `${window.location.origin}/join/${joinCode}`;
+  const url = `${window.location.origin}/${guestRun ? 'play' : 'join'}/${joinCode}`;
 
   useEffect(() => {
     if (!canvasRef.current || !joinCode) return;
@@ -38,7 +43,9 @@ export default function QuizJoinCode({ joinCode }) {
       {!failed && <canvas ref={canvasRef} className="qlive-qr" aria-label={`QR code to join at ${url}`} />}
       <div className="qlive-join-text">
         <span className="qlive-join-label">Join at</span>
-        <span className="qlive-join-url">{window.location.host}/join</span>
+        {/* The typed fallback has to match the QR, or the two halves of this
+            panel send people to different pages. */}
+        <span className="qlive-join-url">{window.location.host}/{guestRun ? 'play' : 'join'}</span>
         <span className="qlive-join-code">{joinCode}</span>
       </div>
     </div>

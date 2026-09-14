@@ -4,6 +4,7 @@ import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { ordinal } from '../../lib/ordinal.js';
 import { shapeFor } from '../../lib/quizShapes.js';
 import QuizShape from './QuizShape.jsx';
+import QuizPinField from './QuizPinField.jsx';
 import '../../styles/quiz-live.css';
 
 // What a participant sees on their own device: FOUR SHAPES. Nothing else.
@@ -23,7 +24,11 @@ import '../../styles/quiz-live.css';
 // say whether you were right. Correctness arrives at the reveal, for everyone
 // at once — telling an early answerer sooner lets them tell the person beside
 // them while the clock is still running.
-export default function QuizParticipant({ runId, onDismiss }) {
+// `guest` marks somebody who joined a standalone quiz by scanning a code.
+// They have no workbook to be sent back to, and by the time this screen is
+// drawn their account has already been deleted — so the ending is a full
+// stop rather than a door.
+export default function QuizParticipant({ runId, onDismiss, guest = false }) {
   const { run, secondsLeft, loading } = useQuizRun(runId);
   const [picked, setPicked] = useState(null);
   // What this participant is staking on a wager question. 1 unless they raise
@@ -31,6 +36,8 @@ export default function QuizParticipant({ runId, onDismiss }) {
   const [stake, setStake] = useState(1);
   // The sequence being built for a reorder question: option ids, in tap order.
   const [seq, setSeq] = useState([]);
+  // Where this person has put their pin, in the picture's own coordinates.
+  const [myPin, setMyPin] = useState(null);
   const [sending, setSending] = useState(false);
   // An ordering is sitting on the server for this question. NOT cleared by
   // "Start again": starting again clears the sequence on screen, and the
@@ -43,7 +50,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
   const idx = run?.current_index ?? -1;
 
   // A new question clears the last one's answer and verdict.
-  useEffect(() => { setPicked(null); setStake(1); setSeq([]); setSubmitted(false); setNote(''); setResult(null); }, [idx]);
+  useEffect(() => { setPicked(null); setStake(1); setSeq([]); setMyPin(null); setSubmitted(false); setNote(''); setResult(null); }, [idx]);
 
   useEffect(() => {
     if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase)) return;
@@ -85,6 +92,33 @@ export default function QuizParticipant({ runId, onDismiss }) {
     setNote('Answer in. Tap another shape to change it.');
   }
 
+  // DROPPING A PIN. The one type where the participant's own screen carries
+  // the question — because the answer is a place on a picture, and a handset
+  // showing shapes would have nothing to tap.
+  //
+  // Submits on the tap rather than behind a Confirm button, and the pin can be
+  // moved until the clock stops. That is the same bargain every other type
+  // makes: an answer can be changed, and changing it re-stamps the clock, so
+  // there is no free late correction.
+  async function dropPin({ x, y }) {
+    if (sending) return;
+    const previous = myPin;
+    setSending(true);
+    setMyPin({ x, y });                 // under the thumb at once, not a round trip later
+    const { data, error } = await supabase.rpc('quiz_answer_pin', {
+      p_run_id: runId, p_x: x, p_y: y, p_wager: stake,
+    });
+    setSending(false);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error) { setMyPin(previous); setNote(error.message); return; }
+    if (row && row.accepted === false) {
+      setMyPin(previous);
+      setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
+      return;
+    }
+    setNote('Pin in. Tap again to move it.');
+  }
+
   // Raising or lowering the stake. If an answer is already in, the stake has to
   // go back to the server with it — the score is computed there and a
   // multiplier held only on this phone would be a number nobody is counting.
@@ -96,11 +130,18 @@ export default function QuizParticipant({ runId, onDismiss }) {
     if (sending || n === stake) return;
     const previous = stake;
     setStake(n);
-    if (!picked) return;              // nothing to re-score until they answer
+    if (!picked && !myPin) return;    // nothing to re-score until they answer
     setSending(true);
-    const { data, error } = await supabase.rpc('quiz_answer', {
-      p_run_id: runId, p_option_id: picked, p_wager: n,
-    });
+    // A pin is re-sent to the same effect: the stake is scored where the
+    // answer is, and the re-send re-stamps the clock exactly as it does for a
+    // shape.
+    const { data, error } = myPin
+      ? await supabase.rpc('quiz_answer_pin', {
+        p_run_id: runId, p_x: myPin.x, p_y: myPin.y, p_wager: n,
+      })
+      : await supabase.rpc('quiz_answer', {
+        p_run_id: runId, p_option_id: picked, p_wager: n,
+      });
     setSending(false);
     const row = Array.isArray(data) ? data[0] : data;
     if (error) { setStake(previous); setNote(error.message); return; }
@@ -147,6 +188,37 @@ export default function QuizParticipant({ runId, onDismiss }) {
     setNote('Order in. Start again to change it.');
   }
 
+  // The stake, ABOVE the answer and available before answering. Choosing it
+  // first costs nothing; choosing it after deciding what you want is the whole
+  // point — the bet is on how sure you are of your OWN answer, not a blind
+  // gamble.
+  //
+  // Written once and used by both answer shapes. A pin question is right or
+  // wrong exactly as a shape is, so it takes a stake exactly as a shape does,
+  // and the trainer's checkbox says nothing about which type it is on.
+  const stakeRow = run?.allow_wager ? (
+    <div className="qlive-stake">
+      {/* Says the safe option is safe. Without it the honest read of three
+          buttons is that all three are bets, and the cautious play becomes not
+          answering at all. */}
+      <p className="qlive-stake-label">How sure are you? <span className="qlive-muted">1× risks nothing</span></p>
+      <div className="qlive-stake-row" role="group" aria-label="Your stake">
+        {[1, 2, 3].map(n => (
+          <button
+            key={n}
+            type="button"
+            className={`qlive-stake-btn${stake === n ? ' is-on' : ''}`}
+            disabled={sending}
+            aria-pressed={stake === n}
+            onClick={() => chooseStake(n)}
+          >
+            {n}×
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="qlive qlive-participant">
       {phase === 'lobby' && (
@@ -163,6 +235,18 @@ export default function QuizParticipant({ runId, onDismiss }) {
         </div>
       )}
 
+      {/* The clip is playing in the room, out loud, from the projector. NOT
+          on this phone: sixteen handsets playing the same announcement a
+          half-second apart is not a question, it is a noise — and quiz-audio
+          is shut to participants so this screen could not fetch it anyway.
+          All it has to do is stop anyone looking down. */}
+      {phase === 'listen' && (
+        <div className="qlive-stage qlive-centre">
+          <h1 className="qlive-big" aria-hidden="true">♪</h1>
+          <p className="qlive-sub">Listen — answers open when the clip ends.</p>
+        </div>
+      )}
+
       {phase === 'question' && (
         <div className="qlive-stage qlive-answer">
           {/* The clock, and nothing else above the shapes. No question text and
@@ -172,7 +256,26 @@ export default function QuizParticipant({ runId, onDismiss }) {
             <span className="qlive-qnum">Question {idx + 1}</span>
             <div className="qlive-timer" aria-label="Seconds remaining">{Math.ceil(secondsLeft ?? 0)}</div>
           </div>
-          {run?.kind === 'order' ? (
+          {run?.kind === 'pin' ? (
+            <>
+              {stakeRow}
+              {/* The exception to "the handset shows shapes and nothing else",
+                  and the only one. The answer IS a place on this picture, so
+                  the picture has to be here — there is nothing else to tap.
+                  The question itself is still on the wall, where the room
+                  reads it together. */}
+              <QuizPinField
+                path={run?.map_path}
+                onPick={dropPin}
+                myPin={myPin}
+                busy={sending}
+                className="qlive-pin-answer"
+                label="Tap where you think it is"
+              />
+              {note && <p className="qlive-note">{note}</p>}
+              {!note && !myPin && <p className="qlive-note qlive-muted">Tap the picture — speed counts.</p>}
+            </>
+          ) : run?.kind === 'order' ? (
             <>
               {/* The sequence so far, so a thumb can see what it has chosen
                   without reading the question — which is on the wall. */}
@@ -231,32 +334,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
             </>
           ) : (
             <>
-              {/* The stake, ABOVE the shapes and available before answering.
-                  Choosing it first costs nothing; choosing it after seeing
-                  which shape you want is the whole point — the bet is on how
-                  sure you are of your OWN answer, not a blind gamble. */}
-              {run?.allow_wager && (
-                <div className="qlive-stake">
-                  {/* Says the safe option is safe. Without it the honest read
-                      of three buttons is that all three are bets, and the
-                      cautious play becomes not answering at all. */}
-                  <p className="qlive-stake-label">How sure are you? <span className="qlive-muted">1× risks nothing</span></p>
-                  <div className="qlive-stake-row" role="group" aria-label="Your stake">
-                    {[1, 2, 3].map(n => (
-                      <button
-                        key={n}
-                        type="button"
-                        className={`qlive-stake-btn${stake === n ? ' is-on' : ''}`}
-                        disabled={sending}
-                        aria-pressed={stake === n}
-                        onClick={() => chooseStake(n)}
-                      >
-                        {n}×
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {stakeRow}
               <div className="qlive-picks qlive-picks-bare">
                 {(run?.options ?? []).map((o, i) => (
                   <button
@@ -329,7 +407,7 @@ export default function QuizParticipant({ runId, onDismiss }) {
           <h1 className="qlive-big">
             {result ? `You finished with ${result.total_points} points` : 'Counting up…'}
           </h1>
-          <button type="button" className="qlive-go" onClick={onDismiss}>Back to my workbook</button>
+          <button type="button" className="qlive-go" onClick={onDismiss}>{guest ? 'Done' : 'Back to my workbook'}</button>
         </div>
       )}
 
@@ -348,8 +426,8 @@ export default function QuizParticipant({ runId, onDismiss }) {
       {!phase && !loading && (
         <div className="qlive-stage qlive-centre">
           <h1 className="qlive-big">The quiz has finished</h1>
-          <p className="qlive-sub">Nothing more to answer here.</p>
-          <button type="button" className="qlive-go" onClick={onDismiss}>Back to my workbook</button>
+          <p className="qlive-sub">{guest ? 'Thanks for playing.' : 'Nothing more to answer here.'}</p>
+          <button type="button" className="qlive-go" onClick={onDismiss}>{guest ? 'Done' : 'Back to my workbook'}</button>
         </div>
       )}
     </div>

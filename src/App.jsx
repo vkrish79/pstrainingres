@@ -32,6 +32,7 @@ import PrepPage from './pages/PrepPage.jsx';
 import SessionPrepPage from './pages/SessionPrepPage.jsx';
 import ParticipantWorkbookPage from './pages/ParticipantWorkbookPage.jsx';
 import ParticipantAssessmentPage from './pages/ParticipantAssessmentPage.jsx';
+import PlayQuizPage from './pages/PlayQuizPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function App() {
@@ -39,6 +40,13 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/join/:code" element={<JoinSessionLoginPage />} />
+      {/* A standalone quiz. NOT /join, which is the participant sign-in page:
+          one route that sometimes means "sign in" and sometimes means "type a
+          nickname" is a route that eventually shows the wrong one to a room.
+          Deliberately outside ProtectedRoute — this is the only page in the app
+          a person with no account can reach. */}
+      <Route path="/play" element={<PlayQuizPage />} />
+      <Route path="/play/:code" element={<PlayQuizPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/change-password" element={

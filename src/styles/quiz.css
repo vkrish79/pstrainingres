@@ -15,6 +15,24 @@
      Pushing the free space to the right here puts the title back on the left
      without changing the shared rule, which every other page depends on. */
   margin-right: auto;
+
+  /* NOT A BOX. It is the name of the thing on the page, so it is drawn as a
+     heading and only admits to being a field when you are pointing at it or
+     typing in it — a white input against a white page was a box drawn around
+     nothing, and it made the title look like the first question of a form. */
+  background: transparent;
+  border: 1px solid transparent;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+/* The affordance, and the reason removing the box entirely would be wrong:
+   with no hover state at all there is nothing to tell a trainer the title can
+   be changed. */
+.quiz-title:hover { border-color: var(--border, #d8dde5); }
+.quiz-title:focus,
+.quiz-title:focus-visible {
+  background: var(--card, #fff);
+  border-color: var(--accent, #1f6fb2);
 }
 
 .quiz-summary { margin: 0 0 1rem; }
@@ -151,18 +169,37 @@
   color: #8a6410;
 }
 
+/* One line, and it no longer stretches the width of the card: a control
+   the width of its own label reads as a control, where a full-width dashed
+   box read as a notice about the question. The explanation is the row's
+   tooltip — see the comment in QuizEditorPage. */
 .quiz-wager-opt {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.5rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  padding: 0.3rem 0.6rem;
   border: 1px dashed var(--border);
   border-radius: 8px;
   font-size: 0.88rem;
-  line-height: 1.45;
+  line-height: 1.3;
   cursor: pointer;
 }
-.quiz-wager-opt input { margin-top: 0.2rem; flex: 0 0 auto; }
+.quiz-wager-opt input { flex: 0 0 auto; margin: 0; }
+
+/* Says there is more to know without spending a line saying it. */
+.quiz-wager-why {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border, #d8dde5);
+  color: var(--muted-ink, #5b6b7f);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
 .quiz-wager-opt:has(input:checked) {
   border-style: solid;
   border-color: rgba(180, 130, 20, 0.55);
@@ -184,7 +221,9 @@
   font-weight: 600;
 }
 
-.quiz-add { margin: 0.25rem 0 2rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+/* Above the questions now, not under them: it is what a trainer opens this
+   page to do, and at the bottom it sat behind the whole quiz. */
+.quiz-add { margin: 0.25rem 0 1.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* ── The Quiz tab on a session ──────────────────────────────────────────── */
 
@@ -284,54 +323,176 @@
 .quiz-step .form-input { width: auto; flex: 1 1 auto; min-width: 0; border: none; background: transparent; }
 .quiz-step .form-input:focus { box-shadow: none; }
 
-/* ── a question's picture, in the editor ─────────────────────────────
-   Small. This is a check that the right file went up, not a place to look
-   at it — the room sees it at full size on the wall. */
-.quiz-q-image {
+/* ── the hover bubble ─────────────────────────────────────────────────
+   Replaces the browser's own tooltip, which arrives about a second late,
+   is styled by the operating system rather than by this page, and never
+   appears at all on a touch screen.
+
+   Shown on FOCUS as well as hover: the media controls are icons now, so
+   the keyboard has to be able to read them too.
+
+   Anchored to the LEFT EDGE of the control rather than centred on it.
+   These controls sit at the left of a wide card, and a centred bubble on
+   the first one would hang off the side of the page. */
+.tip { position: relative; display: inline-flex; }
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 30;
+  width: max-content;
+  max-width: 17rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  background: #24323f;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  /* Not display:none — the bubble fades and lifts, so it reads as belonging
+     to the thing under it rather than blinking into existence. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.2rem);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+  /* The bubble must never eat the pointer: hovering it would otherwise count
+     as leaving the control on the way to it, and it would flicker. */
+  pointer-events: none;
+}
+.tip:hover::after,
+.tip:focus-within::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+/* The wager explanation is four sentences; the icons are one line. */
+.tip-wide::after { max-width: 24rem; }
+/* The remove cross sits on a corner, so its bubble hangs from the right. */
+.tip-x::after { left: auto; right: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tip::after { transition: none; transform: none; }
+}
+
+/* ── the row of things attached to a question ────────────────────────
+   Picture, clip and wager on ONE line, with the wager pushed a clear step
+   away from the two icons: they are a pair that does the same kind of job,
+   and it is not one of them. */
+.quiz-q-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin: 0.6rem 0 0;
   flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0.55rem 0 0.15rem;
 }
-.quiz-q-image .qimg {
-  width: 8rem;
-  height: 5rem;
-  flex: 0 0 auto;
-  margin: 0;
+
+/* ── a question's picture and clip, in the editor ─────────────────────
+   TWO ICONS, sitting on one row under the prompt. They used to be two rows
+   of buttons, each with a sentence beside it explaining what it was for —
+   the same two sentences on every question in the quiz, which is a thing
+   worth reading once and then reading past forever. The explanations are in
+   the tooltips; the row now says only whether this question HAS a picture
+   and a clip. */
+.quiz-q-media {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.quiz-q-media input[type="file"] { display: none; }
+
+/* The slot holds the control and its remove cross, so the cross can sit on
+   the corner without being part of the button that would then replace the
+   file instead of clearing it. */
+.quiz-media-slot { position: relative; display: inline-flex; line-height: 0; }
+
+.quiz-media-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
   padding: 0;
   border: 1px solid var(--border, #d8dde5);
   border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--muted-ink, #5b6b7f);
+  cursor: pointer;
   overflow: hidden;
-  background: var(--surface-2, #f3f5f8);
+}
+/* THE BACKGROUND IS STATED HERE, and that is not tidiness.
+   index.css carries a global `button:hover:where(:not(:disabled))` that fills
+   with --midnight. At (0,1,1) it beats a class that only sets a base colour,
+   so this button — which stated its background once and then only changed its
+   border on hover — went almost black under the pointer with a dark icon on
+   it. A component that wants its own hover has to say so at (0,2,0). The note
+   in index.css spells this out; it is worth re-reading before adding any
+   button here. */
+.quiz-media-btn:hover {
+  background: rgba(31, 111, 178, 0.1);
+  border-color: var(--accent, #1f6fb2);
+  color: var(--accent, #1f6fb2);
+}
+/* Already carrying something: a touch stronger, so hovering still reads as a
+   change rather than as the state it was already in. */
+.quiz-media-slot.is-set .quiz-media-btn:hover { background: rgba(31, 111, 178, 0.16); }
+.quiz-media-btn:focus-visible { outline: 2px solid var(--accent, #1f6fb2); outline-offset: 1px; }
+
+/* SET, and the whole point of the row: an attached clip is a different
+   colour from an empty slot, so a glance down the quiz says which questions
+   carry one. A picture says it by being one. */
+.quiz-media-slot.is-set .quiz-media-btn {
+  border-color: var(--accent, #1f6fb2);
+  color: var(--accent, #1f6fb2);
+  background: rgba(31, 111, 178, 0.08);
+}
+/* The thumbnail fills the button — the picture IS the icon once there is one. */
+.quiz-media-btn .qimg {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.quiz-q-image .qimg img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  display: block;
+.quiz-media-btn .qimg img { max-width: 100%; max-height: 100%; object-fit: cover; display: block; }
+.quiz-media-btn .qimg-missing { font-size: 0.55rem; opacity: 0.7; text-align: center; }
+
+/* Small, on the corner, and only there when there is something to remove. */
+.quiz-media-x {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border, #d8dde5);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: var(--muted-ink, #5b6b7f);
+  cursor: pointer;
 }
-.quiz-q-image .qimg-missing { font-size: 0.75rem; opacity: 0.7; text-align: center; }
-/* The file input itself is never shown — it cannot be styled and its
-   "No file chosen" is a lie the moment a picture is already attached. */
-.quiz-q-image input[type="file"] { display: none; }
-.quiz-q-image-btn { cursor: pointer; }
+/* Same trap, same fix: without a background of its own the cross fills
+   midnight and its red mark disappears into it. */
+.quiz-media-x:hover {
+  background: #fdecea;
+  border-color: #b3261e;
+  color: #b3261e;
+}
 
 /* Says which copy is open. A notice, not an error — editing the library master
    is a perfectly normal thing to be doing, it just does not reach a session
    that already has the quiz. */
-.quiz-master-note {
-  margin: 0 0 1rem;
-  padding: 0.6rem 0.85rem;
-  border-left: 3px solid var(--accent, #6b8afd);
-  background: var(--surface-2, #f3f5f8);
-  border-radius: 0 8px 8px 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
-}
 
 /* ── A quiz left open while the projector is put away ───────────────────── */
 /* The handsets are held by the RUN, not by the projector. A trainer who closed
@@ -366,4 +527,73 @@
 
 @media (prefers-reduced-motion: reduce) {
   .quiz-live-dot { animation: none; }
+}
+
+/* ── drop-a-pin authoring ─────────────────────────────────────────────
+   The map is shown LARGE here, unlike the picture row's thumbnail. A
+   thumbnail answers "did the right file go up"; this one has to be clicked
+   accurately enough to put a circle over a city. */
+.quiz-q-pin {
+  margin: 0.6rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.quiz-q-pin input[type="file"] { display: none; }
+.quiz-pin-edit {
+  border: 1px solid var(--border, #d8dde5);
+  border-radius: 10px;
+  background: var(--surface-2, #f3f5f8);
+  max-width: 100%;
+}
+.quiz-pin-edit .qpin-img { max-height: 22rem; }
+.quiz-pin-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.quiz-pin-radius {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.quiz-pin-radius input[type="range"] { width: 10rem; }
+
+/* ── a quiz you left running ──────────────────────────────────────────
+   Green because it is not a warning: something is working, and it is
+   working somewhere the trainer cannot see. */
+.quiz-live-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+  border-radius: 9px;
+  background: rgba(46, 125, 79, 0.09);
+  border: 1px solid rgba(46, 125, 79, 0.42);
+}
+.quiz-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e7d4f;
+  flex: 0 0 auto;
+}
+.quiz-live-title { font-weight: 600; }
+.quiz-live-meta { color: var(--muted-ink, #5b6b7f); font-size: 0.9rem; }
+.quiz-live-actions { margin-left: auto; display: flex; gap: 0.5rem; }
+
+/* The card stopped being one big link when Run now went on it. */
+.quiz-card { display: flex; flex-direction: column; }
+.quiz-card .session-card-head h3 a { color: inherit; text-decoration: none; }
+.quiz-card .session-card-head h3 a:hover { text-decoration: underline; }
+.quiz-card-actions {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }

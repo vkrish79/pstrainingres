@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { signedQuizImageUrl } from '../../lib/quizImages.js';
+import { signedQuizFileUrl, QUIZ_IMAGE_BUCKET } from '../../lib/quizImages.js';
 
 // A picture belonging to a question, fetched through a signed URL.
 //
@@ -9,7 +9,10 @@ import { signedQuizImageUrl } from '../../lib/quizImages.js';
 // options sit underneath, and an image that claimed its height on load would
 // shove them down the screen a second into a question the room is already
 // reading.
-export default function QuizImage({ path, alt = '', className = '', onClick, title }) {
+//
+// The bucket is a prop because a drop-pin question's map lives in a different
+// one — quiz-maps, the only quiz bucket a participant can read.
+export default function QuizImage({ path, bucket = QUIZ_IMAGE_BUCKET, alt = '', className = '', onClick, title }) {
   const [url, setUrl] = useState(null);
   const [failed, setFailed] = useState(false);
 
@@ -18,7 +21,7 @@ export default function QuizImage({ path, alt = '', className = '', onClick, tit
     setUrl(null);
     setFailed(false);
     if (!path) return undefined;
-    signedQuizImageUrl(path)
+    signedQuizFileUrl(bucket, path)
       .then(({ data, error }) => {
         if (!alive) return;
         if (error || !data) setFailed(true);
@@ -34,7 +37,7 @@ export default function QuizImage({ path, alt = '', className = '', onClick, tit
         if (alive) setFailed(true);
       });
     return () => { alive = false; };
-  }, [path]);
+  }, [path, bucket]);
 
   if (!path) return null;
 

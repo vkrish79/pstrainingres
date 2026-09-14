@@ -5,6 +5,9 @@ import { createQuizMusic, QUIZ_MUSIC_THEMES } from '../../lib/quizMusic.js';
 import QuizShape from './QuizShape.jsx';
 import QuizJoinCode from './QuizJoinCode.jsx';
 import QuizImage from './QuizImage.jsx';
+import QuizPinField from './QuizPinField.jsx';
+import { signedQuizAudioUrl } from '../../lib/quizAudio.js';
+import { useQuizGuests } from '../../hooks/useQuizGuests.js';
 import QuizFlame from './QuizFlame.jsx';
 import QuizMedal from './QuizMedal.jsx';
 import { ordinal } from '../../lib/ordinal.js';
@@ -25,8 +28,14 @@ const PODIUM_ROLL_MS = 1400;
 // handsets show only shapes — and it never shows anything a participant should
 // not already be seeing: the answer arrives at the reveal, at the same moment
 // for everyone.
-export default function QuizProjector({ runId, joinCode, onExit }) {
+// `guestRun` marks a run with no session behind it: the lobby then shows the
+// names arriving instead of a line about signing in, because for a standalone
+// run the wall is the only place anybody can see that they are in.
+export default function QuizProjector({ runId, joinCode, onExit, guestRun = false }) {
   const { run, secondsLeft, reload } = useQuizRun(runId);
+  // Only polled while the door is open — after Start the roster is fixed and
+  // the list is a thing nobody is looking at.
+  const { guests, remove: removeGuest } = useQuizGuests(runId, guestRun && run?.phase === 'lobby');
   const [counts, setCounts] = useState(null);
   const [reveal, setReveal] = useState([]);
   const [board, setBoard] = useState([]);
@@ -36,6 +45,13 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
   const [rolling, setRolling] = useState(false);
   const [closing, setClosing] = useState(false);
   const rollTimer = useRef(null);
+  // The sound clip, if this question has one: its signed URL, and where the
+  // playing of it has got to.
+  const audioRef = useRef(null);
+  const [clipUrl, setClipUrl] = useState(null);
+  const [clipState, setClipState] = useState('idle');   // idle | playing | failed
+  // Everyone's pins, and the target, once the window has closed.
+  const [pins, setPins] = useState([]);
 
   const music = useMemo(() => createQuizMusic(), []);
   const [muted, setMuted] = useState(() => music.muted);
@@ -129,14 +145,59 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
   // means the room waits on someone who is watching the room, not the clock —
   // and the server refuses answers the moment it expires anyway, so a screen
   // still showing the question would just be lying.
+  //
+  // The pre-roll now has two places to land. A question carrying a clip goes
+  // to 'listen', where there is no clock at all until the room has heard it;
+  // everything else goes straight to the question as it always did. has_audio
+  // is the one thing quiz_current will say about a question during 'ready' —
+  // deliberately a flag and not the clip, because content delivered early can
+  // be displayed early.
   useEffect(() => {
     if (secondsLeft === null || secondsLeft > 0 || busy) return;
-    if (phase === 'ready') setPhase('question', idx);
+    if (phase === 'ready') setPhase(run?.has_audio ? 'listen' : 'question', idx);
     // timeUp(), not sting('timeup'): the bed has to be let down as part of
     // the same gesture. Left to the phase change that follows, it is cut off
     // in a quarter of a second and the music appears to be yanked off the air.
     else if (phase === 'question') { music.timeUp(); setPhase('reveal'); }
-  }, [phase, secondsLeft, busy, idx, setPhase, music]);
+  }, [phase, secondsLeft, busy, idx, setPhase, music, run?.has_audio]);
+
+  // ── the sound clip ───────────────────────────────────────────────────
+  // Signed when the listen phase opens, not before: the URL lives two hours
+  // and a question nine places away may never be reached at all.
+  useEffect(() => {
+    if (phase !== 'listen' || !run?.audio_path) { setClipUrl(null); setClipState('idle'); return undefined; }
+    let alive = true;
+    setClipState('idle');
+    signedQuizAudioUrl(run.audio_path)
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error || !data) setClipState('failed');
+        else setClipUrl(data);
+      })
+      .catch(() => { if (alive) setClipState('failed'); });
+    return () => { alive = false; };
+  }, [phase, run?.audio_path]);
+
+  // Leaving the phase stops the clip dead. Without this a trainer who starts
+  // the clock early is talking over their own audio, with no control on screen
+  // to stop it — the element is gone and the sound is not.
+  useEffect(() => {
+    if (phase === 'listen') return undefined;
+    const el = audioRef.current;
+    if (el) { try { el.pause(); } catch { /* already gone */ } }
+    return undefined;
+  }, [phase]);
+
+  // Where the room dropped their pins, once the window has closed. One call
+  // rather than target-then-pins, so a circle can never appear with nothing in
+  // it while the second request is still out.
+  useEffect(() => {
+    if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase) || run?.kind !== 'pin') {
+      setPins([]);
+      return;
+    }
+    supabase.rpc('quiz_pin_reveal', { p_run_id: runId }).then(({ data }) => setPins(data || []));
+  }, [phase, runId, idx, run?.kind]);
 
   useEffect(() => {
     if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase)) { setReveal([]); return; }
@@ -168,6 +229,26 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
   const totalVotes = reveal.reduce((n, o) => n + (o.votes || 0), 0);
   const isLast = idx >= total - 1;
   const top3 = [board[0], board[1], board[2]];
+  const pinTarget = pins.find(p => p.is_target) || null;
+  const droppedPins = pins.filter(p => !p.is_target);
+
+  // The clip. NOT silenced by the music toggle: that switch is for the bed
+  // under a question, and a trainer who turned the backing track off has not
+  // asked for the question itself to be inaudible.
+  async function playClip() {
+    const el = audioRef.current;
+    if (!el) return;
+    music.unlock();      // the same click that unlocks audio at all
+    try {
+      setClipState('playing');
+      await el.play();
+    } catch {
+      // Autoplay refusal, a codec the browser will not take, a dead network.
+      // Whatever it is, the room must not be left looking at a silent screen
+      // with nothing to press.
+      setClipState('failed');
+    }
+  }
 
   // The next place still to be revealed, SKIPPING any nobody is standing in.
   // With two players there is no third place, and a drum roll into a cymbal
@@ -282,7 +363,7 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
         </div>
       </header>
 
-      {phase === 'lobby' && (
+      {phase === 'lobby' && !guestRun && (
         <div className="qlive-stage qlive-centre">
           <h1 className="qlive-big">Ready when you are</h1>
           <p className="qlive-sub">
@@ -296,12 +377,134 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
         </div>
       )}
 
+      {/* THE STANDALONE LOBBY. The code on the left, the room filling up on the
+          right — and the names are the whole point of it: somebody types one on
+          a phone and watches the wall until it appears, which is the only
+          confirmation they are going to get that they are in. */}
+      {phase === 'lobby' && guestRun && (
+        <div className="qlive-stage qlive-lobby">
+          <div className="qlive-lobby-join">
+            <QuizJoinCode joinCode={joinCode} guestRun />
+          </div>
+          <div className="qlive-lobby-room">
+            <div className="qlive-lobby-head">
+              <h1 className="qlive-big">Who's in</h1>
+              <span className="qlive-lobby-count">
+                {guests.length === 0 ? '' : `${guests.length} joined`}
+              </span>
+            </div>
+            {/* An empty space here reads as broken. It has to say which kind of
+                nothing this is. */}
+            {guests.length === 0 ? (
+              <p className="qlive-sub">Waiting for the first person…</p>
+            ) : (
+              <ul className="qlive-guests">
+                {guests.map((g, i) => (
+                  <li
+                    key={g.id}
+                    /* The newest name is lit for a moment, so a room watching the
+                       wall sees their own arrive rather than hunting a grid. */
+                    className={`qlive-guest${i === guests.length - 1 ? ' is-fresh' : ''}`}
+                  >
+                    <span className="qlive-guest-text">{g.display_name}</span>
+                    {/* Somebody will type something they should not, in front of
+                        everybody. One click is the whole remedy. */}
+                    <button
+                      type="button"
+                      className="qlive-guest-x"
+                      title={`Remove ${g.display_name}`}
+                      aria-label={`Remove ${g.display_name}`}
+                      onClick={() => removeGuest(g.id)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="qlive-lobby-go">
+              <button
+                type="button"
+                className="qlive-go"
+                disabled={busy || guests.length === 0}
+                onClick={() => setPhase('ready', 0)}
+              >
+                Start the quiz
+              </button>
+              <span className="qlive-lobby-note">
+                {guests.length === 0
+                  ? 'Nobody has joined yet.'
+                  : 'Nobody can join once it starts.'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {phase === 'ready' && (
         <div className="qlive-stage qlive-centre">
           <h1 className="qlive-count">{Math.ceil(secondsLeft ?? 0)}</h1>
           <p className="qlive-sub">Get ready — question {idx + 1} of {total}</p>
           {/* The question is deliberately NOT on screen yet, and has not been
               sent to anyone. Content delivered early can be displayed early. */}
+        </div>
+      )}
+
+      {/* LISTEN. The question is on the wall and the clock has not started.
+          Nobody can answer during this phase — quiz_answer refuses anything
+          that is not 'question' — which is exactly why the prompt is allowed
+          to be up here, where the room can read it while the clip plays. */}
+      {phase === 'listen' && (
+        <div className="qlive-stage">
+          <div className="qlive-qhead">
+            <h1 className="qlive-prompt">{run?.prompt}</h1>
+            <div className="qlive-listen-badge" aria-hidden="true">♪</div>
+          </div>
+          <QuizImage path={run?.image_path} className="qlive-figure" />
+
+          <div className="qlive-listen">
+            {/* The element is mounted, muted-by-nothing and never given
+                `autoplay`: a browser will not start audio the user did not
+                ask for, and a Play button that the room can see being pressed
+                is better theatre than an autoplay that might not fire. */}
+            {clipUrl && (
+              <audio
+                ref={audioRef}
+                src={clipUrl}
+                preload="auto"
+                // THE CLOCK STARTS HERE. The browser says the clip finished;
+                // the database decides what that means in seconds, because a
+                // deadline computed in this laptop is ~32 seconds wrong.
+                onEnded={() => setPhase('question', idx)}
+                onError={() => setClipState('failed')}
+              />
+            )}
+
+            {clipState === 'failed' ? (
+              <p className="qlive-err qlive-listen-err">
+                That clip would not play. Start the clock and ask the question without it.
+              </p>
+            ) : clipState === 'playing' ? (
+              <p className="qlive-sub">Playing — the clock starts when it ends</p>
+            ) : (
+              <p className="qlive-sub">Listen first. Nobody can answer until the clip has finished.</p>
+            )}
+
+            {clipState !== 'playing' && clipState !== 'failed' && (
+              <button type="button" className="qlive-go" disabled={!clipUrl || busy} onClick={playClip}>
+                ▶ Play the clip
+              </button>
+            )}
+
+            {/* ALWAYS AVAILABLE. `ended` is not a promise — a blocked
+                autoplay, a file that 404s, a codec nobody expected — and a
+                room parked in front of a silent wall with no way forward is
+                the worst thing this phase can do. It is also the ordinary way
+                to cut a long clip short. */}
+            <button type="button" className="ghost qlive-skip" disabled={busy} onClick={() => setPhase('question', idx)}>
+              {clipState === 'playing' ? 'Stop it and start the clock' : 'Start the clock now'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -316,8 +519,18 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
               picture takes the slack in the middle of the column and the
               options keep their place at the bottom of the screen. */}
           <QuizImage path={run?.image_path} className="qlive-figure" />
+          {/* A pin question's picture is on the wall AND in every hand — the
+              only type where that is true, because the answer is a place on
+              it. No target is drawn: this is the same component the reveal
+              uses, and what it draws is entirely what it is handed. */}
+          {run?.kind === 'pin' && (
+            <QuizPinField path={run?.map_path} className="qlive-pin" label="Where the room is dropping pins" />
+          )}
           {run?.kind === 'order' && (
             <p className="qlive-instruction">Tap the shapes in the right order</p>
+          )}
+          {run?.kind === 'pin' && (
+            <p className="qlive-instruction">Drop your pin on your own screen</p>
           )}
           {/* The room has to know the stakes are open BEFORE it answers, and
               the stake buttons are on the handsets where a trainer cannot see
@@ -328,15 +541,18 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
             </p>
           )}
           {/* Keyed off the option COUNT rather than the kind: what makes the
-              wall look empty is two answers, whatever type produced them. */}
-          <ul className={`qlive-opts${run?.kind === 'order' ? ' qlive-opts-list' : ''}${(run?.options ?? []).length === 2 ? ' qlive-opts-two' : ''}`}>
-            {(run?.options ?? []).map((o, i) => (
-              <li key={o.id} className={`qlive-opt qlive-opt-${i}`}>
-                <span className="qlive-badge"><QuizShape index={i} /></span>
-                <span className="qlive-label">{o.label}</span>
-              </li>
-            ))}
-          </ul>
+              wall look empty is two answers, whatever type produced them.
+              A pin question has no options at all, so there is no list. */}
+          {run?.kind !== 'pin' && (
+            <ul className={`qlive-opts${run?.kind === 'order' ? ' qlive-opts-list' : ''}${(run?.options ?? []).length === 2 ? ' qlive-opts-two' : ''}`}>
+              {(run?.options ?? []).map((o, i) => (
+                <li key={o.id} className={`qlive-opt qlive-opt-${i}`}>
+                  <span className="qlive-badge"><QuizShape index={i} /></span>
+                  <span className="qlive-label">{o.label}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           {/* How full the room is, as a bar rather than only a number: a
               trainer glancing up needs to know whether to wait or to talk,
               and "11 of 16" makes them do arithmetic to find out.
@@ -373,7 +589,25 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
               a question about — and the distribution bars are what the eye
               needs most, so the picture gives way to them. */}
           <QuizImage path={run?.image_path} className="qlive-figure qlive-figure-sm" />
-          {run?.kind === 'order' ? (
+          {run?.kind === 'pin' ? (
+            <>
+              {/* THE PICTURE OF THE QUESTION. Not a bar chart: where the room
+                  thought it was is the discussion, and a circle with four
+                  pins clustered two inches to the left of it says more than
+                  any percentage. Anonymous on purpose — the leaderboard is
+                  where names belong, and it only ever shows the top five. */}
+              <QuizPinField
+                path={run?.map_path}
+                className="qlive-pin"
+                label="The answer, and where the room dropped their pins"
+                target={pinTarget ? { x: Number(pinTarget.x), y: Number(pinTarget.y), rx: Number(pinTarget.rx), ry: Number(pinTarget.ry) } : null}
+                pins={droppedPins.map(p => ({ x: Number(p.x), y: Number(p.y), was_correct: p.was_correct }))}
+              />
+              <p className="qlive-instruction">
+                {droppedPins.filter(p => p.was_correct).length} of {droppedPins.length} inside the circle
+              </p>
+            </>
+          ) : run?.kind === 'order' ? (
             <>
               <p className="qlive-instruction">The right order was</p>
               <ol className="qlive-opts qlive-opts-list qlive-opts-answer">
@@ -517,7 +751,13 @@ export default function QuizProjector({ runId, joinCode, onExit }) {
       {phase === 'ended' && (
         <div className="qlive-stage qlive-centre">
           <h1 className="qlive-big">That's the quiz</h1>
-          <p className="qlive-sub">Scores are not recorded anywhere — it was a knowledge check.</p>
+          <p className="qlive-sub">
+            {guestRun
+              /* Not a promise about the future — a statement about what has
+                 already happened by the time this screen is drawn. */
+              ? 'Everyone has been signed out and the names and answers are deleted.'
+              : 'Scores are not recorded anywhere — it was a knowledge check.'}
+          </p>
           <button type="button" className="qlive-go" onClick={onExit}>Close</button>
         </div>
       )}

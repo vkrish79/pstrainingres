@@ -2,6 +2,12 @@ import { supabase } from './supabase.js';
 
 export const QUIZ_IMAGE_BUCKET = 'quiz-images';
 
+// The picture a drop-pin question is answered on. A SECOND bucket rather than
+// a folder in the first, because the two have different readers: quiz-images
+// is shut to participants and a map cannot be — a handset with no map has
+// nothing to tap. The argument is in RUN-THIS-IN-SUPABASE-quiz-maps.txt.
+export const QUIZ_MAP_BUCKET = 'quiz-maps';
+
 // The longest edge we keep. A projector is 1920 wide and the picture never
 // occupies all of it, so anything above this is detail nobody in the room can
 // see — paid for in the one place it hurts, the gap between a question opening
@@ -17,7 +23,11 @@ const SIGNED_TTL_SECONDS = 60 * 120;
 
 // Re-signing on every render would be a network round trip per repaint, and
 // the projector repaints five times a second while a question is open.
-const urlCache = new Map();       // path -> { url, expiresAt }
+//
+// Keyed by BUCKET AND PATH. Two buckets hold pictures now, and a bare path as
+// the key would let a map and an image that happened to share one serve each
+// other's URL — unlikely, silent, and unworkable-out from the screen.
+const urlCache = new Map();       // `${bucket}/${path}` -> { url, expiresAt }
 
 function loadImage(file) {
   return new Promise((resolve, reject) => {
@@ -81,17 +91,21 @@ export async function prepareQuizImage(file) {
   return { data: { blob, contentType, ext } };
 }
 
-export async function signedQuizImageUrl(path) {
+// One signer for every quiz bucket. The bucket is an argument rather than
+// three near-identical copies of this function, because the caching and the
+// early re-signing below are the parts that are easy to get subtly wrong.
+export async function signedQuizFileUrl(bucket, path) {
   if (!path) return { data: null };
-  const hit = urlCache.get(path);
+  const key = `${bucket}/${path}`;
+  const hit = urlCache.get(key);
   if (hit && hit.expiresAt > Date.now()) return { data: hit.url };
 
   const { data, error } = await supabase.storage
-    .from(QUIZ_IMAGE_BUCKET)
+    .from(bucket)
     .createSignedUrl(path, SIGNED_TTL_SECONDS);
   if (error) return { error: new Error(error.message) };
 
-  urlCache.set(path, {
+  urlCache.set(key, {
     url: data.signedUrl,
     // Re-sign well before the real expiry, so a URL is never handed out with
     // seconds left on it.
@@ -100,9 +114,17 @@ export async function signedQuizImageUrl(path) {
   return { data: data.signedUrl };
 }
 
+export function signedQuizImageUrl(path) {
+  return signedQuizFileUrl(QUIZ_IMAGE_BUCKET, path);
+}
+
+export function signedQuizMapUrl(path) {
+  return signedQuizFileUrl(QUIZ_MAP_BUCKET, path);
+}
+
 // Cache hygiene when a question stops pointing at a path. Every upload gets
 // its own timestamped path, so a replacement can never collide with a cached
 // URL — this is for the entry left behind, not for correctness.
-export function forgetQuizImageUrl(path) {
-  if (path) urlCache.delete(path);
+export function forgetQuizImageUrl(path, bucket = QUIZ_IMAGE_BUCKET) {
+  if (path) urlCache.delete(`${bucket}/${path}`);
 }

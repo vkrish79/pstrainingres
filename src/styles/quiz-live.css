@@ -805,3 +805,247 @@
   .qlive-podium-slot,
   .qlive-podium-slot > * { transition: none; }
 }
+
+/* ── the sound clip, and the phase that waits for it ──────────────────
+   The listen screen is the ordinary question layout with the countdown
+   replaced by a Play button: same prompt, same picture, same place on the
+   wall, so the room is not shown a different-looking screen for what is the
+   same question two seconds earlier. */
+.qlive-listen {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: auto;
+}
+.qlive-listen-err { max-width: 34rem; text-align: center; }
+
+/* Stands where the countdown stands, and is the same size, so the eye finds
+   the state of the question in the place it already looks. */
+.qlive-listen-badge {
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  line-height: 1;
+  opacity: 0.75;
+  margin-left: auto;
+  animation: qlive-listen-pulse 1.8s ease-in-out infinite;
+}
+@keyframes qlive-listen-pulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.95; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qlive-listen-badge { animation: none; opacity: 0.75; }
+}
+
+/* ── drop a pin ───────────────────────────────────────────────────────
+   The wrapper shrink-wraps the picture, because everything drawn on top is
+   positioned as a percentage of it. A wrapper wider than the bitmap would
+   put every pin to the left of where it was dropped, by a margin that grows
+   with the gap and looks like nothing in particular on screen. */
+.qpin {
+  position: relative;
+  display: inline-flex;
+  align-self: center;
+  max-width: 100%;
+  min-height: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  line-height: 0;
+}
+.qpin-img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  /* A long-press on a picture offers "save image" and a drag picks it up.
+     Both are ways to lose a question to a gesture meant to answer it. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.qpin.is-live { cursor: crosshair; }
+.qpin.is-live:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
+
+/* The answer. Only ever drawn after the window has closed — the component is
+   given no target until then, which is enforced in quiz_pin_reveal and not
+   here. */
+.qpin-target {
+  position: absolute;
+  border: 3px solid #7ee0a4;
+  background: rgba(126, 224, 164, 0.16);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Everyone else's pins, at the reveal. Ringed in dark as well as coloured:
+   a bare green dot disappears over a green field, which is most of a map. */
+.qpin-dot,
+.qpin-mine,
+.qpin-cursor {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  background: #fff;
+}
+.qpin-dot.is-right { background: #7ee0a4; }
+.qpin-dot.is-wrong { background: #ffc2a1; }
+
+/* Your own pin is bigger and ringed in white, because on a phone it is the
+   one thing on the picture you need to find again. */
+.qpin-mine {
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  background: #ffd166;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.qpin-cursor {
+  background: transparent;
+  border: 2px dashed #ffd166;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+}
+
+/* On the wall the map takes the slack in the middle of the column, exactly
+   as a picture does. On a handset it is the whole screen: it is not an
+   illustration there, it is the answer sheet. */
+.qlive-pin { flex: 1 1 auto; min-height: 0; }
+.qlive-pin .qpin-img { max-height: min(52vh, 100%); }
+.qlive-pin-answer { flex: 1 1 auto; min-height: 0; width: 100%; }
+.qlive-pin-answer .qpin-img { max-height: 62vh; }
+
+/* ── the standalone lobby ─────────────────────────────────────────────
+   The code on the left, the room filling up on the right. Two columns
+   because the code has to stay put while the names grow — a single column
+   would push it off the top of the wall as the eleventh person joins. */
+.qlive-lobby {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: start;
+  align-content: center;
+}
+.qlive-lobby-join { flex: 0 0 auto; }
+.qlive-lobby-room { min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
+.qlive-lobby-head { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; }
+.qlive-lobby-head .qlive-big { font-size: clamp(1.6rem, 4vw, 2.6rem); }
+.qlive-lobby-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+  font-size: clamp(0.9rem, 1.6vw, 1.1rem);
+}
+
+/* NOT .qlive-name — that class already belongs to the leaderboard row, where
+   it is flex:1 1 auto. Reusing it here merged the two: the lobby chip
+   stretched the width of the wall, and every leaderboard name quietly gained
+   a pill background. Guests get their own word. */
+.qlive-guests {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  /* The list scrolls rather than the wall: with forty names the Start button
+     has to stay where the trainer last saw it. */
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.qlive-guest {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: clamp(0.95rem, 1.7vw, 1.25rem);
+  font-weight: 500;
+  /* Arrives rather than appears: a name that fades up is one a room can
+     follow, and the person who typed it knows it was theirs. */
+  animation: qlive-guest-in 0.32s ease-out;
+}
+@keyframes qlive-guest-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+/* The newest one, lit. */
+.qlive-guest.is-fresh {
+  background: rgba(181, 152, 90, 0.24);
+  border-color: rgba(181, 152, 90, 0.85);
+}
+.qlive-guest-x {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  /* Quiet until wanted: it is on a wall, and it is not what the room is
+     looking at. */
+  opacity: 0.4;
+}
+.qlive-guest-x:hover,
+.qlive-guest-x:focus-visible { opacity: 1; border-color: #ffb4b4; color: #ffb4b4; }
+
+.qlive-lobby-go { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.qlive-lobby-note { opacity: 0.6; font-size: 0.95rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qlive-guest { animation: none; }
+}
+@media (max-width: 860px) {
+  .qlive-lobby { grid-template-columns: 1fr; }
+}
+
+/* ── the join screen ──────────────────────────────────────────────────
+   The only page in the app someone with no account ever sees, and it is
+   seen on a phone, one-handed, in a room. Everything is thumb-sized. */
+.qjoin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  width: min(22rem, 100%);
+  align-items: stretch;
+  text-align: left;
+}
+.qjoin .qlive-big { text-align: center; }
+.qjoin-field {
+  width: 100%;
+  padding: 0.85rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font: inherit;
+  font-size: 1.1rem;
+}
+.qjoin-field::placeholder { color: rgba(255, 255, 255, 0.45); }
+.qjoin-field:focus-visible { outline: 2px solid #ffd166; outline-offset: 1px; }
+/* The code is six characters read off a wall: spaced out, and never
+   autocorrected into a word. */
+.qjoin-code {
+  text-align: center;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.qjoin-go { width: 100%; }
+.qjoin-err { text-align: left; margin: 0; }
