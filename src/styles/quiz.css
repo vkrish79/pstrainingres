@@ -597,3 +597,38 @@
   align-items: center;
   gap: 0.6rem;
 }
+
+/* ── the S M L control ────────────────────────────────────────────────
+   A segmented group, sized like the media icons beside it so the row
+   reads as one set of controls rather than two. */
+.quiz-scale {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border, #d8dde5);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface, #fff);
+}
+.quiz-scale .tip + .tip .quiz-scale-btn { border-left: 1px solid var(--border, #d8dde5); }
+.quiz-scale-btn {
+  width: 2rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted-ink, #5b6b7f);
+  font-family: Archivo, inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+/* Same trap as the media buttons: the global button:hover fills midnight
+   and would swallow the letter. State the fill here. */
+.quiz-scale-btn:hover { background: rgba(31, 111, 178, 0.1); color: var(--accent, #1f6fb2); }
+.quiz-scale-btn.is-on {
+  background: var(--accent, #1f6fb2);
+  color: #fff;
+}
+.quiz-scale-btn.is-on:hover { background: var(--accent, #1f6fb2); color: #fff; }
+.quiz-scale-btn:focus-visible { outline: 2px solid var(--accent, #1f6fb2); outline-offset: -2px; }

@@ -5,6 +5,7 @@ import { ordinal } from '../../lib/ordinal.js';
 import { shapeFor } from '../../lib/quizShapes.js';
 import QuizShape from './QuizShape.jsx';
 import QuizPinField from './QuizPinField.jsx';
+import { scaleClass } from '../../lib/quizScale.js';
 import '../../styles/quiz-live.css';
 
 // What a participant sees on their own device: FOUR SHAPES. Nothing else.
@@ -299,7 +300,7 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
                    for the length of every round trip — the third reason this
                    question felt dead in the hand. The pad is now never
                    disabled: dropPin coalesces instead of refusing. */
-                className="qlive-pin-answer"
+                className={`qlive-pin-answer ${scaleClass(run?.display_scale)}`}
                 label="Where you think it is"
               />
               {note && <p className="qlive-note">{note}</p>}

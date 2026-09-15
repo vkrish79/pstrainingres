@@ -42,7 +42,7 @@ export function useQuizEditor(quizId) {
         id, title, is_template, session_id, vendor_id, updated_at,
         quiz_questions (
           id, order_index, prompt, time_limit_seconds, image_path, audio_path,
-          map_path, pin_x, pin_y, pin_rx, pin_ry, kind, allow_wager,
+          map_path, pin_x, pin_y, pin_rx, pin_ry, kind, allow_wager, display_scale,
           quiz_options ( id, order_index, label, is_correct, correct_rank )
         )
       `)
@@ -148,7 +148,7 @@ export function useQuizEditor(quizId) {
       // now includes the clip, the map and the four numbers that make up a pin
       // target.
       .select(`id, prompt, time_limit_seconds, image_path, audio_path, map_path,
-               pin_x, pin_y, pin_rx, pin_ry, allow_wager`);
+               pin_x, pin_y, pin_rx, pin_ry, allow_wager, display_scale`);
     if (e) return { error: new Error(e.message) };
     if (!data?.length) return { error: new Error('That change was not saved — you may not have permission to edit this quiz.') };
     setQuestions(prev => prev.map(q => (q.id === questionId ? { ...q, ...numeric(data[0]) } : q)));

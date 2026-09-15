@@ -1105,3 +1105,46 @@
 }
 .qjoin-go { width: 100%; }
 .qjoin-err { text-align: left; margin: 0; }
+
+/* ── how big a picture is drawn ───────────────────────────────────────
+   SIZED BY HEIGHT, NOT CAPPED BY IT. The first version of this set
+   max-height, which can only ever make a picture smaller — and the first
+   map it met was 148 x 148 pixels, so all three sizes drew the same 148px
+   picture in a box 564px tall. A cap cannot enlarge anything.
+
+   `height` with `width: auto` scales in both directions, up as well as
+   down. `max-width: 100%` is the guard for a very wide picture: for a
+   replaced element the browser reduces the height to match when the width
+   clamps, so the aspect ratio holds — which matters more here than
+   anywhere else in the app, because the img box IS the coordinate system a
+   pin is measured in. Nothing may ever make that box a different shape
+   from the bitmap inside it.
+
+   A picture asked to be larger than it was uploaded WILL go soft. That is
+   the trainer’s call to make; the editor says so where they make it.
+
+   The same three words mean different numbers on different screens: a wall
+   shares its height with a prompt and four answers, a handset has nothing
+   else on it. flex: 0 0 auto stops the column shrinking the picture back
+   down after we have just sized it. */
+
+/* On the wall, beside the question. */
+.qlive-figure.is-s, .qlive-figure.is-m, .qlive-figure.is-l { flex: 0 0 auto; }
+.qlive-figure.is-s img { height: 18vh; width: auto; max-width: 100%; }
+.qlive-figure.is-m img { height: 34vh; width: auto; max-width: 100%; }
+.qlive-figure.is-l img { height: 52vh; width: auto; max-width: 100%; }
+
+/* The map on the wall, which carries no answers under it. */
+.qlive-pin.is-s, .qlive-pin.is-m, .qlive-pin.is-l { flex: 0 0 auto; min-height: 0; }
+.qlive-pin.is-s .qpin-img { height: 24vh; width: auto; max-width: 100%; max-height: none; }
+.qlive-pin.is-m .qpin-img { height: 42vh; width: auto; max-width: 100%; max-height: none; }
+.qlive-pin.is-l .qpin-img { height: 60vh; width: auto; max-width: 100%; max-height: none; }
+
+/* In the hand, where the picture IS the answer sheet. */
+.qlive-pin-answer.is-s .qpin-img { height: 40vh; width: auto; max-width: 100%; max-height: none; }
+.qlive-pin-answer.is-m .qpin-img { height: 58vh; width: auto; max-width: 100%; max-height: none; }
+.qlive-pin-answer.is-l .qpin-img { height: 74vh; width: auto; max-width: 100%; max-height: none; }
+
+/* The frame must keep hugging the bitmap at every size — it is the box a
+   pin is measured against. */
+.qpin-frame { max-height: none; }

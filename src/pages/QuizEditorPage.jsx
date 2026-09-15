@@ -9,6 +9,7 @@ import QuizProjector from '../components/quiz/QuizProjector.jsx';
 import { useStandaloneRun } from '../hooks/useStandaloneRun.js';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { shapeFor } from '../lib/quizShapes.js';
+import { QUIZ_SCALES } from '../lib/quizScale.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
@@ -191,6 +192,33 @@ function QuestionMedia({ q, actions, onError, hideImage = false }) {
               </button>
             </Tip>
           )}
+        </span>
+      )}
+
+      {/* HOW BIG IT IS DRAWN. Only once there is something to size — three
+          buttons beside an empty slot would be three buttons that do nothing.
+          Display only: a pin marked on a small map is on the same rooftop
+          when the map is large, because the answer is a fraction of the
+          picture rather than a place on a screen. */}
+      {(q.image_path || q.map_path) && (
+        <span className="quiz-scale" role="group" aria-label="Picture size">
+          {QUIZ_SCALES.map(sc => (
+            <Tip key={sc.key} text={sc.title}>
+              <button
+                type="button"
+                className={`quiz-scale-btn${(q.display_scale || 'm') === sc.key ? ' is-on' : ''}`}
+                aria-pressed={(q.display_scale || 'm') === sc.key}
+                /* call() in THIS component takes (label, fn) — the one in
+                   QuestionCard takes just (fn). Passing one argument here put
+                   the function where the busy-overlay label belongs and wrote
+                   nothing at all, silently: the button highlighted for a frame
+                   and the database never heard about it. */
+                onClick={() => call('Resizing the picture…', () => actions.updateQuestion(q.id, { display_scale: sc.key }))}
+              >
+                {sc.label}
+              </button>
+            </Tip>
+          ))}
         </span>
       )}
 

@@ -7,6 +7,7 @@ import QuizJoinCode from './QuizJoinCode.jsx';
 import QuizImage from './QuizImage.jsx';
 import QuizPinField from './QuizPinField.jsx';
 import { signedQuizAudioUrl } from '../../lib/quizAudio.js';
+import { scaleClass } from '../../lib/quizScale.js';
 import { useQuizGuests } from '../../hooks/useQuizGuests.js';
 import QuizFlame from './QuizFlame.jsx';
 import QuizMedal from './QuizMedal.jsx';
@@ -460,7 +461,7 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
             <h1 className="qlive-prompt">{run?.prompt}</h1>
             <div className="qlive-listen-badge" aria-hidden="true">♪</div>
           </div>
-          <QuizImage path={run?.image_path} className="qlive-figure" />
+          <QuizImage path={run?.image_path} className={`qlive-figure ${scaleClass(run?.display_scale)}`} />
 
           <div className="qlive-listen">
             {/* The element is mounted, muted-by-nothing and never given
@@ -518,13 +519,13 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
               always left room — see the v2 note in live-quiz-plan.html. The
               picture takes the slack in the middle of the column and the
               options keep their place at the bottom of the screen. */}
-          <QuizImage path={run?.image_path} className="qlive-figure" />
+          <QuizImage path={run?.image_path} className={`qlive-figure ${scaleClass(run?.display_scale)}`} />
           {/* A pin question's picture is on the wall AND in every hand — the
               only type where that is true, because the answer is a place on
               it. No target is drawn: this is the same component the reveal
               uses, and what it draws is entirely what it is handed. */}
           {run?.kind === 'pin' && (
-            <QuizPinField path={run?.map_path} className="qlive-pin" label="Where the room is dropping pins" />
+            <QuizPinField path={run?.map_path} className={`qlive-pin ${scaleClass(run?.display_scale)}`} label="Where the room is dropping pins" />
           )}
           {run?.kind === 'order' && (
             <p className="qlive-instruction">Tap the shapes in the right order</p>
@@ -598,7 +599,13 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
                   where names belong, and it only ever shows the top five. */}
               <QuizPinField
                 path={run?.map_path}
-                className="qlive-pin"
+                /* The trainer's size applies here too. It is tempting to force
+                   this one large — the reveal is the moment the room reads the
+                   picture hardest — but then a map deliberately set small
+                   would jump in size the instant the clock stopped, and the
+                   pins would appear to move with it. They would not have, and
+                   nobody watching would believe that. */
+                className={`qlive-pin ${scaleClass(run?.display_scale)}`}
                 label="The answer, and where the room dropped their pins"
                 target={pinTarget ? { x: Number(pinTarget.x), y: Number(pinTarget.y), rx: Number(pinTarget.rx), ry: Number(pinTarget.ry) } : null}
                 pins={droppedPins.map(p => ({ x: Number(p.x), y: Number(p.y), was_correct: p.was_correct }))}
