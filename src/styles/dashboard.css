@@ -2079,3 +2079,30 @@
 
 .assessment-run-error { margin: 0.6rem 0 0; font-size: 0.82rem; color: var(--danger); }
 .assessment-run-help { margin: 0.55rem 0 0; font-size: 0.8rem; color: var(--muted); max-width: 60ch; }
+
+/* ── an assessment tab with nothing in it ─────────────────────────────
+   The tab is always present now, so this is what a trainer meets when a
+   session has no assessment — a paragraph that says WHY, and the one
+   button that changes it. */
+.assessment-empty {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #d8dde5);
+  border-radius: 10px;
+  padding: 1.25rem 1.4rem;
+  max-width: 60rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.assessment-empty h3 { margin: 0; font-size: 1.1rem; }
+.assessment-empty p { margin: 0; line-height: 1.55; max-width: 68ch; }
+/* The button and the one thing worth knowing before pressing it, on one
+   row — so the reassurance is where the hand already is. */
+.assessment-empty-go {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}

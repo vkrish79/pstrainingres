@@ -41,6 +41,15 @@ export function useSessionDashboard(sessionId) {
   const [assessmentStarted, setAssessmentStarted] = useState(() => new Set());
   const [answers, setAnswers] = useState({});              // { [participantId]: { [blockId]: { value, updated_at } } }
   const [prepEnabled, setPrepEnabled] = useState(false);   // master workbook has a prep template
+  // Does this session's PROGRAMME have an assessment that the session has not
+  // got? Only looked up while the session has none — the answer is what
+  // decides whether the Assessment tab offers a way in or explains that there
+  // is nothing to offer.
+  const [programAssessment, setProgramAssessment] = useState(null);
+  // Bumped to re-run the load below. The load is one long effect keyed on the
+  // session id; attaching an assessment brings sections and blocks with it, so
+  // the honest refresh is the whole thing again rather than a patched field.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -112,7 +121,21 @@ export function useSessionDashboard(sessionId) {
           started = new Set((aRows || []).map(r => r.participant_id));
         }
 
+        // Only when there is nothing attached: a session that has an
+        // assessment is never offered another, so the answer would go unread.
+        let progAssessment = null;
+        if (!sess.assessment_id && sess.program_id) {
+          const { data: pa } = await supabase
+            .from('assessments')
+            .select('id, title')
+            .eq('program_id', sess.program_id)
+            .eq('is_template', true)
+            .maybeSingle();
+          progAssessment = pa || null;
+        }
+
         if (cancelled) return;
+        setProgramAssessment(progAssessment);
         setSession({
           id: sess.id, name: sess.name,
           starts_at: sess.starts_at, ends_at: sess.ends_at, city_code: sess.city_code,
@@ -140,7 +163,7 @@ export function useSessionDashboard(sessionId) {
     })();
 
     return () => { cancelled = true; };
-  }, [sessionId]);
+  }, [sessionId, reloadKey]);
 
   // Realtime subscription on answers for this session
   useEffect(() => {
@@ -381,6 +404,20 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
+  // Take the programme's assessment into this session.
+  //
+  // For a session scheduled BEFORE its programme had an assessment. The clone
+  // the RPC makes is the same one scheduling would have made, so afterwards
+  // this session is indistinguishable from one created later.
+  async function attachProgramAssessment() {
+    const { data, error: e } = await supabase.rpc('attach_program_assessment_to_session', {
+      p_session_id: sessionId,
+    });
+    if (e) return { error: new Error(e.message) };
+    setReloadKey(k => k + 1);
+    return { data };
+  }
+
   // durationMinutes is optional: a positive number stamps a session-wide
   // deadline now()+N min; null/0 unlocks untimed (open until re-locked).
   async function setAssessmentUnlocked(unlocked, durationMinutes = null) {
@@ -454,5 +491,5 @@ export function useSessionDashboard(sessionId) {
     return (w.count || 0) + (a.count || 0) > 0;
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
+  return { loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, programAssessment, attachProgramAssessment, setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
 }

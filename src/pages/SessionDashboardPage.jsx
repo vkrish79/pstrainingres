@@ -53,7 +53,7 @@ export default function SessionDashboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const {
-    loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled,
+    loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, programAssessment, attachProgramAssessment,
     setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
   } = useSessionDashboard(id);
   const { session: authSession, profile } = useAuth();
@@ -101,6 +101,7 @@ export default function SessionDashboardPage() {
   const [invitesProgress, setInvitesProgress] = useState({ done: 0, total: 0 });
   const [invitesRows, setInvitesRows] = useState([]);
   const [invitesError, setInvitesError] = useState('');
+  const [attachError, setAttachError] = useState('');
   const [invitesCopied, setInvitesCopied] = useState(false);
   const [copiedRowInvite, setCopiedRowInvite] = useState(null); // participant id
 
@@ -517,9 +518,13 @@ export default function SessionDashboardPage() {
           <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>
           <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => setView('exercise')}>By exercise</button>
           <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
-          {session?.assessment_id && (
-            <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
-          )}
+          {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
+              whenever the session had no assessment — which is exactly when a
+              trainer needs it, because a session scheduled before its
+              programme had an assessment has no other way to get one. The tab
+              that disappears when there is nothing in it is the tab you cannot
+              use to put something in it. */}
+          <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
           {/* Always shown, unlike Assessment: a quiz is attached from this very
               tab, so hiding it until one exists would hide the only way in. */}
           <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
@@ -822,7 +827,50 @@ export default function SessionDashboardPage() {
           />
         )}
 
-        {view === 'assessment' && (
+        {/* NOTHING ATTACHED. Three different situations, and a trainer can
+            act on only one of them — so each says which it is rather than
+            offering the same button three times. */}
+        {view === 'assessment' && !session?.assessment_id && (
+          <div className="assessment-view">
+            <div className="assessment-empty">
+              <h3>No assessment on this session</h3>
+              {/* ONE LINE EACH. The first version explained the snapshot rule
+                  in full — true, and three sentences a trainer has to read
+                  before reaching the only button on the screen. What they need
+                  is which paper, and that pressing it does not start an exam. */}
+              {programAssessment ? (
+                <>
+                  <p className="muted">
+                    <strong>{session?.program?.title || 'This programme'}</strong> has{' '}
+                    <strong>{programAssessment.title}</strong>, added after this session was scheduled.
+                  </p>
+                  <div className="assessment-empty-go">
+                    <button
+                      type="button"
+                      disabled={!!session?.closed_at}
+                      onClick={async () => {
+                        const { error: e } = await runBusy('Adding the assessment…', attachProgramAssessment);
+                        if (e) setAttachError(e.message);
+                      }}
+                    >
+                      Add {programAssessment.title}
+                    </button>
+                    <span className="muted">It stays locked until you open it.</span>
+                  </div>
+                  {attachError && <p className="error">{attachError}</p>}
+                </>
+              ) : session?.program_id ? (
+                <p className="muted">
+                  <strong>{session?.program?.title || 'This programme'}</strong> has no assessment yet.
+                </p>
+              ) : (
+                <p className="muted">This session was not created from a programme.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === 'assessment' && session?.assessment_id && (
           <div className="assessment-view">
             <AssessmentRunStrip
               unlockedAt={session?.assessment_unlocked_at}
