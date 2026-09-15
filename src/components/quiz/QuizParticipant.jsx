@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { ordinal } from '../../lib/ordinal.js';
@@ -38,6 +38,11 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
   const [seq, setSeq] = useState([]);
   // Where this person has put their pin, in the picture's own coordinates.
   const [myPin, setMyPin] = useState(null);
+  // The latest place the finger was, and whether a request is already out.
+  // Refs rather than state: they are read inside an async loop, where a
+  // captured state value would be the one from the render that started it.
+  const pendingPin = useRef(null);
+  const pinInFlight = useRef(false);
   const [sending, setSending] = useState(false);
   // An ordering is sitting on the server for this question. NOT cleared by
   // "Start again": starting again clears the sequence on screen, and the
@@ -50,7 +55,7 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
   const idx = run?.current_index ?? -1;
 
   // A new question clears the last one's answer and verdict.
-  useEffect(() => { setPicked(null); setStake(1); setSeq([]); setMyPin(null); setSubmitted(false); setNote(''); setResult(null); }, [idx]);
+  useEffect(() => { setPicked(null); setStake(1); setSeq([]); setMyPin(null); setSubmitted(false); setNote(''); setResult(null); pendingPin.current = null; pinInFlight.current = false; }, [idx]);
 
   useEffect(() => {
     if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase)) return;
@@ -100,23 +105,44 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
   // moved until the clock stops. That is the same bargain every other type
   // makes: an answer can be changed, and changing it re-stamps the clock, so
   // there is no free late correction.
+  // NO TAP IS EVER DROPPED. This used to open with `if (sending) return`,
+  // which meant that while one position was in flight the next one was thrown
+  // away — so moving the pin twice in quick succession did nothing the second
+  // time, and on a phone in a room that reads as the screen being broken.
+  //
+  // Instead the latest position is always remembered and always drawn, and the
+  // sender loops until there is nothing newer. At most ONE request is in
+  // flight, and what it carries is the most recent place the finger was, not
+  // the oldest one queued. A pin dragged across the map is one request on
+  // release, not thirty.
+  //
+  // The screen is never rolled back on failure either. The pin is where they
+  // put it; if the server refused the position, saying so is the note's job,
+  // and moving their pin for them would be a second lie on top of the first.
   async function dropPin({ x, y }) {
-    if (sending) return;
-    const previous = myPin;
-    setSending(true);
     setMyPin({ x, y });                 // under the thumb at once, not a round trip later
-    const { data, error } = await supabase.rpc('quiz_answer_pin', {
-      p_run_id: runId, p_x: x, p_y: y, p_wager: stake,
-    });
-    setSending(false);
-    const row = Array.isArray(data) ? data[0] : data;
-    if (error) { setMyPin(previous); setNote(error.message); return; }
-    if (row && row.accepted === false) {
-      setMyPin(previous);
-      setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
-      return;
+    pendingPin.current = { x, y };
+    if (pinInFlight.current) return;    // the loop below will pick this up
+
+    pinInFlight.current = true;
+    try {
+      while (pendingPin.current) {
+        const p = pendingPin.current;
+        pendingPin.current = null;
+        const { data, error } = await supabase.rpc('quiz_answer_pin', {
+          p_run_id: runId, p_x: p.x, p_y: p.y, p_wager: stake,
+        });
+        const row = Array.isArray(data) ? data[0] : data;
+        if (error) { setNote(error.message); continue; }
+        if (row && row.accepted === false) {
+          setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
+          continue;
+        }
+        setNote('Pin in. Drag it to move it.');
+      }
+    } finally {
+      pinInFlight.current = false;
     }
-    setNote('Pin in. Tap again to move it.');
   }
 
   // Raising or lowering the stake. If an answer is already in, the stake has to
@@ -268,12 +294,16 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
                 path={run?.map_path}
                 onPick={dropPin}
                 myPin={myPin}
-                busy={sending}
+                /* NOT busy={sending}. `sending` belongs to the shape and
+                   sequence answers, and passing it here made the pad go inert
+                   for the length of every round trip — the third reason this
+                   question felt dead in the hand. The pad is now never
+                   disabled: dropPin coalesces instead of refusing. */
                 className="qlive-pin-answer"
-                label="Tap where you think it is"
+                label="Where you think it is"
               />
               {note && <p className="qlive-note">{note}</p>}
-              {!note && !myPin && <p className="qlive-note qlive-muted">Tap the picture — speed counts.</p>}
+              {!note && !myPin && <p className="qlive-note qlive-muted">Press the picture, and drag to aim — speed counts.</p>}
             </>
           ) : run?.kind === 'order' ? (
             <>

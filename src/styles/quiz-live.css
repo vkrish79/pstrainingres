@@ -845,7 +845,9 @@
    with the gap and looks like nothing in particular on screen. */
 .qpin {
   position: relative;
-  display: inline-flex;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   align-self: center;
   max-width: 100%;
   min-height: 0;
@@ -853,6 +855,18 @@
   overflow: hidden;
   line-height: 0;
 }
+/* THE FRAME. Shrink-wrapped to the bitmap, and the only thing the overlays
+   are positioned against — so the box a tap is measured in and the box a
+   pin is drawn in are the same box. They were not, and every pin on a
+   phone landed low by the height of the gap. */
+.qpin-frame {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+
 .qpin-img {
   display: block;
   max-width: 100%;
@@ -866,7 +880,21 @@
   user-select: none;
   -webkit-touch-callout: none;
 }
-.qpin.is-live { cursor: crosshair; }
+/* THE OTHER HALF OF THE GESTURE FIX. Without touch-action the browser keeps
+   the right to decide, part-way through a press, that it was a scroll or a
+   double-tap zoom after all — and it takes the gesture away mid-drag. none
+   says: on this surface, a finger is always drawing, never scrolling.
+
+   Only on the LIVE pad. The reveal and the wall are ordinary pictures and a
+   room should still be able to scroll past them. */
+.qpin.is-live {
+  cursor: crosshair;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.qpin.is-dragging { cursor: grabbing; }
 .qpin.is-live:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
 
 /* The answer. Only ever drawn after the window has closed — the component is
@@ -884,7 +912,6 @@
 /* Everyone else's pins, at the reveal. Ringed in dark as well as coloured:
    a bare green dot disappears over a green field, which is most of a map. */
 .qpin-dot,
-.qpin-mine,
 .qpin-cursor {
   position: absolute;
   width: 14px;
@@ -898,16 +925,39 @@
 .qpin-dot.is-right { background: #7ee0a4; }
 .qpin-dot.is-wrong { background: #ffc2a1; }
 
-/* Your own pin is bigger and ringed in white, because on a phone it is the
-   one thing on the picture you need to find again. */
+/* A LOCATION PIN. Anchored by its TIP — translate(-50%, -100%) puts the
+   point of the teardrop on the coordinate, where a dot would have put its
+   centre. That distinction is the difference between "my pin is on the
+   airport" and "my pin is a pin-height north of the airport". */
 .qpin-mine {
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
-  background: #ffd166;
-  border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  position: absolute;
+  width: 30px;
+  height: 40px;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  color: #ffd166;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
+  transition: transform 0.08s ease-out;
 }
+.qpin-marker { width: 100%; height: 100%; display: block; }
+
+/* Held: lifted and enlarged, still pivoting on the tip so the answer does
+   not move while the pin grows. */
+.qpin-mine.is-held { transform: translate(-50%, -100%) scale(1.22); }
+
+/* The exact point, visible only while the thumb is over the marker. */
+.qpin-tip {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #16304d;
+  pointer-events: none;
+}
+
 .qpin-cursor {
   background: transparent;
   border: 2px dashed #ffd166;
@@ -922,7 +972,13 @@
 .qlive-pin { flex: 1 1 auto; min-height: 0; }
 .qlive-pin .qpin-img { max-height: min(52vh, 100%); }
 .qlive-pin-answer { flex: 1 1 auto; min-height: 0; width: 100%; }
-.qlive-pin-answer .qpin-img { max-height: 62vh; }
+/* As big as the screen allows. Every pixel here is precision the thumb gets
+   back, and the handset has nothing else on it to make room for. */
+/* NO width:100% and NO object-fit here. Both make the <img> ELEMENT bigger
+   than the picture drawn inside it, which reopens the same gap between
+   what is measured and what is seen. The element must always be exactly
+   the bitmap; it gets big by being allowed to grow, not by being stretched. */
+.qlive-pin-answer .qpin-img { max-height: 68vh; }
 
 /* ── the standalone lobby ─────────────────────────────────────────────
    The code on the left, the room filling up on the right. Two columns
