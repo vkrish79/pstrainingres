@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import KebabMenu from '../KebabMenu.jsx';
 import { SkeletonCards } from '../Skeleton.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { usePolls, filledAnswers, pollIsReady } from '../../hooks/usePolls.js';
@@ -50,6 +51,7 @@ export default function SessionPolls({ sessionId }) {
   // The length chosen on each row, by poll id.
   const [timers, setTimers] = useState({});
   const { run: runBusy } = useBusyOverlay();
+  const navigate = useNavigate();
   const [rowError, setRowError] = useState('');
   // Whether the projector is filling the screen. Separate from "a poll is
   // live", so the trainer can step back to the session without taking the poll
@@ -170,7 +172,8 @@ export default function SessionPolls({ sessionId }) {
 
       {!loading && polls.length > 0 && (
         <>
-          <h3 className="poll-section-head">Ask the room</h3>
+          <div className="cockpit-card session-poll-card">
+          <h3 className="cockpit-card-title poll-section-head">Ask the room</h3>
           <ul className="poll-fire-list">
             {polls.map((p) => {
               const answers = filledAnswers(p.options);
@@ -187,17 +190,26 @@ export default function SessionPolls({ sessionId }) {
                     </span>
                   </div>
                   <div className="poll-fire-tools">
-                    <select
-                      className="poll-fire-timer"
-                      aria-label="How long voting stays open"
-                      value={timers[p.id] ?? DEFAULT_TIMER}
-                      disabled={!ready}
-                      onChange={(e) => setTimers((t) => ({ ...t, [p.id]: e.target.value }))}
-                    >
-                      {TIMER_CHOICES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
+                    {/* One tap each, rather than a small dropdown that was easy
+                        to leave on the wrong length before pressing Ask. */}
+                    <div className="poll-fire-timer" role="radiogroup" aria-label="How long voting stays open">
+                      {TIMER_CHOICES.map((c) => {
+                        const on = (timers[p.id] ?? DEFAULT_TIMER) === c.value;
+                        return (
+                          <button
+                            key={c.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            disabled={!ready}
+                            data-value={c.value}
+                            onClick={() => setTimers((t) => ({ ...t, [p.id]: c.value }))}
+                          >
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <button
                       type="button"
                       className="poll-fire-btn"
@@ -207,18 +219,23 @@ export default function SessionPolls({ sessionId }) {
                     >
                       Ask the room
                     </button>
-                    <Link to="/trainer/polls" className="ghost-link">Edit</Link>
+                    <KebabMenu
+                      label={`Actions for ${p.question || 'this poll'}`}
+                      items={[{ label: 'Edit in the library', glyph: '✎', onClick: () => navigate('/trainer/polls') }]}
+                    />
                   </div>
                 </li>
               );
             })}
           </ul>
+          </div>
         </>
       )}
 
       {past.length > 0 && (
         <>
-          <h3 className="poll-section-head">Earlier in this session</h3>
+          <div className="cockpit-card session-poll-card">
+          <h3 className="cockpit-card-title poll-section-head">Earlier in this session</h3>
           <ul className="poll-past-list">
             {past.map((r) => {
               const opts = Array.isArray(r.options) ? r.options : [];
@@ -239,18 +256,35 @@ export default function SessionPolls({ sessionId }) {
                       </time>
                     )}
                   </div>
-                  <span className="poll-past-counts">
-                    {opts.map((label, i) => (
-                      <span className="poll-past-chip" key={i}>
-                        <span className={`poll-chip-dot poll-opt-${i}`} aria-hidden="true" />
-                        {label} <strong>{tally[String(i)] ?? 0}</strong>
+                  {/* The same bars the projector showed, scaled to the biggest
+                      answer, so which way the room leaned reads without adding
+                      numbers up. */}
+                  {(() => {
+                    const most = Math.max(1, ...opts.map((_, i) => tally[String(i)] ?? 0));
+                    const votes = opts.reduce((n, _, i) => n + (tally[String(i)] ?? 0), 0);
+                    return (
+                      <span className="poll-past-counts">
+                        {opts.map((label, i) => {
+                          const n = tally[String(i)] ?? 0;
+                          return (
+                            <span className="poll-past-chip" key={i}>
+                              <span className="poll-past-label">{label}</span>
+                              <span className="poll-past-track" aria-hidden="true">
+                                <span className={`poll-past-fill poll-opt-${i}`} style={{ width: `${(n / most) * 100}%` }} />
+                              </span>
+                              <strong>{n}</strong>
+                            </span>
+                          );
+                        })}
+                        <span className="poll-past-total">{votes} vote{votes === 1 ? '' : 's'}</span>
                       </span>
-                    ))}
-                  </span>
+                    );
+                  })()}
                 </li>
               );
             })}
           </ul>
+          </div>
         </>
       )}
     </section>

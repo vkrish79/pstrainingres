@@ -1215,6 +1215,7 @@ export default function SessionDashboardPage() {
               onExtend={(mins) => extendAssessmentDeadline(mins)}
             />
             <div className="assessment-subtabs">
+              <span className="assessment-subtabs-track" role="group" aria-label="Assessment view">
               <button
                 className={`view-subtab ${assessmentSubView === 'responses' ? 'active' : ''}`}
                 onClick={() => setAssessmentSubView('responses')}
@@ -1233,6 +1234,11 @@ export default function SessionDashboardPage() {
               >
                 Report
               </button>
+              </span>
+              {/* Started = saved at least one answer, as of page load. */}
+              <span className="assessment-subtabs-summary">
+                {participants.filter(x => !x.deactivated_at).length} participants · {participants.filter(x => !x.deactivated_at && assessmentStarted.has(x.id)).length} started
+              </span>
             </div>
             {assessmentSubView === 'responses' && (
               <AssessmentResponses

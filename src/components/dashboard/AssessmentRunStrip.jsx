@@ -70,7 +70,9 @@ export default function AssessmentRunStrip({ unlockedAt, deadlineAt, onUnlock, o
         </span>
 
         {state === 'open' && label && (
-          <span className={`assessment-run-timer${urgent ? ' is-urgent' : ''}`}>⏱ {label} left</span>
+          <span className={`assessment-run-timer${urgent ? ' is-urgent' : ''}`}>
+            <span className="assessment-run-clock">{label}</span> left
+          </span>
         )}
         {state === 'open' && !deadlineAt && (
           <span className="assessment-run-note">No time limit</span>
@@ -80,25 +82,29 @@ export default function AssessmentRunStrip({ unlockedAt, deadlineAt, onUnlock, o
           {state === 'locked' && (
             <>
               <span className="assessment-run-hint">Open it for</span>
-              {DURATIONS.map(m => (
-                <button key={m} type="button" className="ghost" disabled={busy} onClick={() => preset(m)}>
-                  {m}m
+              <span className="assessment-run-presets" role="group" aria-label="Open for">
+                {DURATIONS.map(m => (
+                  <button key={m} type="button" className="ghost" disabled={busy} onClick={() => preset(m)}>
+                    {m}m
+                  </button>
+                ))}
+                <button type="button" className="ghost" disabled={busy} onClick={() => preset(null)}>
+                  Untimed
                 </button>
-              ))}
-              <button type="button" className="ghost" disabled={busy} onClick={() => preset(null)}>
-                Untimed
-              </button>
+              </span>
             </>
           )}
 
           {state !== 'locked' && deadlineAt && (
             <>
               <span className="assessment-run-hint">{expired ? 'Reopen for' : 'Add'}</span>
-              {EXTENSIONS.map(m => (
-                <button key={m} type="button" className="ghost" disabled={busy} onClick={() => preset(m)}>
-                  +{m}m
-                </button>
-              ))}
+              <span className="assessment-run-presets" role="group" aria-label={expired ? 'Reopen for' : 'Add time'}>
+                {EXTENSIONS.map(m => (
+                  <button key={m} type="button" className="ghost" disabled={busy} onClick={() => preset(m)}>
+                    +{m}m
+                  </button>
+                ))}
+              </span>
             </>
           )}
 

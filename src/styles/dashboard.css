@@ -2793,3 +2793,152 @@
 .answers-strip .answers-chip[aria-pressed="true"],
 .answers-strip .answers-chip[aria-pressed="true"]:hover { background: var(--midnight); border-color: var(--midnight); color: #fff; }
 @media (max-width: 1180px) { .answers-keys { display: none; } }
+
+/* ── The other tabs in the cockpit's look (UX rec #5) ─────────────────── */
+
+/* Assessment: the run strip is a cockpit card, the time left reads large, and
+   presets sit in one pill group. */
+.assessment-view .assessment-run {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+}
+.assessment-view .assessment-run-label { color: #7d8a97; letter-spacing: 0.12em; }
+.assessment-view .assessment-run-state { font-size: 0.95rem; }
+.assessment-view .assessment-run-state.is-open { color: #2f7a52; }
+.assessment-view .assessment-run-timer {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #7d8a97;
+}
+.assessment-run-clock {
+  font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--midnight);
+  margin-right: 0.15rem;
+}
+.assessment-view .assessment-run-timer.is-urgent .assessment-run-clock { color: #b06a00; }
+.assessment-run-presets {
+  display: inline-flex;
+  background: #f1ede5;
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+.assessment-view .assessment-run-actions .assessment-run-presets button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #4b5a6a;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+}
+.assessment-view .assessment-run-actions .assessment-run-presets button:hover:not(:disabled) { background: #fff; color: var(--midnight); }
+
+/* Assessment sub-tabs: the navy pill switch Room uses. */
+.assessment-view .assessment-subtabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.assessment-view .assessment-subtabs .view-subtab {
+  border: 0;
+  border-radius: 7px;
+  padding: 0.35rem 0.85rem;
+  font-weight: 600;
+  color: #6c7a88;
+  background: transparent;
+}
+.assessment-subtabs-track {
+  display: inline-flex;
+  background: #f1ede5;
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+.assessment-view .assessment-subtabs .view-subtab:hover { color: var(--midnight); background: rgba(255, 255, 255, 0.6); }
+.assessment-view .assessment-subtabs .view-subtab.active,
+.assessment-view .assessment-subtabs .view-subtab.active:hover { background: var(--midnight); color: #fff; border: 0; }
+.assessment-subtabs-summary { font-size: 0.82rem; color: #6c7a88; }
+
+/* Quiz and Polls: one card per list, small-caps titles, ⋯ for the rest. */
+.dashboard .quiz-tab { max-width: none; display: grid; gap: 0.9rem; }
+.session-quiz-card, .session-poll-card { padding: 0.75rem 0.9rem 0.4rem; }
+.session-quiz-card .quiz-attached { margin: 0; }
+.session-quiz-card .quiz-attached-row,
+.session-poll-card .poll-fire-row,
+.session-poll-card .poll-past-row {
+  border: 0;
+  border-top: 1px solid #f0ece4;
+  border-radius: 0;
+  margin: 0;
+  padding: 0.7rem 0.2rem;
+  background: transparent;
+}
+.session-quiz-card .quiz-attached-row:first-child,
+.session-poll-card .poll-fire-row:first-child,
+.session-poll-card .poll-past-row:first-child { border-top: 0; }
+.session-quiz-card .quiz-attached-main { flex-direction: row; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.session-quiz-card .quiz-attached-title,
+.session-poll-card .poll-fire-q,
+.session-poll-card .poll-past-q { font-weight: 700; color: var(--midnight); }
+.quiz-count-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: #f1ede5;
+  color: #6c5a33;
+}
+.quiz-count-chip.is-empty { background: #f6e1dc; color: #a8412f; }
+.quiz-card-empty { margin: 0.2rem 0.2rem 0.6rem; }
+.quiz-attach-form.cockpit-card { max-width: none; padding: 0.75rem 0.9rem; display: grid; gap: 0.45rem; }
+.quiz-attach-form .quiz-attach-row { max-width: 40rem; }
+.quiz-attach-note { margin: 0; font-size: 0.8rem; }
+.poll-tab { display: grid; gap: 0.9rem; }
+.session-poll-card .cockpit-card-title.poll-section-head { margin: 0 0 0.3rem; font-size: 0.66rem; }
+.session-poll-card .poll-fire-list, .session-poll-card .poll-past-list { margin: 0; }
+
+/* Poll timer as a pill group. */
+.poll-fire-timer {
+  display: inline-flex;
+  background: #f1ede5;
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+.poll-fire-timer button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #6c7a88;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.poll-fire-timer button:hover:not(:disabled) { background: #fff; color: var(--midnight); }
+.poll-fire-timer button[aria-checked="true"],
+.poll-fire-timer button[aria-checked="true"]:hover { background: #fff; color: var(--midnight); box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14); }
+.poll-fire-timer button:disabled { cursor: default; opacity: 0.55; }
+
+/* Past poll results as bars. */
+.session-poll-card .poll-past-counts { display: grid; gap: 0.3rem; width: 100%; max-width: 34rem; }
+.session-poll-card .poll-past-chip {
+  display: grid;
+  grid-template-columns: 9rem 1fr 2rem;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+.poll-past-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4b5a6a; }
+.poll-past-track { height: 8px; border-radius: 5px; background: #f1ede5; overflow: hidden; }
+.poll-past-fill { display: block; height: 100%; border-radius: 5px; min-width: 0; }
+.session-poll-card .poll-past-chip strong { text-align: right; font-variant-numeric: tabular-nums; color: var(--midnight); }
+.poll-past-total { font-size: 0.75rem; color: #7d8a97; }

@@ -234,7 +234,8 @@ export default function TrainerPracticeView({
           Stays reachable while scrolling. Spotlight/Snap act on the selected
           exercise. */}
       <div className="presenter-bar" ref={barRef}>
-        <span className="presenter-bar-label">Cohort</span>
+        <span className="presenter-bar-label">Class</span>
+        <span className="presenter-bar-group" role="group" aria-label="Class controls">
         <button
           className={`ghost ${focus?.section_id && focus.section_id === selectedSection?.id ? 'active' : ''}`}
           onClick={() => selectedSection && spotlight(selectedSection)}
@@ -257,8 +258,9 @@ export default function TrainerPracticeView({
           disabled={editMode}
           title={editMode ? 'Finish editing to monitor the cohort' : 'See who is on this exercise and their progress'}
         >
-          👁 Monitor{onlineTotal > 0 ? ` (${onlineTotal})` : ''}
+          👁 Monitor{onlineTotal > 0 ? ` · ${onlineTotal}` : ''}
         </button>
+        </span>
         {focus?.section_id && (
           <span className="spotlight-chip" title="Currently broadcast to participants">
             {focusIsSnap ? '⚡ Snapped to' : '🔦 Spotlighting'} {focus.section_title}

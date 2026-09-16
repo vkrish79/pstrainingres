@@ -431,3 +431,26 @@
   font-size: 0.9rem;
 }
 .help-banner.is-coming { background: #fdf6e6; border-color: #eedcae; }
+
+/* ── Class controls as one pill group (UX rec #5) ─────────────────────── */
+.presenter-bar { border-radius: 12px; }
+.presenter-bar-label { letter-spacing: 0.12em; color: #7d8a97; }
+.presenter-bar-group {
+  display: inline-flex;
+  background: #f1ede5;
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+.presenter-bar .presenter-bar-group .ghost {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  font-weight: 600;
+  color: #4b5a6a;
+  padding: 0.35rem 0.8rem;
+}
+.presenter-bar .presenter-bar-group .ghost:hover:not(:disabled) { background: #fff; color: var(--midnight); }
+.presenter-bar .presenter-bar-group .ghost.active,
+.presenter-bar .presenter-bar-group .ghost.active:hover { background: #fff; color: var(--midnight); box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14); }
+.presenter-bar .presenter-bar-group .ghost:disabled { background: transparent; opacity: 0.5; }

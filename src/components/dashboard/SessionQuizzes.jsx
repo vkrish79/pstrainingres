@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { SkeletonCards } from '../Skeleton.jsx';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import KebabMenu from '../KebabMenu.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useSessionQuizzes } from '../../hooks/useSessionQuizzes.js';
 import { useActiveQuizRun } from '../../hooks/useActiveQuizRun.js';
@@ -13,6 +14,7 @@ import '../../styles/quiz.css';
 export default function SessionQuizzes({ sessionId, joinCode }) {
   const { loading, error, attached, library, attach, remove } = useSessionQuizzes(sessionId);
   const { run: runBusy } = useBusyOverlay();
+  const navigate = useNavigate();
   const [pick, setPick] = useState('');
   const [rowError, setRowError] = useState('');
   const [confirming, setConfirming] = useState(null);
@@ -99,10 +101,11 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
 
       {!loading && (
         <>
+          <div className="cockpit-card session-quiz-card">
+            <h3 className="cockpit-card-title">Quizzes in this session</h3>
           {attached.length === 0 ? (
-            <p className="muted">
-              No quiz on this session yet. Add one from the library below — you get your
-              own copy, so you can reword it for this room without changing the original.
+            <p className="muted quiz-card-empty">
+              No quiz on this session yet. Add one from the library below.
             </p>
           ) : (
             <ul className="quiz-attached">
@@ -110,7 +113,7 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
                 <li key={q.id} className="quiz-attached-row">
                   <div className="quiz-attached-main">
                     <span className="quiz-attached-title">{q.title}</span>
-                    <span className="muted">
+                    <span className={`quiz-count-chip${q.question_count === 0 ? ' is-empty' : ''}`}>
                       {q.question_count === 0
                         ? 'No questions'
                         : `${q.question_count} question${q.question_count === 1 ? '' : 's'}`}
@@ -128,7 +131,9 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
                     >
                       ▶ Run
                     </button>
-                    <Link to={`/trainer/quizzes/${q.id}`} className="ghost-link">Edit</Link>
+                    {/* One main action per row; the rest behind ⋯, the same
+                        pattern as a person's actions in Room. Remove still asks,
+                        and the question appears here in the row. */}
                     {confirming === q.id ? (
                       <>
                         <span className="muted">Remove it?</span>
@@ -136,16 +141,24 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
                         <button type="button" className="ghost" onClick={() => setConfirming(null)}>Cancel</button>
                       </>
                     ) : (
-                      <button type="button" className="ghost" onClick={() => setConfirming(q.id)}>Remove</button>
+                      <KebabMenu
+                        label={`Actions for ${q.title}`}
+                        items={[
+                          { label: 'Edit questions', glyph: '✎', onClick: () => navigate(`/trainer/quizzes/${q.id}`) },
+                          { separator: true },
+                          { label: 'Remove from session', glyph: '✕', danger: true, onClick: () => setConfirming(q.id) },
+                        ]}
+                      />
                     )}
                   </div>
                 </li>
               ))}
             </ul>
           )}
+          </div>
 
-          <form onSubmit={handleAttach} className="quiz-attach-form">
-            <label className="form-label" htmlFor="quiz-pick">Add a quiz from the library</label>
+          <form onSubmit={handleAttach} className="cockpit-card quiz-attach-form">
+            <label className="cockpit-card-title" htmlFor="quiz-pick">Add from the library</label>
             <div className="quiz-attach-row">
               <select
                 id="quiz-pick"
@@ -164,9 +177,13 @@ export default function SessionQuizzes({ sessionId, joinCode }) {
               </select>
               <button type="submit" disabled={!pick}>Add to session</button>
             </div>
-            {library.length === 0 && (
+            {library.length === 0 ? (
               <p className="muted">
                 The library is empty. <Link to="/trainer/quizzes">Build a quiz</Link> first.
+              </p>
+            ) : (
+              <p className="muted quiz-attach-note">
+                You get this session's own copy, so you can reword it for this room without changing the original.
               </p>
             )}
           </form>
