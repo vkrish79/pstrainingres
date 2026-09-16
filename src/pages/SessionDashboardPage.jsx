@@ -13,15 +13,17 @@ import { sanitizeNotesHtml } from '../lib/notesRichText.js';
 import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
-import AssessmentStatusChip from '../components/dashboard/AssessmentStatusChip.jsx';
 import AssessmentRunStrip from '../components/dashboard/AssessmentRunStrip.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, expectedInputs, filledInputs } from '../lib/blockHelpers.js';
 import { buildAllInvitesText, buildHandoutHtml, buildInviteText } from '../lib/participantInvite.js';
 import Block from '../components/blocks/Block.jsx';
-import MaterialsList from '../components/MaterialsList.jsx';
+import MaterialsDrawer from '../components/participant/MaterialsDrawer.jsx';
+import { CockpitGauges, CockpitRail, CockpitClock, SessionDayLabel, useCockpitReady, RoomTiles, TONE_LABEL } from '../components/dashboard/SessionCockpit.jsx';
+import { sessionPace, ago, lastActiveTs } from '../lib/sessionPace.js';
 import ExerciseResponses from '../components/dashboard/ExerciseResponses.jsx';
+import HeatBoard from '../components/dashboard/HeatBoard.jsx';
 import NoteRow from '../components/dashboard/NoteRow.jsx';
 import TrainerPracticeView from '../components/dashboard/TrainerPracticeView.jsx';
 import TrainerAssessmentPreview from '../components/dashboard/TrainerAssessmentPreview.jsx';
@@ -65,6 +67,7 @@ export default function SessionDashboardPage() {
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(id);
   // Live cursors: where each participant is looking right now. Read-only here.
   const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
+  const cockpitReady = useCockpitReady(id);
 
   // live/idle/offline are time-based, so tick periodically to let dots decay
   // even when no cursor/answer event arrives.
@@ -104,6 +107,22 @@ export default function SessionDashboardPage() {
   const [attachError, setAttachError] = useState('');
   const [invitesCopied, setInvitesCopied] = useState(false);
   const [copiedRowInvite, setCopiedRowInvite] = useState(null); // participant id
+  const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [answersOpen, setAnswersOpen] = useState(false);
+  // Tiles, table or heat board, remembered per browser — a trainer who prefers the
+  // board should not have to pick it again on every session.
+  const [roomView, setRoomViewState] = useState(() => {
+    try {
+      const v = localStorage.getItem('session-room-view');
+      return v === 'heat' || v === 'table' ? v : 'tiles';
+    } catch { return 'tiles'; }
+  });
+  function setRoomView(v) {
+    setRoomViewState(v);
+    try { localStorage.setItem('session-room-view', v); } catch { /* private window — fine */ }
+  }
+  // Where "By exercise" should open when the heat board sends a trainer there.
+  const [exerciseJump, setExerciseJump] = useState(null); // { sectionId, participantId, n }
 
   useBodyScrollLock(confirmDeleteSession);
   useEffect(() => {
@@ -427,113 +446,302 @@ export default function SessionDashboardPage() {
   const selected = participants.find(p => p.id === selectedParticipantId);
   const selectedAnswers = selected ? (answers[selected.id] || {}) : {};
   const selectedNotes = selected ? (notes[selected.id] || {}) : {};
+  // Selecting someone fills the Selected card beside the class; their answers
+  // open only when asked for, and then take the panel's width.
+  const reading = !!selected && answersOpen;
+  // The same click in every view: select, or deselect if already selected.
+  function pickParticipant(pid) {
+    setAnswersOpen(false);
+    setSelectedParticipantId(prev => (prev === pid ? null : pid));
+  }
+
+  // A person's actions — the ⋯ menu and every confirm it leads to. ONE copy,
+  // rendered in the table's last column and in the Selected card, so the two
+  // can never offer different things or lose a confirm step between them.
+  // The confirms render in place rather than inside the menu: the menu closes
+  // on the click, this re-renders as the question, and a popup that dismisses
+  // on outside-click never has to hold one.
+  function participantActions(p) {
+    const isDropout = !!p.deactivated_at;
+    return (
+      <>
+        {confirmDelete === p.id ? (
+          <>
+            <span className="confirm-text">Delete account &amp; all answers?</span>
+            <button className="danger" onClick={() => doDelete(p.id)} disabled={busy}>Yes</button>
+            <button className="ghost" onClick={() => setConfirmDelete(null)} disabled={busy}>No</button>
+          </>
+        ) : deleteError[p.id] ? (
+          <>
+            <span className="error">{deleteError[p.id]}</span>
+            <button
+              className="ghost"
+              onClick={() => setDeleteError(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+            >Dismiss</button>
+          </>
+        ) : confirmReset === p.id ? (
+          <>
+            <span className="confirm-text">Reset password?</span>
+            <button className="danger" onClick={() => doResetPassword(p.id)} disabled={busy}>Yes</button>
+            <button className="ghost" onClick={() => setConfirmReset(null)} disabled={busy}>No</button>
+          </>
+        ) : resetResult[p.id]?.temp_password ? (
+          <>
+            <span className="confirm-text">New pwd:</span>
+            <span className="mono">{resetResult[p.id].temp_password}</span>
+            <button
+              className="ghost btn-sm"
+              title="Copy just the password"
+              onClick={() => {
+                navigator.clipboard?.writeText(resetResult[p.id].temp_password).catch(() => {});
+              }}
+            >Copy</button>
+            <button
+              className="ghost btn-sm"
+              title="Copy a ready-to-send message with link, username and this password"
+              onClick={() => copyRowInvite(p)}
+            >{copiedRowInvite === p.id ? 'Copied!' : 'Copy invite'}</button>
+            <button
+              className="ghost btn-sm"
+              title="Open a printable handout slip for this participant"
+              onClick={() => printRowHandout(p)}
+            >🖨 Print</button>
+            <button
+              className="ghost btn-sm"
+              onClick={() => setResetResult(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+            >Done</button>
+          </>
+        ) : resetResult[p.id]?.error ? (
+          <>
+            <span className="error">{resetResult[p.id].error}</span>
+            <button
+              className="ghost"
+              onClick={() => setResetResult(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+            >Dismiss</button>
+          </>
+        ) : (
+          /* Three buttons per row, on every row, was the loudest thing on
+             this page — the noise scaled with the cohort. Hence a menu. */
+          <KebabMenu
+            label={`Actions for ${p.full_name || 'participant'}`}
+            items={[
+              { label: 'Edit prep…', glyph: '▤', onClick: () => setPrepEditorFor(p.id) },
+              { label: 'Reset password', glyph: '⟲', onClick: () => setConfirmReset(p.id) },
+              { separator: true },
+              // Once someone has started, removing them
+              // would delete what they wrote — so the
+              // destructive option is replaced, not added to.
+              isDropout
+                ? { label: 'Reactivate', glyph: '↺', onClick: () => doReactivate(p.id) }
+                : hasStarted(p.id)
+                  ? { label: 'Deactivate…', glyph: '⊘', onClick: () => setDeactivating({ id: p.id, startedSinceLoad: false }) }
+                  : { label: 'Remove from session', glyph: '✕', danger: true, onClick: () => requestRemove(p.id) },
+            ]}
+          />
+        )}
+      </>
+    );
+  }
+
+  // The cockpit's figures, from what is already loaded. Online is the same
+  // heartbeat test as the "N online" count, so the two can never disagree.
+  const cockpit = sessionPace(participants.map(p => {
+    const { answered, lastTs } = progressFor(p.id);
+    const cur = cursors[p.id];
+    return {
+      id: p.id,
+      name: p.full_name || '(unnamed)',
+      answered,
+      lastTs,
+      movedTs: cur?.moved_at || null,
+      online: !!(cur?.last_seen && Date.now() - new Date(cur.last_seen).getTime() < OFFLINE_MS),
+      dropped: !!p.deactivated_at,
+    };
+  }));
+
+  // One person as every view of the class describes them. The tone is the
+  // coloured edge: behind and quiet come from the gauges, so a tile can never
+  // disagree with the numbers above it.
+  const behindIds = new Set(cockpit.behind.map(x => x.id));
+  const quietIds = new Set(cockpit.quiet.map(x => x.id));
+  function roomPerson(p) {
+    const { answered, total, lastTs } = progressFor(p.id);
+    const presence = presenceFor(p.id, lastTs);
+    const dropped = !!p.deactivated_at;
+    const tone = dropped ? 'out'
+      : behindIds.has(p.id) ? 'bad'
+        : quietIds.has(p.id) ? 'warn'
+          : presence.state !== 'offline' ? 'ok' : 'off';
+    return {
+      p, id: p.id, name: p.full_name || '(unnamed)', answered, total, presence, dropped, tone,
+      lastActive: lastActiveTs({ lastTs, movedTs: cursors[p.id]?.moved_at }),
+      noPrep: !dropped && prepEnabled && !hasPrep(p.id),
+    };
+  }
+  const roomPeople = participants.map(roomPerson);
+
+  const selectedPerson = selected ? roomPerson(selected) : null;
+  const selectedCard = selectedPerson && (() => {
+    const sp = selectedPerson;
+    const delta = sp.answered - cockpit.pace;
+    return (
+      <section className="cockpit-card cockpit-selected" aria-label={`${sp.name}, selected`}>
+        <header className="cockpit-selected-head">
+          <h3 className="cockpit-card-title">Selected</h3>
+          <button type="button" className="icon-btn" onClick={() => setSelectedParticipantId(null)} aria-label="Clear selection">×</button>
+        </header>
+        <div className="cockpit-selected-name">
+          <span className={`cockpit-dot tone-${sp.tone}`} aria-hidden="true" />
+          {sp.name}
+          <span className={`cockpit-tone tone-${sp.tone}`}>{TONE_LABEL[sp.tone]}</span>
+        </div>
+        {sp.dropped && (
+          <p className="cockpit-selected-reason">
+            {sp.p.deactivation_reason || 'No reason recorded'}
+            <span> — {sp.p.deactivated_by_name ? `${sp.p.deactivated_by_name}, ` : ''}{new Date(sp.p.deactivated_at).toLocaleDateString()}</span>
+          </p>
+        )}
+        <dl className="cockpit-facts">
+          <div><dt>Progress</dt><dd>{sp.answered} / {sp.total}</dd></div>
+          <div>
+            <dt>Against class pace</dt>
+            <dd className={sp.dropped ? '' : sp.tone === 'bad' ? 'is-bad' : delta < 0 ? 'is-warn' : 'is-ok'}>
+              {sp.dropped ? '–' : delta === 0 ? 'On pace' : `${delta > 0 ? '+' : ''}${delta}`}
+            </dd>
+          </div>
+          <div><dt>On now</dt><dd>{sp.presence.label}</dd></div>
+          <div><dt>Last activity</dt><dd>{ago(sp.lastActive)}</dd></div>
+          {sp.noPrep && <div><dt>Prep</dt><dd className="is-warn">None allocated</dd></div>}
+        </dl>
+        <div className="cockpit-selected-actions">
+          <button type="button" className="cockpit-open-answers" onClick={() => setAnswersOpen(true)}>Open answers</button>
+          <div className="row-actions">{participantActions(sp.p)}</div>
+        </div>
+      </section>
+    );
+  })();
 
   return (
     <>
       <TopBar />
       <main className="page dashboard">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer" className="back-link">&larr; Back</Link>
-            <h1>
-              {session?.name}
-              {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}
-              {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
-            </h1>
-            {(session?.starts_at || session?.ends_at) && (
-              <p><span className="session-dates">{formatRange(session.starts_at, session.ends_at)}</span></p>
-            )}
-            {session?.join_code && (
-              <p className="join-code-row">
-                <span className="join-code-label">Join URL</span>
-                <a href={joinUrl} className="mono join-code-url">{joinUrl}</a>
-                <button type="button" className="ghost join-code-copy" onClick={copyJoinUrl}>
-                  {joinCopied ? 'Copied!' : 'Copy'}
-                </button>
+        {/* ONE ROW, then the tabs. The old hero stacked Back, the title, the
+            dates and the join URL into ~140px above everything; the cockpit
+            gives that height to the class. The join link is a small chip —
+            it is read aloud and projected, so it stays one click away rather
+            than hiding in a menu. The assessment's state moved into the gauges
+            below, where it sits with the rest of the room's state. */}
+        <section className="page-hero compact cockpit-hero">
+          <div className="cockpit-hero-row">
+            <div className="page-hero-text">
+              <h1>
+                {session?.name}
+                {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}
+                {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
+              </h1>
+              <p className="cockpit-hero-sub">
+                <Link to="/trainer" className="back-link">&larr; Sessions</Link>
+                {(session?.starts_at || session?.ends_at) && (
+                  <span className="session-dates">{formatRange(session.starts_at, session.ends_at)}</span>
+                )}
+                {session?.join_code && (
+                  <button
+                    type="button"
+                    className="cockpit-join"
+                    onClick={copyJoinUrl}
+                    title={`Copy the join link: ${joinUrl}`}
+                  >
+                    Join <span className="mono">{session.join_code}</span>
+                    <span className="cockpit-join-act">{joinCopied ? 'Link copied' : 'Copy link'}</span>
+                  </button>
+                )}
               </p>
-            )}
+            </div>
+            <div className="page-hero-actions">
+              {onlineCount > 0 && (
+                <span className="cockpit-live" title={`${onlineCount} in the workbook now`}>
+                  <span className="cockpit-live-dot" aria-hidden="true" />Live
+                </span>
+              )}
+              <SessionDayLabel startsAt={session?.starts_at} endsAt={session?.ends_at} />
+              <CockpitClock />
+              {canChangeTrainer && (
+                <ChangeTrainerControl
+                  sessionVendorId={session?.vendor_id || null}
+                  currentTrainer={session?.trainer || null}
+                  onChange={setSessionTrainer}
+                />
+              )}
+              <KebabMenu
+                label="Session actions"
+                items={[
+                  {
+                    label: 'Edit dates',
+                    glyph: '▦',
+                    onClick: () => setEditingDates(true),
+                  },
+                  prepEnabled && {
+                    label: 'Manage prep',
+                    glyph: '▤',
+                    onClick: () => navigate(`/trainer/sessions/${id}/prep`),
+                  },
+                  { separator: true },
+                  {
+                    label: 'Close session',
+                    glyph: '⊟',
+                    onClick: () => { setCloseError(''); setConfirmClose(true); },
+                  },
+                  {
+                    label: 'Delete session',
+                    glyph: '✕',
+                    danger: true,
+                    onClick: () => { setDeleteSessionError(''); setConfirmDeleteSession(true); },
+                  },
+                ]}
+              />
+              </div>
           </div>
-          <div className="page-hero-actions">
-            {canChangeTrainer && (
-              <ChangeTrainerControl
-                sessionVendorId={session?.vendor_id || null}
-                currentTrainer={session?.trainer || null}
-                onChange={setSessionTrainer}
-              />
-            )}
-            {/* Status, not controls. The controls moved to the Assessment tab —
-                see AssessmentRunStrip for why. This chip's width changes by a
-                couple of characters as the clock runs and never by more, so it
-                cannot reflow the row the way the old control did. */}
-            {session?.assessment_id && (
-              <AssessmentStatusChip
-                unlockedAt={session.assessment_unlocked_at}
-                deadlineAt={session.assessment_deadline_at}
-                onOpen={() => setView('assessment')}
-              />
-            )}
-            {/* SIX CONTROLS ON ONE ROW WAS THE PROBLEM. What is left in the
-                open is the two things that are STATE rather than actions — who
-                is delivering this session, and how the assessment is going.
-                Every button is behind the ⋯.
-                Closing is reversible and deleting is not, so only one of them
-                is red — and the separator puts a beat before it. */}
-            <KebabMenu
-              label="Session actions"
-              items={[
-                {
-                  label: 'Edit dates',
-                  glyph: '▦',
-                  onClick: () => setEditingDates(true),
-                },
-                prepEnabled && {
-                  label: 'Manage prep',
-                  glyph: '▤',
-                  onClick: () => navigate(`/trainer/sessions/${id}/prep`),
-                },
-                { separator: true },
-                {
-                  label: 'Close session',
-                  glyph: '⊟',
-                  onClick: () => { setCloseError(''); setConfirmClose(true); },
-                },
-                {
-                  label: 'Delete session',
-                  glyph: '✕',
-                  danger: true,
-                  onClick: () => { setDeleteSessionError(''); setConfirmDeleteSession(true); },
-                },
-              ]}
-            />
+          <div className="view-tabs">
+            <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Room</button>
+            <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => { setExerciseJump(null); setView('exercise'); }}>By exercise</button>
+            <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
+            {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
+                whenever the session had no assessment — which is exactly when a
+                trainer needs it, because a session scheduled before its
+                programme had an assessment has no other way to get one. The tab
+                that disappears when there is nothing in it is the tab you cannot
+                use to put something in it. */}
+            <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
+            {/* Always shown, unlike Assessment: a quiz is attached from this very
+                tab, so hiding it until one exists would hide the only way in. */}
+            <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
+            {/* Same reasoning: a poll is asked from this tab, so it is always here. */}
+            <button className={`view-tab ${view === 'poll' ? 'active' : ''}`} onClick={() => setView('poll')}>Polls</button>
           </div>
         </section>
 
-        <MaterialsList
-          materials={materials}
-          signedUrlFor={materialUrlFor}
-          loading={materialsLoading}
+        {/* The class before the handouts. The materials used to be a band of
+            PDF cards here, costing ~170px above every tab; they are one button
+            in the panel beside the roster now, in the same drawer participants
+            use. */}
+        <CockpitGauges
+          stats={cockpit}
+          total={totalFillable}
+          dropouts={dropoutCount}
+          assessment={{
+            id: session?.assessment_id || null,
+            unlockedAt: session?.assessment_unlocked_at,
+            deadlineAt: session?.assessment_deadline_at,
+            started: participants.filter(p => !p.deactivated_at && assessmentStarted.has(p.id)).length,
+            of: participants.filter(p => !p.deactivated_at).length,
+          }}
+          onOpenAssessment={() => setView('assessment')}
         />
 
-        <div className="view-tabs">
-          <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Participants</button>
-          <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => setView('exercise')}>By exercise</button>
-          <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
-          {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
-              whenever the session had no assessment — which is exactly when a
-              trainer needs it, because a session scheduled before its
-              programme had an assessment has no other way to get one. The tab
-              that disappears when there is nothing in it is the tab you cannot
-              use to put something in it. */}
-          <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
-          {/* Always shown, unlike Assessment: a quiz is attached from this very
-              tab, so hiding it until one exists would hide the only way in. */}
-          <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
-          {/* Same reasoning: a poll is asked from this tab, so it is always here. */}
-          <button className={`view-tab ${view === 'poll' ? 'active' : ''}`} onClick={() => setView('poll')}>Polls</button>
-        </div>
 
         {view === 'participants' && (
-          <div className={`dashboard-layout ${selected ? 'with-panel' : ''}`}>
+          <div className={`cockpit-room${reading ? ' is-reading' : ''}`}>
+          <div className={`dashboard-layout ${reading ? 'with-panel' : ''}`}>
             <div className="participants-pane">
               <div className="participants-header">
                 <h2 className="section-title" style={{ margin: 0 }}>
@@ -550,12 +758,19 @@ export default function SessionDashboardPage() {
                   )}
                 </h2>
                 <div className="participants-header-actions">
+                  {participants.length > 0 && (
+                    <div className="room-view-switch" role="group" aria-label="Show the class as">
+                      <button type="button" aria-pressed={roomView === 'tiles'} onClick={() => setRoomView('tiles')}>Tiles</button>
+                      <button type="button" aria-pressed={roomView === 'table'} onClick={() => setRoomView('table')}>Table</button>
+                      <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>
+                    </div>
+                  )}
                   {unPreppedIds.length > 0 && (
                     <button className="ghost" onClick={doAllocateAll} disabled={allocating}>
                       {allocating ? 'Allocating…' : `Allocate prep (${unPreppedIds.length} need it)`}
                     </button>
                   )}
-                  {!adding && !selected && participants.length > 0 && (
+                  {!adding && !reading && participants.length > 0 && (
                     <button
                       className="ghost"
                       onClick={() => setInvitesPhase('confirm')}
@@ -565,7 +780,7 @@ export default function SessionDashboardPage() {
                       🖨 Print invites
                     </button>
                   )}
-                  {!adding && !selected && (
+                  {!adding && !reading && (
                     <button className="ghost" onClick={() => setAdding(true)}>+ Add</button>
                   )}
                 </div>
@@ -615,10 +830,33 @@ export default function SessionDashboardPage() {
               )}
 
               {participants.length === 0 && <p className="muted">No participants enrolled.</p>}
-              {participants.length > 0 && (
+              {participants.length > 0 && roomView === 'tiles' && (
+                <RoomTiles people={roomPeople} selectedId={selectedParticipantId} onPick={pickParticipant} />
+              )}
+              {participants.length > 0 && roomView === 'heat' && (
+                <HeatBoard
+                  sections={sections}
+                  blocks={blocks}
+                  participants={participants}
+                  answers={answers}
+                  cursors={cursors}
+                  isOnline={(pid) => {
+                    const cur = cursors[pid];
+                    return !!(cur?.last_seen && Date.now() - new Date(cur.last_seen).getTime() < OFFLINE_MS);
+                  }}
+                  presenceStateFor={(pid) => presenceFor(pid, progressFor(pid).lastTs).state}
+                  selectedId={selectedParticipantId}
+                  onPickParticipant={pickParticipant}
+                  onOpenCell={(sectionId, participantId) => {
+                    setExerciseJump(prev => ({ sectionId, participantId, n: (prev?.n || 0) + 1 }));
+                    setView('exercise');
+                  }}
+                />
+              )}
+              {participants.length > 0 && roomView === 'table' && (
                 <table className="participants-table">
                   <thead>
-                    <tr><th>Name</th><th>Progress</th><th>On now</th><th>Last activity</th>{!selected && <th></th>}</tr>
+                    <tr><th>Name</th><th>Progress</th><th>On now</th><th>Last activity</th>{!reading && <th></th>}</tr>
                   </thead>
                   <tbody>
                     {participants.map(p => {
@@ -628,7 +866,7 @@ export default function SessionDashboardPage() {
                       const isDropout = !!p.deactivated_at;
                       return (
                         <tr key={p.id} className={`${isSel ? 'selected' : ''}${isDropout ? ' deactivated' : ''}`}
-                            onClick={() => setSelectedParticipantId(isSel ? null : p.id)}>
+                            onClick={() => pickParticipant(p.id)}>
                           <td>
                             {p.full_name || '(unnamed)'}
                             {isDropout && <span className="dropout-tag">Dropped out</span>}
@@ -661,88 +899,9 @@ export default function SessionDashboardPage() {
                             })()}
                           </td>
                           <td>{lastTs ? new Date(lastTs).toLocaleString() : '—'}</td>
-                          {!selected && (
+                          {!reading && (
                           <td onClick={e => e.stopPropagation()} className="row-actions">
-                            {confirmDelete === p.id ? (
-                              <>
-                                <span className="confirm-text">Delete account &amp; all answers?</span>
-                                <button className="danger" onClick={() => doDelete(p.id)} disabled={busy}>Yes</button>
-                                <button className="ghost" onClick={() => setConfirmDelete(null)} disabled={busy}>No</button>
-                              </>
-                            ) : deleteError[p.id] ? (
-                              <>
-                                <span className="error">{deleteError[p.id]}</span>
-                                <button
-                                  className="ghost"
-                                  onClick={() => setDeleteError(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
-                                >Dismiss</button>
-                              </>
-                            ) : confirmReset === p.id ? (
-                              <>
-                                <span className="confirm-text">Reset password?</span>
-                                <button className="danger" onClick={() => doResetPassword(p.id)} disabled={busy}>Yes</button>
-                                <button className="ghost" onClick={() => setConfirmReset(null)} disabled={busy}>No</button>
-                              </>
-                            ) : resetResult[p.id]?.temp_password ? (
-                              <>
-                                <span className="confirm-text">New pwd:</span>
-                                <span className="mono">{resetResult[p.id].temp_password}</span>
-                                <button
-                                  className="ghost btn-sm"
-                                  title="Copy just the password"
-                                  onClick={() => {
-                                    navigator.clipboard?.writeText(resetResult[p.id].temp_password).catch(() => {});
-                                  }}
-                                >Copy</button>
-                                <button
-                                  className="ghost btn-sm"
-                                  title="Copy a ready-to-send message with link, username and this password"
-                                  onClick={() => copyRowInvite(p)}
-                                >{copiedRowInvite === p.id ? 'Copied!' : 'Copy invite'}</button>
-                                <button
-                                  className="ghost btn-sm"
-                                  title="Open a printable handout slip for this participant"
-                                  onClick={() => printRowHandout(p)}
-                                >🖨 Print</button>
-                                <button
-                                  className="ghost btn-sm"
-                                  onClick={() => setResetResult(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
-                                >Done</button>
-                              </>
-                            ) : resetResult[p.id]?.error ? (
-                              <>
-                                <span className="error">{resetResult[p.id].error}</span>
-                                <button
-                                  className="ghost"
-                                  onClick={() => setResetResult(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
-                                >Dismiss</button>
-                              </>
-                            ) : (
-                              /* Three buttons per row, on every row, was the
-                                 loudest thing on this page — the noise scaled
-                                 with the cohort. Both confirms still render
-                                 INLINE in this cell rather than inside the
-                                 menu: the menu closes on the click, the cell
-                                 re-renders as the confirm, and a popup that
-                                 dismisses on outside-click never has to hold a
-                                 question. */
-                              <KebabMenu
-                                label={`Actions for ${p.full_name || 'participant'}`}
-                                items={[
-                                  { label: 'Edit prep…', glyph: '▤', onClick: () => setPrepEditorFor(p.id) },
-                                  { label: 'Reset password', glyph: '⟲', onClick: () => setConfirmReset(p.id) },
-                                  { separator: true },
-                                  // Once someone has started, removing them
-                                  // would delete what they wrote — so the
-                                  // destructive option is replaced, not added to.
-                                  isDropout
-                                    ? { label: 'Reactivate', glyph: '↺', onClick: () => doReactivate(p.id) }
-                                    : hasStarted(p.id)
-                                      ? { label: 'Deactivate…', glyph: '⊘', onClick: () => setDeactivating({ id: p.id, startedSinceLoad: false }) }
-                                      : { label: 'Remove from session', glyph: '✕', danger: true, onClick: () => requestRemove(p.id) },
-                                ]}
-                              />
-                            )}
+                            {participantActions(p)}
                           </td>
                           )}
                         </tr>
@@ -753,11 +912,11 @@ export default function SessionDashboardPage() {
               )}
             </div>
 
-            {selected && (
+            {reading && (
               <aside className="answers-pane">
                 <header className="answers-pane-header">
                   <h2>{selected.full_name}'s answers</h2>
-                  <button className="icon-btn" onClick={() => setSelectedParticipantId(null)} aria-label="Close">×</button>
+                  <button className="icon-btn" onClick={() => setAnswersOpen(false)} aria-label="Close">×</button>
                 </header>
                 <div className="answers-pane-body">
                   {sections.map(sec => {
@@ -799,10 +958,28 @@ export default function SessionDashboardPage() {
               </aside>
             )}
           </div>
+          {/* Hidden while someone's answers are open: that pane needs the
+              width, and reading one person is not the moment for the room. */}
+          {!reading && (
+            <CockpitRail
+              selectedCard={selected ? selectedCard : null}
+              stats={cockpit}
+              ready={cockpitReady}
+              materialsCount={materialsLoading ? 0 : (materials?.length || 0)}
+              onGo={setView}
+              onCloseSession={() => { setCloseError(''); setConfirmClose(true); }}
+              onOpenMaterials={() => setMaterialsOpen(true)}
+              onPick={(pid) => { setAnswersOpen(false); setSelectedParticipantId(pid); }}
+            />
+          )}
+          </div>
         )}
 
         {view === 'exercise' && (
           <ExerciseResponses
+            key={exerciseJump ? `jump-${exerciseJump.n}` : 'exercise'}
+            initialSectionId={exerciseJump?.sectionId || null}
+            initialParticipantId={exerciseJump?.participantId || null}
             sections={sections}
             blocks={blocks}
             participants={participants}
@@ -923,6 +1100,13 @@ export default function SessionDashboardPage() {
         {view === 'quiz' && <SessionQuizzes sessionId={id} joinCode={session?.join_code} />}
         {view === 'poll' && <SessionPolls sessionId={id} />}
       </main>
+      <MaterialsDrawer
+        open={materialsOpen}
+        onClose={() => setMaterialsOpen(false)}
+        materials={materials}
+        signedUrlFor={materialUrlFor}
+        loading={materialsLoading}
+      />
       <PrepEditor
         open={!!prepEditorFor}
         onClose={() => setPrepEditorFor(null)}

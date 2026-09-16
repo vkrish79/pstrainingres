@@ -2106,3 +2106,536 @@
   flex-wrap: wrap;
   margin-top: 0.35rem;
 }
+
+/* ── Session cockpit (stage 1) ─────────────────────────────────────────────
+   Gauges above the tabs, a panel beside the roster. Light, in the app's own
+   navy and gold: it is part of the product, not a second one. */
+.cockpit-gauges {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.25rem 0 1rem;
+}
+.cockpit-gauge {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  min-width: 0;
+}
+.cockpit-gauge > div { min-width: 0; }
+/* Only the gauges that want attention get an edge, so the edge means something. */
+.cockpit-gauge.is-bad::before,
+.cockpit-gauge.is-warn::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+}
+.cockpit-gauge.is-bad::before { background: #c2503c; }
+.cockpit-gauge.is-warn::before { background: #c98a1c; }
+.cockpit-gauge-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7d8a97;
+}
+.cockpit-gauge-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--midnight);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.cockpit-gauge-value small { font-size: 0.8rem; font-weight: 600; color: #7d8a97; }
+.cockpit-gauge-hint {
+  font-size: 0.74rem;
+  color: #6c7a88;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cockpit-ring { width: 42px; height: 42px; flex: 0 0 auto; }
+.cockpit-ring-track { fill: none; stroke: #ece7dc; stroke-width: 4; }
+.cockpit-ring-arc { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.4s ease; }
+.cockpit-ring.tone-ok .cockpit-ring-arc { stroke: #2f8f5f; }
+.cockpit-ring.tone-gold .cockpit-ring-arc { stroke: var(--gold); }
+.cockpit-ring text { font-size: 9.5px; font-weight: 700; fill: var(--midnight); font-variant-numeric: tabular-nums; }
+
+.cockpit-room {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 1rem;
+  align-items: start;
+}
+.cockpit-room.is-reading { grid-template-columns: minmax(0, 1fr); }
+
+.cockpit-rail { display: flex; flex-direction: column; gap: 0.75rem; }
+.cockpit-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem 0.95rem;
+}
+.cockpit-card-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7d8a97;
+}
+.cockpit-empty { font-size: 0.85rem; color: #6c7a88; margin: 0.2rem 0; }
+
+.cockpit-alerts { list-style: none; margin: 0; padding: 0; }
+.cockpit-alerts li + li { border-top: 1px solid #f0ece4; }
+/* (0,2,0) so the page's generic button rules cannot paint these as buttons. */
+.cockpit-rail .cockpit-alert {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.45rem 0.2rem;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+}
+.cockpit-rail .cockpit-alert:hover { background: #f7f5f0; }
+.cockpit-alert .cockpit-dot { margin-top: 0.4rem; }
+.cockpit-alert-name { font-weight: 600; font-size: 0.88rem; }
+.cockpit-alert-why { grid-column: 2; font-size: 0.78rem; color: #6c7a88; }
+.cockpit-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.cockpit-dot.tone-bad { background: #c2503c; }
+.cockpit-dot.tone-warn { background: #c98a1c; }
+.cockpit-dot.tone-off { background: #9aa4ae; }
+
+.cockpit-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.cockpit-rail .cockpit-key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  text-align: left;
+  background: #f7f5f0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  color: var(--midnight);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.cockpit-rail .cockpit-key:hover { border-color: #cdbf9f; }
+.cockpit-rail .cockpit-key small { font-weight: 500; font-size: 0.72rem; color: #6c7a88; }
+.cockpit-rail .cockpit-key.is-primary { background: var(--midnight); border-color: var(--midnight); color: #fff; }
+.cockpit-rail .cockpit-key.is-primary small { color: #b9c9d8; }
+.cockpit-rail .cockpit-key.is-primary:hover { background: var(--midnight-hover); }
+
+.cockpit-materials {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: #4b5a6a;
+}
+.cockpit-materials strong { color: var(--midnight); }
+
+/* The header: one row, tabs along its bottom edge. */
+.page-hero.compact.cockpit-hero {
+  display: block;
+  padding: 0.85rem 1.25rem 0;
+  margin-bottom: 0.9rem;
+}
+.cockpit-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+.cockpit-hero .page-hero-text { flex: 1 1 24rem; min-width: 18rem; }
+.cockpit-hero .page-hero-text h1 { font-size: 1.2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.page-hero.compact.cockpit-hero .page-hero-text p.cockpit-hero-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  margin: 0.2rem 0 0;
+  max-width: none;
+  font-size: 0.82rem;
+  color: #6c7a88;
+}
+.cockpit-hero .cockpit-hero-sub .back-link { margin: 0; font-size: 0.82rem; }
+.cockpit-hero .cockpit-hero-sub .session-dates { color: #4b5a6a; }
+/* (0,2,0): the page's global button fill must not paint this chip navy. */
+.cockpit-hero .cockpit-join {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f7f5f0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.12rem 0.3rem 0.12rem 0.6rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4b5a6a;
+  cursor: pointer;
+}
+.cockpit-hero .cockpit-join .mono { color: var(--midnight); letter-spacing: 0.04em; }
+.cockpit-hero .cockpit-join-act {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.02rem 0.5rem;
+  font-weight: 600;
+  color: var(--midnight);
+}
+.cockpit-hero .cockpit-join:hover { background: #efeae0; }
+.cockpit-hero .page-hero-actions { gap: 0.9rem; }
+.cockpit-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2f8f5f;
+}
+.cockpit-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2f8f5f;
+  box-shadow: 0 0 0 3px rgba(47, 143, 95, 0.18);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cockpit-live-dot { animation: cockpit-pulse 2s ease-in-out infinite; }
+  @keyframes cockpit-pulse { 50% { box-shadow: 0 0 0 6px rgba(47, 143, 95, 0); } }
+}
+.cockpit-day { font-size: 0.82rem; color: #6c7a88; white-space: nowrap; }
+.cockpit-clock {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--midnight);
+  font-variant-numeric: tabular-nums;
+}
+.cockpit-hero .view-tabs {
+  margin: 0.7rem -1.25rem 0;
+  padding: 0 0.75rem;
+  border-top: 1px solid #eee8dd;
+  border-bottom: 0;
+}
+.cockpit-hero .view-tab { margin-bottom: -1px; }
+
+/* The assessment gauge is a button: it opens the tab. */
+.cockpit-gauges .cockpit-gauge-button {
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.cockpit-gauges .cockpit-gauge-button:hover { border-color: #cdbf9f; background: var(--card); }
+.cockpit-gauge-value.is-muted { color: #9aa4ae; }
+.cockpit-gauge-value.state-open { color: #2f8f5f; }
+.cockpit-gauge-value.state-expired { color: #c2503c; }
+.cockpit-gauge-value.state-locked { color: var(--midnight); }
+
+@media (max-width: 1180px) {
+  .cockpit-gauges { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cockpit-room { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Heat board (cockpit stage 2) ─────────────────────────────────────── */
+.room-view-switch {
+  display: inline-flex;
+  background: #f1ede5;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+/* (0,2,0) beats the page's generic button fill. */
+.room-view-switch button {
+  background: transparent;
+  border: 0;
+  color: #6c7a88;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.room-view-switch button:hover { background: transparent; color: var(--midnight); }
+.room-view-switch button[aria-pressed="true"],
+.room-view-switch button[aria-pressed="true"]:hover { background: var(--midnight); color: #fff; }
+
+.heat-board {
+  --heat-0: #f1ede5;
+  --heat-base: #f6efe0;
+  margin-top: 0.75rem;
+}
+.heat-scroll { overflow-x: auto; }
+.heat-table { border-collapse: separate; border-spacing: 3px; width: 100%; }
+.heat-table th, .heat-table td { padding: 0; }
+.heat-name-h {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7d8a97;
+  padding: 0 0.5rem 0.35rem 0 !important;
+  vertical-align: bottom;
+}
+.heat-table thead th:not(.heat-name-h) { vertical-align: bottom;  }
+.heat-board .heat-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.2rem 0.15rem 0.35rem;
+  font: inherit;
+  cursor: pointer;
+  color: #6c7a88;
+}
+.heat-board .heat-col:hover { background: #f7f5f0; color: var(--midnight); }
+.heat-col-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heat-col-n { font-size: 0.66rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.heat-table thead th.is-slowest .heat-col { color: #c2503c; }
+
+.heat-name { text-align: left; white-space: nowrap; width: 1%; padding-right: 0.5rem !important; }
+.heat-board .heat-person {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem 0.3rem 0.2rem;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.heat-board .heat-person:hover { background: #f7f5f0; }
+.heat-person-name { font-weight: 600; font-size: 0.86rem; }
+.heat-person-n { margin-left: auto; padding-left: 0.6rem; font-size: 0.72rem; color: #7d8a97; font-variant-numeric: tabular-nums; }
+.heat-table tr.is-selected .heat-person-name { color: var(--gold-dark); }
+.heat-table tr.is-dropped { opacity: 0.45; }
+
+.heat-board .heat-cell {
+  display: block;
+  width: 100%;
+  height: 30px;
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--midnight);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.heat-board .heat-cell:hover { filter: brightness(0.96); box-shadow: inset 0 0 0 1px rgba(30, 60, 90, 0.35); }
+.heat-board .heat-cell.is-here { box-shadow: inset 0 0 0 2px var(--midnight); }
+
+.heat-avg-label { font-size: 0.78rem; font-weight: 600; color: #7d8a97; padding: 0.4rem 0.4rem 0 0.2rem !important; }
+.heat-avg {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6c7a88;
+  padding-top: 0.4rem !important;
+  font-variant-numeric: tabular-nums;
+}
+.heat-avg.is-slowest { color: #c2503c; }
+
+.heat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: #6c7a88;
+}
+.heat-legend i {
+  display: inline-block;
+  width: 20px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+.heat-legend i.is-here-swatch { background: #fff; box-shadow: inset 0 0 0 2px var(--midnight); }
+.heat-legend-slow { color: #c2503c; }
+.heat-legend-tip { margin-left: auto; }
+/* A grid track of 1fr is minmax(auto, 1fr): its floor is the content's
+   min-content width, so a 13-exercise board pushed the roster column wider
+   than its share and slid under the panel. Floor it at zero, and let the board
+   scroll inside its own card instead. */
+.cockpit-room > .dashboard-layout { min-width: 0; }
+.cockpit-room .dashboard-layout:not(.with-panel) { grid-template-columns: minmax(0, 1fr); }
+.cockpit-room .participants-pane { min-width: 0; }
+/* Names stay put while a long board scrolls sideways. */
+.heat-table th.heat-name,
+.heat-table th.heat-name-h {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+}
+.heat-table thead th:not(.heat-name-h) { min-width: 2.5rem; }
+
+/* ── Room tiles + Selected card (cockpit stage 3) ─────────────────────── */
+.cockpit-ring.tone-bad .cockpit-ring-arc { stroke: #c2503c; }
+.cockpit-ring.tone-warn .cockpit-ring-arc { stroke: #c98a1c; }
+.cockpit-ring.tone-off .cockpit-ring-arc { stroke: #9aa4ae; }
+.cockpit-ring.tone-out .cockpit-ring-arc { stroke: #c4c9d2; }
+
+.room-tiles {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  gap: 0.6rem;
+}
+.room-tiles .room-tile {
+  --edge: #9aa4ae;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  column-gap: 0.6rem;
+  row-gap: 0.1rem;
+  align-items: start;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.7rem 0.65rem 0.85rem;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+.room-tiles .room-tile::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--edge); }
+.room-tiles .room-tile:hover { background: var(--card); border-color: #cdbf9f; }
+.room-tiles .room-tile[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.35); }
+.room-tile.tone-ok { --edge: #2f8f5f; }
+.room-tile.tone-warn { --edge: #c98a1c; }
+.room-tile.tone-bad { --edge: #c2503c; }
+.room-tile.tone-off { --edge: #9aa4ae; }
+.room-tile.tone-out { --edge: #d5d9de; }
+.room-tile.is-dropped { opacity: 0.55; }
+.room-tile-name { font-weight: 700; font-size: 0.92rem; color: var(--midnight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-tile .cockpit-ring { grid-column: 2; grid-row: 1 / 4; align-self: center; width: 44px; height: 44px; }
+.room-tile-where { grid-column: 1; font-size: 0.78rem; color: #4b5a6a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-tile-meta { grid-column: 1; font-size: 0.72rem; color: #7d8a97; font-variant-numeric: tabular-nums; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.room-tile-meta .no-prep-tag { margin: 0; }
+
+.cockpit-selected-head { display: flex; align-items: center; justify-content: space-between; }
+.cockpit-selected-head .cockpit-card-title { margin: 0; }
+.cockpit-selected-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--midnight);
+  margin: 0.2rem 0 0.35rem;
+}
+.cockpit-tone { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 0.05rem 0.4rem; border-radius: 4px; background: #f1ede5; color: #6c7a88; }
+.cockpit-tone.tone-ok { background: #e3f1e9; color: #2f7a52; }
+.cockpit-tone.tone-warn { background: #f7ecd6; color: #94661a; }
+.cockpit-tone.tone-bad { background: #f6e1dc; color: #a8412f; }
+.cockpit-dot.tone-ok { background: #2f8f5f; }
+.cockpit-dot.tone-out { background: #c4c9d2; }
+.cockpit-selected-reason { margin: 0 0 0.4rem; font-size: 0.8rem; color: #4b5a6a; }
+.cockpit-selected-reason span { color: #7d8a97; }
+.cockpit-facts { margin: 0; }
+.cockpit-facts > div { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.3rem 0; border-bottom: 1px solid #f0ece4; font-size: 0.82rem; }
+.cockpit-facts dt { color: #6c7a88; }
+.cockpit-facts dd { margin: 0; font-weight: 600; color: var(--midnight); text-align: right; font-variant-numeric: tabular-nums; }
+.cockpit-facts dd.is-ok { color: #2f7a52; }
+.cockpit-facts dd.is-warn { color: #94661a; }
+.cockpit-facts dd.is-bad { color: #a8412f; }
+.cockpit-selected-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.65rem; }
+.cockpit-selected .cockpit-open-answers {
+  background: var(--midnight);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.cockpit-selected .cockpit-open-answers:hover { background: var(--midnight-hover); }
+.cockpit-selected .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+
+/* Tabs as the mockup draws them: a segmented control on a sand track, the
+   current tab a raised white pill — not the underline strip the rest of the
+   app uses. Scoped to the session header so other pages keep their tabs.
+   They sit on their own line inside the card: the title, six tabs and the
+   trainer controls measure ~1470px against ~1230px on a laptop. */
+.page-hero.compact.cockpit-hero { padding-bottom: 0.85rem; }
+.cockpit-hero .view-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0.7rem 0 0;
+  padding: 3px;
+  background: #f1ede5;
+  border: 0;
+  border-radius: 10px;
+}
+.cockpit-hero .view-tabs .view-tab {
+  margin: 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.38rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6c7a88;
+  background: transparent;
+}
+.cockpit-hero .view-tabs .view-tab:hover { color: var(--midnight); background: rgba(255, 255, 255, 0.55); }
+.cockpit-hero .view-tabs .view-tab.active,
+.cockpit-hero .view-tabs .view-tab.active:hover {
+  background: #fff;
+  color: var(--midnight);
+  box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14), 0 0 0 1px rgba(30, 60, 90, 0.04);
+}

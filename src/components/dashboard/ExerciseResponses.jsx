@@ -33,6 +33,10 @@ export default function ExerciseResponses({
   onMark = null,
   onComment = null,
   markingIds = null,
+  // Where to open: an exercise, and optionally one person in it to reveal.
+  // Set when the heat board sends a trainer here from a cell or a heading.
+  initialSectionId = null,
+  initialParticipantId = null,
 }) {
   const sectionsWithFillable = useMemo(() => {
     return sections
@@ -58,7 +62,10 @@ export default function ExerciseResponses({
       });
   }, [sections, blocks, participants, answers]);
 
-  const [selectedId, setSelectedId] = useState(sectionsWithFillable[0]?.id || '');
+  const [selectedId, setSelectedId] = useState(
+    (initialSectionId && sectionsWithFillable.some(s => s.id === initialSectionId) ? initialSectionId : null)
+      || sectionsWithFillable[0]?.id || '',
+  );
   const [sortBy, setSortBy] = useState('name');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'incomplete' | 'done' | 'flagged'
   const [query, setQuery] = useState('');
@@ -71,7 +78,7 @@ export default function ExerciseResponses({
   const popoverRef = useRef(null);
   // A participant to reveal (expand + scroll) after a popover drill-down. Done
   // via an effect because selecting a new exercise resets toggleSet first.
-  const [drillTarget, setDrillTarget] = useState(null);
+  const [drillTarget, setDrillTarget] = useState(initialParticipantId);
 
   function openHover(e, sectionId) {
     if (popover?.pinned) return; // a pinned popover takes precedence over hover
