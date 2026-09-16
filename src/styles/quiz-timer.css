@@ -1,0 +1,33 @@
+/* The countdown ring — see QuizTimer.jsx. Its own sheet because the poll uses
+   it too, and the poll does not load quiz-live.css. */
+.qlive-timer {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(3.2rem, 7vw, 5.5rem);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.qlive-timer svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); /* start at twelve o'clock */
+}
+.qlive-timer-track { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 5; }
+.qlive-timer-arc {
+  fill: none;
+  stroke: var(--gold, #b5985a);
+  stroke-width: 5;
+  /* The countdown ticks every 200ms; this joins the steps into one sweep. */
+  transition: stroke-dashoffset 0.2s linear;
+}
+.qlive-timer-num {
+  position: relative;
+  font-size: clamp(1.1rem, 2.6vw, 2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}

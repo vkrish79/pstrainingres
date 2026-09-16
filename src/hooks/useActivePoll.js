@@ -35,6 +35,9 @@ export function useActivePoll(sessionId) {
   // A poll landing while an older reply is still in flight would otherwise be
   // overwritten by that reply — the handset would flicker back to "nothing on".
   const seq = useRef(0);
+  // Server-minus-client, measured on every read. This laptop runs ~32s behind
+  // the server, and a timed poll's deadline is a server time.
+  const skewRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!sessionId) return null;
@@ -42,6 +45,7 @@ export function useActivePoll(sessionId) {
     const { data } = await supabase.rpc('poll_current', { p_session_id: sessionId });
     if (mine !== seq.current) return null;
     const row = Array.isArray(data) ? data[0] ?? null : null;
+    if (row?.server_now) skewRef.current = new Date(row.server_now).getTime() - Date.now();
     setRun(row);
     setChecked(true);
     return row;
@@ -55,5 +59,23 @@ export function useActivePoll(sessionId) {
     return () => clearInterval(t);
   }, [sessionId, refresh]);
 
-  return { run, checked, refresh };
+  // A timed poll re-renders five times a second so the ring sweeps rather than
+  // jumping every two seconds with the refresh. Untimed polls do not tick.
+  const [, force] = useState(0);
+  const ticking = Boolean(run?.ends_at && run?.is_open);
+  useEffect(() => {
+    if (!ticking) return undefined;
+    const t = setInterval(() => force(n => n + 1), 200);
+    return () => clearInterval(t);
+  }, [ticking]);
+
+  // null for a poll with no timer. At zero the poll reads as shut here at
+  // once, rather than up to two seconds later when the server next says so —
+  // poll_vote refuses from the same moment anyway.
+  const secondsLeft = run?.ends_at
+    ? Math.max(0, (new Date(run.ends_at).getTime() - (Date.now() + skewRef.current)) / 1000)
+    : null;
+  const shown = run && secondsLeft === 0 && run.is_open ? { ...run, is_open: false } : run;
+
+  return { run: shown, checked, refresh, secondsLeft };
 }

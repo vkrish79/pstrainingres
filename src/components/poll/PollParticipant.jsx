@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import QuizShape from '../quiz/QuizShape.jsx';
+import QuizTimer, { spanSeconds } from '../quiz/QuizTimer.jsx';
 import '../../styles/poll-live.css';
 
 // The handset during a poll: SHAPES AND NOTHING ELSE.
@@ -18,7 +19,7 @@ import '../../styles/poll-live.css';
 // WHAT THIS SCREEN NEVER SHOWS: how anyone else voted, or how many. There is no
 // code path here that could — poll_counts refuses a participant outright. Their
 // own vote comes back so the shape they chose stays lit (case 04).
-export default function PollParticipant({ run, onRefresh }) {
+export default function PollParticipant({ run, secondsLeft, onRefresh }) {
   const options = Array.isArray(run?.options) ? run.options : [];
   const [picked, setPicked] = useState(run?.my_vote ?? null);
   const [note, setNote] = useState(null);
@@ -63,6 +64,9 @@ export default function PollParticipant({ run, onRefresh }) {
         <div className="plive-top">
           <span className="plive-tag">Poll</span>
           {!run?.is_open && <span className="plive-shut">Voting closed</span>}
+          {run?.is_open && run?.ends_at && (
+            <QuizTimer total={spanSeconds(run.opened_at, run.ends_at)} secondsLeft={secondsLeft} />
+          )}
         </div>
 
         <div

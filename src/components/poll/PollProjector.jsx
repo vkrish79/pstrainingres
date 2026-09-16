@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import QuizShape from '../quiz/QuizShape.jsx';
 import PollCount from './PollCount.jsx';
+import QuizTimer, { spanSeconds } from '../quiz/QuizTimer.jsx';
 import { usePollCounts } from '../../hooks/usePollCounts.js';
 import '../../styles/poll-live.css';
 
@@ -64,7 +65,7 @@ function rankOf(rows) {
   return new Map(order.map((optionIndex, slot) => [optionIndex, slot]));
 }
 
-export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, busy }) {
+export default function PollProjector({ run, secondsLeft, onCloseVoting, onDismiss, onExit, busy }) {
   // Once voting shuts the numbers cannot move, and a closed poll sits on the
   // wall for as long as the discussion takes — so stop asking.
   const { rows, voted, people, most } = usePollCounts(run?.run_id, { live: run?.is_open });
@@ -84,7 +85,13 @@ export default function PollProjector({ run, onCloseVoting, onDismiss, onExit, b
       </button>
 
       <div className="plive-wall">
-        <h1 className="plive-question">{run?.question}</h1>
+        <div className="plive-head">
+          <h1 className="plive-question">{run?.question}</h1>
+          {/* Only a timed poll has a clock, and only while it is open. */}
+          {run?.ends_at && run?.is_open && (
+            <QuizTimer total={spanSeconds(run.opened_at, run.ends_at)} secondsLeft={secondsLeft} />
+          )}
+        </div>
 
         {/* Height is set here because every row is taken out of the flow and
             positioned by its rank — otherwise the container would collapse. */}

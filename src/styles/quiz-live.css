@@ -53,7 +53,7 @@
 .qlive-sub { opacity: 0.8; margin: 0; max-width: 40rem; }
 .qlive-count { font-size: clamp(4rem, 18vw, 11rem); margin: 0; line-height: 1; font-variant-numeric: tabular-nums; }
 
-.qlive-qhead { display: flex; align-items: flex-start; gap: 1rem; flex: 0 0 auto; }
+.qlive-qhead { display: flex; align-items: center; gap: 1rem; flex: 0 0 auto; }
 .qlive-prompt {
   font-size: clamp(1.3rem, 3.6vw, 2.6rem);
   margin: 0;
@@ -67,17 +67,7 @@
   flex: 0 0 auto;
 }
 .qlive-qhead .qlive-prompt { flex: 1 1 auto; }
-.qlive-timer {
-  flex: 0 0 auto;
-  font-size: clamp(1.5rem, 4vw, 2.6rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  min-width: 3.2rem;
-  text-align: center;
-  padding: 0.2rem 0.7rem;
-}
+/* The countdown ring's own styles are in quiz-timer.css (shared with polls). */
 
 /* Four answers, 2x2 — the shape people know from every quiz app, and the
    reason the editor uses the same grid. */

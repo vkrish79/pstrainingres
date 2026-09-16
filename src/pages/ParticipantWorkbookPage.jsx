@@ -47,7 +47,7 @@ export default function ParticipantWorkbookPage() {
   // Polls ask every couple of seconds rather than subscribing: `tally` is a
   // column on poll_runs, so letting a handset SELECT that row to hang a
   // subscription on would hand it the live counts. See useActivePoll.
-  const { run: activePoll, refresh: refreshPoll } = useActivePoll(session?.id);
+  const { run: activePoll, refresh: refreshPoll, secondsLeft: pollSecondsLeft } = useActivePoll(session?.id);
   const [stickyQuizRunId, setStickyQuizRunId] = useState(null);
   const [quizDismissed, setQuizDismissed] = useState(null);
   useEffect(() => {
@@ -326,7 +326,7 @@ export default function ParticipantWorkbookPage() {
   // so they see their score; a poll has no final screen of their own, so when
   // the trainer takes it down they should be back in their workbook at once.
   if (activePoll) {
-    return <PollParticipant run={activePoll} onRefresh={refreshPoll} />;
+    return <PollParticipant run={activePoll} secondsLeft={pollSecondsLeft} onRefresh={refreshPoll} />;
   }
 
   if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;

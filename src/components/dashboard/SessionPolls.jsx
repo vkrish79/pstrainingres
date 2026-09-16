@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SkeletonCards } from '../Skeleton.jsx';
 import { supabase } from '../../lib/supabase.js';
@@ -25,6 +25,18 @@ function formatAskedAt(iso) {
   });
 }
 
+// How long a poll stays open, picked when it is asked. '' is No timer — the
+// trainer closes it, as polls always worked. The length is all the browser
+// sends; poll_fire turns it into a deadline on the server's own clock.
+const TIMER_CHOICES = [
+  { value: '', label: 'No timer' },
+  { value: '20', label: '20s' },
+  { value: '30', label: '30s' },
+  { value: '60', label: '60s' },
+  { value: '90', label: '90s' },
+];
+const DEFAULT_TIMER = '30';
+
 // The Polls tab on a session.
 //
 // There is NO attach step, deliberately unlike the quiz. A session reads the
@@ -34,7 +46,9 @@ function formatAskedAt(iso) {
 // projector.)
 export default function SessionPolls({ sessionId }) {
   const { loading, error, polls } = usePolls();
-  const { run, refresh: refreshRun } = useActivePoll(sessionId);
+  const { run, refresh: refreshRun, secondsLeft } = useActivePoll(sessionId);
+  // The length chosen on each row, by poll id.
+  const [timers, setTimers] = useState({});
   const { run: runBusy } = useBusyOverlay();
   const [rowError, setRowError] = useState('');
   // Whether the projector is filling the screen. Separate from "a poll is
@@ -62,8 +76,13 @@ export default function SessionPolls({ sessionId }) {
 
   async function handleFire(pollId) {
     setRowError('');
+    const seconds = timers[pollId] ?? DEFAULT_TIMER;
     const { data, error: err } = await runBusy('Asking the room…', () =>
-      supabase.rpc('poll_fire', { p_poll_id: pollId, p_session_id: sessionId }));
+      supabase.rpc('poll_fire', {
+        p_poll_id: pollId,
+        p_session_id: sessionId,
+        p_seconds: seconds ? Number(seconds) : null,
+      }));
     // The database refuses a poll with too few answers, a blank question, and a
     // poll fired over a running quiz (case 12). Those messages are written to
     // be read by a trainer, so show them as they are.
@@ -80,6 +99,20 @@ export default function SessionPolls({ sessionId }) {
     if (err) { setRowError(err.message); return; }
     await refreshRun();
   }
+
+  // AT ZERO, WRITE THE TALLY. The server already refuses votes past the
+  // deadline, so this is not what shuts voting — it is what records the result
+  // promptly and turns the wall to "Voting closed" without a click. Quiet (no
+  // busy overlay) because nobody asked for it, and once per run. If this tab is
+  // not open when the clock runs out, poll_dismiss closes it later with the
+  // same counts.
+  const autoClosed = useRef(null);
+  useEffect(() => {
+    if (!run?.run_id || !run.ends_at || secondsLeft !== 0) return;
+    if (autoClosed.current === run.run_id) return;
+    autoClosed.current = run.run_id;
+    supabase.rpc('poll_close', { p_run_id: run.run_id }).then(() => refreshRun());
+  }, [run?.run_id, run?.ends_at, secondsLeft, refreshRun]);
 
   async function handleDismiss() {
     setRowError('');
@@ -98,6 +131,7 @@ export default function SessionPolls({ sessionId }) {
     return (
       <PollProjector
         run={run}
+        secondsLeft={secondsLeft}
         onCloseVoting={handleClose}
         onDismiss={handleDismiss}
         onExit={() => setShowing(false)}
@@ -153,6 +187,17 @@ export default function SessionPolls({ sessionId }) {
                     </span>
                   </div>
                   <div className="poll-fire-tools">
+                    <select
+                      className="poll-fire-timer"
+                      aria-label="How long voting stays open"
+                      value={timers[p.id] ?? DEFAULT_TIMER}
+                      disabled={!ready}
+                      onChange={(e) => setTimers((t) => ({ ...t, [p.id]: e.target.value }))}
+                    >
+                      {TIMER_CHOICES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       className="poll-fire-btn"

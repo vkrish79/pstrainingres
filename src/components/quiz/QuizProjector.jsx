@@ -11,6 +11,7 @@ import { scaleClass } from '../../lib/quizScale.js';
 import { useQuizGuests } from '../../hooks/useQuizGuests.js';
 import QuizFlame from './QuizFlame.jsx';
 import QuizMedal from './QuizMedal.jsx';
+import QuizTimer, { spanSeconds } from './QuizTimer.jsx';
 import { ordinal } from '../../lib/ordinal.js';
 import '../../styles/quiz-live.css';
 
@@ -513,7 +514,7 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
         <div className="qlive-stage">
           <div className="qlive-qhead">
             <h1 className="qlive-prompt">{run?.prompt}</h1>
-            <div className="qlive-timer" aria-label="Seconds remaining">{Math.ceil(secondsLeft ?? 0)}</div>
+            <QuizTimer total={spanSeconds(run?.phase_started_at, run?.phase_ends_at)} secondsLeft={secondsLeft} />
           </div>
           {/* Between the prompt and the answers, which is where the layout
               always left room — see the v2 note in live-quiz-plan.html. The

@@ -76,7 +76,8 @@
   flex: 0 0 auto;
 }
 .plive-tag { font-weight: 600; letter-spacing: 0.02em; opacity: 0.75; }
-.plive-top .plive-shut { margin-left: auto; }
+.plive-top .plive-shut,
+.plive-top .qlive-timer { margin-left: auto; }
 
 .plive-picks {
   flex: 1 1 auto;
@@ -140,6 +141,9 @@
   justify-content: center;
 }
 
+/* Question on the left, the countdown ring on the right — as on the quiz. */
+.plive-head { display: flex; align-items: center; gap: 1rem; flex: 0 0 auto; }
+.plive-head .plive-question { flex: 1 1 auto; min-width: 0; }
 .plive-question {
   margin: 0;
   flex: 0 0 auto;

@@ -5,6 +5,7 @@ import { ordinal } from '../../lib/ordinal.js';
 import { shapeFor } from '../../lib/quizShapes.js';
 import QuizShape from './QuizShape.jsx';
 import QuizPinField from './QuizPinField.jsx';
+import QuizTimer, { spanSeconds } from './QuizTimer.jsx';
 import { scaleClass } from '../../lib/quizScale.js';
 import '../../styles/quiz-live.css';
 
@@ -281,7 +282,7 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
               should be reading them there rather than looking down. */}
           <div className="qlive-answer-top">
             <span className="qlive-qnum">Question {idx + 1}</span>
-            <div className="qlive-timer" aria-label="Seconds remaining">{Math.ceil(secondsLeft ?? 0)}</div>
+            <QuizTimer total={spanSeconds(run?.phase_started_at, run?.phase_ends_at)} secondsLeft={secondsLeft} />
           </div>
           {run?.kind === 'pin' ? (
             <>
