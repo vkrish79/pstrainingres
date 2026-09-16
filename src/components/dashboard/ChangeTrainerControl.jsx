@@ -7,10 +7,13 @@ import { ROLES } from '../../lib/roles.js';
 // reassignment never moves a session across vendors); super-delivered sessions
 // (vendor_id null) reassign among super trainers. The actual write + auth check
 // happens in the set_session_trainer RPC via `onChange`.
-export default function ChangeTrainerControl({ sessionVendorId, currentTrainer, onChange }) {
-  const [editing, setEditing] = useState(false);
+// `startEditing` + `onDone`: opened from a menu rather than its own Change
+// button. It starts in the editor, and hands back to the caller on Save or
+// Cancel instead of collapsing to the "Trainer: X  Change" label.
+export default function ChangeTrainerControl({ sessionVendorId, currentTrainer, onChange, startEditing = false, onDone }) {
+  const [editing, setEditing] = useState(startEditing);
   const [options, setOptions] = useState([]);
-  const [pick, setPick] = useState('');
+  const [pick, setPick] = useState(startEditing ? (currentTrainer?.id || '') : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,6 +42,7 @@ export default function ChangeTrainerControl({ sessionVendorId, currentTrainer, 
   function cancel() {
     setEditing(false);
     setError('');
+    onDone?.();
   }
 
   async function save() {
@@ -50,6 +54,7 @@ export default function ChangeTrainerControl({ sessionVendorId, currentTrainer, 
     setBusy(false);
     if (e) { setError(e.message); return; }
     setEditing(false);
+    onDone?.();
   }
 
   if (!editing) {

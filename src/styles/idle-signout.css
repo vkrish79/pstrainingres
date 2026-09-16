@@ -1,0 +1,24 @@
+/* The inactivity warning. Above everything, including the quiz and poll
+   projectors, because a sign-out would close those too. */
+.idle-signout {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(16, 32, 48, 0.45);
+}
+.idle-signout-card {
+  width: min(26rem, 100%);
+  background: var(--card, #fff);
+  color: var(--text, #1a1a1a);
+  border-radius: 14px;
+  padding: 1.4rem 1.5rem 1.25rem;
+  box-shadow: 0 20px 50px rgba(16, 32, 48, 0.3);
+}
+.idle-signout-card h2 { margin: 0 0 0.4rem; font-size: 1.2rem; color: var(--midnight, #1e3c5a); }
+.idle-signout-card p { margin: 0; color: #4b5a6a; line-height: 1.5; }
+.idle-signout-clock { color: var(--midnight, #1e3c5a); font-variant-numeric: tabular-nums; }
+.idle-signout-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.1rem; }
+.idle-signout-actions button { font: inherit; font-weight: 600; }

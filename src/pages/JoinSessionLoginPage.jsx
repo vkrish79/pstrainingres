@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { takeIdleNotice } from '../components/IdleSignOut.jsx';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -25,6 +26,7 @@ export default function JoinSessionLoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [idleNotice] = useState(() => takeIdleNotice('join'));
 
   const normalizedCode = (code || '').toUpperCase();
 
@@ -119,6 +121,9 @@ export default function JoinSessionLoginPage() {
           </div>
         </div>
         <h1>Join session</h1>
+        {idleNotice && (
+          <div className="auth-notice" role="status">You were signed out after an hour of inactivity. Sign in again to carry on — your answers are saved.</div>
+        )}
         <div className="session-header-meta" style={{ marginBottom: '0.75rem' }}>
           <div style={{ fontWeight: 600 }}>{session.name}</div>
           {(session.starts_at || session.ends_at) && (

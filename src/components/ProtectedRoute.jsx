@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isTrainerTier, isSuperTrainerOrAbove, homePathForRole, ROLES } from '../lib/roles.js';
+import { signedOutPath } from './IdleSignOut.jsx';
 
 // The `role` prop accepts:
 //   "trainer"     — any trainer-tier role (super_admin, super_trainer,
@@ -13,7 +14,7 @@ export default function ProtectedRoute({ children, role }) {
   const location = useLocation();
 
   if (loading) return <div className="loading">Loading…</div>;
-  if (!session) return <Navigate to="/login" replace />;
+  if (!session) return <Navigate to={signedOutPath()} replace />;
   if (profile?.must_change_password && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }

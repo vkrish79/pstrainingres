@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ago, BEHIND_SHARE, sessionDay } from '../../lib/sessionPace.js';
 import { useCountdown, assessmentState, STATE_LABEL } from '../../lib/assessmentTimer.js';
-import { supabase } from '../../lib/supabase.js';
-import { pollIsReady } from '../../hooks/usePolls.js';
 
 // The session cockpit, stage 1: a row of gauges above the tabs and a panel
 // beside the roster. Nothing here changes what the page can do — every number
@@ -90,41 +88,6 @@ export function CockpitClock() {
   );
 }
 
-// What is ready to run in this session, for the Go to keys: the quizzes added
-// to it, and the polls in the library that are finished. One read each, on
-// load — a trainer adding a quiz does it on the Quiz tab, which re-mounts this.
-export function useCockpitReady(sessionId) {
-  const [ready, setReady] = useState({ quizzes: null, polls: null });
-  useEffect(() => {
-    if (!sessionId) return undefined;
-    let stop = false;
-    (async () => {
-      const [q, p] = await Promise.all([
-        supabase.from('quizzes').select('id, title, quiz_questions ( id )').eq('session_id', sessionId).order('created_at'),
-        supabase.from('polls').select('id, question, options'),
-      ]);
-      if (stop) return;
-      setReady({
-        quizzes: q.error ? null : (q.data || []).map(r => ({ title: r.title, questions: r.quiz_questions?.length ?? 0 })),
-        polls: p.error ? null : (p.data || []).filter(pollIsReady).length,
-      });
-    })();
-    return () => { stop = true; };
-  }, [sessionId]);
-  return ready;
-}
-
-function quizHint(quizzes) {
-  if (quizzes == null) return 'Run a quiz';
-  if (quizzes.length === 0) return 'None added yet';
-  if (quizzes.length === 1) return `${quizzes[0].title} · ${quizzes[0].questions} Q`;
-  return `${quizzes.length} quizzes ready`;
-}
-function pollHint(n) {
-  if (n == null) return 'Ask the room';
-  return n === 0 ? 'None ready yet' : `${n} ready`;
-}
-
 // What each coloured edge means, in words — for the Selected card and for a
 // screen reader, which cannot see the colour.
 export const TONE_LABEL = {
@@ -146,15 +109,17 @@ export function RoomTiles({ people, selectedId, onPick }) {
         <li key={x.id}>
           <button
             type="button"
-            className={`room-tile tone-${x.tone}${x.dropped ? ' is-dropped' : ''}`}
+            className={`room-tile tone-${x.tone}${x.dropped ? ' is-dropped' : ''}${x.hand ? ' has-hand' : ''}`}
             aria-pressed={x.id === selectedId}
             onClick={() => onPick(x.id)}
             title={`${x.name} — ${TONE_LABEL[x.tone]}`}
           >
-            <span className="room-tile-name">{x.name}</span>
+            <span className="room-tile-name">{x.hand && <span aria-label="Asked for help">✋ </span>}{x.name}</span>
             <Ring frac={x.total ? x.answered / x.total : 0} tone={x.tone} />
             <span className="room-tile-where">
-              {x.dropped ? (x.p.deactivation_reason || 'Dropped out') : `${x.presence.label.replace(/^last · /, '')} · ${TONE_LABEL[x.tone]}`}
+              {x.dropped ? (x.p.deactivation_reason || 'Dropped out')
+                : x.hand ? `${x.hand.acknowledged_at ? 'Help on the way' : 'Asked for help'} · ${ago(x.hand.raised_at)}`
+                  : `${x.presence.label.replace(/^last · /, '')} · ${TONE_LABEL[x.tone]}`}
             </span>
             <span className="room-tile-meta">
               {x.answered}/{x.total} · {x.dropped ? 'dropped out' : ago(x.lastActive)}
@@ -225,17 +190,27 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
 
 // More offline people than this and they fold into one line. Behind and quiet
 // always show in full — they are the reason the card exists. A long offline
-// list is mostly the end of the day, and it was pushing the Go to keys off
+// list is mostly the end of the day, and it pushed the rest of the panel off
 // the bottom of the screen.
 const OFFLINE_FOLD = 3;
 
-export function CockpitRail({ stats, ready, selectedCard, materialsCount, onGo, onCloseSession, onOpenMaterials, onPick }) {
+export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, onOpenMaterials, onPick }) {
   const { behind, quiet, offline, pace } = stats;
   const [showOffline, setShowOffline] = useState(false);
   const fold = offline.length > OFFLINE_FOLD && !showOffline;
+  // A raised hand outranks everything the numbers can infer: the person has
+  // said so themselves. First come, first shown.
+  const handIds = new Set(hands.map(x => x.id));
   const alerts = [
-    ...behind.map(p => ({ tone: 'bad', p, why: `${pace - p.answered} behind class pace` })),
-    ...quiet.map(p => ({ tone: 'warn', p, why: p.lastActive ? `No answer or move for ${ago(p.lastActive).replace(' ago', '')}` : 'Online, nothing answered yet' })),
+    ...hands.map(x => ({
+      tone: 'help',
+      p: x,
+      why: x.hand.acknowledged_at
+        ? `${x.hand.acknowledged_by_name || 'Someone'} is on the way · ${ago(x.hand.raised_at)}`
+        : `Asked for help ${ago(x.hand.raised_at)}${x.hand.section_title ? ` · ${x.hand.section_title}` : ''}`,
+    })),
+    ...behind.filter(p => !handIds.has(p.id)).map(p => ({ tone: 'bad', p, why: `${pace - p.answered} behind class pace` })),
+    ...quiet.filter(p => !handIds.has(p.id)).map(p => ({ tone: 'warn', p, why: p.lastActive ? `No answer or move for ${ago(p.lastActive).replace(' ago', '')}` : 'Online, nothing answered yet' })),
     ...(fold ? [] : offline.map(p => ({ tone: 'off', p, why: `Offline · last answer ${ago(p.lastTs)}` }))),
   ];
 
@@ -245,13 +220,15 @@ export function CockpitRail({ stats, ready, selectedCard, materialsCount, onGo, 
       <section className="cockpit-card">
         <h3 className="cockpit-card-title">Needs you</h3>
         {alerts.length === 0 && !fold ? (
-          <p className="cockpit-empty">Nobody is behind or quiet right now.</p>
+          <p className="cockpit-empty">Nobody has asked for help, and nobody is behind or quiet.</p>
         ) : (
           <ul className="cockpit-alerts">
             {alerts.map(({ tone, p, why }) => (
               <li key={`${tone}-${p.id}`}>
-                <button type="button" className="cockpit-alert" onClick={() => onPick(p.id)} title={`Open ${p.name}'s answers`}>
-                  <span className={`cockpit-dot tone-${tone}`} aria-hidden="true" />
+                <button type="button" className={`cockpit-alert${tone === 'help' ? ' is-hand' : ''}`} onClick={() => onPick(p.id)} title={`Select ${p.name}`}>
+                  {tone === 'help'
+                    ? <span className="cockpit-hand-icon" aria-label="Asked for help">✋</span>
+                    : <span className={`cockpit-dot tone-${tone}`} aria-hidden="true" />}
                   <span className="cockpit-alert-name">{p.name}</span>
                   <span className="cockpit-alert-why">{why}</span>
                 </button>
@@ -278,26 +255,6 @@ export function CockpitRail({ stats, ready, selectedCard, materialsCount, onGo, 
             )}
           </ul>
         )}
-      </section>
-
-      {/* Ways IN, not one-press fires: a quiz has to be chosen and a poll given
-          a length, and both of those live on their tabs. */}
-      <section className="cockpit-card">
-        <h3 className="cockpit-card-title">Go to</h3>
-        <div className="cockpit-keys">
-          <button type="button" className="cockpit-key is-primary" onClick={() => onGo('quiz')}>
-            Quiz<small>{quizHint(ready?.quizzes)}</small>
-          </button>
-          <button type="button" className="cockpit-key" onClick={() => onGo('poll')}>
-            Polls<small>{pollHint(ready?.polls)}</small>
-          </button>
-          <button type="button" className="cockpit-key" onClick={() => onGo('assessment')}>
-            Assessment<small>Open or lock it</small>
-          </button>
-          <button type="button" className="cockpit-key" onClick={onCloseSession}>
-            Close session<small>Runs the close check</small>
-          </button>
-        </div>
       </section>
 
       {materialsCount > 0 && (

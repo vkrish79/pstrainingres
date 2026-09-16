@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
+import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
@@ -20,7 +21,7 @@ import { isFillableBlock, expectedInputs, filledInputs } from '../lib/blockHelpe
 import { buildAllInvitesText, buildHandoutHtml, buildInviteText } from '../lib/participantInvite.js';
 import Block from '../components/blocks/Block.jsx';
 import MaterialsDrawer from '../components/participant/MaterialsDrawer.jsx';
-import { CockpitGauges, CockpitRail, CockpitClock, SessionDayLabel, useCockpitReady, RoomTiles, TONE_LABEL } from '../components/dashboard/SessionCockpit.jsx';
+import { CockpitGauges, CockpitRail, CockpitClock, SessionDayLabel, RoomTiles, TONE_LABEL } from '../components/dashboard/SessionCockpit.jsx';
 import { sessionPace, ago, lastActiveTs } from '../lib/sessionPace.js';
 import ExerciseResponses from '../components/dashboard/ExerciseResponses.jsx';
 import HeatBoard from '../components/dashboard/HeatBoard.jsx';
@@ -67,7 +68,9 @@ export default function SessionDashboardPage() {
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(id);
   // Live cursors: where each participant is looking right now. Read-only here.
   const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
-  const cockpitReady = useCockpitReady(id);
+  // Raised hands, live. Each is also shown on that person wherever they appear.
+  const help = useHelpRequests(id);
+  const [helpError, setHelpError] = useState('');
 
   // live/idle/offline are time-based, so tick periodically to let dots decay
   // even when no cursor/answer event arrives.
@@ -109,12 +112,68 @@ export default function SessionDashboardPage() {
   const [copiedRowInvite, setCopiedRowInvite] = useState(null); // participant id
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [answersOpen, setAnswersOpen] = useState(false);
+  // Stepping through people while reading answers. "Stay on this exercise"
+  // keeps the same exercise in view as you move from one person to the next,
+  // so Exercise 4 is compared with Exercise 4. Remembered per browser.
+  const [stayOnExercise, setStayOnExerciseState] = useState(() => {
+    try { return localStorage.getItem('answers-stay-on-exercise') !== 'off'; } catch { return true; }
+  });
+  function setStayOnExercise(v) {
+    setStayOnExerciseState(v);
+    try { localStorage.setItem('answers-stay-on-exercise', v ? 'on' : 'off'); } catch { /* fine */ }
+  }
+  // Where to scroll once the next person's answers have rendered: a section id,
+  // 'top', or null. A ref, because it is set in a click and read after render.
+  const pendingAnchor = useRef(null);
+  useEffect(() => {
+    const target = pendingAnchor.current;
+    if (!target) return;
+    pendingAnchor.current = null;
+    requestAnimationFrame(() => {
+      const head = document.querySelector('.answers-pane-header');
+      const offset = (head ? head.getBoundingClientRect().height : 0) + 70; // sticky TopBar + header
+      const el = target === 'top'
+        ? document.querySelector('.answers-pane')
+        : document.querySelector(`[data-answers-section="${target}"]`);
+      if (el) window.scrollTo({ top: Math.max(0, window.scrollY + el.getBoundingClientRect().top - offset) });
+    });
+  }, [selectedParticipantId]);
+
+  // Keyboard: ← → next person, Esc back to the class (while reading), 1–5 tabs.
+  // What the keys do is read from a ref filled in on every render, so this
+  // listener is bound once and always sees the current page. It stands aside
+  // while someone is typing — a trainer note, a search — and while any dialog,
+  // drawer or menu is open, since those own their own keys.
+  const keysRef = useRef(null);
+  useEffect(() => {
+    function onKey(e) {
+      const k = keysRef.current;
+      if (!k || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = e.target;
+      // Only fields you TYPE into. A checkbox just clicked keeps focus, and
+      // treating it as typing left the arrow keys dead until you clicked away.
+      const typing = t && (t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'
+        || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|color|file)$/i.test(t.type)));
+      if (typing) return;
+      if (document.querySelector('.modal-backdrop.visible, .materials-drawer.open, .kebab-menu, .idle-signout, .prep-editor.open')) return;
+      if (k.reading && e.key === 'ArrowRight' && k.next) { e.preventDefault(); k.step(k.next); return; }
+      if (k.reading && e.key === 'ArrowLeft' && k.prev) { e.preventDefault(); k.step(k.prev); return; }
+      if (k.reading && e.key === 'Escape') { e.preventDefault(); k.back(); return; }
+      const tab = { 1: 'participants', 2: 'practice', 3: 'assessment', 4: 'quiz', 5: 'poll' }[e.key];
+      if (tab) { e.preventDefault(); k.setView(tab); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  // Changing the trainer is started from the ⋯ menu; while it is open, its
+  // editor stands where the controls are.
+  const [changingTrainer, setChangingTrainer] = useState(false);
   // Tiles, table or heat board, remembered per browser — a trainer who prefers the
   // board should not have to pick it again on every session.
   const [roomView, setRoomViewState] = useState(() => {
     try {
       const v = localStorage.getItem('session-room-view');
-      return v === 'heat' || v === 'table' ? v : 'tiles';
+      return v === 'heat' || v === 'table' || v === 'exercise' ? v : 'tiles';
     } catch { return 'tiles'; }
   });
   function setRoomView(v) {
@@ -575,10 +634,52 @@ export default function SessionDashboardPage() {
     return {
       p, id: p.id, name: p.full_name || '(unnamed)', answered, total, presence, dropped, tone,
       lastActive: lastActiveTs({ lastTs, movedTs: cursors[p.id]?.moved_at }),
+      hand: dropped ? null : (help.byParticipant[p.id] || null),
       noPrep: !dropped && prepEnabled && !hasPrep(p.id),
     };
   }
   const roomPeople = participants.map(roomPerson);
+
+  // Four ways to show the Room. By exercise used to be a tab of its own; it is
+  // the same class read one exercise at a time, so it lives with the others.
+  const roomSwitch = (
+    <div className="room-view-switch" role="group" aria-label="Show the class as">
+      <button type="button" aria-pressed={roomView === 'tiles'} onClick={() => setRoomView('tiles')}>Tiles</button>
+      <button type="button" aria-pressed={roomView === 'table'} onClick={() => setRoomView('table')}>Table</button>
+      <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>
+      <button type="button" aria-pressed={roomView === 'exercise'} onClick={() => { setExerciseJump(null); setRoomView('exercise'); }}>By exercise</button>
+    </div>
+  );
+
+  // The people you step through: everyone still in the class, in the class's
+  // own order. Someone who dropped out is only in it while they are the one
+  // open, so opening them from the class still works.
+  const stepPeople = roomPeople.filter(x => !x.dropped || x.id === selectedParticipantId);
+  const stepAt = stepPeople.findIndex(x => x.id === selectedParticipantId);
+  const stepPrev = stepAt > 0 ? stepPeople[stepAt - 1].id : null;
+  const stepNext = stepAt >= 0 && stepAt < stepPeople.length - 1 ? stepPeople[stepAt + 1].id : null;
+  // The exercise at the top of the answers right now, to land on in the next person.
+  function currentAnswersSection() {
+    const head = document.querySelector('.answers-pane-header');
+    const line = head ? head.getBoundingClientRect().bottom + 4 : 0;
+    for (const el of document.querySelectorAll('[data-answers-section]')) {
+      if (el.getBoundingClientRect().bottom > line) return el.getAttribute('data-answers-section');
+    }
+    return null;
+  }
+  function stepTo(pid) {
+    if (!pid || pid === selectedParticipantId) return;
+    pendingAnchor.current = stayOnExercise ? (currentAnswersSection() || 'top') : 'top';
+    setSelectedParticipantId(pid);
+  }
+  keysRef.current = {
+    reading,
+    prev: stepPrev,
+    next: stepNext,
+    step: stepTo,
+    back: () => setAnswersOpen(false),
+    setView,
+  };
 
   const selectedPerson = selected ? roomPerson(selected) : null;
   const selectedCard = selectedPerson && (() => {
@@ -595,6 +696,20 @@ export default function SessionDashboardPage() {
           {sp.name}
           <span className={`cockpit-tone tone-${sp.tone}`}>{TONE_LABEL[sp.tone]}</span>
         </div>
+        {sp.hand && (
+          <div className={`cockpit-hand${sp.hand.acknowledged_at ? ' is-coming' : ''}`}>
+            <div>
+              <strong>✋ {sp.hand.acknowledged_at ? `${sp.hand.acknowledged_by_name || 'Someone'} is on the way` : 'Asked for help'}</strong>
+              <span>{ago(sp.hand.raised_at)}{sp.hand.section_title ? ` · ${sp.hand.section_title}` : ''}</span>
+            </div>
+            {sp.hand.acknowledged_at ? (
+              <button type="button" className="cockpit-hand-btn" onClick={async () => { setHelpError(''); const { error: e } = await help.resolve(sp.hand.id); if (e) setHelpError(e.message); }}>✓ Helped</button>
+            ) : (
+              <button type="button" className="cockpit-hand-btn is-primary" onClick={async () => { setHelpError(''); const { error: e } = await help.acknowledge(sp.hand.id); if (e) setHelpError(e.message); }}>👋 I'm coming over</button>
+            )}
+          </div>
+        )}
+        {helpError && <p className="error">{helpError}</p>}
         {sp.dropped && (
           <p className="cockpit-selected-reason">
             {sp.p.deactivation_reason || 'No reason recorded'}
@@ -631,19 +746,23 @@ export default function SessionDashboardPage() {
             it is read aloud and projected, so it stays one click away rather
             than hiding in a menu. The assessment's state moved into the gauges
             below, where it sits with the rest of the room's state. */}
+        {/* The class's name is the page's title, above the bar rather than
+            squeezed into it — which is also what gives the bar room for the
+            tabs and controls on one line. */}
+        <header className="cockpit-page-title">
+          <h1>{session?.name}</h1>
+          {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}
+          {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
+        </header>
         <section className="page-hero compact cockpit-hero">
           <div className="cockpit-hero-row">
             <div className="page-hero-text">
-              <h1>
-                {session?.name}
-                {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}
-                {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
-              </h1>
               <p className="cockpit-hero-sub">
                 <Link to="/trainer" className="back-link">&larr; Sessions</Link>
                 {(session?.starts_at || session?.ends_at) && (
                   <span className="session-dates">{formatRange(session.starts_at, session.ends_at)}</span>
                 )}
+                <span className="cockpit-trainer">Trainer <strong>{session?.trainer?.full_name || 'Unassigned'}</strong></span>
                 {session?.join_code && (
                   <button
                     type="button"
@@ -657,24 +776,45 @@ export default function SessionDashboardPage() {
                 )}
               </p>
             </div>
+            <div className="view-tabs">
+              <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Room</button>
+              <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
+              {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
+                  whenever the session had no assessment — which is exactly when a
+                  trainer needs it, because a session scheduled before its
+                  programme had an assessment has no other way to get one. The tab
+                  that disappears when there is nothing in it is the tab you cannot
+                  use to put something in it. */}
+              <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
+              {/* Always shown, unlike Assessment: a quiz is attached from this very
+                  tab, so hiding it until one exists would hide the only way in. */}
+              <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
+              {/* Same reasoning: a poll is asked from this tab, so it is always here. */}
+              <button className={`view-tab ${view === 'poll' ? 'active' : ''}`} onClick={() => setView('poll')}>Polls</button>
+            </div>
             <div className="page-hero-actions">
-              {onlineCount > 0 && (
-                <span className="cockpit-live" title={`${onlineCount} in the workbook now`}>
-                  <span className="cockpit-live-dot" aria-hidden="true" />Live
-                </span>
-              )}
               <SessionDayLabel startsAt={session?.starts_at} endsAt={session?.ends_at} />
               <CockpitClock />
-              {canChangeTrainer && (
+              {/* Who is delivering is on the line under the title; changing it
+                  is a ⋯ item. A permanent "Trainer: X  Change" here cost ~190px
+                  — the difference between one header row and two on a laptop. */}
+              {canChangeTrainer && changingTrainer && (
                 <ChangeTrainerControl
                   sessionVendorId={session?.vendor_id || null}
                   currentTrainer={session?.trainer || null}
                   onChange={setSessionTrainer}
+                  startEditing
+                  onDone={() => setChangingTrainer(false)}
                 />
               )}
               <KebabMenu
                 label="Session actions"
                 items={[
+                  canChangeTrainer && {
+                    label: 'Change trainer…',
+                    glyph: '⇄',
+                    onClick: () => setChangingTrainer(true),
+                  },
                   {
                     label: 'Edit dates',
                     glyph: '▦',
@@ -701,23 +841,6 @@ export default function SessionDashboardPage() {
               />
               </div>
           </div>
-          <div className="view-tabs">
-            <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Room</button>
-            <button className={`view-tab ${view === 'exercise' ? 'active' : ''}`} onClick={() => { setExerciseJump(null); setView('exercise'); }}>By exercise</button>
-            <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
-            {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
-                whenever the session had no assessment — which is exactly when a
-                trainer needs it, because a session scheduled before its
-                programme had an assessment has no other way to get one. The tab
-                that disappears when there is nothing in it is the tab you cannot
-                use to put something in it. */}
-            <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
-            {/* Always shown, unlike Assessment: a quiz is attached from this very
-                tab, so hiding it until one exists would hide the only way in. */}
-            <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
-            {/* Same reasoning: a poll is asked from this tab, so it is always here. */}
-            <button className={`view-tab ${view === 'poll' ? 'active' : ''}`} onClick={() => setView('poll')}>Polls</button>
-          </div>
         </section>
 
         {/* The class before the handouts. The materials used to be a band of
@@ -739,9 +862,13 @@ export default function SessionDashboardPage() {
         />
 
 
-        {view === 'participants' && (
+        {view === 'participants' && roomView !== 'exercise' && (
           <div className={`cockpit-room${reading ? ' is-reading' : ''}`}>
-          <div className={`dashboard-layout ${reading ? 'with-panel' : ''}`}>
+          <div className="dashboard-layout">
+            {/* While someone's answers are open the class steps aside: a column
+                of everyone beside one person's workbook was not being used,
+                and it took a third of the width the workbook needs. */}
+            {!reading && (
             <div className="participants-pane">
               <div className="participants-header">
                 <h2 className="section-title" style={{ margin: 0 }}>
@@ -758,13 +885,7 @@ export default function SessionDashboardPage() {
                   )}
                 </h2>
                 <div className="participants-header-actions">
-                  {participants.length > 0 && (
-                    <div className="room-view-switch" role="group" aria-label="Show the class as">
-                      <button type="button" aria-pressed={roomView === 'tiles'} onClick={() => setRoomView('tiles')}>Tiles</button>
-                      <button type="button" aria-pressed={roomView === 'table'} onClick={() => setRoomView('table')}>Table</button>
-                      <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>
-                    </div>
-                  )}
+                  {participants.length > 0 && roomSwitch}
                   {unPreppedIds.length > 0 && (
                     <button className="ghost" onClick={doAllocateAll} disabled={allocating}>
                       {allocating ? 'Allocating…' : `Allocate prep (${unPreppedIds.length} need it)`}
@@ -835,6 +956,7 @@ export default function SessionDashboardPage() {
               )}
               {participants.length > 0 && roomView === 'heat' && (
                 <HeatBoard
+                  hands={help.byParticipant}
                   sections={sections}
                   blocks={blocks}
                   participants={participants}
@@ -849,7 +971,7 @@ export default function SessionDashboardPage() {
                   onPickParticipant={pickParticipant}
                   onOpenCell={(sectionId, participantId) => {
                     setExerciseJump(prev => ({ sectionId, participantId, n: (prev?.n || 0) + 1 }));
-                    setView('exercise');
+                    setRoomViewState('exercise');
                   }}
                 />
               )}
@@ -868,6 +990,7 @@ export default function SessionDashboardPage() {
                         <tr key={p.id} className={`${isSel ? 'selected' : ''}${isDropout ? ' deactivated' : ''}`}
                             onClick={() => pickParticipant(p.id)}>
                           <td>
+                            {!p.deactivated_at && help.byParticipant[p.id] && <span className="hand-tag" title="Asked for help">✋</span>}
                             {p.full_name || '(unnamed)'}
                             {isDropout && <span className="dropout-tag">Dropped out</span>}
                             {!isDropout && prepEnabled && !hasPrep(p.id) && <span className="no-prep-tag" title="No prep allocated yet">No prep</span>}
@@ -911,19 +1034,50 @@ export default function SessionDashboardPage() {
                 </table>
               )}
             </div>
+            )}
 
             {reading && (
               <aside className="answers-pane">
                 <header className="answers-pane-header">
-                  <h2>{selected.full_name}'s answers</h2>
-                  <button className="icon-btn" onClick={() => setAnswersOpen(false)} aria-label="Close">×</button>
+                  <button type="button" className="ghost answers-back" onClick={() => setAnswersOpen(false)} title="Back to the class (Esc)">&larr; Back to the class</button>
+                  <div className="answers-stepper" role="group" aria-label="Step through participants">
+                    <button type="button" className="answers-step" onClick={() => stepTo(stepPrev)} disabled={!stepPrev} title="Previous person (←)" aria-label="Previous person">‹ Prev</button>
+                    <div className="answers-who">
+                      <h2>{selected.full_name}'s answers</h2>
+                      {stepAt >= 0 && <span className="answers-count">{stepAt + 1} of {stepPeople.length}</span>}
+                    </div>
+                    <button type="button" className="answers-step" onClick={() => stepTo(stepNext)} disabled={!stepNext} title="Next person (→)" aria-label="Next person">Next ›</button>
+                  </div>
+                  <label className="answers-stay">
+                    <input type="checkbox" checked={stayOnExercise} onChange={e => setStayOnExercise(e.target.checked)} />
+                    Stay on this exercise
+                  </label>
+                  <span className="answers-keys" aria-hidden="true">
+                    <kbd>←</kbd><kbd>→</kbd> person <kbd>Esc</kbd> back <kbd>1</kbd>–<kbd>5</kbd> tabs
+                  </span>
                 </header>
+                <nav className="answers-strip" aria-label="Participants">
+                  {stepPeople.map(x => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      className="answers-chip"
+                      aria-pressed={x.id === selectedParticipantId}
+                      onClick={() => stepTo(x.id)}
+                      title={`${x.name} — ${TONE_LABEL[x.tone]}`}
+                    >
+                      <span className={`cockpit-dot tone-${x.tone}`} aria-hidden="true" />
+                      {x.hand && <span aria-label="Asked for help">✋</span>}
+                      {x.name}
+                    </button>
+                  ))}
+                </nav>
                 <div className="answers-pane-body">
                   {sections.map(sec => {
                     const pNote = participantNotes[selected.id]?.[sec.id]?.note;
                     const prepText = prepBy[selected.id]?.[sec.id]?.content;
                     return (
-                      <section key={sec.id} className="wb-section answers-section">
+                      <section key={sec.id} className="wb-section answers-section" data-answers-section={sec.id}>
                         <h3>{sec.title}</h3>
                         {prepText && (
                           <div className="participant-prep-callout">
@@ -963,11 +1117,9 @@ export default function SessionDashboardPage() {
           {!reading && (
             <CockpitRail
               selectedCard={selected ? selectedCard : null}
+              hands={roomPeople.filter(x => x.hand).sort((a, b) => a.hand.raised_at.localeCompare(b.hand.raised_at))}
               stats={cockpit}
-              ready={cockpitReady}
               materialsCount={materialsLoading ? 0 : (materials?.length || 0)}
-              onGo={setView}
-              onCloseSession={() => { setCloseError(''); setConfirmClose(true); }}
               onOpenMaterials={() => setMaterialsOpen(true)}
               onPick={(pid) => { setAnswersOpen(false); setSelectedParticipantId(pid); }}
             />
@@ -975,7 +1127,12 @@ export default function SessionDashboardPage() {
           </div>
         )}
 
-        {view === 'exercise' && (
+        {view === 'participants' && roomView === 'exercise' && (
+          <>
+          <div className="room-exercise-bar">
+            <h2 className="section-title" style={{ margin: 0 }}>By exercise</h2>
+            {roomSwitch}
+          </div>
           <ExerciseResponses
             key={exerciseJump ? `jump-${exerciseJump.n}` : 'exercise'}
             initialSectionId={exerciseJump?.sectionId || null}
@@ -991,6 +1148,7 @@ export default function SessionDashboardPage() {
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
           />
+          </>
         )}
 
         {view === 'practice' && (

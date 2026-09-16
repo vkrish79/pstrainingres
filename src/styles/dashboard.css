@@ -2220,29 +2220,6 @@
 .cockpit-dot.tone-warn { background: #c98a1c; }
 .cockpit-dot.tone-off { background: #9aa4ae; }
 
-.cockpit-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-.cockpit-rail .cockpit-key {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  text-align: left;
-  background: #f7f5f0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.6rem 0.7rem;
-  color: var(--midnight);
-  font: inherit;
-  font-weight: 700;
-  font-size: 0.86rem;
-  cursor: pointer;
-}
-.cockpit-rail .cockpit-key:hover { border-color: #cdbf9f; }
-.cockpit-rail .cockpit-key small { font-weight: 500; font-size: 0.72rem; color: #6c7a88; }
-.cockpit-rail .cockpit-key.is-primary { background: var(--midnight); border-color: var(--midnight); color: #fff; }
-.cockpit-rail .cockpit-key.is-primary small { color: #b9c9d8; }
-.cockpit-rail .cockpit-key.is-primary:hover { background: var(--midnight-hover); }
-
 .cockpit-materials {
   display: flex;
   align-items: center;
@@ -2306,27 +2283,6 @@
 }
 .cockpit-hero .cockpit-join:hover { background: #efeae0; }
 .cockpit-hero .page-hero-actions { gap: 0.9rem; }
-.cockpit-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #2f8f5f;
-}
-.cockpit-live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2f8f5f;
-  box-shadow: 0 0 0 3px rgba(47, 143, 95, 0.18);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .cockpit-live-dot { animation: cockpit-pulse 2s ease-in-out infinite; }
-  @keyframes cockpit-pulse { 50% { box-shadow: 0 0 0 6px rgba(47, 143, 95, 0); } }
-}
 .cockpit-day { font-size: 0.82rem; color: #6c7a88; white-space: nowrap; }
 .cockpit-clock {
   font-size: 1rem;
@@ -2639,3 +2595,201 @@
   color: var(--midnight);
   box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14), 0 0 0 1px rgba(30, 60, 90, 0.04);
 }
+
+/* ── By exercise folded into Room; tabs in the header row ─────────────── */
+.room-exercise-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 0.9rem;
+}
+/* The tabs sit between the title and the controls when the header is wide
+   enough for all three, and drop to a line of their own when it is not.
+   Measured on a real class: title 492px + tabs ~410px + controls 350px + gaps
+   was ~1290px. With the trainer moved into the ⋯ menu the controls are ~220px,
+   so from ~1100px of header (a 1440px laptop has 1138px) it is one row, a
+   long title giving way with an ellipsis rather than pushing the row apart. */
+.cockpit-hero { container-type: inline-size; }
+.cockpit-hero .cockpit-hero-row .view-tabs { order: 3; margin: 0.15rem 0 0; }
+.cockpit-hero .cockpit-hero-row .page-hero-text { order: 1; }
+.cockpit-hero .cockpit-hero-row .page-hero-actions { order: 2; margin-left: auto; }
+@container (min-width: 1030px) {
+  .cockpit-hero .cockpit-hero-row { column-gap: 1rem; }
+  .cockpit-hero .cockpit-hero-row .page-hero-actions { gap: 0.7rem; flex-wrap: nowrap; flex: 0 0 auto; }
+  .cockpit-hero .cockpit-hero-row .view-tabs .view-tab { padding: 0.38rem 0.8rem; }
+  .cockpit-hero .cockpit-hero-row .page-hero-text { flex: 1 1 auto; }
+  .cockpit-hero .cockpit-hero-row .page-hero-text h1 { flex-wrap: nowrap; }
+  .cockpit-hero .cockpit-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cockpit-hero .cockpit-hero-row .page-hero-text h1 .type-tag,
+  .cockpit-hero .cockpit-hero-row .page-hero-text h1 .city-tag { flex: 0 0 auto; }
+  .cockpit-hero .cockpit-hero-row { flex-wrap: nowrap; }
+  .cockpit-hero .cockpit-hero-row .page-hero-text { flex: 0 1 auto; min-width: 0; }
+  .cockpit-hero .cockpit-hero-row .view-tabs { order: 2; margin: 0; flex: 0 0 auto; }
+  .cockpit-hero .cockpit-hero-row .page-hero-actions { order: 3; }
+}
+@container (max-width: 1029px) {
+  .cockpit-hero .cockpit-hero-row .view-tabs { flex-basis: auto; }
+  .cockpit-hero .cockpit-hero-row::after { content: ""; order: 2; flex-basis: 100%; height: 0; }
+}
+
+.cockpit-hero .cockpit-trainer { color: #6c7a88; }
+.cockpit-hero .cockpit-trainer strong { color: #4b5a6a; font-weight: 600; }
+/* On the title line, but set as a quiet label, not part of the title. */
+.cockpit-hero h1 .cockpit-trainer {
+  flex: 0 0 auto;
+  margin-left: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* ── Title above the bar; one person's workbook on its own ─────────────── */
+.cockpit-page-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.6rem;
+  margin: 0.1rem 0 0.7rem;
+}
+.cockpit-page-title h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--midnight);
+  text-wrap: balance;
+}
+.cockpit-page-title .type-tag,
+.cockpit-page-title .city-tag { margin: 0; }
+/* The bar's left side is now one line of facts, not a title and a line. */
+.page-hero.compact.cockpit-hero .page-hero-text p.cockpit-hero-sub { margin: 0; }
+.cockpit-hero .cockpit-trainer { white-space: nowrap; }
+.cockpit-room .dashboard-layout .answers-pane { max-height: none; }
+.answers-pane-header .answers-back { white-space: nowrap; }
+
+/* ── Raised hands (trainer side) ────────────────────────────────────────── */
+.cockpit-rail .cockpit-alert.is-hand { background: #fdf6e6; }
+.cockpit-rail .cockpit-alert.is-hand:hover { background: #f9ecd0; }
+.cockpit-hand-icon { font-size: 0.95rem; line-height: 1.2; }
+.room-tiles .room-tile.has-hand { border-color: #b5985a; box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.4); }
+.room-tiles .room-tile.has-hand[aria-pressed="true"] { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.6); }
+.hand-tag { margin-right: 0.3rem; }
+.cockpit-hand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  background: #fdf6e6;
+  border: 1px solid #eedcae;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  margin: 0.1rem 0 0.5rem;
+}
+.cockpit-hand strong { display: block; font-size: 0.85rem; color: #5c4c28; }
+.cockpit-hand span { font-size: 0.75rem; color: #7d6a40; }
+.cockpit-hand.is-coming { background: #f3f7f4; border-color: #cfe3d6; }
+.cockpit-hand.is-coming strong { color: #2f7a52; }
+.cockpit-selected .cockpit-hand-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #cfe3d6;
+  background: #fff;
+  color: #2f7a52;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cockpit-selected .cockpit-hand-btn.is-primary { background: #b5985a; border-color: #b5985a; color: #14212e; }
+.cockpit-selected .cockpit-hand-btn:hover { filter: brightness(0.97); }
+
+/* ── Step through participants (UX rec #3) ─────────────────────────────── */
+/* The header stays in reach while a long workbook scrolls beneath it. 61px is
+   the global TopBar, which is sticky too. */
+.cockpit-room .answers-pane-header {
+  position: sticky;
+  top: 61px;
+  z-index: 6;
+  background: var(--card);
+  border-radius: 10px 10px 0 0;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.6rem 1rem;
+}
+.answers-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid #d9d2c4;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+.answers-stepper .answers-step {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #fff;
+  color: var(--midnight);
+  border: 0;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+.answers-stepper .answers-step:hover:not(:disabled) { background: #f7f5f0; }
+.answers-stepper .answers-step:disabled { color: #c4c9d2; cursor: default; background: #fff; }
+.answers-who {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.4rem 0.9rem;
+  border-left: 1px solid #e4dfd5;
+  border-right: 1px solid #e4dfd5;
+  min-width: 14rem;
+  justify-content: center;
+}
+.answers-pane-header .answers-who h2 { margin: 0; font-size: 0.95rem; color: var(--midnight); white-space: nowrap; }
+.answers-count { font-size: 0.78rem; color: #7d8a97; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.answers-stay { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.84rem; color: #4b5a6a; cursor: pointer; }
+.answers-stay input { accent-color: var(--midnight); width: 1rem; height: 1rem; }
+.answers-keys { margin-left: auto; font-size: 0.75rem; color: #7d8a97; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.answers-keys kbd {
+  font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+  font-size: 0.7rem;
+  border: 1px solid #d9d2c4;
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 0 0.35rem;
+  background: #fff;
+  color: #4b5a6a;
+}
+.answers-strip {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.55rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: #fbfaf7;
+}
+.answers-strip .answers-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #4b5a6a;
+  background: #fff;
+  border: 1px solid #e4dfd5;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.answers-strip .answers-chip:hover { border-color: #cdbf9f; background: #fff; }
+.answers-strip .answers-chip[aria-pressed="true"],
+.answers-strip .answers-chip[aria-pressed="true"]:hover { background: var(--midnight); border-color: var(--midnight); color: #fff; }
+@media (max-width: 1180px) { .answers-keys { display: none; } }

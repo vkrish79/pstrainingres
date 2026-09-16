@@ -459,6 +459,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   font-weight: 600;
   border-radius: var(--radius-md);
 }
+.auth-notice {
+  background: rgba(30, 60, 90, 0.06);
+  color: var(--midnight);
+  font-size: 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--gold);
+}
 .auth-error {
   background: rgba(239, 83, 80, 0.08);
   color: var(--danger);

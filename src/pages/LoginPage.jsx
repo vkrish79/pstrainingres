@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { takeIdleNotice } from '../components/IdleSignOut.jsx';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -9,6 +10,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Read once: after an inactivity sign-out, say so, rather than leaving someone
+  // wondering why they are looking at the login page.
+  const [idleNotice] = useState(() => takeIdleNotice('staff'));
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -30,6 +34,9 @@ export default function LoginPage() {
           </div>
         </div>
         <h1>Sign in</h1>
+        {idleNotice && (
+          <div className="auth-notice" role="status">You were signed out after an hour of inactivity.</div>
+        )}
         <label>Email
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
         </label>

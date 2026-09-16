@@ -28,7 +28,7 @@ function shade(frac) {
 
 export default function HeatBoard({
   sections, blocks, participants, answers, cursors, isOnline, presenceStateFor,
-  selectedId, onPickParticipant, onOpenCell,
+  selectedId, onPickParticipant, onOpenCell, hands = {},
 }) {
   const columns = useMemo(() => sections
     .map(sec => {
@@ -104,7 +104,7 @@ export default function HeatBoard({
                   <th scope="row" className="heat-name">
                     <button type="button" className="heat-person" onClick={() => onPickParticipant(p.id)} title={`Open ${p.full_name || 'this person'}'s answers`}>
                       <span className={`presence-dot ${state}`} aria-hidden="true" />
-                      <span className="heat-person-name">{p.full_name || '(unnamed)'}</span>
+                      <span className="heat-person-name">{!dropped && hands[p.id] && <span aria-label="Asked for help">✋ </span>}{p.full_name || '(unnamed)'}</span>
                       <span className="heat-person-n">{answered}/{total}</span>
                     </button>
                   </th>

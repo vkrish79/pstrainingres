@@ -7,6 +7,7 @@ import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
 import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
+import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { useActiveQuizRun } from '../hooks/useActiveQuizRun.js';
 import { useActivePoll } from '../hooks/useActivePoll.js';
@@ -77,6 +78,31 @@ export default function ParticipantWorkbookPage() {
     sectionId: currentSectionId,
     sectionTitle: sections.find(s => s.id === currentSectionId)?.title || '',
   });
+
+  // Raise hand. Private: only this person and the trainer running the session
+  // can see the ask.
+  const help = useHelpRequests(session?.id, { mine: true, selfId: authSession?.user.id });
+  const handUp = help.mineOpen;
+  const [helpBusy, setHelpBusy] = useState(false);
+  const [helpError, setHelpError] = useState('');
+  async function toggleHelp() {
+    setHelpBusy(true); setHelpError('');
+    const { error: e } = handUp
+      ? await help.lower('cancelled')
+      : await help.raise(currentSectionId, sections.find(s => s.id === currentSectionId)?.title || '');
+    setHelpBusy(false);
+    if (e) setHelpError(e.message);
+  }
+  // A hand comes down by itself when they move on to a LATER exercise — the
+  // question has most likely answered itself. Scrolling back to an earlier one
+  // to look something up does not count: that is often why they asked.
+  useEffect(() => {
+    if (!handUp?.section_id || !currentSectionId || currentSectionId === handUp.section_id) return;
+    const at = sections.findIndex(x => x.id === currentSectionId);
+    const asked = sections.findIndex(x => x.id === handUp.section_id);
+    if (at > asked && asked >= 0) help.lower('moved_on');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSectionId, handUp?.section_id]);
 
   // Trainer spotlight: a soft banner the participant can follow, plus a
   // one-time force-jump on a hard snap (a change in focus.snap_at).
@@ -378,6 +404,16 @@ export default function ParticipantWorkbookPage() {
           )}
           <button
             type="button"
+            className={`ghost help-hand${handUp ? ' is-up' : ''}`}
+            onClick={toggleHelp}
+            disabled={helpBusy || !session?.id}
+            aria-pressed={!!handUp}
+            title={handUp ? 'Put your hand down' : 'Ask your trainer for help — only they will see it'}
+          >
+            {handUp ? '✋ Help asked · Cancel' : '✋ Ask for help'}
+          </button>
+          <button
+            type="button"
             className="ghost"
             onClick={() => setNotesOpen(true)}
             title="Open your notes (press N)"
@@ -427,6 +463,15 @@ export default function ParticipantWorkbookPage() {
             ↓ Print / Download PDF
           </button>
         </div>
+
+        {helpError && <p className="error no-print">{helpError}</p>}
+        {handUp && (
+          <div className={`help-banner no-print${handUp.acknowledged_at ? ' is-coming' : ''}`} role="status">
+            {handUp.acknowledged_at
+              ? <>👋 <strong>{handUp.acknowledged_by_name || 'Your trainer'} is coming over.</strong> Carry on — your answers are saved.</>
+              : <>✋ <strong>Your trainer can see you've asked for help.</strong> Only they can see it. Carry on while you wait.</>}
+          </div>
+        )}
 
         {showSpotlight && (
           <div className="spotlight-banner" role="status">
