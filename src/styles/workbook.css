@@ -57,26 +57,29 @@
   font-size: 1.25rem;
 }
 
-/* Group sections (Word H1) — prominent banner that visually separates the
-   exercises beneath. Tinted background + larger heading make it impossible
-   to confuse with the per-exercise cards above and below it. */
+/* Group sections (Word H1) — a banner that separates the exercises beneath.
+   The tint and the gold edge are what mark it out, not size: at 1.6rem in a
+   deep card it was larger than the page's own title and pushed the first
+   exercise below the fold, so the heading is now one step above an exercise's
+   (1.25rem) and the card is only as tall as its title. */
 .wb-section-group {
   background: linear-gradient(135deg, #f5efe0 0%, #ece1c4 100%);
   border-color: var(--gold);
-  border-left: 6px solid var(--gold);
-  padding: 1.75rem 2rem 1.5rem;
-  margin-top: 2rem;
+  border-left: 4px solid var(--gold);
+  padding: 0.85rem 1.5rem;
+  margin-top: 1.5rem;
 }
 .wb-section-group:first-child { margin-top: 0; }
 .wb-section-group-title {
-  margin: 0 0 0.25rem;
+  margin: 0;
   padding: 0;
   border: none;
   color: var(--midnight);
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
+.wb-section-group .wb-section-group-title + * { margin-top: 0.4rem; }
 .wb-section-group .wb-prose { font-size: 0.95rem; }
 
 .wb-prose {
@@ -230,7 +233,25 @@
 /* The My-copy exercise sidebar must clear the sticky presenter bar above it
    (TopBar ~60 + presenter bar ~52). */
 @media (min-width: 801px) {
-  .practice-view .exresp-sidebar { top: 116px; max-height: calc(100vh - 136px); }
+  .practice-view .exresp-sidebar {
+    top: var(--practice-sidebar-top, 131px);
+    max-height: calc(100vh - var(--practice-sidebar-top, 131px) - 12px);
+  }
+  /* With the Monitor open, the list and the drawer share a top and a bottom:
+     both start at the list's live top and end 12px above the window's edge. */
+  body.monitor-drawer-pushed .practice-view .exresp-sidebar {
+    max-height: calc(100vh - var(--monitor-bar-bottom, 131px) - 12px);
+  }
+  /* KEEP THE LIST PINNED TO THE END OF THE PAGE. A sticky element only sticks
+     while its container reaches past it. Two things cut that short:
+     - the page's 3rem bottom padding let the page scroll ~36px beyond the
+       list's pinned bottom, so it slid up under the bar (drawer with it);
+     - in wide mode the exercise content is hidden, so the container was only
+       as tall as the list — whose height follows its own position — and the
+       page's length changed on every scroll.
+     A full-height container and a 12px bottom end both. */
+  body.monitor-drawer-pushed .practice-view .exresp-layout { min-height: calc(100vh - 12px); }
+  body.monitor-drawer-pushed .page.dashboard { padding-bottom: 12px; }
 }
 /* Trainer-side chip showing what's currently spotlighted (in My copy). */
 .spotlight-chip {

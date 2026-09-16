@@ -723,13 +723,11 @@
 .monitor-row-body { padding: 0.2rem 0.3rem 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
 
 @media (min-width: 900px) {
-  body { transition: margin-right 0.3s ease; }
-  /* The push-exempt chrome (TopBar/hero/tabs/presenter bar) must transition
-     margin-right IDENTICALLY to the body, so its compensating negative margin
-     cancels the push at every frame — i.e. it stays visually still while the
-     canvas reflows. (TopBar/hero already have it from prep.css.) */
-  .dashboard .view-tabs,
-  .practice-view .presenter-bar { transition: margin-right 0.3s ease; }
+  /* ONLY THE DRAWER MOVES. The page makes room for it at once, with no
+     transition: animating the push meant animating every full-width piece's
+     counter-margin in lockstep, and the TopBar was never in step, so the blue
+     bar visibly slid each time the Monitor opened or closed. The drawer's own
+     slide (transform, below) is the one animation left. */
   /* 380 drawer + 12 right inset. */
   body.monitor-drawer-pushed { margin-right: min(392px, 100vw); }
 
@@ -738,8 +736,14 @@
      parent keeps --monitor-bar-bottom synced to the bar's live bottom. TopBar +
      hero also stay full-width so only the canvas below reflows. */
   .monitor-drawer.monitor-drawer--track { top: var(--monitor-bar-bottom, 110px); }
+  /* The cockpit's title and gauges stay full-width too. Left out, the gauges
+     squeezed into the narrower canvas, grew taller, and pushed the bar down
+     AFTER the drawer had lined itself up with it — so the drawer ended up
+     over Edit content / Prep / My notes. */
   body.monitor-drawer-pushed .topbar,
   body.monitor-drawer-pushed .dashboard .page-hero,
+  body.monitor-drawer-pushed .dashboard .cockpit-page-title,
+  body.monitor-drawer-pushed .dashboard .cockpit-gauges,
   body.monitor-drawer-pushed .practice-view .presenter-bar {
     margin-right: calc(-1 * min(392px, 100vw));
   }
@@ -748,15 +752,17 @@
      exercise sidebar (the "exercise number column") and let the drawer take the
      rest, giving the student's exercise a full-width read. --monitor-keep is the
      strip left visible (sidebar + page padding). */
-  body.monitor-drawer-wide { margin-right: calc(100vw - var(--monitor-keep, 320px)); }
-  .monitor-drawer.monitor-drawer--wide { width: calc(100vw - var(--monitor-keep, 320px) - 12px); }
+  body.monitor-drawer-wide { margin-right: var(--monitor-push-wide, calc(100vw - var(--monitor-keep, 320px))); }
+  .monitor-drawer.monitor-drawer--wide { width: var(--monitor-wide-w, calc(100vw - var(--monitor-keep, 320px) - 12px)); }
   /* Keep the TopBar, hero AND presenter bar full-width; the wide drawer starts
      below the presenter bar (its live bottom) so the bar isn't squeezed. */
   body.monitor-drawer-wide .topbar,
   body.monitor-drawer-wide .dashboard .page-hero,
+  body.monitor-drawer-wide .dashboard .cockpit-page-title,
+  body.monitor-drawer-wide .dashboard .cockpit-gauges,
   body.monitor-drawer-wide .dashboard .view-tabs,
   body.monitor-drawer-wide .practice-view .presenter-bar {
-    margin-right: calc(-1 * (100vw - var(--monitor-keep, 320px)));
+    margin-right: calc(-1 * var(--monitor-push-wide, calc(100vw - var(--monitor-keep, 320px))));
   }
   .monitor-drawer.monitor-drawer--wide { top: var(--monitor-bar-bottom, 110px); }
   body.monitor-drawer-wide .exresp-main { display: none; }

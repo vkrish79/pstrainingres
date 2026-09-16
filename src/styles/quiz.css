@@ -335,7 +335,10 @@
    These controls sit at the left of a wide card, and a centred bubble on
    the first one would hang off the side of the page. */
 .tip { position: relative; display: inline-flex; }
-.tip::after {
+/* The bubble itself is now the app-wide TooltipLayer (it reads data-tip).
+   This ::after was clipped inside scrolling areas and, hidden, still widened
+   the page — the quiz editor scrolled sideways at 420px because of it. */
+.tip-retired::after {
   content: attr(data-tip);
   position: absolute;
   bottom: calc(100% + 0.45rem);

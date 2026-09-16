@@ -115,8 +115,33 @@ export default function TrainerPracticeView({
       const layoutTop = layoutRef.current
         ? Math.round(layoutRef.current.getBoundingClientRect().top)
         : barBottom;
-      document.body.style.setProperty('--prep-drawer-top', `${Math.round(rect.top)}px`);
-      document.body.style.setProperty('--monitor-bar-bottom', `${Math.max(layoutTop, barBottom)}px`);
+      const style = document.body.style;
+      style.setProperty('--prep-drawer-top', `${Math.round(rect.top)}px`);
+      // The exercise list pins just under the sticky bar. The bar sticks at
+      // 60px, so its pinned bottom is 60 + its own height — measured, because
+      // the bar is taller than it was when "116px" was written into the CSS.
+      style.setProperty('--practice-sidebar-top', `${Math.round(60 + rect.height + 12)}px`);
+
+      const list = layoutRef.current?.querySelector('.exresp-sidebar');
+      // The drawer's top is the LIST's top, so the two start level at every
+      // scroll position; the CSS ends both 12px above the window's bottom.
+      // Never above the bar: whatever the list does, the drawer may not rise
+      // over the presenter bar or the blue TopBar above it.
+      const floor = Math.max(barBottom + 12, 72);
+      const listTop = list ? Math.round(list.getBoundingClientRect().top) : Math.max(layoutTop, barBottom);
+      style.setProperty('--monitor-bar-bottom', `${Math.max(listTop, floor)}px`);
+
+      // Wide mode keeps the exercise list visible and gives the drawer the rest.
+      // Measured, not assumed, and from clientWidth rather than 100vw: 100vw
+      // includes the scrollbar, so a drawer sized from it started a scrollbar's
+      // width too far left and overlapped the list.
+      if (list) {
+        const vw = document.documentElement.clientWidth;
+        const keep = Math.round(list.getBoundingClientRect().right + 12);
+        style.setProperty('--monitor-keep', `${keep}px`);
+        style.setProperty('--monitor-push-wide', `${Math.max(0, vw - keep)}px`);
+        style.setProperty('--monitor-wide-w', `${Math.max(320, vw - keep - 12)}px`);
+      }
     };
     const schedule = () => { if (!raf) raf = requestAnimationFrame(sync); };
     sync();
@@ -127,6 +152,10 @@ export default function TrainerPracticeView({
     // lands on the bar's true bottom instead of a mid-transition (too-low) value.
     const ro = new ResizeObserver(schedule);
     if (barRef.current) ro.observe(barRef.current);
+    // The bar can MOVE without changing size — when something above it (the
+    // cockpit gauges) reflows as the canvas narrows. Watching those too keeps
+    // the drawer's top on the bar's real bottom.
+    for (const el of document.querySelectorAll('.cockpit-gauges, .cockpit-hero')) ro.observe(el);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       ro.disconnect();
