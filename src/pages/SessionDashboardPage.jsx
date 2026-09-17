@@ -1135,6 +1135,7 @@ export default function SessionDashboardPage() {
           </div>
           <ExerciseResponses
             key={exerciseJump ? `jump-${exerciseJump.n}` : 'exercise'}
+            sessionId={id}
             initialSectionId={exerciseJump?.sectionId || null}
             initialParticipantId={exerciseJump?.participantId || null}
             sections={sections}

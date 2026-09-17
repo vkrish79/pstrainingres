@@ -1,0 +1,77 @@
+/* A participant's marks after the trainer has gone over an exercise. Right
+   answers stay quiet; a different answer gets one line and one button. */
+
+.rv-banner { border-color: #b5985a; }
+
+.rv-section-tag {
+  margin-left: 0.6rem;
+  vertical-align: middle;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #efeae0;
+  color: #6c5a33;
+  white-space: nowrap;
+}
+.rv-section-tag.is-live { background: #f7ecd6; color: #8b7342; }
+
+.rv-mark.rv-right {
+  float: right;
+  margin: 0 0 0 0.35rem;
+  color: #2f7a52;
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  cursor: default;
+}
+
+td.rv-cell-diff { background: #fbf5ea; }
+
+.rv-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #4b5a6a;
+}
+.rv-answer { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color: #172433; }
+.rv-note { color: #8b7342; font-weight: 600; }
+.rv-apply {
+  border: 1px solid #b5985a;
+  background: #b5985a;
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rv-apply:hover { background: #8b7342; border-color: #8b7342; }
+
+.wb-mixed-slot { display: inline-flex; align-items: center; gap: 4px; }
+.rv-chip {
+  border: 1px solid #b5985a;
+  background: #fbf5ea;
+  color: #8b7342;
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rv-chip:disabled { cursor: default; }
+
+.rv-field-right { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.35rem; color: #2f7a52; font-size: 0.82rem; font-weight: 600; }
+.rv-field-right .rv-mark.rv-right { float: none; margin: 0; }
+
+@media print {
+  .rv-apply, .rv-chip { display: none; }
+}

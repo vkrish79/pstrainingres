@@ -11,6 +11,8 @@ import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { useActiveQuizRun } from '../hooks/useActiveQuizRun.js';
 import { useActivePoll } from '../hooks/useActivePoll.js';
+import { useSessionReviews, useMyReviewMarks } from '../hooks/useAnswerReview.js';
+import { marksForBlock } from '../components/blocks/ReviewMark.jsx';
 import { progressOf } from '../lib/blockHelpers.js';
 import { resumePoint } from '../lib/workbookResume.js';
 import WorkbookHeader from '../components/participant/WorkbookHeader.jsx';
@@ -30,6 +32,7 @@ import '../styles/workbook.css';
 import '../styles/print.css';
 import '../styles/drawer.css';
 import '../styles/workbook-rail.css';
+import '../styles/answer-review-marks.css';
 
 const ALL_KEY = '__all__';
 
@@ -134,7 +137,19 @@ export default function ParticipantWorkbookPage() {
     }
   }, [focus]);
 
-  const showSpotlight = !!focus?.section_id && focus.set_at !== spotlightDismissedAt;
+  // Going over answers with the class: which exercises have been, and this
+  // participant's own marks on them (never anyone else's answers).
+  const reviews = useSessionReviews(session?.id);
+  const reviewMarks = useMyReviewMarks(session?.id, reviews, answers);
+  const liveReviewSectionId = useMemo(
+    () => Object.keys(reviews).find(id => reviews[id].status === 'open') || null,
+    [reviews],
+  );
+
+  // The review banner already says where the trainer is; a spotlight on the
+  // same exercise would be a second banner saying the same thing.
+  const showSpotlight = !!focus?.section_id && focus.set_at !== spotlightDismissedAt
+    && focus.section_id !== liveReviewSectionId;
 
   const prepCount = useMemo(
     () => Object.values(sectionPrep).filter(p => (p?.content || '').trim()).length + standalonePrep.length,
@@ -616,6 +631,21 @@ export default function ParticipantWorkbookPage() {
           </div>
         )}
 
+        {liveReviewSectionId && (
+          <div className="spotlight-banner rv-banner" role="status">
+            <span className="spotlight-banner-text">
+              🗣 Your trainer is going over <strong>{sections.find(s => s.id === liveReviewSectionId)?.title || 'an exercise'}</strong> with the class
+            </span>
+            <div className="spotlight-banner-actions">
+              {selectedSectionId !== liveReviewSectionId && (
+                <button type="button" className="spotlight-jump" onClick={() => setSelectedSectionId(liveReviewSectionId)}>
+                  Show my answers
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {showSpotlight && (
           <div className="spotlight-banner" role="status">
             <span className="spotlight-banner-text">🔦 Your trainer is on <strong>{focus.section_title}</strong></span>
@@ -784,6 +814,11 @@ export default function ParticipantWorkbookPage() {
                       {statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100 && (
                         <span className="wb-section-done" aria-label="Exercise complete">✓</span>
                       )}
+                      {reviews[sec.id] && (
+                        <span className={`rv-section-tag${reviews[sec.id].status === 'open' ? ' is-live' : ''}`}>
+                          {reviews[sec.id].status === 'open' ? 'Being gone over now' : 'Gone over with the class'}
+                        </span>
+                      )}
                     </h2>
                   )}
                   {prepText && (
@@ -799,6 +834,7 @@ export default function ParticipantWorkbookPage() {
                       value={answers[b.id]}
                       onChange={v => saveAnswer(b.id, v)}
                       recentlyUpdated={!!recentlyUpdated[b.id]}
+                      marks={reviews[sec.id] ? marksForBlock(reviewMarks, b.id) : null}
                     />
                   ))}
                   {/* Print-only: render participant note inline as formatted

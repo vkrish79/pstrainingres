@@ -11,6 +11,8 @@ import { EditableBlock } from '../editor/ContentEditor.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
 import NotesDrawer from '../participant/NotesDrawer.jsx';
 import MonitorDrawer from './MonitorDrawer.jsx';
+import AnswerReviewBoard from './AnswerReviewBoard.jsx';
+import { useSessionReviews } from '../../hooks/useAnswerReview.js';
 import '../../styles/workbook.css';
 
 const TRAINER_PROMPTS = [
@@ -64,6 +66,9 @@ export default function TrainerPracticeView({
   const [monitorOpen, setMonitorOpen] = useState(false);
   const [monitorWide, setMonitorWide] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  // The exercise whose answers are on the full-screen board, if any.
+  const [reviewSectionId, setReviewSectionId] = useState(null);
+  const reviews = useSessionReviews(sessionId);
   const barRef = useRef(null);
   const layoutRef = useRef(null);
 
@@ -282,6 +287,19 @@ export default function TrainerPracticeView({
           ⚡ Snap here
         </button>
         <button
+          className={`ghost ${selectedSection && reviews[selectedSection.id]?.status === 'open' ? 'active' : ''}`}
+          onClick={() => {
+            if (!selectedSection) return;
+            // Spotlight it too: that is the banner participants already know.
+            spotlight(selectedSection);
+            setReviewSectionId(selectedSection.id);
+          }}
+          disabled={!selectedSection || monitorOpen || editMode}
+          title={cohortLockMsg || (selectedSection ? 'Go over this exercise\'s answers with the class — no names shown' : 'Select an exercise first')}
+        >
+          🗣 Go over answers
+        </button>
+        <button
           className={`ghost ${monitorOpen ? 'active' : ''}`}
           onClick={openMonitor}
           disabled={editMode}
@@ -446,6 +464,17 @@ export default function TrainerPracticeView({
         </div>
       </div>
 
+      {reviewSectionId && sections.some(s => s.id === reviewSectionId) && (
+        <AnswerReviewBoard
+          sessionId={sessionId}
+          section={sections.find(s => s.id === reviewSectionId)}
+          blocks={blocks.filter(b => b.section_id === reviewSectionId)}
+          answersVersion={participantAnswers}
+          reviewVersion={reviews[reviewSectionId]?.updated_at}
+          onClose={() => setReviewSectionId(null)}
+        />
+      )}
+
       <PrepDrawer
         className="prep-drawer--track"
         open={prepOpen}
@@ -464,6 +493,7 @@ export default function TrainerPracticeView({
         prompts={TRAINER_PROMPTS}
       />
       <MonitorDrawer
+        sessionId={sessionId}
         className="monitor-drawer--track"
         open={monitorOpen}
         onClose={() => setMonitorOpen(false)}

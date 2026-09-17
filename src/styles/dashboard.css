@@ -2948,3 +2948,15 @@
 .poll-past-fill { display: block; height: 100%; border-radius: 5px; min-width: 0; }
 .session-poll-card .poll-past-chip strong { text-align: right; font-variant-numeric: tabular-nums; color: var(--midnight); }
 .poll-past-total { font-size: 0.75rem; color: #7d8a97; }
+
+/* Going over answers: right/wrong beside a person's answer, for the trainer. */
+.exresp-rv-tick { margin-left: 0.4rem; color: #2f7a52; font-weight: 800; }
+.exresp-rv-model {
+  margin-left: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #8b7342;
+  white-space: nowrap;
+}
+.monitor-rv-tick { color: #2f7a52; font-weight: 800; margin-left: 0.35rem; }
+.monitor-rv-model { font-size: 0.75rem; font-weight: 600; color: #8b7342; margin-left: 0.35rem; }

@@ -1,4 +1,35 @@
-export default function FieldBlock({ block, value, onChange, readOnly = false }) {
+import ReviewMark from './ReviewMark.jsx';
+
+// The field, plus its mark once the trainer has gone over it with the class.
+export default function FieldBlock({ block, value, onChange, readOnly = false, marks = null, marksAudience = 'participant' }) {
+  const mark = marks?.[''];
+  const { input_type, options } = block.config || {};
+  // The trainer's answer comes back as text; turn it into this field's value.
+  // A check group's answer is its options joined with " + " (see review_slots).
+  function apply(answer) {
+    if (input_type === 'check_group') {
+      const wanted = answer.split(' + ').map(s => s.trim().toUpperCase());
+      onChange((options || []).filter(o => wanted.includes(String(o).trim().toUpperCase())));
+    } else if (input_type === 'choice') {
+      const match = (options || []).find(o => String(o).trim().toUpperCase() === answer.trim().toUpperCase());
+      onChange(match ?? answer);
+    } else {
+      onChange(answer);
+    }
+  }
+  return (
+    <>
+      <FieldBody block={block} value={value} onChange={onChange} readOnly={readOnly} />
+      {mark?.trainer_answer && (
+        mark.right
+          ? <div className="rv-field-right"><ReviewMark mark={mark} /> <span>{marksAudience === 'trainer' ? 'Matches your answer' : 'Matches your trainer'}</span></div>
+          : <ReviewMark mark={mark} readOnly={readOnly} audience={marksAudience} onApply={apply} />
+      )}
+    </>
+  );
+}
+
+function FieldBody({ block, value, onChange, readOnly = false }) {
   const { label, input_type, options } = block.config || {};
 
   if (input_type === 'short_text' || input_type === 'long_text') {

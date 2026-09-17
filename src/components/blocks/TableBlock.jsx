@@ -1,6 +1,7 @@
 import { boxLabel } from '../../lib/tableCells.js';
+import ReviewMark from './ReviewMark.jsx';
 
-export default function TableBlock({ block, value, onChange, readOnly = false }) {
+export default function TableBlock({ block, value, onChange, readOnly = false, marks = null, marksAudience = 'participant' }) {
   const cfg = block.config || {};
   const ans = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
@@ -23,14 +24,18 @@ export default function TableBlock({ block, value, onChange, readOnly = false })
               {row.map((cell, ci) => (
                 <td
                   key={ci}
-                  className={cell.kind === 'input' ? 'wb-cell-input' : cell.kind === 'mixed' ? 'wb-cell-static wb-cell-mixed' : 'wb-cell-static'}
+                  className={`${cell.kind === 'input' ? 'wb-cell-input' : cell.kind === 'mixed' ? 'wb-cell-static wb-cell-mixed' : 'wb-cell-static'}${
+                    cell.kind === 'input' && marks?.[cell.id]?.trainer_answer ? (marks[cell.id].right ? ' rv-cell-right' : ' rv-cell-diff') : ''}`}
                   colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
                   rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
                 >
+                  {cell.kind === 'input' && marks?.[cell.id]?.right && (
+                    <ReviewMark mark={marks[cell.id]} readOnly={readOnly} audience={marksAudience} />
+                  )}
                   {cell.kind === 'static' ? (
                     cell.text
                   ) : cell.kind === 'mixed' ? (
-                    <MixedCell cell={cell} ans={ans} setCell={setCell} readOnly={readOnly} />
+                    <MixedCell cell={cell} ans={ans} setCell={setCell} readOnly={readOnly} marks={marks} marksAudience={marksAudience} />
                   ) : readOnly ? (
                     <span className={`wb-readonly inline ${ans[cell.id] ? '' : 'empty'}`}>
                       {ans[cell.id] || '—'}
@@ -48,6 +53,9 @@ export default function TableBlock({ block, value, onChange, readOnly = false })
                       onChange={e => setCell(cell.id, e.target.value)}
                     />
                   )}
+                  {cell.kind === 'input' && marks?.[cell.id] && !marks[cell.id].right && (
+                    <ReviewMark mark={marks[cell.id]} readOnly={readOnly} audience={marksAudience} onApply={v => setCell(cell.id, v)} />
+                  )}
                 </td>
               ))}
             </tr>
@@ -60,7 +68,7 @@ export default function TableBlock({ block, value, onChange, readOnly = false })
 
 // Wording with answer boxes inside it ("City code: [    ]"). Each box is its
 // own answer, keyed by the box id like an input cell.
-function MixedCell({ cell, ans, setCell, readOnly }) {
+function MixedCell({ cell, ans, setCell, readOnly, marks, marksAudience = 'participant' }) {
   let boxNo = -1;
   return (
     <span className="wb-mixed">
@@ -68,22 +76,43 @@ function MixedCell({ cell, ans, setCell, readOnly }) {
         if (p.kind !== 'box') return <span key={i} className="wb-mixed-text">{p.text}</span>;
         boxNo += 1;
         const label = boxLabel(cell, boxNo, 'Answer');
+        const mark = marks?.[p.id];
+        const markEl = mark ? (
+          <ReviewMark compact mark={mark} readOnly={readOnly} audience={marksAudience} onApply={v => setCell(p.id, v)} />
+        ) : null;
         if (readOnly) {
           return (
-            <span key={p.id} className={`wb-readonly inline wb-mixed-box ${ans[p.id] ? '' : 'empty'}`}>
-              {ans[p.id] || '—'}
+            <span key={p.id} className="wb-mixed-slot">
+              <span className={`wb-readonly inline wb-mixed-box ${ans[p.id] ? '' : 'empty'}`}>
+                {ans[p.id] || '—'}
+              </span>
+              {markEl}
             </span>
           );
         }
+        if (!markEl) {
+          return (
+            <input
+              key={p.id}
+              type="text"
+              className="wb-mixed-box"
+              aria-label={label}
+              value={ans[p.id] || ''}
+              onChange={e => setCell(p.id, e.target.value)}
+            />
+          );
+        }
         return (
-          <input
-            key={p.id}
-            type="text"
-            className="wb-mixed-box"
-            aria-label={label}
-            value={ans[p.id] || ''}
-            onChange={e => setCell(p.id, e.target.value)}
-          />
+          <span key={p.id} className="wb-mixed-slot">
+            <input
+              type="text"
+              className="wb-mixed-box"
+              aria-label={label}
+              value={ans[p.id] || ''}
+              onChange={e => setCell(p.id, e.target.value)}
+            />
+            {markEl}
+          </span>
         );
       })}
     </span>

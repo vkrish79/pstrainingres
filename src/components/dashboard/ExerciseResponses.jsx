@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useReviewPeopleMarks } from '../../hooks/useAnswerReview.js';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { isInteractiveBlock } from '../../lib/interactiveBlocks.js';
 import { scoreBlocks, earnedFor, pointsFor, manualResultFor } from '../../lib/assessmentScoring.js';
@@ -18,6 +19,10 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 const AUTO_COLLAPSE_THRESHOLD = 8;
 
 export default function ExerciseResponses({
+  // Optional: with a session id, the trainer can compare every answer with
+  // their own practice copy (and with whatever they accepted while going over
+  // the exercise with the class). The assessment view passes none.
+  sessionId = null,
   sections, blocks, participants, answers,
   notes = {}, participantNotes = {}, prepBy = {}, liveBySection = {}, onSaveNote, onDeleteNote,
   showNotes = true, emptyLabel = 'No fillable blocks in this workbook.', answerKey = null, answerPoints = null,
@@ -38,6 +43,9 @@ export default function ExerciseResponses({
   initialSectionId = null,
   initialParticipantId = null,
 }) {
+  const [showMarks, setShowMarks] = useState(() => {
+    try { return localStorage.getItem('session-answer-marks') === '1'; } catch { return false; }
+  });
   const sectionsWithFillable = useMemo(() => {
     return sections
       .filter(sec => blocks.some(b => b.section_id === sec.id && isFillableBlock(b)))
@@ -140,6 +148,9 @@ export default function ExerciseResponses({
   }
 
   const selectedSection = sectionsWithFillable.find(s => s.id === selectedId) || sectionsWithFillable[0];
+  const { marks: reviewMarks, loading: marksLoading } = useReviewPeopleMarks(
+    sessionId, showMarks ? selectedSection?.id : null, !!sessionId && showMarks,
+  );
   const fillableInSection = blocks
     .filter(b => b.section_id === selectedSection.id && isFillableBlock(b))
     .sort((a, b) => a.order_index - b.order_index);
@@ -284,6 +295,19 @@ export default function ExerciseResponses({
             <option value="recent">Recent activity</option>
           </select>
           <div className="exresp-toolbar-spacer" />
+          {sessionId && (
+            <button
+              className={`ghost ${showMarks ? 'active' : ''}`}
+              onClick={() => setShowMarks(v => {
+                const next = !v;
+                try { localStorage.setItem('session-answer-marks', next ? '1' : '0'); } catch { /* private window */ }
+                return next;
+              })}
+              data-tip="Compare every answer with your practice copy, and with what you accepted when going over the exercise"
+            >
+              {marksLoading ? '✓ Checking…' : showMarks ? '✓ Hide right/wrong' : '✓ Show right/wrong'}
+            </button>
+          )}
           <button className="ghost" onClick={expandAll} disabled={defaultExpanded && toggleSet.size === 0}>Expand all</button>
           <button className="ghost" onClick={collapseAll} disabled={!defaultExpanded && toggleSet.size === 0}>Collapse all</button>
         </div>
@@ -298,6 +322,7 @@ export default function ExerciseResponses({
               blocks={fillableInSection}
               answersForP={answers[s.participant.id] || {}}
               notesForP={notes[s.participant.id] || {}}
+              reviewMarks={reviewMarks}
               sectionNote={participantNotes[s.participant.id]?.[selectedSection.id]?.note || ''}
               prepText={prepBy[s.participant.id]?.[selectedSection.id]?.content || ''}
               expanded={isExpanded(s.participant.id)}
@@ -334,6 +359,7 @@ export default function ExerciseResponses({
             blocks={fillableInSection}
             answersForP={answers[s.participant.id] || {}}
             notesForP={notes[s.participant.id] || {}}
+            reviewMarks={reviewMarks}
             sectionNote={participantNotes[s.participant.id]?.[selectedSection.id]?.note || ''}
             prepText={prepBy[s.participant.id]?.[selectedSection.id]?.content || ''}
             onSaveNote={onSaveNote}
@@ -395,7 +421,7 @@ export default function ExerciseResponses({
 function ParticipantFocus({
   stat, position, sectionTitle, onPrev, onNext, onClose, blocks, answersForP, notesForP,
   sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints,
-  questionNumbers, answerModes, marksForP, onMark, onComment, markingIds,
+  questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, reviewMarks = null,
 }) {
   const { participant, answered, total, lastTs } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
@@ -439,6 +465,7 @@ function ParticipantFocus({
         <div className="modal-body exresp-focus-body">
           <ParticipantAnswers
             participant={participant}
+            reviewMarks={reviewMarks}
             blocks={blocks}
             answersForP={answersForP}
             notesForP={notesForP}
@@ -463,7 +490,7 @@ function ParticipantFocus({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, reviewMarks = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
@@ -523,6 +550,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
         <div className="exresp-tile-body">
           <ParticipantAnswers
             participant={participant}
+            reviewMarks={reviewMarks}
             blocks={blocks}
             answersForP={answersForP}
             notesForP={notesForP}
@@ -549,7 +577,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
 // One participant's answers for the selected exercise. Rendered inside the
 // tile, and again in the expanded view — same component, so a mark awarded in
 // either place is the same control with the same rules.
-function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds }) {
+function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, reviewMarks = null }) {
   return (
     <>
           {prepText && (
@@ -579,6 +607,7 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
               questionNumber={questionNumbers ? questionNumbers[b.id] : null}
               answerModes={answerModes}
               markForBlock={marksForP ? marksForP[b.id] : null}
+              reviewMarks={reviewMarks}
               onMark={onMark}
               onComment={onComment}
               marking={markingIds ? markingIds.has(`${participant.id}:${b.id}`) : false}
@@ -589,7 +618,12 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
   );
 }
 
-function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, marking = false }) {
+function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, marking = false, reviewMarks = null }) {
+  // slot → { right, trainer } for this person and block, when the trainer has
+  // right/wrong turned on.
+  const review = reviewMarks && reviewMarks.size
+    ? slot => reviewMarks.get(`${participantId}|${block.id}|${slot || ''}`) || null
+    : null;
   const value = entry?.value;
   const baseLabel = labelOf(block);
   const label = questionNumber != null ? `Q${questionNumber}. ${baseLabel}` : baseLabel;
@@ -638,8 +672,8 @@ function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNo
           onComment={onComment ? text => onComment(participantId, block.id, text) : null}
         />
       )}
-      {block.block_type === 'field' && <FieldRender label={label} value={value} />}
-      {block.block_type === 'table' && <TableRender block={block} label={label} value={value} />}
+      {block.block_type === 'field' && <FieldRender label={label} value={value} review={review} />}
+      {block.block_type === 'table' && <TableRender block={block} label={label} value={value} review={review} />}
       {isInteractiveBlock(block) && (
         <div className={`exresp-answer ${isAnswered(block, value) ? '' : 'is-blank'}`}>
           <div className="exresp-answer-label">{label}</div>
@@ -661,17 +695,29 @@ function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNo
   );
 }
 
-function FieldRender({ label, value }) {
+function FieldRender({ label, value, review = null }) {
   const display = formatFieldValue(value);
+  const mark = review?.('');
   return (
     <div className={`exresp-answer ${display == null ? 'is-blank' : ''}`}>
       <div className="exresp-answer-label">{label}</div>
-      <div className="exresp-answer-value">{display ?? '—'}</div>
+      <div className="exresp-answer-value">
+        {display ?? '—'}
+        <AnswerMark mark={mark} />
+      </div>
     </div>
   );
 }
 
-function TableRender({ block, label, value }) {
+// What the trainer sees beside an answer once right/wrong is on: a tick, or
+// their own answer. No red cross — the trainer is reading, not marking.
+function AnswerMark({ mark }) {
+  if (!mark) return null;
+  if (mark.right) return <span className="exresp-rv-tick" title="Matches your answer">✓</span>;
+  return <span className="exresp-rv-model">yours: {mark.trainer}</span>;
+}
+
+function TableRender({ block, label, value, review = null }) {
   const cells = inputCellsOf(block);
   const cellMap = (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
   const filledCount = cells.filter(c => cellMap[c.id] != null && String(cellMap[c.id]).trim() !== '').length;
@@ -691,7 +737,10 @@ function TableRender({ block, label, value }) {
               return (
                 <tr key={c.id} className={blank ? 'is-blank' : ''}>
                   <th>{c.label}</th>
-                  <td>{blank ? '—' : String(v)}</td>
+                  <td>
+                    {blank ? '—' : String(v)}
+                    <AnswerMark mark={review?.(c.id)} />
+                  </td>
                 </tr>
               );
             })}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Block from '../blocks/Block.jsx';
 import { isFillableBlock, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
+import { useReviewPeopleMarks } from '../../hooks/useAnswerReview.js';
 
 // Right push-in drawer for the trainer's Workbook tab: a live monitor of the
 // cohort on the currently-SELECTED exercise. Driven by the sidebar selection
@@ -12,9 +13,27 @@ import { isFillableBlock, expectedInputs, filledInputs } from '../../lib/blockHe
 // participant's actual answers. Read-only.
 export default function MonitorDrawer({
   open, onClose, section, blocks, participants = [], participantAnswers = {}, liveHere = [],
-  className = '', onWideChange,
+  className = '', onWideChange, sessionId = null,
 }) {
   const [expanded, setExpanded] = useState(() => new Set());
+  // Right/wrong against the trainer's own practice copy — the same comparison
+  // the class board uses. Off by default: most of the time the trainer is
+  // watching progress, not marking.
+  const [showMarks, setShowMarks] = useState(false);
+  const { marks: reviewMarks } = useReviewPeopleMarks(
+    sessionId, showMarks && open ? section?.id : null, !!sessionId && showMarks && open,
+  );
+  // slot → mark, in the shape the blocks already render for participants.
+  function marksFor(participantId, blockId) {
+    if (!reviewMarks.size) return null;
+    let out = null;
+    const prefix = participantId + '|' + blockId + '|';
+    for (const [key, m] of reviewMarks) {
+      if (!key.startsWith(prefix)) continue;
+      (out ||= {})[key.slice(prefix.length)] = { right: m.right, trainer_answer: m.trainer };
+    }
+    return out;
+  }
 
   // Expanding a participant shows their full exercise — too wide for the narrow
   // drawer. Report "wide" so the parent shrinks the canvas to the exercise
@@ -63,6 +82,16 @@ export default function MonitorDrawer({
             <div className="monitor-summary">
               <span className="monitor-summary-here"><span className="presence-dot live" /> {liveHere.length} here now</span>
               <span>{doneCount}/{participants.length} completed</span>
+              {sessionId && (
+                <button
+                  type="button"
+                  className={`ghost monitor-marks-toggle ${showMarks ? 'active' : ''}`}
+                  onClick={() => setShowMarks(v => !v)}
+                  data-tip="Compare each answer with your practice copy"
+                >
+                  {showMarks ? '✓ Hide right/wrong' : '✓ Right/wrong'}
+                </button>
+              )}
             </div>
             {participants.length === 0 ? (
               <p className="monitor-empty">No participants enrolled.</p>
@@ -82,7 +111,15 @@ export default function MonitorDrawer({
                         <div className="monitor-row-body">
                           {sectionBlocks.length === 0 && <p className="muted" style={{ margin: 0 }}>No fillable blocks in this exercise.</p>}
                           {sectionBlocks.map(b => (
-                            <Block key={b.id} block={b} value={(participantAnswers[p.id] || {})[b.id]?.value} onChange={() => {}} readOnly />
+                            <Block
+                              key={b.id}
+                              block={b}
+                              value={(participantAnswers[p.id] || {})[b.id]?.value}
+                              onChange={() => {}}
+                              readOnly
+                              marks={marksFor(p.id, b.id)}
+                              marksAudience="trainer"
+                            />
                           ))}
                         </div>
                       )}
