@@ -9,7 +9,8 @@ import { useCountdown, assessmentState, STATE_LABEL } from '../../lib/assessment
 // the room, rather than a row of PDFs.
 
 // A small ring for a gauge. Drawn, not a library: two circles.
-function Ring({ frac, tone }) {
+// `label` replaces the percentage (the Programmes gauges say "3/6").
+export function Ring({ frac, tone, label }) {
   const r = 16;
   const c = 2 * Math.PI * r;
   const f = Math.max(0, Math.min(1, frac || 0));
@@ -23,7 +24,7 @@ function Ring({ frac, tone }) {
         strokeDashoffset={c * (1 - f)}
         transform="rotate(-90 20 20)"
       />
-      <text x="20" y="23.5" textAnchor="middle">{Math.round(f * 100)}%</text>
+      <text x="20" y="23.5" textAnchor="middle">{label ?? `${Math.round(f * 100)}%`}</text>
     </svg>
   );
 }

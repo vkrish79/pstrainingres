@@ -15,7 +15,18 @@
 // Miss the __clear__ one and "Clear filters" silently leaves a filter applied;
 // miss the count and the button says "Clear 1 filter" when two are set.
 // Neither shows up in a build. So: one export, five consumers.
-export const FILTER_KEYS = ['q', 'type', 'city', 'trainer', 'vendor'];
+export const FILTER_KEYS = ['q', 'type', 'city', 'trainer', 'vendor', 'late'];
+
+// A session whose last day is before today and that nobody closed. Compared by
+// calendar day in local time, like "Day 1 of 7" in the cockpit, so a class
+// ending today is not "left open" until tomorrow.
+export function isLeftOpen(s, now = new Date()) {
+  if (!s || s.closed_at || !s.ends_at) return false;
+  const e = new Date(s.ends_at);
+  const endDay = new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return endDay < today;
+}
 
 // A session with no vendor_id is delivered by PS itself rather than by a
 // vendor. That is a real category a reader wants to filter to, not an absence,
@@ -32,6 +43,8 @@ export function filterSessions(sessions, f) {
       const v = s.vendor_id || PS_IN_HOUSE;
       if (v !== f.vendor) return false;
     }
+    // `late` is set from the "left open" nudge, not from a select.
+    if (f.late === 'yes' && !isLeftOpen(s)) return false;
     if (!q) return true;
     // Search covers what is on screen: the name, and the columns a reader
     // might be scanning for instead.

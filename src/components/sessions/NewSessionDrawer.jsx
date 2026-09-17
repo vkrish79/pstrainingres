@@ -24,7 +24,7 @@ import '../../styles/session-drawer.css';
 // one way, and vanishing is exactly the abruptness this was meant to fix.
 // `visibility` is on the transition too, so a closed drawer is out of the tab
 // order rather than sitting off-screen collecting focus.
-export default function NewSessionDrawer({ open, onClose }) {
+export default function NewSessionDrawer({ open, onClose, initialProgramId = null }) {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const { run: runBusy } = useBusyOverlay();
@@ -96,6 +96,15 @@ export default function NewSessionDrawer({ open, onClose }) {
       setTrainerId('');
     }
   }, [trainerOptions, trainerId, isSuper]);
+
+  // Opened from a programme ("New class from this", ?program=<id>): start on
+  // that programme, once the published list has arrived and only if it is in
+  // it — a draft or a stale link falls back to the default.
+  useEffect(() => {
+    if (open && initialProgramId && programs.some(p => p.id === initialProgramId)) {
+      setProgramId(initialProgramId);
+    }
+  }, [open, initialProgramId, programs]);
 
   // Anything the trainer has actually put in. programId is excluded on purpose:
   // it defaults to the newest published program without anybody touching it, so

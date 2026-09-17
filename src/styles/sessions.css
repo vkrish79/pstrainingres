@@ -484,3 +484,28 @@
   margin-right: 0.35rem;
 }
 .session-span-pills .session-view-pill { font-size: 0.75rem; padding: 0.3rem 0.6rem; }
+
+/* ── "Ended but still open" nudge on the Sessions list ─────────────────── */
+.leftopen-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #fdf6e6;
+  border: 1px solid #ecd9ae;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 0.9rem;
+}
+.leftopen-dot { width: 9px; height: 9px; border-radius: 50%; background: #c98a1c; flex: 0 0 auto; }
+.leftopen-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.05rem; }
+.leftopen-text strong { color: #7a5410; font-size: 0.92rem; }
+.leftopen-text span { font-size: 0.82rem; color: #7a5f1a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leftopen-banner .leftopen-toggle {
+  background: #fff;
+  color: #7a5410;
+  border: 1px solid #e3cf9f;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+.leftopen-banner .leftopen-toggle:hover:where(:not(:disabled)) { background: #f7e6c4; }

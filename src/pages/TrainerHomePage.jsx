@@ -28,6 +28,7 @@ export default function TrainerHomePage() {
   function closeNew() {
     const next = new URLSearchParams(params);
     next.delete('new');
+    next.delete('program');
     setParams(next, { replace: true });
   }
 
@@ -43,7 +44,7 @@ export default function TrainerHomePage() {
         {isManager && <VendorManagerHome userId={authSession?.user.id} />}
         {!isSuper && !isManager && <VendorTrainerHome userId={authSession?.user.id} />}
       </main>
-      <NewSessionDrawer open={newOpen} onClose={closeNew} />
+      <NewSessionDrawer open={newOpen} onClose={closeNew} initialProgramId={params.get('program')} />
     </>
   );
 }

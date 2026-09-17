@@ -1,0 +1,292 @@
+/* Programmes — the list and the programme page, in the session cockpit's look.
+   The frame (title, bar, pill tabs, gauges, room + rail, alerts) is the
+   cockpit's own CSS in dashboard.css; this file only adds what a programme has
+   and a class does not: tiles for programmes, attach slots, the PDF list. */
+
+/* ── Status + type ─────────────────────────────────────────────────────── */
+.program-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.08rem 0.5rem;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.program-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+.program-status.is-published { background: #e3f1e9; border-color: #cfe6d9; color: #2f7a52; }
+.program-status.is-published::before { background: #2f8f5f; }
+.program-status.is-draft { background: transparent; border-color: var(--border); color: #6c7a88; }
+.program-status.is-draft::before { box-shadow: inset 0 0 0 1.5px #9aa4ae; }
+
+.program-type-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4b5a6a;
+  background: #f7f5f0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.08rem 0.55rem;
+}
+.program-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
+
+/* ── Bar bits ─────────────────────────────────────────────────────────── */
+.programs-page .cockpit-hero .page-hero-actions { display: flex; align-items: center; gap: 0.6rem; }
+.programs-page .program-new-btn,
+.programs-page .program-publish-btn { padding: 0.42rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+.programs-page .ghost-link { white-space: nowrap; font-size: 0.85rem; padding: 0.38rem 0.8rem; }
+.program-new-form { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.program-new-form .form-input { width: 20rem; max-width: 60vw; margin: 0; padding: 0.4rem 0.6rem; }
+.program-new-form button { padding: 0.42rem 0.8rem; font-size: 0.85rem; }
+.program-new-err { flex-basis: 100%; font-size: 0.8rem; }
+
+.program-confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  background: #fbecec;
+  border: 1px solid #f0caca;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 0.9rem;
+  font-size: 0.87rem;
+  color: #7a2e25;
+}
+.program-confirm > span { flex: 1 1 20rem; }
+.program-confirm button { padding: 0.35rem 0.8rem; font-size: 0.84rem; }
+
+/* ── The main pane ────────────────────────────────────────────────────── */
+.programs-pane { min-width: 0; padding: 1rem 1.1rem; }
+.programs-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.programs-pane-head h2 { margin: 0; font-size: 1.05rem; color: var(--midnight); }
+.programs-pane-sub { font-size: 0.8rem; font-weight: 500; color: #6c7a88; margin-left: 0.4rem; }
+.programs-pane-head--spaced { margin-top: 1.25rem; }
+.programs-pane .program-link-btn { background: transparent; font-weight: 600; font-size: 0.8rem; padding: 0.25rem 0.6rem; }
+.programs-pane .program-link-btn:hover { background: var(--border); }
+
+/* ── Programme tiles ──────────────────────────────────────────────────── */
+.program-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+}
+.program-tiles .program-tile {
+  --edge: #6b7280;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem 0.6rem 0.95rem;
+  font: inherit;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+}
+.program-tiles .program-tile::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--edge); }
+.program-tiles .program-tile:hover { background: var(--card); border-color: #cdbf9f; }
+.program-tiles .program-tile[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.35); }
+.program-tiles .program-tile.is-draft { background: #fcfbf8; }
+.program-tile-name { font-weight: 700; font-size: 0.95rem; line-height: 1.25; color: var(--midnight); }
+.program-tile-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; font-size: 0.76rem; color: #6c7a88; }
+.program-tile-pieces { display: flex; flex-wrap: wrap; gap: 0.2rem 0.7rem; margin-top: 0.15rem; }
+.program-tile-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.45rem;
+  border-top: 1px solid #f0ece4;
+  font-size: 0.74rem;
+  color: #6c7a88;
+}
+.program-tile-foot strong { color: #2f7a52; font-weight: 700; }
+
+/* A piece a class gets: ✓ has it, – doesn't (fine), ! doesn't (a problem). */
+.piece { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.76rem; color: #4b5a6a; white-space: nowrap; }
+.piece::before { font-weight: 800; width: 0.7rem; text-align: center; }
+.piece.is-yes::before { content: "✓"; color: #2f8f5f; }
+.piece.is-no { color: #9aa4ae; }
+.piece.is-no::before { content: "–"; }
+.piece.is-no-bad { color: #a8412f; }
+.piece.is-no-bad::before { content: "!"; }
+
+/* ── Tables ───────────────────────────────────────────────────────────── */
+.programs-table-wrap { overflow-x: auto; }
+.programs-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.programs-table th {
+  text-align: left;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7d8a97;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.programs-table td { padding: 0.5rem; border-bottom: 1px solid #f0ece4; vertical-align: middle; }
+.programs-table tr:last-child td { border-bottom: 0; }
+.programs-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.programs-table tbody tr { cursor: default; }
+.programs-list-table tbody tr { cursor: pointer; }
+.programs-table tr.is-selected td { background: #fbf7ee; }
+.programs-table .program-swatch { margin-right: 0.45rem; vertical-align: 1px; }
+.program-name-link { font-weight: 600; color: var(--midnight); }
+.program-name-link:hover { text-decoration: underline; }
+.programs-running { color: #2f7a52; font-weight: 600; }
+.program-class-name { font-weight: 600; color: var(--midnight); }
+.program-class-state { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 600; white-space: nowrap; color: #4b5a6a; }
+.program-class-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #9aa4ae; }
+.program-class-state.is-running { color: #2f7a52; }
+.program-class-state.is-running::before { background: #2f8f5f; }
+.program-class-state.is-ended { color: #94661a; }
+.program-class-state.is-ended::before { background: #c98a1c; }
+.program-class-state.is-upcoming::before { background: var(--gold); }
+.program-class-state.is-closed { color: #9aa4ae; }
+.program-row-action { text-align: right; }
+.program-muted { color: #9aa4ae; }
+.programs-page .program-small-link { font-size: 0.78rem; padding: 0.22rem 0.6rem; }
+
+/* ── Attach slots ─────────────────────────────────────────────────────── */
+.program-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.6rem; }
+.program-slot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+}
+.program-slot-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #eef2f6;
+  color: var(--midnight);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.75rem;
+}
+.program-slot-title { font-weight: 700; color: var(--midnight); line-height: 1.3; }
+.program-slot-sub { font-size: 0.78rem; color: #6c7a88; margin-top: 0.1rem; }
+.program-slot-actions { display: flex; align-items: center; gap: 0.3rem; }
+.program-slot.is-empty { border-style: dashed; background: #fcfbf8; grid-template-columns: auto minmax(0, 1fr); }
+.program-slot.is-empty.is-required { border-color: #dcc9a3; background: #fdfaf3; }
+.program-slot.is-empty .program-slot-icon { background: #f1ede5; color: #7d8a97; }
+.program-slot.is-required .program-slot-icon { background: #f6ecd6; color: var(--gold-dark); }
+.program-slot-picker { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.55rem; flex-wrap: wrap; }
+.program-slot-picker .form-input { flex: 1 1 12rem; min-width: 0; margin: 0; padding: 0.35rem 0.5rem; font-size: 0.84rem; }
+.program-slot-none { font-size: 0.8rem; color: #4b5a6a; margin: 0.5rem 0 0; }
+.program-slot-none a { color: var(--midnight); font-weight: 600; text-decoration: underline; }
+.program-slot-err { font-size: 0.8rem; margin: 0.4rem 0 0; }
+
+.program-inline-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: #a8412f;
+  font-weight: 600;
+}
+.program-inline-confirm > span { flex: 1 1 14rem; }
+
+/* ── Materials ────────────────────────────────────────────────────────── */
+.program-mat-group + .program-mat-group { margin-top: 1rem; }
+.program-mats { list-style: none; margin: 0; padding: 0; }
+.program-mat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: start;
+  padding: 0.5rem 0.2rem;
+  border-top: 1px solid #f0ece4;
+}
+.program-mat:first-child { border-top: 0; }
+.program-pdf {
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #fff;
+  background: #b8574a;
+  border-radius: 3px;
+  padding: 0.15rem 0.25rem;
+  margin-top: 0.15rem;
+}
+.program-mat-text { min-width: 0; }
+.program-mat-title { display: block; font-weight: 600; color: var(--midnight); font-size: 0.88rem; overflow-wrap: anywhere; }
+.program-mat-sub { display: block; font-size: 0.74rem; color: #6c7a88; }
+.programs-page .program-tidy {
+  background: transparent;
+  color: #94661a;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.programs-page .program-tidy:hover { background: transparent; color: #6f4c10; }
+.program-rename { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
+.program-rename .form-input { flex: 1 1 12rem; margin: 0; padding: 0.3rem 0.5rem; font-size: 0.85rem; }
+
+.program-drop {
+  margin-top: 1rem;
+  border: 1.5px dashed #d8cfbd;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  font-size: 0.84rem;
+  color: #6c7a88;
+}
+.program-drop p { margin: 0; }
+.program-drop.is-over { border-color: var(--gold); background: #fdfaf3; }
+.program-choose { color: var(--midnight); font-weight: 700; text-decoration: underline; cursor: pointer; }
+.program-choose input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.program-choose:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ── Rail ─────────────────────────────────────────────────────────────── */
+.program-selected-name { font-weight: 800; font-size: 1rem; color: var(--midnight); line-height: 1.3; }
+.program-selected-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #6c7a88; margin: 0.3rem 0 0.7rem; }
+.program-selected-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.program-selected-actions a { font-size: 0.82rem; padding: 0.35rem 0.7rem; }
+.cockpit-rail .program-alert-static { cursor: default; }
+.cockpit-rail .program-alert-static:hover { background: transparent; }
+.cockpit-dot.tone-ok { background: #2f8f5f; }
+
+.program-details-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.program-save-state { font-size: 0.74rem; font-weight: 600; color: #6c7a88; }
+.program-save-state.is-saved { color: #2f7a52; }
+.program-save-state.is-error { color: var(--danger); }
+.program-field { display: block; font-size: 0.74rem; font-weight: 600; color: #6c7a88; margin: 0.55rem 0 0.2rem; }
+.program-details .form-input { width: 100%; margin: 0; padding: 0.4rem 0.55rem; font-size: 0.86rem; }
+.program-details textarea.form-input { resize: vertical; line-height: 1.45; }
+
+.programs-page button.compact { padding: 0.28rem 0.65rem; font-size: 0.8rem; }
