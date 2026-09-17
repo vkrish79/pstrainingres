@@ -159,7 +159,10 @@
   /* Closed: slide fully off-screen — must clear the drawer's own width PLUS its
      right offset (which is no longer a flat 12px), or a sliver stays visible. */
   transform: translateX(calc(100% + var(--prep-right)));
-  transition: transform 0.3s ease;
+  /* Decelerating, not `ease`: the panel arrives and settles instead of drifting
+     in at the same rate it left. */
+  --prep-curve: cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.3s var(--prep-curve);
   /* Below the sticky TopBar (z-50) AND the sticky participant-actions bar
      (z-30) so the drawer slides UNDER them — like the exercise nav does —
      instead of painting over the action buttons. Still above page content. */
@@ -168,19 +171,58 @@
 }
 .prep-drawer.open { transform: translateX(0); }
 
-/* Slim header that mirrors the exercise sidebar's "EXERCISES" header: a small
-   uppercase muted label on the left, close × on the right, same vertical metrics
-   so the two line up across the page. */
+/* Header that mirrors whichever exercise rail the drawer is sitting beside, so
+   the two headers are the same HEIGHT and their first rows line up. There are
+   two rails and they are not the same shape:
+     - trainer "My copy"  → .exresp-sidebar-head: one line, 0.7rem/0.95rem.
+     - participant workbook → .wb-rail-head: label + count + progress bar.
+   The base below matches the trainer's; --track-page below matches the
+   participant's. Both are expressed in the SAME metrics as the rail they copy,
+   so a change to a rail header is a change to one pair of numbers, not a
+   silent misalignment (which is exactly how this drifted 17px out before). */
 .prep-drawer-head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: grid; gap: 0.4rem;
   padding: 0.7rem 0.95rem; border-bottom: 1px solid var(--border); background: var(--card);
+  /* The × is positioned out of flow (below) so it can't contribute height. A
+     1rem glyph in a row of 0.75rem labels makes the header a pixel or two
+     taller than the rail's, which is the whole defect being fixed here. */
+  position: relative;
+}
+.prep-drawer-head-cap {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
 }
 /* Matches .exresp-sidebar-head exactly. */
 .prep-drawer-head-label {
   font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--muted);
 }
-.prep-drawer-head .icon-btn { background: transparent; color: var(--text); font-size: 1rem; line-height: 1; padding: 0 0.3rem; border-radius: 4px; }
+/* "4 of 5 ready" — mirrors .wb-rail-total. */
+.prep-drawer-head-count {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0;
+  text-transform: none; color: var(--midnight);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  padding-right: 1.15rem; /* clears the × sitting above it */
+}
+/* The bar only belongs beside a rail that has one — the participant's. */
+.prep-drawer-head-bar { display: none; }
+.prep-drawer--track-page .prep-drawer-head {
+  /* Identical to .workbook .wb-rail .wb-rail-head. */
+  padding: 0.75rem 0.95rem 0.7rem;
+}
+.prep-drawer--track-page .prep-drawer-head-bar {
+  display: block; height: 6px; border-radius: 4px; background: #ece7dc; overflow: hidden;
+}
+.prep-drawer-head-bar > i {
+  display: block; height: 100%; border-radius: 4px; background: var(--gold);
+  transition: width 0.3s ease;
+}
+.prep-drawer-head-bar.is-done > i { background: #2f8a4c; }
+.prep-drawer-head .icon-btn {
+  position: absolute; top: 0.45rem; right: 0.55rem;
+  background: transparent; color: var(--text); font-size: 1rem; line-height: 1;
+  padding: 0.2rem 0.3rem; border-radius: 4px;
+}
 .prep-drawer-head .icon-btn:hover { background: var(--border); }
 
 .prep-drawer-body { flex: 1; overflow-y: auto; padding: 0.85rem 1rem; }
@@ -191,7 +233,7 @@
    negative-margin exemptions, no transition flicker on those elements. */
 @media (min-width: 900px) {
   /* 218 drawer + 12 right inset. */
-  .exresp-layout { transition: margin-right 0.3s ease; }
+  .exresp-layout { transition: margin-right 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
   body.prep-drawer-pushed .exresp-layout { margin-right: min(230px, 100vw); }
 
   /* Trainer "My copy": align with the exercise row (level with the monitor
@@ -207,7 +249,27 @@
 
 /* The participant's workbook is the wide page (.page.workbook, max-width 1700),
    still centred because a participant has no side rail. 1700/2 - 1.5rem = 826. */
-.prep-drawer.prep-drawer--track-page { --prep-right: max(1.5rem, calc(50vw - 826px)); }
+.prep-drawer.prep-drawer--track-page {
+  --prep-right: max(1.5rem, calc(50vw - 826px));
+  /* Stop where the rail stops. The rail is sticky at top:80 with
+     max-height: calc(100vh - 100px), so its lowest edge is 20px off the bottom
+     — the drawer ran 8px past it. */
+  bottom: 20px;
+}
+
+/* The drawer's top is rewritten as the rail moves (see ParticipantWorkbookPage).
+   Because the drawer is pinned top AND bottom, rewriting `top` RESIZES it, so
+   those writes must never land while it is sliding: the page holds them off
+   until the slide has settled.
+   Once settled, two kinds of move remain, and they want opposite treatment:
+     - scrolling: many small writes per second → must stay instant, or the
+       drawer visibly lags the rail on every wheel tick.
+     - a banner appearing above the workbook: one large write → eased, or the
+       drawer teleports.
+   The page adds this class for the second kind only. */
+body.prep-anchor-eased .prep-drawer.prep-drawer--track-page {
+  transition: transform 0.3s var(--prep-curve), top 0.26s var(--prep-curve);
+}
 
 /* INSIDE THE APP SHELL THERE IS NO CENTRED PAGE AT ALL.
    body.has-sidenav .page sets max-width:none (shell.css) — with a fixed rail on
@@ -234,6 +296,12 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 }
 
 @media print { .prep-drawer { display: none !important; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .prep-drawer,
+  body.prep-anchor-eased .prep-drawer.prep-drawer--track-page,
+  .exresp-layout { transition: none; }
+}
 
 /* Referenced-prep marker in the prep-template setup panel (composed workbooks) */
 .prep-ref-tag { color: var(--gold-dark); font-size: 0.82rem; }

@@ -511,6 +511,11 @@ input.wb-mixed-box:focus {
 .pab-group .pab-seg + .pab-seg { border-left: 1px solid #ece4d2; }
 .pab-group .pab-seg:hover { background: #f7f1e4; }
 .pab-group .pab-seg:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+/* Lit while its drawer is open, so the button says what the drawer is doing and
+   reads as the toggle it now is. */
+.pab-group .pab-seg.is-on { background: var(--midnight); color: #fff; font-weight: 600; }
+.pab-group .pab-seg.is-on:hover { background: var(--midnight-hover); }
+.pab-group .pab-seg.is-on .pab-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .pab-count {
   min-width: 1.25rem;
   padding: 0 0.35rem;
