@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import '../../styles/interactive.css';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
+import { BOX_MARKER, mixedToText, mixedFromText, mixedWording } from '../../lib/tableCells.js';
 
 export default function BlockForm({ block, onSave, onCancel }) {
   if (block.block_type === 'prose') return <ProseForm block={block} onSave={onSave} onCancel={onCancel} />;
@@ -99,14 +100,24 @@ function TableForm({ block, onSave, onCancel }) {
       const spans = {};
       if (cell.colSpan > 1) spans.colSpan = cell.colSpan;
       if (cell.rowSpan > 1) spans.rowSpan = cell.rowSpan;
-      return kind === 'static'
-        ? { kind: 'static', text: cell.text || '', ...spans }
-        : { kind: 'input', id: cell.id || newCellId(), input_type: cell.input_type || 'short_text', ...spans };
+      if (kind === 'static') {
+        return { kind: 'static', text: cell.kind === 'mixed' ? mixedWording(cell) : (cell.text || ''), ...spans };
+      }
+      if (kind === 'mixed') {
+        // Keep the wording and put a box after it; the trainer moves the {{}}.
+        const text = cell.kind === 'static' ? (cell.text || '').trim() : '';
+        return mixedFromText(text ? `${text} ${BOX_MARKER}` : BOX_MARKER, { ...spans }, newCellId);
+      }
+      return { kind: 'input', id: cell.id || newCellId(), input_type: cell.input_type || 'short_text', ...spans };
     });
   }
 
   function setCellText(ri, ci, text) {
     updateCell(ri, ci, cell => ({ ...cell, text }));
+  }
+
+  function setMixedText(ri, ci, text) {
+    updateCell(ri, ci, cell => mixedFromText(text, cell, newCellId));
   }
 
   function setCellInputType(ri, ci, t) {
@@ -168,8 +179,17 @@ function TableForm({ block, onSave, onCancel }) {
                       <select className="form-input compact" value={cell.kind} onChange={e => setCellKind(ri, ci, e.target.value)}>
                         <option value="static">Text</option>
                         <option value="input">Input</option>
+                        <option value="mixed">Text with boxes</option>
                       </select>
-                      {cell.kind === 'static' ? (
+                      {cell.kind === 'mixed' ? (
+                        <textarea
+                          className="form-textarea compact"
+                          rows="2"
+                          value={mixedToText(cell)}
+                          onChange={e => setMixedText(ri, ci, e.target.value)}
+                          data-tip={`Type ${BOX_MARKER} wherever an answer box goes`}
+                        />
+                      ) : cell.kind === 'static' ? (
                         <textarea className="form-textarea compact" rows="2" value={cell.text || ''} onChange={e => setCellText(ri, ci, e.target.value)} />
                       ) : (
                         <select className="form-input compact" value={cell.input_type || 'short_text'} onChange={e => setCellInputType(ri, ci, e.target.value)}>

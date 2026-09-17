@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useCountdown } from '../lib/assessmentTimer.js';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -7,12 +7,15 @@ import { useParticipantAssessment } from '../hooks/useParticipantAssessment.js';
 import { useParticipantAssessmentPrep } from '../hooks/useParticipantAssessmentPrep.js';
 import { isAnswered } from '../lib/blockHelpers.js';
 import { buildQuestions } from '../lib/assessmentStructure.js';
+import { buildPaper, paperProgress } from '../lib/assessmentPaper.js';
 import { isInactiveBlock } from '../lib/assessmentScoring.js';
 import Block from '../components/blocks/Block.jsx';
 import AssessmentQuestionNav from '../components/participant/AssessmentQuestionNav.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
+import '../styles/workbook-rail.css';
+import '../styles/assessment-exam.css';
 
 export default function ParticipantAssessmentPage() {
   const { session: authSession } = useAuth();
@@ -58,7 +61,7 @@ export default function ParticipantAssessmentPage() {
   // is stamped by the database, so a participant whose machine runs fast used to
   // see the assessment expire while the server was still accepting answers, and
   // one running slow saw time remaining after it had stopped.
-  const { label: remainingLabel, expired, remainingMs } = useCountdown(session?.assessment_deadline_at);
+  const { label: remainingLabel, expired, urgent } = useCountdown(session?.assessment_deadline_at);
 
   const overallStatus = useMemo(() => {
     const statuses = Object.values(savingMap);
@@ -67,6 +70,39 @@ export default function ParticipantAssessmentPage() {
     if (statuses.length) return 'saved';
     return null;
   }, [savingMap]);
+
+  // Exam mode: a start screen, one question per page, a review. See
+  // lib/assessmentPaper.js for what counts as a question.
+  const paper = useMemo(() => buildPaper(qList), [qList]);
+  const overall = useMemo(() => paperProgress(paper.pages, qProgress), [paper, qProgress]);
+  const unfinished = useMemo(
+    () => paper.pages.filter(p => !p.withdrawn && qProgress[p.id] && qProgress[p.id].answered < qProgress[p.id].total),
+    [paper, qProgress],
+  );
+
+  // Where to open: someone who has started goes to their first unfinished
+  // question; someone who has not sees the start screen (if the paper has one).
+  const [current, setCurrent] = useState(null);
+  useEffect(() => {
+    if (current !== null || loading || !assessment) return;
+    const started = Object.values(qProgress).some(p => p.answered > 0);
+    if (!started) { setCurrent(paper.start.length || !paper.pages.length ? 'start' : 0); return; }
+    const first = paper.pages.find(p => !p.withdrawn && qProgress[p.id]?.answered < qProgress[p.id]?.total);
+    setCurrent(first ? first.index : 'review');
+  }, [current, loading, assessment, paper, qProgress]);
+
+  const mainRef = useRef(null);
+  function goTo(where) {
+    setCurrent(where);
+    // Bring the top of the new page into view, below the sticky bars.
+    requestAnimationFrame(() => {
+      const el = mainRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY - 140;
+      if (window.scrollY > top) window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
+  }
+  const page = typeof current === 'number' ? paper.pages[current] || null : null;
 
   if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading assessment…" /></>;
   if (error) {
@@ -144,77 +180,99 @@ export default function ParticipantAssessmentPage() {
     );
   }
 
+  const timerTone = expired ? 'is-expired' : urgent ? 'is-urgent' : '';
+
   return (
     <>
       <TopBar />
-      <main className="page workbook">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>
+      <main className="page workbook exam">
+        {/* The exam bar: always in view, so the clock and "saved" never scroll away. */}
+        <section className="exam-bar" aria-label="Assessment">
+          <div className="exam-bar-text">
+            <Link to="/workbook" className="exam-bar-back">← Workbook</Link>
             <h1>
               {assessment.title}
               {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
             </h1>
-            <p>{session?.name}</p>
-            {assessment.description && <p className="muted">{assessment.description}</p>}
+            <p className="exam-bar-meta">
+              <span>{overall.answered} of {overall.total} answered</span>
+              {!expired && overallStatus && (
+                <span className={`exam-bar-save is-${overallStatus}`}>
+                  {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed — check your connection' : '✓ Saved'}
+                </span>
+              )}
+            </p>
           </div>
-          <div className="page-hero-actions">
-            {remainingLabel != null && (
-              <span className={`assessment-timer ${expired ? 'expired' : (remainingMs != null && remainingMs < 60000) ? 'warning' : ''}`}>
-                {expired ? '⏱ Time’s up — view only' : `⏱ ${remainingLabel}`}
-              </span>
-            )}
-            {!expired && overallStatus && (
-              <span className={`wb-save-indicator ${overallStatus}`}>
-                {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed' : 'All changes saved'}
-              </span>
+          <div className={`exam-bar-clock ${timerTone}`} role="timer" aria-live="off">
+            {remainingLabel == null ? (
+              <span className="exam-bar-clock-note">No time limit</span>
+            ) : expired ? (
+              <span className="exam-bar-clock-note">Time’s up — view only</span>
+            ) : (
+              <>
+                <span className="exam-bar-clock-time">{remainingLabel}</span>
+                <span className="exam-bar-clock-note">left</span>
+              </>
             )}
           </div>
         </section>
 
-        {standalonePrep.length > 0 && (
-          <section className="assessment-prep-panel">
-            <h3 className="materials-list-title">🎯 Your assessment prep</h3>
-            {standalonePrep.map(s => (
-              <div key={s.id} className="participant-prep-callout">
-                <span className="participant-prep-callout-label">{s.label}</span>
-                {s.content}
-              </div>
-            ))}
-          </section>
-        )}
-
-        {/* Any trainer pre-work callouts (formerly per-section) surface once at the top. */}
-        {sections.map(sec => sectionPrep[sec.id]?.content && (
-          <div key={sec.id} className="participant-prep-callout">
-            <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-            {sectionPrep[sec.id].content}
-          </div>
-        ))}
-
         <div className="assessment-body">
-          <AssessmentQuestionNav questions={qList} progress={qProgress} />
-          <div className="assessment-questions">
-            {qList.map(q => (
-              <section key={q.section.id} className="wb-section wb-question" data-section-id={q.section.id}>
+          <AssessmentQuestionNav
+            paper={paper}
+            progress={qProgress}
+            overall={overall}
+            current={current}
+            onGo={goTo}
+          />
+          <div className="assessment-questions" ref={mainRef}>
+            {current === 'start' && (
+              <section className="wb-section exam-page exam-start">
+                <div className="exam-eyebrow">Before you start</div>
+                <h2 className="exam-title">{assessment.title}</h2>
+                {assessment.description && <p className="muted">{assessment.description}</p>}
+                <p className="exam-lede">
+                  {paper.pages.length} question{paper.pages.length === 1 ? '' : 's'}
+                  {remainingLabel != null && !expired ? ` · ${remainingLabel} left` : ''}.
+                  Your answers save as you type — there is nothing to submit.
+                </p>
+                <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} />
+                {paper.start.map(q => <ReadingSection key={q.section.id} q={q} />)}
+                <div className="exam-pager">
+                  <span />
+                  {paper.pages.length > 0 && (
+                    <button type="button" className="exam-next" onClick={() => goTo(0)}>
+                      Start · {paper.pages[0].question.heading} ›
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {page && (
+              <section className="wb-section exam-page wb-question" data-section-id={page.id}>
+                {page.chapter && <div className="exam-eyebrow">{page.chapter}</div>}
+                <div className="exam-count">Question {page.index + 1} of {paper.pages.length}</div>
+                {page.index === 0 && paper.start.length === 0 && (
+                  <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} />
+                )}
+                {page.reading.map(q => <ReadingSection key={q.section.id} q={q} />)}
                 <div className="question-number">
-                  {q.heading}
-                  {q.partCount > 1 && (
-                    <span className="question-parts-count">{q.partCount} parts</span>
+                  {page.question.heading}
+                  {page.question.partCount > 1 && (
+                    <span className="question-parts-count">{page.question.partCount} parts</span>
                   )}
                 </div>
                 {/* A withdrawn question arrives with none of its blocks — the read
-                    policy withholds them. The question itself still comes through,
-                    so rather than leave an unexplained gap between Question 3 and
-                    Question 5, say what happened. The trainer's internal reason is
-                    NOT shown here; only that it was withdrawn. */}
-                {q.blocks.length === 0 && (
+                    policy withholds them. The trainer's internal reason is NOT
+                    shown here; only that it was withdrawn. */}
+                {page.withdrawn && (
                   <p className="question-withdrawn-note">
                     Withdrawn by your trainer — you don't need to answer this one, and it
                     doesn't count towards your marks.
                   </p>
                 )}
-                {q.blocks.map(b => (
+                {page.question.blocks.map(b => (
                   <div key={b.id} className="wb-question-block" data-block-id={b.id}>
                     {partLabelByBlockId[b.id] && (
                       <div className="wb-part-label">{partLabelByBlockId[b.id]}</div>
@@ -228,11 +286,106 @@ export default function ParticipantAssessmentPage() {
                     />
                   </div>
                 ))}
+                {(page.after || []).map(q => <ReadingSection key={q.section.id} q={q} />)}
+                <div className="exam-pager">
+                  {page.index > 0 ? (
+                    <button type="button" className="exam-prev" onClick={() => goTo(page.index - 1)}>
+                      ‹ {paper.pages[page.index - 1].question.heading}
+                    </button>
+                  ) : paper.start.length > 0 ? (
+                    <button type="button" className="exam-prev" onClick={() => goTo('start')}>‹ Before you start</button>
+                  ) : <span />}
+                  {page.index < paper.pages.length - 1 ? (
+                    <button type="button" className="exam-next" onClick={() => goTo(page.index + 1)}>
+                      {paper.pages[page.index + 1].question.heading} ›
+                    </button>
+                  ) : (
+                    <button type="button" className="exam-next" onClick={() => goTo('review')}>Review your answers ›</button>
+                  )}
+                </div>
               </section>
-            ))}
+            )}
+
+            {current === 'review' && (
+              <section className="wb-section exam-page exam-review">
+                <div className="exam-eyebrow">Review</div>
+                <h2 className="exam-title">
+                  {unfinished.length
+                    ? `${unfinished.length} question${unfinished.length === 1 ? '' : 's'} not finished`
+                    : 'Every question answered'}
+                </h2>
+                <p className="exam-lede">
+                  {overall.answered} of {overall.total} answered.
+                  {expired
+                    ? ' Time is up, so answers can no longer change.'
+                    : ' Your answers are already saved; you can keep changing them until the time runs out.'}
+                </p>
+                {unfinished.length > 0 && (
+                  <ul className="exam-review-list">
+                    {unfinished.map(p => {
+                      const pr = qProgress[p.id];
+                      return (
+                        <li key={p.id}>
+                          <button type="button" onClick={() => goTo(p.index)}>
+                            <span className="exam-review-name">{p.question.heading}</span>
+                            <span className="exam-review-state">
+                              {pr.answered === 0 ? 'not started' : `${pr.answered} of ${pr.total} parts`}
+                            </span>
+                            <span aria-hidden="true">›</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <div className="exam-pager">
+                  {paper.pages.length > 0 ? (
+                    <button type="button" className="exam-prev" onClick={() => goTo(paper.pages.length - 1)}>
+                      ‹ {paper.pages[paper.pages.length - 1].question.heading}
+                    </button>
+                  ) : <span />}
+                  <Link to="/workbook" className="exam-next">Back to the workbook</Link>
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </main>
+    </>
+  );
+}
+
+// Content with nothing to answer — a Cover, instructions, a scenario to read.
+function ReadingSection({ q }) {
+  return (
+    <div className="exam-reading">
+      <div className="exam-reading-title">{q.heading}</div>
+      {q.blocks.map(b => <Block key={b.id} block={b} readOnly />)}
+    </div>
+  );
+}
+
+// Trainer pre-work, shown once on the first screen.
+function PrepCallouts({ sections, sectionPrep, standalonePrep }) {
+  return (
+    <>
+      {standalonePrep.length > 0 && (
+        <section className="assessment-prep-panel">
+          <h3 className="materials-list-title">🎯 Your assessment prep</h3>
+          {standalonePrep.map(s => (
+            <div key={s.id} className="participant-prep-callout">
+              <span className="participant-prep-callout-label">{s.label}</span>
+              {s.content}
+            </div>
+          ))}
+        </section>
+      )}
+      {sections.map(sec => sectionPrep[sec.id]?.content && (
+        <div key={sec.id} className="participant-prep-callout">
+          <span className="participant-prep-callout-label">Pre-work from your trainer</span>
+          {sectionPrep[sec.id].content}
+        </div>
+      ))}
     </>
   );
 }

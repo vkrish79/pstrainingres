@@ -10,13 +10,15 @@
 //     Paragraph [CHOICE: label | A | B]  → field, choice
 //     Paragraph [CHECK:  label | A | B]  → field, check_group
 //     Table cell [INPUT:short|long]      → input cell (else static)
+//     Word's "Click or tap here to enter text." in a cell → an answer box, on its
+//     own or inside the cell's wording ("City code: [box]") — see tableCells.js
 //
 //  2. HEURISTICS (so existing Etihad-style workbooks import without rework):
 //     - Bold paragraph matching /^(Exercise|Section|Module|Chapter|Lesson|Lab|Activity|Part)\s+\d+/i
 //       → starts a new section
 //     - Word content-control placeholder text in a cell
 //       ("Click or tap here to enter text.", "...to enter a date.")
-//       → becomes a short_text input cell
+//       → becomes a short_text input cell, or a box inside the cell's wording
 //     - Word TOC paragraphs (links to #_Toc...) are skipped
 //     - Bold-cell rows are treated as table headers
 //     - Single-answer MCQ table (spanning question row over 2-cell option rows
@@ -26,6 +28,8 @@
 //       check_group field per option row, options = trailing K column headers
 //     - Pre-section "Document information" / "Revision information" tables
 //       are dropped (Word boilerplate)
+
+import { cellFromPlaceholderText, boxesOf } from './tableCells.js';
 
 export async function parseDocxToWorkbook(file) {
   const { default: mammoth } = await import('mammoth/mammoth.browser.js');
@@ -662,7 +666,7 @@ function tableBlockFromHtml(tableEl) {
       const inputType = detectInputType(text);
       const cell = inputType
         ? { kind: 'input', id: `r${ri}c${++inputCounter}`, input_type: inputType }
-        : { kind: 'static', text };
+        : cellFromPlaceholderText(text, () => `r${ri}c${++inputCounter}`) || { kind: 'static', text };
       const colSpan = parseSpan(td.getAttribute('colspan'));
       const rowSpan = parseSpan(td.getAttribute('rowspan'));
       if (colSpan > 1) cell.colSpan = colSpan;
@@ -728,7 +732,7 @@ function resolveHeadingText(headingEl, tocLookup) {
   return '';
 }
 
-const PLACEHOLDER_RE = /^Click or tap (here )?to enter (text|a date)\.?$/i;
+const PLACEHOLDER_RE = /^Click (or tap )?(here )?to enter (text|a date)\.?$/i;
 
 function detectInputType(text) {
   // Explicit marker first
@@ -741,14 +745,24 @@ function detectInputType(text) {
 
 // Counts to show in the import preview
 export function countsOf(parsed) {
-  let prose = 0, field = 0, table = 0, groups = 0;
+  let prose = 0, field = 0, table = 0, groups = 0, boxes = 0, wordedBoxes = 0;
   for (const s of parsed.sections) {
     if (s.kind === 'group') groups += 1;
     for (const b of s.blocks) {
       if (b.block_type === 'prose') prose += 1;
       else if (b.block_type === 'field') field += 1;
-      else if (b.block_type === 'table') table += 1;
+      else if (b.block_type === 'table') {
+        table += 1;
+        for (const row of b.config?.rows || []) for (const cell of row) {
+          if (cell?.kind === 'input') boxes += 1;
+          const inside = boxesOf(cell).length;
+          boxes += inside;
+          wordedBoxes += inside;
+        }
+      }
     }
   }
-  return { sections: parsed.sections.length, groups, prose, field, table };
+  // boxes: every answer box in the tables; wordedBoxes: those sitting inside a
+  // cell's wording, which the preview calls out so the trainer can check them.
+  return { sections: parsed.sections.length, groups, prose, field, table, boxes, wordedBoxes };
 }

@@ -55,7 +55,7 @@ function jsonRes(status: number, body: unknown) {
 function isFillable(b: any): boolean {
   if (!b) return false;
   if (b.type === 'field') return true;
-  if (b.type === 'table') return ((b.config?.rows || []) as any[]).some((row) => (row || []).some((cell: any) => cell?.kind === 'input'));
+  if (b.type === 'table') return ((b.config?.rows || []) as any[]).some((row) => (row || []).some((cell: any) => cell?.kind === 'input' || (cell?.kind === 'mixed' && (cell.parts || []).some((p: any) => p?.kind === 'box'))));
   return false;
 }
 function isAnswered(b: any, value: any): boolean {

@@ -12,6 +12,9 @@ export function useWorkbook(userId) {
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [answers, setAnswers] = useState({});
+  // blockId -> when this participant last saved it. Drives "Continue where you
+  // stopped" in the workbook header.
+  const [savedAt, setSavedAt] = useState({});
   const [savingMap, setSavingMap] = useState({});
   const [recentlyUpdated, setRecentlyUpdated] = useState({}); // blockId -> timestamp
 
@@ -25,7 +28,7 @@ export function useWorkbook(userId) {
       try {
         const { data: spRows, error: e1 } = await supabase
           .from('session_participants')
-          .select('session_id, sessions ( id, name, workbook_id, assessment_id, assessment_unlocked_at, starts_at, ends_at, city_code )')
+          .select('session_id, sessions ( id, name, workbook_id, assessment_id, assessment_unlocked_at, assessment_deadline_at, starts_at, ends_at, city_code, trainer:profiles!sessions_trainer_id_fkey ( full_name ) )')
           .eq('participant_id', userId)
           .limit(1);
         if (e1) throw e1;
@@ -47,13 +50,14 @@ export function useWorkbook(userId) {
           sectionIds.length
             ? supabase.from('blocks').select('*').in('section_id', sectionIds).order('order_index')
             : Promise.resolve({ data: [], error: null }),
-          supabase.from('answers').select('block_id, value').eq('session_id', sess.id).eq('participant_id', userId),
+          supabase.from('answers').select('block_id, value, updated_at').eq('session_id', sess.id).eq('participant_id', userId),
         ]);
         if (e4) throw e4;
         if (e5) throw e5;
 
         const map = {};
-        (ans || []).forEach(a => { map[a.block_id] = a.value; });
+        const at = {};
+        (ans || []).forEach(a => { map[a.block_id] = a.value; at[a.block_id] = a.updated_at; });
 
         if (cancelled) return;
         setSession(sess);
@@ -61,6 +65,7 @@ export function useWorkbook(userId) {
         setSections(secs || []);
         setBlocks(blks || []);
         setAnswers(map);
+        setSavedAt(at);
         setLoading(false);
       } catch (err) {
         if (!cancelled) { setError(err.message || String(err)); setLoading(false); }
@@ -112,6 +117,35 @@ export function useWorkbook(userId) {
     return () => { supabase.removeChannel(channel); };
   }, [workbook?.id]);
 
+  // The assessment chip in the action bar says whether it is open and how long
+  // is left, so it follows the trainer unlocking it or moving the deadline
+  // without a reload. Only those two columns are taken from the change.
+  useEffect(() => {
+    if (!session?.id) return undefined;
+    // Realtime renders timestamps with a space ("...10:30:00+00"); Safari
+    // rejects that in new Date(), so swap in the 'T'.
+    const ts = v => (typeof v === 'string' ? v.replace(' ', 'T') : v ?? null);
+    const channel = supabase
+      .channel(`participant-workbook-session-${session.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${session.id}` },
+        (payload) => {
+          const next = payload.new;
+          if (!next) return;
+          setSession(prev => {
+            if (!prev) return prev;
+            const unlocked = ts(next.assessment_unlocked_at);
+            const deadline = ts(next.assessment_deadline_at);
+            if (prev.assessment_unlocked_at === unlocked && prev.assessment_deadline_at === deadline) return prev;
+            return { ...prev, assessment_unlocked_at: unlocked, assessment_deadline_at: deadline };
+          });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.id]);
+
   const saveAnswer = useCallback((blockId, value) => {
     setAnswers(prev => ({ ...prev, [blockId]: value }));
     setSavingMap(prev => ({ ...prev, [blockId]: 'saving' }));
@@ -125,8 +159,9 @@ export function useWorkbook(userId) {
           { onConflict: 'session_id,participant_id,block_id' }
         );
       setSavingMap(prev => ({ ...prev, [blockId]: upErr ? 'error' : 'saved' }));
+      if (!upErr) setSavedAt(prev => ({ ...prev, [blockId]: new Date().toISOString() }));
     }, SAVE_DEBOUNCE_MS);
   }, [session, userId]);
 
-  return { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated };
+  return { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, saveAnswer, recentlyUpdated };
 }

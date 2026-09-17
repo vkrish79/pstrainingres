@@ -169,6 +169,13 @@ export function useContentEditor(kindConfig, parentId) {
           n += 1;
           return { ...cell, id: `dup${ri}c${n}_${Date.now()}` };
         }
+        if (cell?.kind === 'mixed') {
+          return { ...cell, parts: (cell.parts || []).map(p => {
+            if (p?.kind !== 'box') return p;
+            n += 1;
+            return { ...p, id: `dup${ri}c${n}_${Date.now()}` };
+          }) };
+        }
         return cell;
       }));
     }

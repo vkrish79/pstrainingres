@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import BlockForm from './BlockForm.jsx';
 import { labelOf } from '../../lib/blockHelpers.js';
+import { mixedWording } from '../../lib/tableCells.js';
 
 // partLabel is the assessment sub-question marker — "(b)" — shown verbatim.
 // questionNumber is the older whole-question form, rendered as "Q3". A block
@@ -190,8 +191,9 @@ function tableLabel(block) {
   // most identifying piece of text (a question, a row label, a section).
   for (const row of cfg.rows || []) {
     for (const cell of row || []) {
-      if (cell?.kind === 'static' && cell.text?.trim()) {
-        const t = cell.text.trim().replace(/\s+/g, ' ');
+      const text = cell?.kind === 'static' ? cell.text : cell?.kind === 'mixed' ? mixedWording(cell) : '';
+      if (text?.trim()) {
+        const t = text.trim().replace(/\s+/g, ' ');
         const truncated = t.length > 60 ? t.slice(0, 60) + '…' : t;
         return `${truncated} · ${rowCount} rows`;
       }

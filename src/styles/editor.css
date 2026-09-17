@@ -1080,3 +1080,13 @@ button.ghost.compact, button.danger.compact {
 }
 /* gold-dark disappears into the midnight fill, so lift it on a primary. */
 button.primary .btn-glyph { color: var(--gold); }
+
+.import-note {
+  margin: -0.35rem 0 0.85rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  background: #fff7e6;
+  color: #7a5200;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}

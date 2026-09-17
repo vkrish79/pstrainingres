@@ -12,6 +12,10 @@ import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { useActiveQuizRun } from '../hooks/useActiveQuizRun.js';
 import { useActivePoll } from '../hooks/useActivePoll.js';
 import { progressOf } from '../lib/blockHelpers.js';
+import { resumePoint } from '../lib/workbookResume.js';
+import WorkbookHeader from '../components/participant/WorkbookHeader.jsx';
+import AssessmentChip from '../components/participant/AssessmentChip.jsx';
+import KebabMenu from '../components/KebabMenu.jsx';
 import { useJustCompleted } from '../hooks/useJustCompleted.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
@@ -25,13 +29,14 @@ import '../styles/dashboard.css';
 import '../styles/workbook.css';
 import '../styles/print.css';
 import '../styles/drawer.css';
+import '../styles/workbook-rail.css';
 
 const ALL_KEY = '__all__';
 
 export default function ParticipantWorkbookPage() {
   const navigate = useNavigate();
   const { session: authSession } = useAuth();
-  const { loading, error, session, workbook, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated } =
+  const { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
 
@@ -222,6 +227,11 @@ export default function ParticipantWorkbookPage() {
     return out;
   }, [sectionNotes]);
 
+  const notedSections = useMemo(
+    () => Object.values(notesByCount).filter(n => n > 0).length,
+    [notesByCount]
+  );
+
   const totalNoteWords = useMemo(
     () => Object.values(notesByCount).reduce((a, b) => a + b, 0),
     [notesByCount]
@@ -246,6 +256,36 @@ export default function ParticipantWorkbookPage() {
     });
   }, [sections, blocks, answers]);
 
+  // The whole book, for the header ring — same input counting as the sidebar.
+  const overallProgress = useMemo(() => progressOf(blocks, id => answers[id]), [blocks, answers]);
+  const resume = useMemo(
+    () => resumePoint(sections, blocks, answers, savedAt),
+    [sections, blocks, answers, savedAt],
+  );
+
+  // Continue: show the exercise, bring the question into view, and put the
+  // cursor in its first empty box. In the one-exercise view it switches to the
+  // target exercise; in the all-exercises view it just scrolls.
+  const [pendingResume, setPendingResume] = useState(null);
+  function continueWorkbook() {
+    if (!resume) return;
+    if (selectedSectionId !== ALL_KEY && selectedSectionId !== resume.sectionId) setSelectedSectionId(resume.sectionId);
+    setPendingResume({ blockId: resume.blockId, at: Date.now() });
+  }
+  useEffect(() => {
+    if (!pendingResume) return;
+    const el = document.querySelector(`[data-block-id="${pendingResume.blockId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const empty = [...el.querySelectorAll('input[type=text], input:not([type]), textarea, select')]
+      .find(i => !i.disabled && !i.readOnly && !i.value);
+    if (empty) empty.focus({ preventScroll: true });
+    el.classList.remove('wb-block--resume');
+    void el.offsetWidth; // restart the highlight if Continue is pressed twice
+    el.classList.add('wb-block--resume');
+    setPendingResume(null);
+  }, [pendingResume, selectedSectionId]);
+
   // Completion is marked two ways: a lasting tick on any finished exercise,
   // and a one-off wash on the one that just crossed the line.
   const statById = useMemo(
@@ -265,10 +305,118 @@ export default function ParticipantWorkbookPage() {
     return sectionStats.filter(s => s.title.toLowerCase().includes(q));
   }, [sectionStats, exFilter]);
 
+  // ── The exercise rail ─────────────────────────────────────────────────────
+  // Exercises sit under the group (Word H1) before them. A group with no
+  // exercises of its own — Cover, Document information — is a page, not a
+  // chapter, and moves to the foot of the rail.
+  const railModel = useMemo(() => {
+    const groups = [];
+    let cur = null;
+    for (const st of sectionStats) {
+      if (st.kind === 'group') { cur = { id: st.id, title: st.title, items: [] }; groups.push(cur); continue; }
+      if (!cur) { cur = { id: '__lead', title: null, items: [] }; groups.push(cur); }
+      cur.items.push(st);
+    }
+    const out = [], pages = [];
+    for (const g of groups) {
+      if (!g.items.length) { if (g.title) pages.push(g); continue; }
+      const counted = g.items.filter(i => i.total > 0);
+      const total = counted.reduce((n, i) => n + i.total, 0);
+      const answered = counted.reduce((n, i) => n + i.answered, 0);
+      const done = counted.filter(i => i.pct === 100).length;
+      out.push({
+        ...g, total, answered, done, of: counted.length,
+        pct: total ? Math.round((answered / total) * 100) : 0,
+        complete: counted.length > 0 && done === counted.length,
+      });
+    }
+    return { groups: out, pages };
+  }, [sectionStats]);
+
+  const groupOfSection = useMemo(() => {
+    const m = {};
+    for (const g of railModel.groups) for (const i of g.items) m[i.id] = g.id;
+    return m;
+  }, [railModel]);
+
+  // Folding. A finished group folds by itself; any other group is open. The
+  // participant can fold or open either, and the group holding where they are
+  // — scrolled to, picked, or spotlighted by the trainer — reopens whenever
+  // that place moves into it, so a folded group never hides their place.
+  const [foldedGroups, setFoldedGroups] = useState(() => new Set());
+  const [openedGroups, setOpenedGroups] = useState(() => new Set());
+  const isGroupOpen = g => !g.title || (g.complete ? openedGroups.has(g.id) : !foldedGroups.has(g.id));
+  function toggleGroup(g) {
+    const open = isGroupOpen(g);
+    const edit = add => prev => {
+      const next = new Set(prev);
+      if (add) next.add(g.id); else next.delete(g.id);
+      return next;
+    };
+    if (g.complete) setOpenedGroups(edit(!open));
+    else setFoldedGroups(edit(open));
+  }
+  const hereSectionId = selectedSectionId === ALL_KEY ? currentSectionId : selectedSectionId;
+  useEffect(() => {
+    const ids = [hereSectionId, focus?.section_id].map(id => groupOfSection[id]).filter(Boolean);
+    if (!ids.length) return;
+    setFoldedGroups(prev => (ids.some(id => prev.has(id)) ? new Set([...prev].filter(id => !ids.includes(id))) : prev));
+    setOpenedGroups(prev => (ids.every(id => prev.has(id)) ? prev : new Set([...prev, ...ids])));
+  }, [hereSectionId, focus?.section_id, groupOfSection]);
+
+  // Searching shows matching exercises as one flat list, groups set aside.
+  const railFiltered = useMemo(
+    () => (exFilter.trim() ? filteredStats.filter(st => st.kind !== 'group') : []),
+    [filteredStats, exFilter],
+  );
+
+  function renderRailRow(st) {
+    const isActive = selectedSectionId === st.id;
+    // WHERE THEY ARE, as opposed to what they picked: in All exercises the
+    // scroll-spy's section is marked, so the rail follows the page.
+    const isHere = selectedSectionId === ALL_KEY && currentSectionId === st.id;
+    const noteWords = notesByCount[st.id] || 0;
+    const state = st.total === 0 ? 'read' : st.pct === 100 ? 'done' : st.answered > 0 ? 'part' : 'none';
+    return (
+      <li key={st.id}>
+        <button
+          className={`exresp-sidebar-item wb-rail-row ${isActive ? 'active' : ''} ${isHere ? 'is-here' : ''}`}
+          data-nav-id={st.id}
+          aria-current={isHere || isActive ? 'true' : undefined}
+          onClick={() => setSelectedSectionId(st.id)}
+        >
+          <span
+            className={`wb-rail-tick is-${state}`}
+            style={state === 'part' ? { '--p': `${st.pct}%` } : undefined}
+            role={state === 'read' ? undefined : 'img'}
+            aria-label={state === 'done' ? 'Every box answered' : state === 'part' ? `${st.pct}% answered` : state === 'none' ? 'Not started' : undefined}
+          >
+            {state === 'done' ? '✓' : ''}
+          </span>
+          <span className="exresp-sidebar-title wb-rail-name">
+            {st.title}
+            {focus?.section_id === st.id && <span className="wb-rail-spot">Trainer here</span>}
+            {noteWords > 0 && (
+              <span className="exresp-sidebar-note-badge" data-tip={`${noteWords} word${noteWords === 1 ? '' : 's'} in your note`}>
+                💬 {noteWords}
+              </span>
+            )}
+          </span>
+          {st.total > 0 && <span className={`wb-rail-count is-${state}`}>{st.answered}/{st.total}</span>}
+          {st.total > 0 && (
+            <span className={`wb-rail-bar is-thin${state === 'done' ? ' is-done' : ''}`}>
+              <i style={{ width: `${st.pct}%` }} />
+            </span>
+          )}
+        </button>
+      </li>
+    );
+  }
+
   function onExFilterKeyDown(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (filteredStats.length) setSelectedSectionId(filteredStats[0].id);
+      if (railFiltered.length) setSelectedSectionId(railFiltered[0].id);
     } else if (e.key === 'Escape') {
       setExFilter('');
     }
@@ -330,7 +478,7 @@ export default function ParticipantWorkbookPage() {
     const i = item.getBoundingClientRect();
     if (i.top < r.top + 8) rail.scrollTop -= (r.top + 8 - i.top);
     else if (i.bottom > r.bottom - 8) rail.scrollTop += (i.bottom - (r.bottom - 8));
-  }, [currentSectionId, selectedSectionId]);
+  }, [currentSectionId, selectedSectionId, foldedGroups, openedGroups]);
 
   // Above the loading gate: once a quiz is running it IS the screen, and a
   // participant who reloads mid-quiz must land back in it rather than in a
@@ -380,88 +528,83 @@ export default function ParticipantWorkbookPage() {
     <>
       <TopBar />
       <main className="page workbook">
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <h1>
-              {workbook.title}
-              {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
-            </h1>
-            <p>
-              {session?.name}
-              {(session?.starts_at || session?.ends_at) && (
-                <span className="session-dates"> · {formatDateRange(session.starts_at, session.ends_at)}</span>
-              )}
-            </p>
-            {workbook.description && <p className="muted">{workbook.description}</p>}
-          </div>
-        </section>
+        <WorkbookHeader
+          workbook={workbook}
+          session={session}
+          progress={overallProgress}
+          resume={resume}
+          onContinue={continueWorkbook}
+        />
 
         <div className="participant-actions-bar no-print" ref={actionsBarRef}>
           {overallStatus && (
             <span className={`wb-save-indicator ${overallStatus}`}>
-              {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed' : 'All changes saved'}
+              {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed' : '✓ All changes saved'}
             </span>
+          )}
+          {/* The things you read sit together as one group; the assessment says
+              its state; asking for help is the one strong button; printing is
+              occasional, so it lives behind ⋯. */}
+          <div className="pab-group" role="group" aria-label="Your reading">
+            <button
+              type="button"
+              className="pab-seg"
+              onClick={() => setNotesOpen(true)}
+              data-tip={notedSections > 0
+                ? `Your notes — ${notedSections} exercise${notedSections === 1 ? '' : 's'}, ${totalNoteWords} word${totalNoteWords === 1 ? '' : 's'} (press N)`
+                : 'Your notes (press N)'}
+            >
+              📝 Notes{notedSections > 0 && <span className="pab-count">{notedSections}</span>}
+            </button>
+            <button
+              type="button"
+              className="pab-seg"
+              onClick={() => setPrepOpen(true)}
+              data-tip="Pre-work from your trainer"
+            >
+              🎯 Prep{prepCount > 0 && <span className="pab-count">{prepCount}</span>}
+            </button>
+            {/* Only when this program HAS handouts. A button that opens an empty
+                drawer is a promise of something to read that does not exist, and
+                most programs carry none.
+                `!materialsLoading` matters as much as the count: without it the
+                button pops into a row the participant may already be reaching
+                for, moving the buttons after it out from under the cursor. */}
+            {!materialsLoading && materials.length > 0 && (
+              <button
+                type="button"
+                className="pab-seg"
+                onClick={() => setMaterialsOpen(true)}
+                data-tip="Handouts and quick references for this program"
+              >
+                📎 Handouts<span className="pab-count">{materials.length}</span>
+              </button>
+            )}
+          </div>
+          {session?.assessment_id && (
+            <AssessmentChip
+              unlockedAt={session.assessment_unlocked_at}
+              deadlineAt={session.assessment_deadline_at}
+              onOpen={() => navigate(`/assessment?session=${session.id}`)}
+            />
           )}
           <button
             type="button"
-            className={`ghost help-hand${handUp ? ' is-up' : ''}`}
+            className={`help-hand${handUp ? ' is-up' : ''}`}
             onClick={toggleHelp}
             disabled={helpBusy || !session?.id}
             aria-pressed={!!handUp}
-            title={handUp ? 'Put your hand down' : 'Ask your trainer for help — only they will see it'}
+            data-tip={handUp ? 'Put your hand down' : 'Ask your trainer for help — only they will see it'}
           >
             {handUp ? '✋ Help asked · Cancel' : '✋ Ask for help'}
           </button>
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => setNotesOpen(true)}
-            title="Open your notes (press N)"
-          >
-            📝 Notes{totalNoteWords > 0 ? ` (${totalNoteWords})` : ''}
-          </button>
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => setPrepOpen(true)}
-            title="View your pre-work from the trainer"
-          >
-            🎯 Prep{prepCount > 0 ? ` (${prepCount})` : ''}
-          </button>
-          {/* Only when this program HAS handouts. A button that opens an empty
-              drawer is a promise of something to read that does not exist, and
-              most programs carry none.
-              `!materialsLoading` matters as much as the count: without it the
-              button pops into a row the participant may already be reaching
-              for, moving Assessment and Print out from under the cursor. */}
-          {!materialsLoading && materials.length > 0 && (
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => setMaterialsOpen(true)}
-              title="Handouts and quick references for this program"
-            >
-              📎 Handouts ({materials.length})
-            </button>
-          )}
-          {session?.assessment_id && (
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => navigate(`/assessment?session=${session.id}`)}
-              title={session.assessment_unlocked_at ? 'Take the assessment for this program' : 'Locked — your trainer will unlock when ready'}
-            >
-              {session.assessment_unlocked_at ? '📝 Assessment' : '🔒 Assessment'}
-            </button>
-          )}
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => window.print()}
-            title="Open the print dialog. Choose 'Save as PDF' to download."
-          >
-            ↓ Print / Download PDF
-          </button>
+          <KebabMenu
+            label="More"
+            className="pab-more"
+            items={[
+              { label: 'Print / Download PDF', glyph: '↓', onClick: () => window.print() },
+            ]}
+          />
         </div>
 
         {helpError && <p className="error no-print">{helpError}</p>}
@@ -512,8 +655,22 @@ export default function ParticipantWorkbookPage() {
             </select>
           </div>
 
-          <aside className="exresp-sidebar" ref={sidebarRef}>
-            <div className="exresp-sidebar-head">Exercises</div>
+          <aside className="exresp-sidebar wb-rail" ref={sidebarRef}>
+            <div className="exresp-sidebar-head wb-rail-head">
+              <div className="wb-rail-cap">
+                <span>Exercises</span>
+                <span className="wb-rail-total">{overallProgress.filled} / {overallProgress.total} answered</span>
+              </div>
+              <div className={`wb-rail-bar${overallProgress.total && overallProgress.filled === overallProgress.total ? ' is-done' : ''}`}>
+                <i style={{ width: `${overallProgress.total ? Math.round(overallProgress.filled / overallProgress.total * 100) : 0}%` }} />
+              </div>
+            </div>
+            {resume && (
+              <button type="button" className="wb-rail-next" onClick={continueWorkbook}>
+                <span>Next unanswered → {resume.sectionTitle}{resume.questionCount > 1 ? `, question ${resume.questionNo}` : ''}</span>
+                <span aria-hidden="true">›</span>
+              </button>
+            )}
             <input
               type="text"
               className="exresp-sidebar-filter"
@@ -523,11 +680,11 @@ export default function ParticipantWorkbookPage() {
               onKeyDown={onExFilterKeyDown}
               aria-label="Filter exercises"
             />
-            <ul className="exresp-sidebar-list">
+            <ul className="exresp-sidebar-list wb-rail-list">
               {!exFilter.trim() && (
                 <li>
                   <button
-                    className={`exresp-sidebar-item ${selectedSectionId === ALL_KEY ? 'active' : ''}`}
+                    className={`exresp-sidebar-item wb-rail-all ${selectedSectionId === ALL_KEY ? 'active' : ''}`}
                     onClick={() => setSelectedSectionId(ALL_KEY)}
                   >
                     <div className="exresp-sidebar-row">
@@ -536,83 +693,66 @@ export default function ParticipantWorkbookPage() {
                   </button>
                 </li>
               )}
-              {filteredStats.length === 0 && (
-                <li className="exresp-sidebar-empty">No exercises match “{exFilter.trim()}”</li>
-              )}
-              {filteredStats.map(s => {
-                // Group sections (Word H1) are non-clickable divider banners
-                // that visually group the exercises that follow them.
-                if (s.kind === 'group') {
-                  // Click jumps to the banner in the "All" view rather than
-                  // filtering to just the group (which would show an empty
-                  // page — groups carry no exercise blocks of their own).
-                  //
-                  // Chapters get the here-marker too. The book OPENS on a
-                  // chapter (Cover), so without this the rail is blank about
-                  // position for exactly the first screens a participant sees,
-                  // which is the moment the marker exists for.
-                  const groupHere = selectedSectionId === ALL_KEY && currentSectionId === s.id;
-                  return (
-                    <li key={s.id} className="exresp-sidebar-group-li">
-                      <button
-                        className={`exresp-sidebar-group ${groupHere ? 'is-here' : ''}`}
-                        data-nav-id={s.id}
-                        aria-current={groupHere ? 'true' : undefined}
-                        onClick={() => {
-                          setSelectedSectionId(ALL_KEY);
-                          requestAnimationFrame(() => {
-                            const el = sectionRefs.current[s.id];
-                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          });
-                        }}
-                        title="Jump to this section"
-                      >
-                        {s.title}
-                      </button>
+              {exFilter.trim() ? (
+                railFiltered.length === 0
+                  ? <li className="exresp-sidebar-empty">No exercises match “{exFilter.trim()}”</li>
+                  : railFiltered.map(renderRailRow)
+              ) : (
+                <>
+                  {railModel.groups.map(g => {
+                    const open = isGroupOpen(g);
+                    const groupHere = selectedSectionId === ALL_KEY && currentSectionId === g.id;
+                    return (
+                      <li key={g.id} className={`wb-rail-group${open ? ' is-open' : ''}`}>
+                        {g.title && (
+                          <>
+                            <button
+                              type="button"
+                              className={`wb-rail-group-head${groupHere ? ' is-here' : ''}`}
+                              data-nav-id={g.id}
+                              aria-expanded={open}
+                              onClick={() => toggleGroup(g)}
+                              data-tip={open ? 'Fold this group' : 'Show the exercises in this group'}
+                            >
+                              <span className="wb-rail-chev" aria-hidden="true">▼</span>
+                              {/* Break long chapter names after a slash, not mid-word. */}
+                              <span className="wb-rail-group-title">{g.title.replace(/\//g, '/​')}</span>
+                              {g.of > 0 && <span className="wb-rail-group-n">{g.done} of {g.of}</span>}
+                            </button>
+                            {g.total > 0 && (
+                              <div className={`wb-rail-bar is-thin wb-rail-group-bar${g.complete ? ' is-done' : ''}`}>
+                                <i style={{ width: `${g.pct}%` }} />
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {open && <ul className="wb-rail-rows">{g.items.map(renderRailRow)}</ul>}
+                      </li>
+                    );
+                  })}
+                  {railModel.pages.length > 0 && (
+                    <li className="wb-rail-pages">
+                      {railModel.pages.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          data-nav-id={p.id}
+                          className={selectedSectionId === ALL_KEY && currentSectionId === p.id ? 'is-here' : ''}
+                          onClick={() => {
+                            setSelectedSectionId(ALL_KEY);
+                            requestAnimationFrame(() => {
+                              const el = sectionRefs.current[p.id];
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            });
+                          }}
+                        >
+                          {p.title}
+                        </button>
+                      ))}
                     </li>
-                  );
-                }
-                const barClass = s.pct === 0 ? 'none' : s.pct === 100 ? 'full' : 'partial';
-                const isActive = selectedSectionId === s.id;
-                // WHERE THEY ARE, as opposed to what they picked.
-                //
-                // "All exercises" is the view this page opens on, and in it
-                // nothing was ever highlighted: isActive compares against
-                // selectedSectionId, which is ALL_KEY, so no row matched. On a
-                // book this long that leaves the rail saying nothing about a
-                // scroll position it already knows — the scroll-spy above has
-                // been computing currentSectionId all along and sending it to
-                // the TRAINER's "On now" column. The participant was the one
-                // person who could not see it.
-                const isHere = selectedSectionId === ALL_KEY && currentSectionId === s.id;
-                const noteWords = notesByCount[s.id] || 0;
-                return (
-                  <li key={s.id}>
-                    <button
-                      className={`exresp-sidebar-item ${isActive ? 'active' : ''} ${isHere ? 'is-here' : ''}`}
-                      data-nav-id={s.id}
-                      aria-current={isHere || isActive ? 'true' : undefined}
-                      onClick={() => setSelectedSectionId(s.id)}
-                    >
-                      <div className="exresp-sidebar-row">
-                        <span className="exresp-sidebar-title">
-                          {s.title}
-                          {noteWords > 0 && (
-                            <span className="exresp-sidebar-note-badge" title={`${noteWords} word${noteWords === 1 ? '' : 's'} in note`}>
-                              💬 {noteWords}
-                            </span>
-                          )}
-                        </span>
-                        <span className="exresp-sidebar-pct">{s.pct}%</span>
-                      </div>
-                      <div className={`exresp-sidebar-bar ${barClass}`}>
-                        <div className="exresp-sidebar-bar-fill" style={{ width: `${s.pct}%` }} />
-                      </div>
-                      <div className="exresp-sidebar-meta">{s.answered}/{s.total} answered</div>
-                    </button>
-                  </li>
-                );
-              })}
+                  )}
+                </>
+              )}
             </ul>
           </aside>
 

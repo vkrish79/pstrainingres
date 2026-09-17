@@ -24,6 +24,7 @@ import '../styles/editor.css';
 import '../styles/workbook.css';
 import '../styles/dashboard.css';
 import '../styles/edit-heat.css';
+import PlaceholderRepair from '../components/editor/PlaceholderRepair.jsx';
 
 export default function AssessmentEditorPage() {
   const { id } = useParams();
@@ -329,6 +330,13 @@ export default function AssessmentEditorPage() {
         {/* Answer keys address a block's database id, so a question that only
             exists in the draft has nothing to key. Filter those out here and
             say why, rather than offering a control that would fail on save. */}
+        {/* Saved blocks only: a draft block is written whole on Save anyway. */}
+        <PlaceholderRepair
+          sections={sections}
+          blocks={blocks.filter(b => !isDraftId(b.id))}
+          onSaveBlock={draft.updateBlock}
+        />
+
         <AssessmentAnswerKeyPanel
           sections={sections.filter(s => !isDraftId(s.id))}
           blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}

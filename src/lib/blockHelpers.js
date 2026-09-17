@@ -1,6 +1,7 @@
 // Shared logic for "is this block fillable / has it been answered".
 
 import { isInteractiveBlock, parseFillBlank } from './interactiveBlocks.js';
+import { boxesOf, boxLabel, mixedWording } from './tableCells.js';
 
 export function isFillableBlock(block) {
   if (!block) return false;
@@ -8,7 +9,7 @@ export function isFillableBlock(block) {
   if (isInteractiveBlock(block)) return true;
   if (block.block_type === 'table') {
     return (block.config?.rows || []).some(row =>
-      row.some(cell => cell?.kind === 'input')
+      row.some(cell => cell?.kind === 'input' || boxesOf(cell).length > 0)
     );
   }
   return false;
@@ -60,8 +61,9 @@ export function labelOf(block) {
     if (cfg.caption?.trim()) return cfg.caption.trim();
     for (const row of cfg.rows || []) {
       for (const cell of row || []) {
-        if (cell?.kind === 'static' && cell.text?.trim()) {
-          const t = cell.text.trim().replace(/\s+/g, ' ');
+        const text = cell?.kind === 'static' ? cell.text : cell?.kind === 'mixed' ? mixedWording(cell) : '';
+        if (text?.trim()) {
+          const t = text.trim().replace(/\s+/g, ' ');
           return t.length > 60 ? t.slice(0, 60) + '…' : t;
         }
       }
@@ -90,7 +92,8 @@ export function labelOf(block) {
 
 // For a table block, enumerate every input cell with a best-effort label
 // (the nearest preceding static cell in the row, falling back to the column
-// header, then a generic "Row R Col C"). Used by aggregate views & CSV export.
+// header, then a generic "Row R Col C"). Boxes inside a mixed cell are labelled
+// by the wording beside them. Used by aggregate views & CSV export.
 export function inputCellsOf(block) {
   if (block?.block_type !== 'table') return [];
   const rows = block.config?.rows || [];
@@ -107,6 +110,12 @@ export function inputCellsOf(block) {
         const header = (headers[ci] || '').trim();
         const label = lastStatic || header || `Row ${ri + 1} Col ${ci + 1}`;
         out.push({ id: cell.id, input_type: cell.input_type, label });
+      } else if (cell.kind === 'mixed') {
+        const header = (headers[ci] || '').trim();
+        const fallback = lastStatic || header || `Row ${ri + 1} Col ${ci + 1}`;
+        boxesOf(cell).forEach((box, bi) => {
+          out.push({ id: box.id, input_type: box.input_type, label: boxLabel(cell, bi, fallback) });
+        });
       }
     });
   });

@@ -1,0 +1,74 @@
+/* WorkbookHeader — the participant workbook's top card. Keeps the warm banner
+   the old compact hero had (workbook.css) and adds the ring and Continue. */
+.wbh {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 1.1rem 1.4rem;
+  border: 1px solid #e8dec6;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbf7ee 100%);
+  box-shadow: 0 1px 3px rgba(15, 22, 38, 0.05);
+}
+.wbh-ring { width: 64px; height: 64px; flex: 0 0 auto; }
+.wbh-ring-track { fill: none; stroke: #ece7dc; stroke-width: 4; }
+.wbh-ring-fill {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+.wbh-ring-fill.is-done { stroke: #2f8a4c; }
+.wbh-ring-text { font-size: 9px; font-weight: 700; fill: var(--midnight); font-variant-numeric: tabular-nums; }
+
+.wbh-text { flex: 1 1 18rem; min-width: 0; }
+.wbh-text h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: -0.015em;
+  color: var(--midnight);
+  text-wrap: balance;
+}
+.wbh-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0;
+  margin: 0.3rem 0 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.wbh-facts span + span::before { content: '·'; margin: 0 0.45rem; color: #c3b89f; }
+.wbh-count { font-variant-numeric: tabular-nums; color: var(--text); }
+
+.wbh-go { display: grid; gap: 0.3rem; justify-items: end; margin-left: auto; }
+.wbh-continue {
+  background: var(--midnight);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.wbh-continue:hover { background: var(--midnight-hover); }
+.wbh-continue:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.wbh-hint { font-size: 0.78rem; color: var(--muted); }
+.wbh-done { font-size: 0.9rem; font-weight: 600; color: #2f8a4c; }
+
+/* The block Continue landed on — a brief gold wash so the eye finds it. */
+.wb-block.wb-block--resume { animation: wbh-landed 1.8s ease-out; border-radius: 8px; }
+@keyframes wbh-landed {
+  0%, 30% { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.55); background: #fdf8ec; }
+  100% { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0); background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wbh-ring-fill { transition: none; }
+  .wb-block.wb-block--resume { animation: none; box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.55); }
+}
+@media print { .wbh { box-shadow: none; } .wbh-ring { display: none; } }
+.wbh-desc { margin: 0.35rem 0 0; font-size: 0.85rem; color: var(--muted); }

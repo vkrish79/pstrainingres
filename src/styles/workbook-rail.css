@@ -1,0 +1,190 @@
+/* The participant's exercise rail (recommendation 4, layout A): a tick and a
+   count per exercise with its bar underneath, groups that fold with their own
+   bar, the whole book's bar at the top, and Cover / Document information at
+   the foot. Scoped to .workbook .wb-rail so the trainer's rails that share the
+   exresp-sidebar classes are untouched. */
+
+.workbook .wb-rail { padding-bottom: 0.4rem; }
+
+/* ── top: the whole workbook ─────────────────────────────────────────────── */
+.workbook .wb-rail .wb-rail-head {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.75rem 0.95rem 0.7rem;
+}
+.wb-rail-cap {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.wb-rail-total {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--midnight);
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-rail-bar {
+  display: block;
+  height: 6px;
+  border-radius: 4px;
+  background: #ece7dc;
+  overflow: hidden;
+}
+.wb-rail-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--gold);
+  transition: width 0.3s ease;
+}
+.wb-rail-bar.is-done > i { background: #2f8a4c; }
+.wb-rail-bar.is-thin { height: 4px; }
+
+.workbook .wb-rail .wb-rail-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: calc(100% - 1.4rem);
+  margin: 0.6rem 0.7rem 0;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  border-radius: 9px;
+  background: var(--midnight);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.workbook .wb-rail .wb-rail-next:hover { background: var(--midnight-hover); }
+.workbook .wb-rail .wb-rail-next:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* ── the list ────────────────────────────────────────────────────────────── */
+/* The shared rail draws a rule under every li; this one separates groups only. */
+.workbook .wb-rail .wb-rail-list li { border-bottom: 0; }
+.wb-rail-rows { list-style: none; margin: 0; padding: 0 0 0.25rem; }
+
+.workbook .wb-rail .exresp-sidebar-item.wb-rail-all { padding: 0.45rem 0.95rem; }
+.workbook .wb-rail .exresp-sidebar-item.wb-rail-all .exresp-sidebar-title { font-size: 0.82rem; }
+
+.wb-rail-group { border-top: 1px solid #f0ebe0; }
+.workbook .wb-rail .wb-rail-group-head {
+  display: grid;
+  grid-template-columns: 0.8rem minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.6rem 0.95rem 0.3rem;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.workbook .wb-rail .wb-rail-group-head:hover:not(:disabled) { background: #faf6ec; }
+.workbook .wb-rail .wb-rail-group-head:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.wb-rail-chev {
+  font-size: 0.55rem;
+  color: var(--gold-dark);
+  transform: rotate(-90deg);
+  transition: transform 0.15s ease;
+}
+.wb-rail-group.is-open .wb-rail-chev { transform: none; }
+.wb-rail-group-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+  line-height: 1.3;
+  overflow-wrap: break-word;
+}
+.wb-rail-group-n {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.wb-rail-group-head.is-here .wb-rail-group-title { color: var(--midnight); }
+.wb-rail-group-bar { margin: 0.1rem 0.95rem 0.5rem 2.15rem; }
+
+/* An exercise: tick · name · count, bar underneath (layout A). */
+.workbook .wb-rail .exresp-sidebar-item.wb-rail-row {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  column-gap: 0.55rem;
+  row-gap: 0.35rem;
+  align-items: center;
+  padding: 0.45rem 0.95rem 0.5rem;
+}
+.workbook .wb-rail .exresp-sidebar-item.wb-rail-row .wb-rail-bar { grid-column: 2 / 4; }
+.wb-rail-name { min-width: 0; font-size: 0.86rem; }
+.wb-rail-count {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.wb-rail-count.is-part { color: #94661a; }
+.wb-rail-count.is-done { color: #2f7a52; }
+
+.wb-rail-tick {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #fff;
+  box-sizing: border-box;
+}
+.wb-rail-tick.is-done { background: #2f8a4c; }
+.wb-rail-tick.is-part {
+  border: 2px solid var(--gold);
+  background: conic-gradient(var(--gold) var(--p, 0%), transparent 0);
+}
+.wb-rail-tick.is-none { border: 2px solid #d9d2c4; }
+.wb-rail-tick.is-read { width: 0.4rem; height: 0.4rem; margin-left: 0.3rem; background: #d9d2c4; }
+
+.wb-rail-spot {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #e5f0fa;
+  color: var(--midnight);
+  font-size: 0.62rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* ── the foot: pages that are not exercises ──────────────────────────────── */
+.workbook .wb-rail .wb-rail-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.8rem;
+  margin-top: 0.3rem;
+  padding: 0.6rem 0.95rem 0.2rem;
+  border-top: 1px solid #f0ebe0;
+}
+.workbook .wb-rail .wb-rail-pages button {
+  border: 0;
+  background: none;
+  padding: 0.1rem 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-decoration: underline dotted #c8c0ae;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.workbook .wb-rail .wb-rail-pages button:hover:not(:disabled) { background: none; color: var(--midnight); }
+.workbook .wb-rail .wb-rail-pages button.is-here { color: var(--midnight); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-rail-bar > i, .wb-rail-chev { transition: none; }
+}

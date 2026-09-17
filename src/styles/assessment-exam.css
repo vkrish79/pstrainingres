@@ -1,0 +1,203 @@
+/* The participant's assessment in exam mode: a navy bar with the clock that
+   stays in view, the question rail (rail look from workbook-rail.css), and one
+   question per page with Prev / Next. */
+
+/* ── the exam bar ────────────────────────────────────────────────────────── */
+.exam .exam-bar {
+  position: sticky;
+  top: 60px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  min-height: 76px;
+  margin: 0 0 1rem;
+  padding: 0.7rem 1.3rem;
+  border-radius: 12px;
+  background: var(--midnight);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(15, 22, 38, 0.18);
+}
+.exam-bar-text { flex: 1 1 18rem; min-width: 0; }
+.exam .exam-bar-back {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: #b9c9d8;
+  text-decoration: none;
+}
+.exam .exam-bar-back:hover { color: #fff; text-decoration: underline; }
+.exam .exam-bar h1 {
+  margin: 0.1rem 0 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.exam-bar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: #b9c9d8;
+  font-variant-numeric: tabular-nums;
+}
+.exam-bar-save.is-saving { color: #f3dca4; }
+.exam-bar-save.is-saved { color: #9fd9b4; }
+.exam-bar-save.is-error { color: #ffb4a6; font-weight: 600; }
+
+.exam-bar-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-left: auto;
+  padding: 0.35rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.exam-bar-clock-time {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.exam-bar-clock-note { font-size: 0.85rem; color: #b9c9d8; }
+.exam-bar-clock.is-urgent { background: #f7ecd6; color: #7a4b00; }
+.exam-bar-clock.is-urgent .exam-bar-clock-note { color: #94661a; }
+.exam-bar-clock.is-expired { background: #f6e3e3; }
+.exam-bar-clock.is-expired .exam-bar-clock-note { color: #a13a3a; font-weight: 700; }
+
+/* ── the rail ────────────────────────────────────────────────────────────── */
+.exam .assessment-body { grid-template-columns: 250px minmax(0, 1fr); }
+.workbook.exam .exam-nav {
+  top: 152px;
+  max-height: calc(100vh - 168px);
+}
+.workbook .wb-rail .exam-nav-head { display: grid; gap: 0.4rem; padding: 0.75rem 0.95rem 0.7rem; }
+.exam-nav-cap { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; }
+.exam .question-nav-total {
+  margin-left: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--midnight);
+  font-variant-numeric: tabular-nums;
+}
+.workbook .wb-rail .exam-nav-start {
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 0.55rem 0.95rem;
+  text-align: left;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.workbook .wb-rail .exam-nav-start:hover:not(:disabled) { background: #faf6ec; color: var(--text); }
+.workbook .wb-rail .exam-nav-start.active { background: #fdf6e3; color: var(--text); font-weight: 600; }
+.exam-nav-chapter {
+  padding: 0.65rem 0.95rem 0.2rem;
+  border-top: 1px solid #f0ebe0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+}
+.workbook .wb-rail .exam-nav-review {
+  display: block;
+  width: calc(100% - 1.4rem);
+  margin: 0.5rem 0.7rem 0.3rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #eccb91;
+  border-radius: 9px;
+  background: #fdf5e6;
+  color: #7a4b00;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.workbook .wb-rail .exam-nav-review.is-clear { border-color: #bfe0cb; background: #eef8f1; color: #2f7a52; }
+.workbook .wb-rail .exam-nav-review.active { box-shadow: 0 0 0 2px var(--midnight); }
+
+/* ── a page ──────────────────────────────────────────────────────────────── */
+.exam-page { display: grid; gap: 0.8rem; }
+.exam-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+}
+.exam-count { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: -0.4rem; }
+.exam-title { margin: 0; font-size: 1.35rem; color: var(--midnight); text-wrap: balance; }
+.exam-lede { margin: 0; color: var(--muted); max-width: 70ch; }
+
+.exam-reading {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #ece6d8;
+  border-radius: 10px;
+  background: #fcfbf7;
+}
+.exam-reading-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.exam-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+.exam .exam-prev,
+.exam .exam-next {
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.exam .exam-prev { border: 1px solid var(--border); background: #fff; color: var(--text); }
+.exam .exam-prev:hover:not(:disabled) { background: #f7f4ec; }
+.exam .exam-next { border: 1px solid var(--midnight); background: var(--midnight); color: #fff; }
+.exam .exam-next:hover:not(:disabled) { background: var(--midnight-hover); }
+.exam .exam-prev:focus-visible, .exam .exam-next:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+.exam-review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.exam .exam-review-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.8rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.exam .exam-review-list button:hover:not(:disabled) { background: #faf6ec; border-color: #e3d6b6; }
+.exam-review-name { font-weight: 600; }
+.exam-review-state { font-size: 0.82rem; color: #94661a; }
+
+@media (max-width: 900px) {
+  .exam .assessment-body { grid-template-columns: minmax(0, 1fr); }
+  .exam .exam-bar { top: 56px; }
+}
+@media print {
+  .exam .exam-bar { position: static; box-shadow: none; }
+}

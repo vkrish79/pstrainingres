@@ -224,8 +224,14 @@ export function useAssessmentDraft({ sections, blocks, reload }) {
       // must not reuse them or the two blocks would share answers.
       if (src.block_type === 'table' && Array.isArray(cfg.rows)) {
         let n = 0;
-        cfg.rows = cfg.rows.map((row, ri) => row.map(cell =>
-          cell?.kind === 'input' ? { ...cell, id: `dup${ri}c${n++}_${Date.now()}` } : cell));
+        cfg.rows = cfg.rows.map((row, ri) => row.map(cell => {
+          if (cell?.kind === 'input') return { ...cell, id: `dup${ri}c${n++}_${Date.now()}` };
+          if (cell?.kind === 'mixed') {
+            return { ...cell, parts: (cell.parts || []).map(p =>
+              p?.kind === 'box' ? { ...p, id: `dup${ri}c${n++}_${Date.now()}` } : p) };
+          }
+          return cell;
+        }));
       }
       const copy = {
         id: nextTmpId('blk'),

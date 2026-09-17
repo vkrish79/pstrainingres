@@ -8,6 +8,7 @@ import { renumberExercises } from '../lib/exerciseNumbering.js';
 import WorkbookPrepPanel from '../components/editor/WorkbookPrepPanel.jsx';
 import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
 import ContentEditor from '../components/editor/ContentEditor.jsx';
+import PlaceholderRepair from '../components/editor/PlaceholderRepair.jsx';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
 import EditHeatModal from '../components/editor/EditHeatModal.jsx';
 import WorkbookChangesModal from '../components/editor/WorkbookChangesModal.jsx';
@@ -215,6 +216,7 @@ export default function WorkbookEditorPage() {
               <p>Session workbook — edit the wording of any exercise. Layout and answer fields are fixed; changes show to enrolled participants live.</p>
             </div>
           </section>
+          <PlaceholderRepair sections={sections} blocks={blocks} onSaveBlock={updateBlock} isSessionCopy={!!ownerSessionId} />
           <ContentEditor sections={sections} blocks={blocks} onSaveBlock={updateBlock} />
         </main>
       </>
@@ -299,6 +301,8 @@ export default function WorkbookEditorPage() {
             <span>Visible to vendors <span className="muted">— vendor trainers can find this workbook and run sessions from it</span></span>
           </label>
         </section>
+
+        <PlaceholderRepair sections={sections} blocks={blocks} onSaveBlock={updateBlock} />
 
         {isTemplate && <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} />}
 

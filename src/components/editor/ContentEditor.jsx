@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import '../../styles/workbook.css';
 import '../../styles/editor.css';
+import { boxesOf, mixedToText, mixedFromText, newBoxId, BOX_MARKER } from '../../lib/tableCells.js';
 
 // Inline content-only editor for SESSION-level workbook edits (is_template=false).
 // Renders the workbook like the participant view, but the *authored* text —
@@ -46,7 +47,7 @@ export function EditableBlock({ block, onSave }) {
 // Save is derived from the parent's current config (onSave receives the new
 // string only), so there's no local-copy divergence. An optimistic display
 // avoids the brief stale flash while the save round-trips and props refresh.
-function EditableText({ value, onSave, multiline = false, placeholder = '(empty)', className = '' }) {
+function EditableText({ value, onSave, multiline = false, placeholder = '(empty)', className = '', accept }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [optimistic, setOptimistic] = useState(null);
@@ -71,7 +72,8 @@ function EditableText({ value, onSave, multiline = false, placeholder = '(empty)
   function start() { setDraft(current); setEditing(true); }
   function commit() {
     setEditing(false);
-    if (draft !== current) { setOptimistic(draft); onSave(draft); }
+    // accept() can turn an edit away; the text then simply reverts.
+    if (draft !== current && (!accept || accept(draft))) { setOptimistic(draft); onSave(draft); }
   }
   function cancel() { setEditing(false); }
 
@@ -205,6 +207,15 @@ function TableEdit({ block, onSave }) {
     ...cfg,
     rows: rows.map((row, r) => (r === ri ? row.map((cell, c) => (c === ci ? { ...cell, text: v } : cell)) : row)),
   });
+  // Wording around answer boxes. The boxes themselves are locked like every
+  // other answer field: an edit that adds or drops a {{}} is not saved, so no
+  // participant's answer is ever orphaned from its box.
+  const sameBoxes = (ri, ci) => v => boxesOf(mixedFromText(v, rows[ri][ci], newBoxId)).length === boxesOf(rows[ri][ci]).length;
+  const saveMixed = (ri, ci, v) => {
+    const cell = rows[ri][ci];
+    const next = mixedFromText(v, cell, newBoxId);
+    onSave({ ...cfg, rows: rows.map((row, r) => (r === ri ? row.map((c, k) => (k === ci ? next : c)) : row)) });
+  };
 
   return (
     <div className="wb-table-wrap">
@@ -235,6 +246,10 @@ function TableEdit({ block, onSave }) {
                 >
                   {cell.kind === 'static' ? (
                     <EditableText value={cell.text || ''} onSave={v => saveCell(ri, ci, v)} placeholder="(empty)" multiline />
+                  ) : cell.kind === 'mixed' ? (
+                    <span data-tip={`Each ${BOX_MARKER} is an answer box — keep them where they are`}>
+                      <EditableText value={mixedToText(cell)} onSave={v => saveMixed(ri, ci, v)} accept={sameBoxes(ri, ci)} placeholder="(empty)" multiline />
+                    </span>
                   ) : (
                     <span className="wb-readonly inline empty ce-locked" title="Answer field — filled by participants">—</span>
                   )}

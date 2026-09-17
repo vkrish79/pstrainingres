@@ -1,3 +1,4 @@
+import { mixedToText, mixedFromText, boxesOf, newBoxId } from './tableCells.js';
 // Turning two block configs into a readable list of what changed.
 //
 // A session trainer can only edit authored TEXT on a clone — structure is
@@ -36,7 +37,14 @@ export function configLines(blockType, config) {
     });
     (Array.isArray(cfg.rows) ? cfg.rows : []).forEach((row, ri) => {
       (Array.isArray(row) ? row : []).forEach((cell, ci) => {
-        if (cell?.kind !== 'static') return; // answer cells are never authored
+        // Answer cells are never authored. Wording with boxes is, and shows its
+        // boxes as {{}} so a session that repaired Word's placeholder reads as
+        // exactly that change.
+        if (cell?.kind === 'mixed') {
+          out.push({ key: `cell:${ri}:${ci}`, label: `Row ${ri + 1}, col ${ci + 1}`, text: mixedToText(cell) });
+          return;
+        }
+        if (cell?.kind !== 'static') return;
         out.push({ key: `cell:${ri}:${ci}`, label: `Row ${ri + 1}, col ${ci + 1}`, text: cell.text || '' });
       });
     });
@@ -109,6 +117,7 @@ export function getLineValue(blockType, config, key) {
   if (kind === 'cell') {
     const cell = cfg.rows?.[Number(a)]?.[Number(b)];
     // Answer cells carry no authored text and must never be written through.
+    if (cell?.kind === 'mixed') return mixedToText(cell);
     return cell?.kind === 'static' ? cell.text : undefined;
   }
   return undefined;
@@ -139,7 +148,15 @@ export function setLineValue(blockType, config, key, value) {
   if (kind === 'cell') {
     const j = Number(b);
     const cell = next.rows?.[i]?.[j];
-    if (!cell || cell.kind !== 'static') return null;
+    if (!cell || (cell.kind !== 'static' && cell.kind !== 'mixed')) return null;
+    const boxes = (value.match(/{{s*}}/g) || []).length;
+    if (cell.kind === 'mixed') {
+      // Never add or drop a box through wording: answers are keyed by box.
+      if (boxes !== boxesOf(cell).length) return null;
+      next.rows[i][j] = mixedFromText(value, cell, newBoxId);
+      return next;
+    }
+    if (boxes) { next.rows[i][j] = mixedFromText(value, cell, newBoxId); return next; }
     cell.text = value;
     return next;
   }

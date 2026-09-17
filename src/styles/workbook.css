@@ -15,6 +15,12 @@
    same exercises and should agree about how wide one is. */
 .page.workbook { max-width: 1700px; }
 
+/* The top bar's contents keep index.css's 1280 everywhere else, which on a
+   workbook left the logo and the name sitting well inside the page's corners.
+   Match the page so the brand lines up with its left edge and the user with its
+   right. Not the trainer shell: that bar spans beside the side nav instead. */
+body:has(.page.workbook) .topbar:not(.topbar--shell) .topbar-inner { max-width: 1700px; }
+
 /* Prose inside an exercise keeps a reading measure even when the page is wide.
    Tables want the whole canvas; a paragraph 1300px wide is one nobody can find
    the start of the next line in.
@@ -152,6 +158,29 @@
   outline-offset: -1px;
   border-color: var(--gold);
 }
+/* Wording with answer boxes inside it — the boxes flow with the sentence and
+   wrap onto their own line when the cell is narrow. */
+.wb-mixed { display: inline; line-height: 2.1; }
+.wb-mixed-text { white-space: pre-wrap; }
+input.wb-mixed-box {
+  display: inline-block;
+  width: 11rem;
+  max-width: 100%;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fafbff;
+}
+input.wb-mixed-box:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: -1px;
+  border-color: var(--gold);
+  background: #fff;
+}
+.wb-readonly.wb-mixed-box { display: inline-block; min-width: 4rem; vertical-align: middle; }
 
 .wb-save-indicator {
   font-size: 0.85rem;
@@ -326,8 +355,9 @@
   padding: 0.4rem 0.9rem;
 }
 .participant-actions-bar .ghost:hover:not(:disabled) { background: #f1ebdc; }
-/* Save indicator drifts to the left edge; the action buttons stay grouped right. */
-.participant-actions-bar .wb-save-indicator { margin-right: auto; }
+/* Save indicator sits at the left edge; the reading group's margin-left:auto
+   pushes everything else right. */
+.participant-actions-bar .wb-save-indicator { white-space: nowrap; }
 
 /* Exercise cards: a hint of elevation so each reads as its own surface, and a
    clear "this is the one you're filling" emphasis on focus. */
@@ -435,13 +465,84 @@
 }
 
 /* ── Raise hand ─────────────────────────────────────────────────────────── */
-.participant-actions-bar .ghost.help-hand.is-up,
-.participant-actions-bar .ghost.help-hand.is-up:hover:not(:disabled) {
+/* The one strong button in the bar. Gold while it is an offer; once the hand
+   is up it steps back to an outline, since the banner below now carries it. */
+.participant-actions-bar .help-hand {
+  border-radius: 999px;
+  border: 1px solid #b5985a;
   background: #b5985a;
-  border-color: #b5985a;
   color: #14212e;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.42rem 1rem;
+  white-space: nowrap;
+}
+.participant-actions-bar .help-hand:hover:not(:disabled) { background: #a3874c; border-color: #a3874c; }
+.participant-actions-bar .help-hand.is-up,
+.participant-actions-bar .help-hand.is-up:hover:not(:disabled) {
+  background: #fff;
+  border-color: #b5985a;
+  color: #6f5626;
   font-weight: 600;
 }
+
+/* Notes, Prep, Handouts — one segmented pill: things to read, equal weight. */
+.pab-group {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid #ddd3bd;
+  border-radius: 999px;
+  background: #fff;
+  overflow: hidden;
+}
+.pab-group .pab-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  white-space: nowrap;
+}
+.pab-group .pab-seg + .pab-seg { border-left: 1px solid #ece4d2; }
+.pab-group .pab-seg:hover { background: #f7f1e4; }
+.pab-group .pab-seg:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.pab-count {
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #efe7d4;
+  color: #6f5626;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The assessment says what state it is in. */
+.pab-chip {
+  display: inline-block;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+button.pab-chip { cursor: pointer; }
+.pab-chip.is-locked { background: #f1ede5; color: #6c7a88; font-weight: 500; }
+.pab-chip.is-open { background: #e5f0fa; border-color: #bcd4ea; color: var(--midnight); }
+.pab-chip.is-open:hover { background: #d9e8f6; }
+.pab-chip.is-soon { background: #fdf0dc; border-color: #eccb91; color: #7a4b00; }
+.pab-chip.is-closed { background: #f1ede5; color: #6c7a88; }
+.pab-chip-time { font-variant-numeric: tabular-nums; }
+
+.participant-actions-bar .pab-more .kebab-btn { border-radius: 999px; }
 .help-banner {
   margin: 0.6rem 0 0;
   padding: 0.6rem 0.9rem;

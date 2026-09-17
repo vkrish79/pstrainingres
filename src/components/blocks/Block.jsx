@@ -20,7 +20,7 @@ export default function Block({ block, value, onChange, readOnly = false, recent
     default: return null;
   }
   return (
-    <div className={`wb-block ${recentlyUpdated ? 'wb-block-updated' : ''}`}>
+    <div className={`wb-block ${recentlyUpdated ? 'wb-block-updated' : ''}`} data-block-id={block.id}>
       {recentlyUpdated && <span className="wb-update-badge">Updated</span>}
       {inner}
     </div>

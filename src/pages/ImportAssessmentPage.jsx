@@ -130,7 +130,14 @@ export default function ImportAssessmentPage() {
               <span>{counts.prose} prose</span>
               <span>{counts.field} field{counts.field === 1 ? '' : 's'}</span>
               <span>{counts.table} table{counts.table === 1 ? '' : 's'}</span>
+              <span>{counts.boxes} answer box{counts.boxes === 1 ? '' : 'es'} in tables</span>
             </div>
+            {counts.wordedBoxes > 0 && (
+              <p className="import-note">
+                {counts.wordedBoxes} of those sit inside a cell's wording, where Word had “Click or tap here to enter text.”
+                (for example “City code: ▭”). Participants type straight into them — check a few in the preview after import.
+              </p>
+            )}
 
             <div className="import-preview">
               {parsed.sections.map((sec, si) => (
