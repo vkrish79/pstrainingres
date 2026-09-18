@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
@@ -16,6 +17,7 @@ import { marksForBlock } from '../components/blocks/ReviewMark.jsx';
 import { progressOf } from '../lib/blockHelpers.js';
 import { resumePoint } from '../lib/workbookResume.js';
 import WorkbookHeader from '../components/participant/WorkbookHeader.jsx';
+import WorkbookPrintCover, { WorkbookPrintFooter } from '../components/participant/WorkbookPrintCover.jsx';
 import AssessmentChip from '../components/participant/AssessmentChip.jsx';
 import KebabMenu from '../components/KebabMenu.jsx';
 import { useJustCompleted } from '../hooks/useJustCompleted.js';
@@ -38,7 +40,7 @@ const ALL_KEY = '__all__';
 
 export default function ParticipantWorkbookPage() {
   const navigate = useNavigate();
-  const { session: authSession } = useAuth();
+  const { session: authSession, profile } = useAuth();
   const { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
@@ -698,7 +700,11 @@ export default function ParticipantWorkbookPage() {
             label="More"
             className="pab-more"
             items={[
-              { label: 'Print / Download PDF', glyph: '↓', onClick: () => window.print() },
+              // Always the whole workbook: from a single exercise (the rail, a
+              // spotlight jump) it printed that one exercise behind a cover
+              // listing all of them. flushSync so the page is re-rendered on
+              // "All exercises" before the print snapshot is taken.
+              { label: 'Print / Download PDF', glyph: '↓', onClick: () => { flushSync(() => setSelectedSectionId(ALL_KEY)); window.print(); } },
             ]}
           />
         </div>
@@ -868,16 +874,16 @@ export default function ParticipantWorkbookPage() {
           </aside>
 
           <div className="exresp-main">
-            {/* Print-only header shown at the top of the PDF so trainers / the
+            {/* Print-only cover and running footer, so trainers / the
                 participant know whose answers they're looking at. */}
-            <div className="print-only print-header">
-              <h1>{workbook.title}</h1>
-              <p>
-                {session?.name}
-                {session?.city_code && ` · ${session.city_code}`}
-                {(session?.starts_at || session?.ends_at) && ` · ${formatDateRange(session.starts_at, session.ends_at)}`}
-              </p>
-            </div>
+            <WorkbookPrintCover
+              workbook={workbook}
+              session={session}
+              participantName={profile?.full_name}
+              progress={overallProgress}
+              sections={sections}
+            />
+            <WorkbookPrintFooter workbook={workbook} session={session} participantName={profile?.full_name} />
             {visibleSections.map(sec => {
               const noteText = sectionNotes[sec.id]?.note || '';
               const prepText = sectionPrep[sec.id]?.content || '';
@@ -962,13 +968,5 @@ export default function ParticipantWorkbookPage() {
       />
     </>
   );
-}
-
-function formatDateRange(start, end) {
-  const fmt = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-  if (start && end) return `${fmt(start)} → ${fmt(end)}`;
-  if (start) return `From ${fmt(start)}`;
-  if (end) return `Until ${fmt(end)}`;
-  return '';
 }
 

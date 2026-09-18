@@ -1,68 +1,494 @@
-/* Printed view of the participant workbook. Triggered by window.print()
-   from the "Print / Download PDF" button. Strips chrome, expands the
-   layout to full width, and prints workbook + answers + the participant's
-   own notes — never trainer notes (deliberate scope).
+/* Printed view of the participant workbook — what "Print / Download PDF"
+   produces. Triggered by window.print(); everything here is @media print, so
+   the workbook on screen is untouched.
 
-   The note-taking UI itself lives in the slide-out drawer (see drawer.css),
-   which is hidden in print. Notes are emitted into the section flow as
-   plain HTML for the print path only. */
+   The screen page is a web app: cards, shadows, rounded input boxes, a rail,
+   live-class banners. Printed as-is it came out as a screenshot spread over
+   A4 — half-empty pages, borders cut off at the page edge, form widgets
+   holding the answers. This sheet re-typesets the same markup as a document:
 
-/* Helper classes used across the participant page to switch elements
-   between screen and print views. */
+     · a cover (WorkbookPrintCover) saying whose workbook it is, then contents
+     · each chapter (Word H1 group) opens a new page; exercises flow beneath it
+     · answers read as written in — ink on a rule, not text in a widget; an
+       empty answer is a blank rule to write on
+     · one table style throughout, rows never split across a page
+     · a running footer with page x of y (WorkbookPrintFooter)
+
+   Prints the participant's own notes and pre-work, and the marks from going
+   over answers with the class (the trainer's answer and how many wrote it).
+   The notes UI lives in the slide-out drawer (drawer.css), hidden here; notes
+   are emitted into the section flow as print-only HTML. */
+
+/* Helper class used across the participant page to switch elements between
+   screen and print views. */
 .print-only { display: none; }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 18mm 15mm 18mm;
+    /* Text for these comes from WorkbookPrintFooter. A hairline gold rule
+       under the header and over the footer; @top-center / @bottom-center
+       carry the rule across the gap between left and right. */
+    @top-left {
+      margin-bottom: 4mm;
+      vertical-align: bottom;
+      padding-bottom: 2.5mm;
+      border-bottom: 0.6pt solid #b5985a;
+    }
+    @top-center { content: ""; margin-bottom: 4mm; vertical-align: bottom; padding-bottom: 2.5mm; border-bottom: 0.6pt solid #b5985a; }
+    @top-right {
+      margin-bottom: 4mm;
+      vertical-align: bottom;
+      padding-bottom: 2.5mm;
+      border-bottom: 0.6pt solid #b5985a;
+      font: 600 7.5pt 'Plus Jakarta Sans', sans-serif;
+      letter-spacing: 0.02em;
+      color: #1e3c5a;
+    }
+    @bottom-left {
+      margin-top: 4mm;
+      vertical-align: top;
+      padding-top: 2.5mm;
+      border-top: 0.6pt solid #b5985a;
+      font: 500 7.5pt 'Plus Jakarta Sans', sans-serif;
+      color: #6b6b6b;
+    }
+    @bottom-center { content: ""; margin-top: 4mm; vertical-align: top; padding-top: 2.5mm; border-top: 0.6pt solid #b5985a; }
+    @bottom-right {
+      margin-top: 4mm;
+      vertical-align: top;
+      padding-top: 2.5mm;
+      border-top: 0.6pt solid #b5985a;
+      font: 700 7.5pt 'Plus Jakarta Sans', sans-serif;
+      color: #1e3c5a;
+    }
+  }
+
+  /* The cover is its own named page, printed edge to edge with no header or
+     footer. Empty strings rather than `none`: an empty margin box is one
+     Chrome's own date/URL header would otherwise fill. */
+  @page wbp-cover {
+    margin: 0;
+    @top-left { content: ""; border: 0; }
+    @top-center { content: ""; border: 0; }
+    @top-right { content: ""; border: 0; }
+    @bottom-left { content: ""; border: 0; }
+    @bottom-center { content: ""; border: 0; }
+    @bottom-right { content: ""; border: 0; }
+  }
+
+  /* ── chrome that means nothing on paper ─────────────────────────────── */
   .topbar,
   .no-print,
   .exresp-sidebar,
   .exresp-mobile-nav,
   .page-hero-actions,
-  .wb-save-indicator {
+  .wb-save-indicator,
+  .wbh,
+  .wb-update-badge,
+  .materials-drawer,
+  .materials-drawer-backdrop,
+  .rv-section-tag.is-live,
+  .rv-apply {
     display: none !important;
   }
 
   .print-only { display: block !important; }
 
-  body, .page, .page.workbook {
+  html, body, .page, .page.workbook {
     background: #fff !important;
-    color: #000 !important;
+    color: #1a1a1a !important;
   }
-  .page { padding: 0 !important; max-width: none !important; }
-  .exresp-layout {
-    display: block !important;
-    grid-template-columns: none !important;
+  body { font-size: 9.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  .exresp-layout { display: block !important; grid-template-columns: none !important; }
+  .exresp-main { padding: 0 !important; max-width: none !important; }
+  .page.workbook .wb-prose { max-width: none; }
+
+  /* ── cover ──────────────────────────────────────────────────────────────
+     A midnight band with the logo and title, then the facts on white. The
+     band's concentric gold arcs are two radial gradients; everything prints
+     with background graphics off because body sets print-color-adjust. */
+  .wbp-cover {
+    page: wbp-cover;
+    break-after: page;
+    height: 297mm;
+    overflow: hidden;
+    display: flex !important;
+    flex-direction: column;
   }
-  .exresp-main {
+  /* One compact band: logo, a gold hairline, the title. */
+  .wbp-cover-band {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 9mm;
+    padding: 11mm 20mm;
+    border-bottom: 2mm solid #b5985a;
+    color: #fff;
+    background: #1e3c5a;
+  }
+  /* Two quarter circles in tones of the band's own blue, bottom right. Real
+     boxes rather than hard-stop radial gradients, which some PDF renderers
+     and printers draw in the wrong colour. */
+  .wbp-cover-arc { position: absolute; border-radius: 50%; display: block; }
+  .wbp-cover-arc.is-outer { width: 110mm; height: 110mm; right: -46mm; bottom: -78mm; background: #244a70; }
+  .wbp-cover-arc.is-inner { width: 70mm; height: 70mm; right: -26mm; bottom: -58mm; background: #2b5580; }
+  .wbp-cover-logo { position: relative; flex: none; display: block; width: 34mm; height: auto; }
+  .wbp-cover-heading {
+    position: relative;
+    padding-left: 9mm;
+    border-left: 0.8pt solid rgba(181, 152, 90, 0.7);
+  }
+  .wbp-cover-title {
+    margin: 0;
+    font-size: 20pt;
+    line-height: 1.18;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #fff;
+  }
+  .wbp-cover-desc { margin: 2mm 0 0; font-size: 9.5pt; line-height: 1.45; color: rgba(255, 255, 255, 0.78); }
+
+  .wbp-cover-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 11mm 20mm 11mm;
+  }
+  .wbp-cover-for span {
+    display: block;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8b7342;
+  }
+  .wbp-cover-for strong { display: block; margin-top: 1.5mm; font-size: 22pt; line-height: 1.15; font-weight: 700; color: #1e3c5a; }
+
+  .wbp-cover-facts {
+    margin: 8mm 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    border-top: 0.6pt solid #e2dccf;
+    border-bottom: 0.6pt solid #e2dccf;
+  }
+  .wbp-cover-facts div { padding: 3.5mm 4mm; border-left: 0.6pt solid #e2dccf; }
+  .wbp-cover-facts div:first-child { padding-left: 0; border-left: 0; }
+  .wbp-cover-facts dt {
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #8a8a8a;
+  }
+  .wbp-cover-facts dd { margin: 1.2mm 0 0; font-size: 10pt; line-height: 1.3; font-weight: 600; color: #1a1a1a; }
+
+  .wbp-cover-stats {
+    margin: 8mm 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4mm;
+  }
+  .wbp-cover-stat {
+    flex: 1 1 0;
+    padding: 4mm 5mm;
+    background: #f7f3ea;
+    border-top: 1.2pt solid #b5985a;
+  }
+  .wbp-cover-stat b { display: block; font-size: 20pt; line-height: 1.1; font-weight: 700; color: #1e3c5a; }
+  .wbp-cover-stat span { display: block; margin-top: 1mm; font-size: 8pt; color: #6b6b6b; }
+  .wbp-cover-meter { flex: 1 0 100%; height: 1.6mm; background: #ebe4d4; }
+  .wbp-cover-meter i { display: block; height: 100%; background: #b5985a; }
+
+  .wbp-contents { margin: 9mm 0 0; }
+  .wbp-contents-cap {
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8b7342;
+    margin-bottom: 2.5mm;
+  }
+  .wbp-contents ol { list-style: none; margin: 0; padding: 0; counter-reset: wbp-ch; columns: 2; column-gap: 10mm; }
+  .wbp-contents li {
+    counter-increment: wbp-ch;
+    break-inside: avoid;
+    display: flex;
+    align-items: baseline;
+    gap: 3mm;
+    padding: 1.5mm 0;
+    border-bottom: 0.5pt solid #eee8dc;
+    font-size: 9pt;
+  }
+  .wbp-contents li::before {
+    content: counter(wbp-ch, decimal-leading-zero);
+    font-weight: 700;
+    font-size: 8pt;
+    color: #b5985a;
+    min-width: 5mm;
+  }
+  .wbp-contents-title { flex: 1; font-weight: 600; color: #1a1a1a; }
+  .wbp-contents-n { font-size: 7.5pt; color: #8a8a8a; white-space: nowrap; }
+  .wbp-cover-foot {
+    margin-top: auto;
+    padding-top: 3mm;
+    border-top: 0.6pt solid #e2dccf;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #8a8a8a;
+  }
+
+  /* ── sections: no cards, just typeset flow ──────────────────────────── */
+  .workbook .wb-section,
+  .workbook .wb-section.wb-section-group {
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     padding: 0 !important;
-    max-width: none !important;
+    margin: 0 0 9mm !important;
+    animation: none !important;
   }
-  .wb-section {
-    page-break-inside: avoid;
-    margin-bottom: 1.25rem;
+  .workbook .wb-block { background: none !important; border-radius: 0; }
+
+  /* A chapter opens a page, with its title set like one. Numbered by the same
+     counter as the cover's contents so the two agree. */
+  .exresp-main { counter-reset: wbp-ch; }
+  .workbook .wb-section.wb-section-group {
+    counter-increment: wbp-ch;
+    break-before: page;
+    margin-bottom: 7mm !important;
+  }
+  .workbook .wb-section-group-title {
+    font-size: 19pt;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #1e3c5a;
+    padding-bottom: 3mm !important;
+    border-bottom: 2pt solid #b5985a !important;
+  }
+  .workbook .wb-section-group-title::before {
+    content: 'Chapter ' counter(wbp-ch);
+    display: block;
+    margin-bottom: 1.5mm;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #8b7342;
+  }
+  .workbook .wb-section-group .wb-prose { font-size: 9.5pt; color: #444; }
+
+  /* An exercise heading never sits alone at the foot of a page. */
+  .workbook .wb-section h2 {
+    break-after: avoid;
+    display: flex;
+    align-items: baseline;
+    gap: 3mm;
+    margin: 0 0 3.5mm;
+    padding: 0 0 2mm;
+    border-bottom: 1pt solid #b5985a;
+    font-size: 13pt;
+    color: #1e3c5a;
+  }
+  .workbook .wb-section-done { font-size: 10pt; color: #8b7342; margin-left: 0; }
+  .workbook .rv-section-tag {
+    margin-left: auto;
+    padding: 0;
+    background: none;
+    font-size: 7.5pt;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #8b7342;
   }
 
-  .print-header { margin-bottom: 1rem; border-bottom: 1px solid #999; padding-bottom: 0.5rem; }
-  .print-header h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
-  .print-header p { margin: 0; color: #555; font-size: 0.9rem; }
+  /* ── reading text ───────────────────────────────────────────────────── */
+  .workbook .wb-prose { margin: 2.5mm 0; font-size: 9.5pt; line-height: 1.5; color: #1a1a1a; }
+  .workbook .wb-prose p { margin: 1.2mm 0; orphans: 2; widows: 2; }
+  .workbook .wb-prose h3, .workbook .wb-prose h4 { break-after: avoid; }
+  .workbook .wb-prose ol, .workbook .wb-prose ul { margin: 1.5mm 0; padding-left: 6mm; }
+  /* A bold line on its own is a sub-heading in these Word books ("Pricing",
+     "Manage Payment"); keep it with the table under it. */
+  .workbook .wb-prose p:only-child:has(> strong:only-child),
+  .workbook .wb-prose ol:only-child {
+    break-after: avoid;
+    margin-top: 4mm;
+    color: #1e3c5a;
+  }
+  /* The Word importer brings each numbered item in as its own one-item list,
+     so every one reads "1.". Those items are sub-headings; print them as such
+     rather than with a number that is wrong. */
+  .workbook .wb-prose ol:only-child:has(> li:only-child) { list-style: none; padding-left: 0; }
+  .workbook .wb-block:has(> .wb-prose > p:only-child > strong:only-child),
+  .workbook .wb-block:has(> .wb-prose > ol:only-child) { break-after: avoid; }
+  .workbook .wb-prose pre {
+    margin: 2mm 0;
+    padding: 2.5mm 3.5mm;
+    border-left: 2pt solid #d8d2c4;
+    background: #faf8f4;
+    font-size: 7.5pt;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
 
+  .participant-prep-callout {
+    break-inside: avoid;
+    margin: 0 0 3mm;
+    padding: 2mm 3.5mm;
+    border-left: 2pt solid #8a5fb8;
+    border-radius: 0;
+    background: #f7f2fa;
+    font-size: 9.5pt;
+  }
+  .participant-prep-callout-label { font-size: 7pt; }
+
+  /* ── tables ─────────────────────────────────────────────────────────── */
+  .workbook .wb-table-wrap { margin: 2.5mm 0; overflow: visible; }
+  .workbook .wb-table-caption { font-size: 9pt; color: #1e3c5a; break-after: avoid; }
+  .workbook .wb-table { font-size: 8.5pt; line-height: 1.35; border-collapse: collapse; }
+  .workbook .wb-table thead { display: table-header-group; }
+  .workbook .wb-table tr { break-inside: avoid; }
+  .workbook .wb-table th,
+  .workbook .wb-table td {
+    border: 0.5pt solid #cfd5dd;
+    padding: 1.4mm 2.2mm;
+    vertical-align: top;
+  }
+  .workbook .wb-table th {
+    background: #eef1f5;
+    color: #1e3c5a;
+    font-weight: 700;
+  }
+  .workbook .wb-cell-static { color: #1a1a1a; }
+
+  /* ── answers: ink on a rule, not text in a widget ───────────────────── */
+  .workbook .wb-cell-input { padding: 1.2mm 2.2mm; background: #fdfaf2; }
+  .workbook .wb-cell-input input,
+  .workbook .wb-cell-input textarea,
+  .workbook input.wb-mixed-box,
+  .workbook .wb-input,
+  .workbook .wb-textarea {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    border-bottom: 0.75pt solid #b9ae95;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.4mm 0.5mm;
+    min-height: 5.2mm;
+    font-size: 9pt;
+    font-weight: 600;
+    color: #1e3c5a;
+    resize: none;
+    box-shadow: none;
+  }
+  .workbook .wb-cell-input textarea,
+  .workbook .wb-textarea {
+    /* Ruled lines to write on, whether or not anything was typed. The rules
+       are a background, so with background graphics off only the bottom
+       border is left — still a place to write, never a blank void. */
+    border: 0;
+    border-bottom: 0.75pt solid #b9ae95;
+    line-height: 6mm;
+    background-image: repeating-linear-gradient(transparent 0, transparent calc(6mm - 0.75pt), #b9ae95 calc(6mm - 0.75pt), #b9ae95 6mm);
+    min-height: 18mm;
+    height: auto;
+    field-sizing: content;
+  }
+  .workbook input.wb-mixed-box { width: 32mm; }
+  .workbook .wb-mixed { line-height: 1.9; }
+  .workbook td.rv-cell-diff { background: #fbf3e2; }
+
+  .workbook .wb-field { margin: 2.5mm 0; break-inside: avoid; }
+  .workbook .wb-label { font-size: 8.5pt; font-weight: 600; color: #444; margin-bottom: 1mm; }
+
+  /* Choices: every option shown, the chosen one filled in. */
+  .workbook .wb-fieldset {
+    break-inside: avoid;
+    border: 0;
+    border-left: 2pt solid #e5e2dc;
+    border-radius: 0;
+    padding: 0.5mm 0 0.5mm 3.5mm;
+  }
+  .workbook .wb-fieldset legend {
+    padding: 0;
+    margin-bottom: 1.2mm;
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: #444;
+  }
+  .workbook .wb-choice { display: inline-flex; margin-right: 7mm; padding: 0.6mm 0; font-size: 9pt; gap: 1.8mm; }
+  .workbook .wb-choice input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 3.4mm;
+    height: 3.4mm;
+    margin: 0;
+    border: 0.75pt solid #8a8a8a;
+    background: #fff;
+    flex: none;
+    position: relative;
+    top: 0.5mm;
+  }
+  .workbook .wb-choice input[type=radio] { border-radius: 50%; }
+  .workbook .wb-choice input[type=checkbox] { border-radius: 0.6mm; }
+  /* The chosen mark is drawn with BORDER, not background: Chrome's print
+     dialog has "Background graphics" off by default, and a background-drawn
+     dot would vanish — leaving no way to tell which option was picked. */
+  .workbook .wb-choice input:checked { border: 1.1mm solid #1e3c5a; }
+  .workbook .wb-choice input[type=checkbox]:checked { border-width: 1.7mm; }
+  .workbook .wb-choice input:checked + span { font-weight: 700; color: #1e3c5a; }
+
+  /* ── marks from going over answers with the class ───────────────────── */
+  /* The tick sits at the end of the answer's rule, not on a line of its own
+     above it (on screen it floats right of a full-width input, which wraps). */
+  .workbook td.wb-cell-input { position: relative; }
+  .workbook td.wb-cell-input > .rv-mark.rv-right {
+    float: none;
+    position: absolute;
+    right: 2.4mm;
+    top: 1.3mm;
+    margin: 0;
+  }
+  .workbook td.wb-cell-input:has(> .rv-mark.rv-right) input { padding-right: 4mm; }
+  .workbook .rv-mark.rv-right { color: #2f7a52; font-size: 8.5pt; }
+  .workbook .rv-field-right { font-size: 7.5pt; margin-top: 0.8mm; }
+  .workbook .rv-hint { margin-top: 0.8mm; font-size: 7pt; line-height: 1.3; color: #6c5a33; gap: 0.5mm; }
+  .workbook .rv-answer { color: #6c5a33; font-size: 7.5pt; }
+  .workbook .rv-chip {
+    display: inline !important;
+    border: 0;
+    padding: 0;
+    background: none;
+    font-size: 7.5pt;
+    color: #6c5a33;
+  }
+
+  /* ── the participant's own notes ─────────────────────────────────────── */
   .participant-note-row {
-    border-top: 1px dashed #bbb;
-    padding-top: 0.5rem;
-    margin-top: 0.5rem;
+    break-inside: avoid;
+    margin-top: 3mm;
+    padding: 2mm 3.5mm;
+    border-left: 2pt solid #b5985a;
+    background: #fbf7ee;
   }
   .participant-note-label {
-    font-size: 0.8rem;
-    color: #555;
+    font-size: 7pt;
+    font-weight: 700;
+    color: #8b7342;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 1mm;
   }
-  .participant-note-print {
-    font-size: 0.95rem;
-    color: #000;
-  }
-  .participant-note-print p { margin: 0 0 0.4rem; }
-  .participant-note-print ul { margin: 0 0 0.4rem 1.25rem; padding: 0; }
+  .participant-note-print { font-size: 9pt; color: #1a1a1a; }
+  .participant-note-print p { margin: 0 0 1mm; }
+  .participant-note-print ul { margin: 0 0 1mm 5mm; padding: 0; }
   .participant-note-print strong { font-weight: 700; }
   .participant-note-print em { font-style: italic; }
 }
