@@ -58,6 +58,15 @@
 .wbh-continue:hover { background: var(--midnight-hover); }
 .wbh-continue:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .wbh-hint { font-size: 0.78rem; color: var(--muted); }
+/* Beside the exercise rail, Continue duplicated the rail's "Next unanswered"
+   — same place, same words — and the rail's is the one still in reach once
+   the page scrolls (it is sticky; this header is not). So the header keeps
+   only "you last saved…" there. Below 801px the rail is hidden (dashboard.css,
+   .exresp-sidebar) and Continue is the only way back to where they stopped,
+   so it stays. The breakpoint must match the rail's. */
+@media (min-width: 801px) {
+  .wbh-continue { display: none; }
+}
 .wbh-done { font-size: 0.9rem; font-weight: 600; color: #2f8a4c; }
 
 /* The block Continue landed on — a brief gold wash so the eye finds it. */
