@@ -1,5 +1,4 @@
 import { sessionDay } from '../../lib/sessionPace.js';
-import { whenStopped } from '../../lib/workbookResume.js';
 import '../../styles/workbook-header.css';
 
 const R = 16;
@@ -7,7 +6,12 @@ const CIRC = 2 * Math.PI * R;
 
 // The top of a participant's workbook: how far through the whole book they are,
 // which day of the course it is, and one button back to where they stopped.
-export default function WorkbookHeader({ workbook, session, progress, resume, onContinue }) {
+//
+// `aside` fills the right-hand side with whatever the class is doing right now
+// (the trainer going over an exercise) — it used to be a full-width bar of its
+// own under the actions bar. When they last saved lives in the actions bar,
+// beside the live save status, not here.
+export default function WorkbookHeader({ workbook, session, progress, resume, onContinue, aside = null }) {
   const pct = progress.total ? Math.round((progress.filled / progress.total) * 100) : 0;
   const day = sessionDay(session?.starts_at, session?.ends_at);
   const trainer = session?.trainer?.full_name;
@@ -53,21 +57,17 @@ export default function WorkbookHeader({ workbook, session, progress, resume, on
         {workbook.description && <p className="wbh-desc">{workbook.description}</p>}
       </div>
 
-      {progress.total > 0 && (
+      {(aside || progress.total > 0) && (
         <div className="wbh-go no-print">
-          {allDone ? (
+          {aside}
+          {progress.total > 0 && (allDone ? (
             <span className="wbh-done">Every question answered</span>
           ) : (
-            <>
-              <button type="button" className="wbh-continue" onClick={onContinue}>
-                {resume.started ? 'Continue' : 'Start'} · {resume.sectionTitle}
-                {resume.questionCount > 1 && `, question ${resume.questionNo}`} →
-              </button>
-              {resume.started && resume.lastAt && (
-                <span className="wbh-hint">you last saved an answer {whenStopped(resume.lastAt)}</span>
-              )}
-            </>
-          )}
+            <button type="button" className="wbh-continue" onClick={onContinue}>
+              {resume.started ? 'Continue' : 'Start'} · {resume.sectionTitle}
+              {resume.questionCount > 1 && `, question ${resume.questionNo}`} →
+            </button>
+          ))}
         </div>
       )}
     </section>

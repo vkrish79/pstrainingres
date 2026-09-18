@@ -15,7 +15,7 @@ import { useActivePoll } from '../hooks/useActivePoll.js';
 import { useSessionReviews, useMyReviewMarks } from '../hooks/useAnswerReview.js';
 import { marksForBlock } from '../components/blocks/ReviewMark.jsx';
 import { progressOf } from '../lib/blockHelpers.js';
-import { resumePoint } from '../lib/workbookResume.js';
+import { resumePoint, whenStopped } from '../lib/workbookResume.js';
 import WorkbookHeader from '../components/participant/WorkbookHeader.jsx';
 import WorkbookPrintCover, { WorkbookPrintFooter } from '../components/participant/WorkbookPrintCover.jsx';
 import AssessmentChip from '../components/participant/AssessmentChip.jsx';
@@ -355,6 +355,12 @@ export default function ParticipantWorkbookPage() {
     () => resumePoint(sections, blocks, answers, savedAt),
     [sections, blocks, answers, savedAt],
   );
+  // The newest answer save, loaded or made this visit — for "Last saved …".
+  const lastSavedAt = useMemo(() => {
+    let latest = null;
+    for (const ts of Object.values(savedAt)) if (ts && (!latest || ts > latest)) latest = ts;
+    return latest;
+  }, [savedAt]);
 
   // Continue: show the exercise, bring the question into view, and put the
   // cursor in its first empty box. In the one-exercise view it switches to the
@@ -627,14 +633,32 @@ export default function ParticipantWorkbookPage() {
           progress={overallProgress}
           resume={resume}
           onContinue={continueWorkbook}
+          aside={liveReviewSectionId && (
+            // The trainer going over an exercise, in the header's empty right
+            // side rather than a full-width bar of its own under the actions.
+            <div className="wbh-live rv-banner" role="status">
+              <span className="wbh-live-text">
+                🗣 Your trainer is going over <strong>{sections.find(s => s.id === liveReviewSectionId)?.title || 'an exercise'}</strong> with the class
+              </span>
+              {selectedSectionId !== liveReviewSectionId && (
+                <button type="button" className="spotlight-jump" onClick={() => setSelectedSectionId(liveReviewSectionId)}>
+                  Show my answers
+                </button>
+              )}
+            </div>
+          )}
         />
 
         <div className="participant-actions-bar no-print" ref={actionsBarRef}>
-          {overallStatus && (
+          {/* One spot for "is my work safe": the live status while a save is in
+              flight or has failed, otherwise when they last saved. */}
+          {overallStatus === 'saving' || overallStatus === 'error' ? (
             <span className={`wb-save-indicator ${overallStatus}`}>
-              {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed' : '✓ All changes saved'}
+              {overallStatus === 'saving' ? 'Saving…' : 'Save failed'}
             </span>
-          )}
+          ) : lastSavedAt ? (
+            <span className="wb-save-indicator saved">✓ Last saved {whenStopped(lastSavedAt)}</span>
+          ) : null}
           {/* The things you read sit together as one group; the assessment says
               its state; asking for help is the one strong button; printing is
               occasional, so it lives behind ⋯. */}
@@ -718,20 +742,6 @@ export default function ParticipantWorkbookPage() {
           </div>
         )}
 
-        {liveReviewSectionId && (
-          <div className="spotlight-banner rv-banner" role="status">
-            <span className="spotlight-banner-text">
-              🗣 Your trainer is going over <strong>{sections.find(s => s.id === liveReviewSectionId)?.title || 'an exercise'}</strong> with the class
-            </span>
-            <div className="spotlight-banner-actions">
-              {selectedSectionId !== liveReviewSectionId && (
-                <button type="button" className="spotlight-jump" onClick={() => setSelectedSectionId(liveReviewSectionId)}>
-                  Show my answers
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {showSpotlight && (
           <div className="spotlight-banner" role="status">

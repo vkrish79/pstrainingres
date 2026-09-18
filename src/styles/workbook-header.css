@@ -57,7 +57,24 @@
 }
 .wbh-continue:hover { background: var(--midnight-hover); }
 .wbh-continue:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
-.wbh-hint { font-size: 0.78rem; color: var(--muted); }
+/* "Your trainer is going over Exercise 3" — the header's right side, in the
+   same warm tint the full-width banner had. Wraps under the title on a narrow
+   header rather than squeezing it. */
+.wbh-live {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 34rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.85rem;
+  background: #fff4e0;
+  border: 1px solid #b5985a;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: #6f4800;
+}
+.wbh-live-text strong { color: #6f4800; }
+.wbh-live .spotlight-jump { flex-shrink: 0; white-space: nowrap; }
 /* Beside the exercise rail, Continue duplicated the rail's "Next unanswered"
    — same place, same words — and the rail's is the one still in reach once
    the page scrolls (it is sticky; this header is not). So the header keeps
