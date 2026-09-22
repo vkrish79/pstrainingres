@@ -538,6 +538,11 @@ Deno.serve(async (req: Request) => {
       (aMarksByP[m.participant_id] ||= {})[m.assessment_block_id] = {
         awarded: m.awarded,
         comment: m.comment ?? null,
+        // What each criterion was awarded and why, on questions marked against
+        // a scorecard. Without it the report can still print the question's
+        // total but never which criterion lost the marks — and `awarded` alone
+        // cannot say whether the marking was even finished.
+        breakdown: m.breakdown ?? null,
         marked_by_name: m.marked_by_name ?? null,
         marked_at: m.marked_at ?? null,
       };
@@ -547,6 +552,15 @@ Deno.serve(async (req: Request) => {
     // of the assessment is not permanent — the retention job removes it. A
     // failed read here costs only the report, never the close.
     let structure: any = null;
+    // A note on the criteria read below, because it looks like it has a hole.
+    //
+    // Marking criteria are LATE-BOUND: until a session starts, its questions are
+    // marked against the programme's criteria rather than a copy of them, and
+    // k.guidance here is the copy. So a session closed without ever starting
+    // snapshots no criteria at all — which is harmless, because the two triggers
+    // that take that copy fire on the first answer and the first mark. A session
+    // with anything to report on has therefore always been frozen already, and
+    // one that hasn't has no marks for the criteria to explain.
     try {
       const { data: aSecs, error: sErr } = await admin
         .from('assessment_sections').select('*')
@@ -566,7 +580,14 @@ Deno.serve(async (req: Request) => {
       if (kErr) throw kErr;
       const keys: Record<string, any> = {};
       for (const k of aKeys || []) {
-        keys[k.assessment_block_id] = { key: k.key, points: k.points ?? null, marking_mode: k.marking_mode || 'auto' };
+        keys[k.assessment_block_id] = {
+          key: k.key,
+          points: k.points ?? null,
+          marking_mode: k.marking_mode || 'auto',
+          // The scorecard this question was marked against, so a closed
+          // session's report reproduces exactly what the marker saw.
+          guidance: k.guidance ?? null,
+        };
       }
       // block_type, NOT the workbook snapshot's `type` alias — the report's
       // helpers read block_type, and the alias has already bitten once.

@@ -4,6 +4,10 @@ import { useAssessmentAnswerKeys } from '../../hooks/useAssessmentAnswerKeys.js'
 import { isScorableBlock, isManuallyMarkable, isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
+import { hasCriteria } from '../../lib/markingCriteria.js';
+import MarkingCriteriaEditor from './MarkingCriteriaEditor.jsx';
+import CriteriaPushModal from './CriteriaPushModal.jsx';
+import { useCriteriaPush } from '../../hooks/useCriteriaPush.js';
 
 // Answer-key entry for an assessment template. Lists every auto-scorable
 // question (single-choice, multi-select, short text, table cells) with a
@@ -16,8 +20,25 @@ import { buildQuestions } from '../../lib/assessmentStructure.js';
 // are left out and the panel says how many and why.
 export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCount = 0 }) {
   const blockIds = useMemo(() => blocks.map(b => b.id), [blocks]);
-  const { keys, points, modes, setKey, setPoints, setMode, clearKey, error } = useAssessmentAnswerKeys(blockIds);
+  const { keys, points, modes, guidance, setKey, setPoints, setMode, setGuidance, clearKey, error } =
+    useAssessmentAnswerKeys(blockIds);
   const [open, setOpen] = useState(false);
+
+  // Offering the push is held back until the scorecard has ACTUALLY been
+  // changed in this sitting. Saves are debounced per keystroke, so a dialog
+  // that appeared on every write would appear while someone was still typing a
+  // criterion's name.
+  const [touched, setTouched] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
+  const assessmentId = sections?.[0]?.assessment_id || null;
+  // Returns nothing for anyone below super trainer — the function refuses them,
+  // so the offer simply never appears.
+  const { eligible, blocked, pushing, push } = useCriteriaPush(assessmentId, touched);
+
+  function handleGuidance(blockId, g) {
+    setTouched(true);
+    setGuidance(blockId, g);
+  }
 
   // Grouped by question, so the key rows sit under the same headings and
   // letters the editor and the paper show.
@@ -51,7 +72,7 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
     return (
       <section className="editor-card answer-key-panel">
         <div className="answer-key-head">
-          <h2>🎯 Marking</h2>
+          <h2>🎯 Scorecard</h2>
           <span className="muted">No answerable questions yet — add one and it will appear here to be marked.</span>
         </div>
       </section>
@@ -62,7 +83,7 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
     <section className="editor-card answer-key-panel">
       <button type="button" className="answer-key-head answer-key-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <span className="answer-key-chevron" aria-hidden>{open ? '▾' : '▸'}</span>
-        <h2>🎯 Marking</h2>
+        <h2>🎯 Scorecard</h2>
         <span className={`answer-key-count ${setUpCount === markable.length ? 'full' : setUpCount === 0 ? 'none' : 'partial'}`}>
           {setUpCount}/{markable.length} set up
         </span>
@@ -78,6 +99,33 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
         <p className="answer-key-error" role="alert">
           ⚠️ Answer keys aren’t saving — changes won’t persist. {error}
         </p>
+      )}
+
+      {/* Sessions that haven't started take a scorecard change on their own.
+          These are the ones already running, where sending it is a decision
+          somebody has to make. */}
+      {touched && (eligible.length > 0 || blocked.length > 0) && (
+        <div className="cp-bar">
+          <span className="cp-bar-what">
+            You changed the scorecard.{' '}
+            {eligible.length > 0
+              ? `${eligible.length} running session${eligible.length === 1 ? '' : 's'} can still take it.`
+              : `${blocked.length} running session${blocked.length === 1 ? ' has' : 's have'} started marking and can’t take it.`}
+          </span>
+          <button type="button" className="ghost" onClick={() => setPushOpen(true)}>
+            Review sessions
+          </button>
+        </div>
+      )}
+
+      {pushOpen && (
+        <CriteriaPushModal
+          eligible={eligible}
+          blocked={blocked}
+          pushing={pushing}
+          onPush={push}
+          onClose={() => setPushOpen(false)}
+        />
       )}
 
       {open && (
@@ -112,9 +160,11 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
                     points={points[b.id]}
                     mode={isManual(b.id) ? 'manual' : 'auto'}
                     canAuto={isScorableBlock(b)}
+                    guidance={guidance[b.id]}
                     onChange={k => setKey(b.id, k)}
                     onPoints={p => setPoints(b.id, p)}
                     onMode={m => setMode(b.id, m)}
+                    onGuidance={g => handleGuidance(b.id, g)}
                     onClear={() => clearKey(b.id)}
                   />
                 ))}
@@ -127,10 +177,15 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
   );
 }
 
-function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel = null, onChange, onPoints, onMode, onClear }) {
+function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel = null, guidance = null, onChange, onPoints, onMode, onGuidance, onClear }) {
   const label = labelOf(block);
   const manual = mode === 'manual';
   const hasKey = value != null;
+  // Once a question has criteria, its marks ARE their sum. The box still shows
+  // the figure — it is the number the instructor marks against — but it stops
+  // being editable, because editing it would put the question's total and its
+  // own criteria into disagreement with no way to tell which was meant.
+  const marksFromCriteria = manual && hasCriteria(guidance);
   // A question carries marks once it will actually be marked — keyed, or set to
   // by-hand. That is the rule the total in the header uses too.
   const willBeMarked = manual || hasKey;
@@ -184,14 +239,20 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
         )}
 
         {willBeMarked && (
-          <label className="answer-key-points" title="What this question is worth">
+          <label
+            className={`answer-key-points ${marksFromCriteria ? 'is-derived' : ''}`}
+            title={marksFromCriteria
+              ? 'Adds up from the criteria below'
+              : 'What this question is worth'}
+          >
             <input
               type="number"
               min="0.5"
               step="0.5"
               className="form-input"
               value={points ?? 1}
-              onChange={e => onPoints(e.target.value)}
+              readOnly={marksFromCriteria}
+              onChange={e => { if (!marksFromCriteria) onPoints(e.target.value); }}
             />
             <span>mark{Number(points ?? 1) === 1 ? '' : 's'}</span>
           </label>
@@ -203,11 +264,19 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
 
       <div className="answer-key-control">
         {manual ? (
-          <p className="mark-manual-note">
-            No correct answer is stored — you award up to {points ?? 1} mark
-            {Number(points ?? 1) === 1 ? '' : 's'} yourself, on the session's{' '}
-            <strong>📝 Assessment → Live responses</strong> view.
-          </p>
+          <div className="mark-manual-wrap">
+            {/* Once a question has criteria this sentence is both redundant and
+                wrong — the marks are awarded criterion by criterion, not as one
+                figure — so it gives way to the criteria themselves. */}
+            {!marksFromCriteria && (
+              <p className="mark-manual-note">
+                Marked by hand, up to {points ?? 1} mark
+                {Number(points ?? 1) === 1 ? '' : 's'}, on{' '}
+                <strong>📝 Assessment → Live responses</strong>.
+              </p>
+            )}
+            <MarkingCriteriaEditor guidance={guidance} onChange={onGuidance} />
+          </div>
         ) : canAuto ? (
           <KeyControl block={block} value={value} onChange={onChange} />
         ) : (

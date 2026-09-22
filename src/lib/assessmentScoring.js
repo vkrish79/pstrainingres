@@ -179,10 +179,27 @@ export function isManualQuestion(blockId, modeByBlockId) {
 // Returns { state, earned, possible } — state is 'unmarked' until a trainer has
 // judged it. Unmarked is NOT zero: a paper nobody has finished marking must
 // read as unfinished, not as a fail.
-export function manualResultFor(blockId, points, marksForP) {
+//
+// `guidance` is the question's marking criteria, when it has any. With criteria
+// a question is only judged once EVERY criterion has a verdict, and a marker
+// who has done six of nine has a question that is neither unmarked nor marked.
+// The row in assessment_marks carries the running total — awarded is NOT NULL,
+// so a part-finished breakdown has to be stored against something — which means
+// the incompleteness has to be read from the breakdown, not from the absence of
+// a row. Every screen that shows a score goes through here, so checking it in
+// one place keeps them all agreeing.
+export function manualResultFor(blockId, points, marksForP, guidance = null) {
   const rec = marksForP?.[blockId];
   if (!rec || rec.awarded == null) {
     return { state: 'unmarked', earned: 0, possible: points };
+  }
+  const criteria = guidance?.criteria;
+  if (criteria && criteria.length) {
+    const marks = rec.breakdown?.marks || {};
+    const done = criteria.filter(c => marks[c.id] && marks[c.id].awarded != null).length;
+    if (done < criteria.length) {
+      return { state: 'unmarked', earned: 0, possible: points, partial: true, done, of: criteria.length };
+    }
   }
   const awarded = Math.min(points, Math.max(0, Number(rec.awarded) || 0));
   return {
@@ -207,9 +224,12 @@ export function manualResultFor(blockId, points, marksForP) {
 //   unmarked — manual questions still awaiting a trainer's judgement. A caller
 //   showing a percentage while this is non-zero is showing an interim figure
 //   and should say so.
+// guidanceByBlockId — marking criteria, where a question has them. A manual
+// question whose criteria are only part-judged counts as unmarked here, which
+// is what stops a half-marked paper reporting as a low score.
 export function scoreBlocks(
   blocks, keyByBlockId, answersForP, pointsByBlockId = null,
-  modeByBlockId = null, marksForP = null,
+  modeByBlockId = null, marksForP = null, guidanceByBlockId = null,
 ) {
   let earned = 0;
   let possible = 0;
@@ -225,7 +245,7 @@ export function scoreBlocks(
 
     if (isManualQuestion(b.id, modeByBlockId)) {
       if (!isManuallyMarkable(b)) continue;
-      const r = manualResultFor(b.id, points, marksForP);
+      const r = manualResultFor(b.id, points, marksForP, guidanceByBlockId?.[b.id] || null);
       possible += points;
       earned += r.earned;
       if (r.state === 'unmarked') unmarked += 1; else marked += 1;

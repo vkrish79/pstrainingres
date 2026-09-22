@@ -26,6 +26,7 @@
 import { earnedFor, manualResultFor, pointsFor, scoreBlocks, isInactiveBlock } from './assessmentScoring.js';
 import { buildQuestions } from './assessmentStructure.js';
 import { labelOf, isFillableBlock } from './blockHelpers.js';
+import { areasOfError } from './markingCriteria.js';
 
 // The sentinel domain the enrolment function synthesizes usernames into —
 // `${username}@${join_code}.pstrainingres.local`. It is not a real address and
@@ -70,6 +71,7 @@ export function answerTextOf(block, value) {
 //   unmarked — manual questions still awaiting judgement, in paper order
 export function buildParticipantReport({
   participant, blocks, answers, answerKey, answerPoints, answerModes, marksForP, labelByBlockId,
+  guidance = null,
 }) {
   const answersForP = answers?.[participant.id] || {};
   const marks = marksForP || {};
@@ -86,12 +88,24 @@ export function buildParticipantReport({
 
     // Exactly the reasoning BlockAnswer uses, so a row here and a row there
     // never disagree.
+    const blockGuidance = isManual ? (guidance?.[block.id] || null) : null;
+
     const result = isManual
-      ? manualResultFor(block.id, points, marks)
+      ? manualResultFor(block.id, points, marks, blockGuidance)
       : key != null
         ? earnedFor(block, key, value, points)
         : null;
     if (!result) continue; // unmarked question type — not scored, so not an error
+
+    // A question marked criterion by criterion reports the criteria that fell
+    // short, in the order they are written on the scorecard. That IS the
+    // question's comment: the reasons were written against individual criteria
+    // while marking, and gathering them here is what turns them into one
+    // explanation the participant can read. Criteria that earned full marks are
+    // left out — any note on those was for the next instructor, not a fault.
+    const criteria = blockGuidance
+      ? areasOfError(blockGuidance, marks[block.id]?.breakdown)
+      : [];
 
     const row = {
       blockId: block.id,
@@ -101,7 +115,10 @@ export function buildParticipantReport({
       earned: Math.round((result.earned || 0) * 10) / 10,
       possible: points,
       manual: isManual,
-      comment: marks[block.id]?.comment || '',
+      criteria,
+      // A criteria question has no question-level comment box, so there is
+      // nothing to print from it; the criteria above carry the reasons.
+      comment: criteria.length ? '' : (marks[block.id]?.comment || ''),
       markedBy: marks[block.id]?.marked_by_name || '',
       answerText: answerTextOf(block, value),
     };
@@ -113,7 +130,7 @@ export function buildParticipantReport({
   return {
     participant,
     username: usernameOf(participant),
-    score: scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marks),
+    score: scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marks, guidance),
     errors,
     unmarked,
   };
@@ -122,6 +139,7 @@ export function buildParticipantReport({
 // The whole cohort, in the same name order the roster uses everywhere else.
 export function buildCohortReport({
   participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
+  guidance = null,
 }) {
   // Withdrawn questions are out of the paper entirely — filter before labels
   // are built, so numbering matches the paper the participants actually sat.
@@ -145,6 +163,7 @@ export function buildCohortReport({
       answerModes,
       marksForP: marks?.[p.id] || {},
       labelByBlockId,
+      guidance,
     }))
     .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
 

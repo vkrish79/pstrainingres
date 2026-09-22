@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { criteriaTotal, hasCriteria, normaliseGuidance } from '../lib/markingCriteria.js';
 
 // How long to wait after the last keystroke before writing a key, and how long
 // to let a single write run before we treat it as failed.
@@ -30,6 +31,7 @@ export function useAssessmentAnswerKeys(blockIds) {
   const [keys, setKeys] = useState({});       // { [blockId]: key }
   const [pointsMap, setPointsMap] = useState({}); // { [blockId]: number } — what each question is worth
   const [modes, setModes] = useState({});         // { [blockId]: 'auto' | 'manual' }
+  const [guidanceMap, setGuidanceMap] = useState({}); // { [blockId]: { criteria: [...] } }
   const [error, setError] = useState(null); // surfaced to the editor so a failed
   // load/save isn't silent (e.g. the table missing, or a write that hangs).
   const idsKey = (blockIds || []).join(',');
@@ -44,15 +46,19 @@ export function useAssessmentAnswerKeys(blockIds) {
     (async () => {
       const { data, error: loadErr } = await supabase
         .from('assessment_answer_keys')
-        .select('assessment_block_id, key, points, marking_mode')
+        .select('assessment_block_id, key, points, marking_mode, guidance')
         .in('assessment_block_id', ids);
       if (cancelled) return;
       if (loadErr) { setError(loadErr.message || String(loadErr)); return; }
       const m = {};
       const p = {};
       const md = {};
+      const gd = {};
       (data || []).forEach(k => {
         m[k.assessment_block_id] = k.key;
+        // Rows written before criteria existed have no guidance; normalising
+        // here means every consumer gets the same shape whatever it read.
+        if (k.guidance) gd[k.assessment_block_id] = normaliseGuidance(k.guidance);
         // Older rows predate the column; a question is worth 1 unless said
         // otherwise, which is exactly how marking behaved before points.
         p[k.assessment_block_id] = Number(k.points) || 1;
@@ -63,6 +69,7 @@ export function useAssessmentAnswerKeys(blockIds) {
       setKeys(m);
       setPointsMap(p);
       setModes(md);
+      setGuidanceMap(gd);
       setError(null);
     })();
     return () => { cancelled = true; };
@@ -140,6 +147,62 @@ export function useAssessmentAnswerKeys(blockIds) {
     timers.current[k] = setTimeout(() => flushPoints(blockId), SAVE_DEBOUNCE_MS);
   }, [flushPoints]);
 
+  // The marking criteria for one manual question.
+  //
+  // Written with UPDATE for the same reason as points: a manual question always
+  // has a row already (setMode created it), and an upsert here could invent one
+  // with marking_mode unset.
+  //
+  // guidance and points go in ONE statement on purpose. The criteria are what
+  // the question is worth, so writing them without their total would leave a
+  // session holding criteria that sum to 28 against a question capped at 25 —
+  // and the marks box could never reach its own maximum. Two statements would
+  // also leave that state readable in between.
+  const flushGuidance = useCallback((blockId) => {
+    const k = `gdn:${blockId}`;
+    if (timers.current[k]) { clearTimeout(timers.current[k]); delete timers.current[k]; }
+    if (!(k in pending.current)) return;
+    const guidance = pending.current[k];
+    delete pending.current[k];
+
+    // No criteria left means the question goes back to being marked as a whole,
+    // so the column is cleared rather than left holding an empty list. points is
+    // then left alone — whatever it was before criteria existed still stands.
+    const patch = hasCriteria(guidance)
+      ? { guidance, points: criteriaTotal(guidance) }
+      : { guidance: null };
+
+    const run = supabase
+      .from('assessment_answer_keys')
+      .update(patch)
+      .eq('assessment_block_id', blockId)
+      .select('assessment_block_id');
+    withTimeout(run, SAVE_TIMEOUT_MS)
+      .then(({ data, error: saveErr }) => {
+        if (saveErr) { setError(saveErr.message || String(saveErr)); return; }
+        // RLS refusals and missing rows both come back as 200 with no rows, so
+        // the read-back is the only thing that can tell us it didn't land.
+        if (!data || data.length === 0) {
+          setError('Marking criteria are saved with the question — set it to manual marking first.');
+          return;
+        }
+        setError(null);
+      })
+      .catch((e) => setError(e.message || String(e)));
+  }, []);
+
+  const setGuidance = useCallback((blockId, guidance) => {
+    const g = normaliseGuidance(guidance);
+    setGuidanceMap(prev => ({ ...prev, [blockId]: g }));
+    // Keep the displayed marks in step with the criteria immediately, so the
+    // header total and the "worth N marks" box don't lag the debounce.
+    if (hasCriteria(g)) setPointsMap(prev => ({ ...prev, [blockId]: criteriaTotal(g) }));
+    const k = `gdn:${blockId}`;
+    pending.current[k] = g;
+    if (timers.current[k]) clearTimeout(timers.current[k]);
+    timers.current[k] = setTimeout(() => flushGuidance(blockId), SAVE_DEBOUNCE_MS);
+  }, [flushGuidance]);
+
   // Switch a question between automatic and by-hand marking.
   //
   // Written immediately, not debounced: this is one deliberate click, not
@@ -157,7 +220,7 @@ export function useAssessmentAnswerKeys(blockIds) {
   //               control again, and setting a key recreates the row.
   const setMode = useCallback(async (blockId, mode) => {
     // Any pending debounced writes for this block are now stale.
-    for (const k of [blockId, `pts:${blockId}`]) {
+    for (const k of [blockId, `pts:${blockId}`, `gdn:${blockId}`]) {
       if (timers.current[k]) { clearTimeout(timers.current[k]); delete timers.current[k]; }
       delete pending.current[k];
     }
@@ -181,6 +244,9 @@ export function useAssessmentAnswerKeys(blockIds) {
     setModes(prev => { const n = { ...prev }; delete n[blockId]; return n; });
     setKeys(prev => { const n = { ...prev }; delete n[blockId]; return n; });
     setPointsMap(prev => { const n = { ...prev }; delete n[blockId]; return n; });
+    // The criteria live on the row that is about to be deleted, and they only
+    // mean anything for a manual question anyway.
+    setGuidanceMap(prev => { const n = { ...prev }; delete n[blockId]; return n; });
     const run = supabase.from('assessment_answer_keys').delete().eq('assessment_block_id', blockId);
     try {
       const { error: e } = await withTimeout(run, SAVE_TIMEOUT_MS);
@@ -196,11 +262,13 @@ export function useAssessmentAnswerKeys(blockIds) {
     // The points live on the same row, so deleting the key deletes them too.
     // Drop the pending points write as well, or it would fire against a row
     // that no longer exists.
-    const pk = `pts:${blockId}`;
-    if (timers.current[pk]) { clearTimeout(timers.current[pk]); delete timers.current[pk]; }
-    delete pending.current[pk];
+    for (const pk of [`pts:${blockId}`, `gdn:${blockId}`]) {
+      if (timers.current[pk]) { clearTimeout(timers.current[pk]); delete timers.current[pk]; }
+      delete pending.current[pk];
+    }
     setKeys(prev => { const n = { ...prev }; delete n[blockId]; return n; });
     setPointsMap(prev => { const n = { ...prev }; delete n[blockId]; return n; });
+    setGuidanceMap(prev => { const n = { ...prev }; delete n[blockId]; return n; });
     const run = supabase
       .from('assessment_answer_keys')
       .delete()
@@ -225,10 +293,14 @@ export function useAssessmentAnswerKeys(blockIds) {
     return () => {
       Object.keys(t).forEach((id) => {
         if (id.startsWith('pts:')) flushPoints(id.slice(4));
+        else if (id.startsWith('gdn:')) flushGuidance(id.slice(4));
         else flushKey(id);
       });
     };
-  }, [flushKey, flushPoints]);
+  }, [flushKey, flushPoints, flushGuidance]);
 
-  return { keys, points: pointsMap, modes, setKey, setPoints, setMode, clearKey, error };
+  return {
+    keys, points: pointsMap, modes, guidance: guidanceMap,
+    setKey, setPoints, setMode, setGuidance, clearKey, error,
+  };
 }

@@ -1901,6 +1901,264 @@
   font-size: 0.78rem;
   text-align: right;
 }
+/* Marks that come from the criteria below rather than from typing. Reads as a
+   figure, not a field, so nobody tries to correct it here. */
+.answer-key-points.is-derived input {
+  background: var(--soft2, #f7f5f0);
+  border-color: transparent;
+  font-weight: 700;
+  color: var(--text, #1a1a1a);
+  cursor: default;
+}
+
+/* ── Marking criteria (manual questions) ────────────────────────────────────
+   The list a manual question is marked against. The criteria ARE what the
+   question is worth: points is written from their sum, so there is no total to
+   keep in step by hand. */
+/* An unmarked question costs one line; a question with criteria costs one line
+   per criterion plus the button row. Nothing else, because a 33-question paper
+   pays every row of chrome 33 times. */
+.mark-manual-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; }
+.mark-manual-wrap .mc-editor:not(.is-empty) { flex: 1 0 100%; }
+
+.mc-editor {
+  margin-top: 0.35rem;
+  border: 1px solid #cdd9e5;
+  border-radius: 8px;
+  background: #fbfcfd;
+  padding: 0.35rem 0.45rem;
+}
+.mc-total {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--midnight, #1e3c5a);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* The empty state carries no box: a long assessment repeats it once per manual
+   question, and thirty bordered panels of identical text is noise. */
+.mc-editor.is-empty {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.mc-editor.is-empty .ghost { font-size: 0.74rem; padding: 0.22rem 0.55rem; }
+.mc-hint { font-size: 0.72rem; color: var(--muted, #8a8a8a); }
+
+.mc-table-wrap { overflow-x: auto; }
+.mc-table { border-collapse: collapse; width: 100%; font-size: 0.78rem; min-width: 30rem; }
+.mc-table th {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #8a8a8a);
+  text-align: left;
+  padding: 0.2rem 0.3rem 0.35rem;
+  border-bottom: 1px solid var(--border, #e5e2dc);
+  white-space: nowrap;
+}
+.mc-table td { padding: 0.15rem 0.25rem; border-bottom: 0; vertical-align: middle; }
+.mc-table .mc-r, .mc-table th.mc-r { text-align: right; }
+.mc-table .form-input { width: 100%; padding: 0.2rem 0.4rem; font-size: 0.78rem; }
+.mc-table .mc-marks { width: 4rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+.mc-remove {
+  border: 0;
+  background: none;
+  color: var(--muted, #8a8a8a);
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.2rem 0.3rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.mc-remove:hover { color: #8c3327; background: #f6e3e3; }
+
+/* ── Sending a changed scorecard to running sessions ────────────────────────
+   Only appears once the scorecard has actually been edited, and only for
+   sessions past their freeze. Unstarted ones take the change on their own. */
+.cp-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #cdd9e5;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+.cp-bar-what { flex: 1 1 14rem; font-size: 0.82rem; color: var(--text, #1a1a1a); }
+.cp-bar .ghost { font-size: 0.76rem; padding: 0.22rem 0.6rem; white-space: nowrap; }
+
+.criteria-push-modal { max-width: 40rem; }
+.cp-h {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #8a8a8a);
+  margin: 0.9rem 0 0.4rem;
+}
+.cp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.cp-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: start;
+  border: 1px solid var(--border, #e5e2dc);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  background: #fff;
+}
+.cp-item.picked { border-color: #2c5378; background: #fbfcfd; }
+.cp-item.off { background: var(--soft2, #f7f5f0); border-style: dashed; }
+.cp-item input { margin-top: 0.2rem; }
+.cp-name { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text, #1a1a1a); }
+.cp-meta { display: block; font-size: 0.72rem; color: var(--muted, #8a8a8a); margin-top: 0.05rem; }
+.cp-why { display: block; font-size: 0.74rem; color: #8a6d3b; margin-top: 0.15rem; line-height: 1.35; }
+.cp-why.stop { color: #8c3327; }
+.cp-state {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+}
+.cp-state.ok { background: #e8f5ec; color: #2a7a3d; }
+.cp-state.no { background: #f6e3e3; color: #a13a3a; }
+.cp-note {
+  margin: 0.9rem 0 0;
+  font-size: 0.76rem;
+  color: var(--muted, #8a8a8a);
+  line-height: 1.45;
+  border-top: 1px solid var(--border, #e5e2dc);
+  padding-top: 0.6rem;
+}
+
+/* ── Marking a question criterion by criterion ──────────────────────────────
+   Replaces the single ✓ / ✗ / box row on questions that have criteria. Each
+   criterion gets the same three verdicts, and the question's mark is their sum
+   — never typed. Until every criterion has one, the question is UNMARKED, and
+   the progress line is what that rule looks like on screen. */
+.cm-list { flex: 1 0 100%; }
+.cm-rows { list-style: none; margin: 0; padding: 0; }
+.cm-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  align-items: start;
+  padding: 0.3rem 0;
+  border-top: 1px solid #edf1f5;
+}
+.cm-row:first-child { border-top: 0; }
+.cm-row-open { background: #fffdf7; }
+.cm-what { min-width: 0; }
+.cm-name { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text, #1a1a1a); }
+.cm-note { display: block; font-size: 0.71rem; color: var(--muted, #8a8a8a); line-height: 1.35; margin-top: 0.1rem; }
+
+.cm-verdict { display: inline-flex; align-items: center; gap: 0.2rem; flex-wrap: wrap; }
+.cm-btn {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 5px;
+  background: #fff;
+  border: 1px solid var(--border, #e5e2dc);
+  color: var(--muted, #8a8a8a);
+  font-weight: 800;
+  font-size: 0.72rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+.cm-btn:disabled { opacity: 0.5; cursor: default; }
+.cm-btn.full.active { background: #2f6b4f; border-color: #2f6b4f; color: #fff; }
+.cm-btn.part.active { background: #c9974a; border-color: #c9974a; color: #fff; }
+.cm-btn.none.active { background: #8c3327; border-color: #8c3327; color: #fff; }
+.cm-btn.comment.has { background: #2c5378; border-color: #2c5378; color: #fff; }
+.cm-part-input {
+  width: 3.2rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.75rem;
+  text-align: right;
+  border-color: #c9974a;
+}
+
+.cm-mark {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #1a1a1a);
+  white-space: nowrap;
+  min-width: 3.2rem;
+  text-align: right;
+  padding-top: 0.15rem;
+}
+.cm-mark small { font-weight: 600; color: var(--muted, #8a8a8a); font-size: 0.68rem; }
+.cm-todo { color: #8a5a00; }
+
+.cm-comment { grid-column: 1 / -1; margin-top: 0.25rem; }
+.cm-comment .form-input { width: 100%; padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+.cm-comment-hint { display: block; font-size: 0.68rem; color: var(--muted, #8a8a8a); margin-top: 0.15rem; }
+/* A criterion that lost marks and has no reason yet. Not an error — nothing is
+   blocked — but the box is where the participant's explanation comes from, so
+   it asks rather than sits there looking optional. */
+.cm-comment .form-input.is-wanted { border-color: #c9974a; background: #fffdf7; }
+.cm-comment-hint.wanted { color: #8a6d3b; }
+
+.cm-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border, #e5e2dc);
+}
+.cm-progress { font-size: 0.72rem; font-weight: 700; color: var(--muted, #8a8a8a); white-space: nowrap; }
+.cm-foot.is-done .cm-progress { color: #2f6b4f; }
+.cm-bar { flex: 1 1 4rem; min-width: 3rem; height: 5px; border-radius: 999px; background: #f1ede5; overflow: hidden; }
+.cm-bar i { display: block; height: 100%; background: var(--gold, #b5985a); border-radius: 999px; }
+.cm-foot.is-done .cm-bar i { background: #2f6b4f; }
+.cm-total { font-size: 0.95rem; font-weight: 800; color: var(--midnight, #1e3c5a); font-variant-numeric: tabular-nums; }
+.cm-total small { font-size: 0.72rem; font-weight: 600; color: var(--muted, #8a8a8a); }
+.cm-shortcuts { display: inline-flex; gap: 0.25rem; }
+.cm-all {
+  border: 1px solid var(--border, #e5e2dc);
+  background: #fff;
+  border-radius: 5px;
+  padding: 0.12rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #2f6b4f;
+  cursor: pointer;
+}
+.cm-all.none { color: #8c3327; }
+.cm-all:disabled { opacity: 0.5; cursor: default; }
+
+.cm-hold {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: #8a5a00;
+  background: #faf3e4;
+  border: 1px solid #e9d4a8;
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+}
+
+.mc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.3rem; }
+.mc-actions .ghost { font-size: 0.72rem; padding: 0.18rem 0.5rem; }
 
 /* ── Marking by hand ────────────────────────────────────────────────────────
    ✓ / ✗ are the fast path; the box is for everything between. "Not marked yet"

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { SkeletonTable } from '../Skeleton.jsx';
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
+import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
 import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
 import { buildCohortReport } from '../../lib/assessmentReport.js';
 import '../../styles/report.css';
@@ -31,6 +32,10 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
   } = useSessionAssessmentResponses(sessionId, assessmentId);
   const { marks, error: marksError } = useAssessmentMarks(sessionId);
   const { passMark } = useAssessmentPassMark(assessmentId);
+  // Same source as the marking screen, so the report cannot reach a different
+  // verdict from the one the trainer just gave — including which questions are
+  // still only part-marked and therefore not scored at all.
+  const { guidance, points: criteriaPoints } = useSessionCriteria(sessionId);
 
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
@@ -43,8 +48,9 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
       blocks={blocks}
       answers={answers}
       answerKey={answerKey}
-      answerPoints={answerPoints}
+      answerPoints={{ ...answerPoints, ...criteriaPoints }}
       answerModes={answerModes}
+      guidance={guidance}
       marks={marks}
       passMark={passMark}
       loading={loading}
@@ -64,7 +70,7 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
 // scores, so it still prints; the individual sheet, which lists areas of
 // error, is not offered because there is nothing left to list.
 export function AssessmentReportView({
-  session, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
+  session, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance = null,
   passMark, loading, error, notice, recorded = null, recordedNote = null, closed = false,
 }) {
   const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
@@ -84,9 +90,9 @@ export function AssessmentReportView({
       return { reports, commonErrors: [], totalUnmarked: reports.reduce((n, r) => n + r.unmarked.length, 0) };
     }
     return buildCohortReport({
-      participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
+      participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance,
     });
-  }, [recorded, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks]);
+  }, [recorded, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance]);
 
   if (loading) return <SkeletonTable rows={6} label="Loading assessment report…" />;
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
@@ -314,6 +320,23 @@ function IndividualReport({ session, report, passMark }) {
                       <span className="ld-error-title">({e.title})</span>
                       <span className="ld-error-marks">{e.earned}/{e.possible}</span>
                       {e.comment && <div className="ld-error-comment">{e.comment}</div>}
+                      {/* Where a question was marked against a scorecard, the
+                          reasons were written criterion by criterion. They are
+                          gathered here as the question's one explanation, in
+                          scorecard order rather than the order they were typed. */}
+                      {e.criteria?.length > 0 && (
+                        <ul className="ld-error-criteria">
+                          {e.criteria.map(c => (
+                            <li key={c.id} className={c.zero ? 'is-zero' : ''}>
+                              <span className="ld-crit-marks">{c.awarded}/{c.marks}</span>
+                              <span className="ld-crit-what">
+                                <strong>{c.label || 'Criterion'}</strong>
+                                {c.comment ? ` — ${c.comment}` : ''}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ol>

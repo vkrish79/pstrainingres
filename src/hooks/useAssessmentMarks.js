@@ -47,6 +47,10 @@ export function useAssessmentMarks(sessionId) {
         (byParticipant[row.participant_id] ||= {})[row.assessment_block_id] = {
           awarded: Number(row.awarded),
           comment: row.comment || '',
+          // Per-criterion marks and their comments, on questions that have
+          // criteria. Absent on every question that doesn't, and on every mark
+          // awarded before criteria existed.
+          breakdown: row.breakdown || null,
           marked_by_name: row.marked_by_name,
           marked_at: row.marked_at,
         };
@@ -102,6 +106,53 @@ export function useAssessmentMarks(sessionId) {
       setError(saveErr.message || String(saveErr));
       return { error: saveErr };
     }
+    setError(null);
+    return {};
+  }, [sessionId]);
+
+  // Award marks criterion by criterion. `breakdown` holds every criterion's own
+  // mark and comment; `awarded` is their running total.
+  //
+  // The total is written even when only some criteria have been judged, because
+  // awarded is NOT NULL and a part-finished breakdown has to be stored against
+  // something — otherwise an interrupted marker loses their work on reload.
+  // What stops that reading as a low score is manualResultFor, which calls a
+  // question with an incomplete breakdown UNMARKED however much is in `awarded`.
+  //
+  // Like setMark, `comment` is left out of the payload so the question-level
+  // comment survives re-marking.
+  const setBreakdown = useCallback(async (participantId, blockId, breakdown, awarded, marker) => {
+    const busyId = `${participantId}:${blockId}`;
+    setSavingIds(prev => new Set(prev).add(busyId));
+
+    const now = new Date().toISOString();
+    setMarks(prev => ({
+      ...prev,
+      [participantId]: {
+        ...(prev[participantId] || {}),
+        [blockId]: {
+          ...(prev[participantId]?.[blockId] || {}),
+          awarded,
+          breakdown,
+          marked_by_name: marker?.name || null,
+          marked_at: now,
+        },
+      },
+    }));
+
+    const { error: saveErr } = await supabase.from('assessment_marks').upsert({
+      participant_id: participantId,
+      assessment_block_id: blockId,
+      session_id: sessionId,
+      awarded,
+      breakdown,
+      marked_by: marker?.id || null,
+      marked_by_name: marker?.name || null,
+      marked_at: now,
+    }, { onConflict: 'participant_id,assessment_block_id' });
+
+    setSavingIds(prev => { const n = new Set(prev); n.delete(busyId); return n; });
+    if (saveErr) { setError(saveErr.message || String(saveErr)); return { error: saveErr }; }
     setError(null);
     return {};
   }, [sessionId]);
@@ -166,5 +217,5 @@ export function useAssessmentMarks(sessionId) {
     return {};
   }, []);
 
-  return { marks, setMark, setComment, clearMark, savingIds, error, loaded };
+  return { marks, setMark, setBreakdown, setComment, clearMark, savingIds, error, loaded };
 }

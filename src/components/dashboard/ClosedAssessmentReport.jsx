@@ -36,18 +36,27 @@ export default function ClosedAssessmentReport({ snapshot, liveAssessmentId }) {
       const answerKey = {};
       const answerPoints = {};
       const answerModes = {};
+      const guidance = {};
       for (const [id, k] of Object.entries(frozen.keys || {})) {
         answerKey[id] = k.key;
         answerPoints[id] = Number(k.points) || 1;
         answerModes[id] = k.marking_mode || 'auto';
+        // Sessions closed before close_session froze the marking criteria have
+        // none here. Their reports still print the questions and the marks;
+        // what they cannot show is which criterion lost them.
+        if (k.guidance) guidance[id] = k.guidance;
       }
-      return { sections: frozen.sections || [], blocks: frozen.blocks || [], answerKey, answerPoints, answerModes };
+      return {
+        sections: frozen.sections || [], blocks: frozen.blocks || [],
+        answerKey, answerPoints, answerModes, guidance,
+      };
     }
     if (hasAnswers && needLoad) {
       if (loaded.loading || loaded.error) return null;
       return {
         sections: loaded.sections, blocks: loaded.blocks,
         answerKey: loaded.answerKey, answerPoints: loaded.answerPoints, answerModes: loaded.answerModes,
+        guidance: {},
       };
     }
     return null;
@@ -92,6 +101,7 @@ export default function ClosedAssessmentReport({ snapshot, liveAssessmentId }) {
       answerKey={data?.answerKey || {}}
       answerPoints={data?.answerPoints || {}}
       answerModes={data?.answerModes || {}}
+      guidance={data?.guidance || null}
       marks={a.marks || {}}
       passMark={a.pass_mark ?? null}
       loading={!data}

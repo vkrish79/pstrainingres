@@ -7,6 +7,7 @@ import { scoreBlocks, earnedFor, pointsFor, manualResultFor } from '../../lib/as
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import Block from '../blocks/Block.jsx';
 import NoteRow from './NoteRow.jsx';
+import CriteriaMarkList from './CriteriaMarkList.jsx';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 // Layout: sidebar nav (one row per exercise, with cohort progress) → tile grid
@@ -37,6 +38,11 @@ export default function ExerciseResponses({
   marks = null,
   onMark = null,
   onComment = null,
+  // Marking criteria per question, and the writer for a criterion-by-criterion
+  // breakdown. Present only on the assessment view, and only once someone has
+  // authored criteria; without them this renders exactly as it always has.
+  guidance = null,
+  onBreakdown = null,
   markingIds = null,
   // Where to open: an exercise, and optionally one person in it to reveal.
   // Set when the heat board sends a trainer here from a cell or a heading.
@@ -338,6 +344,8 @@ export default function ExerciseResponses({
               marksForP={marks ? (marks[s.participant.id] || {}) : null}
               onMark={onMark}
               onComment={onComment}
+              guidance={guidance}
+              onBreakdown={onBreakdown}
               markingIds={markingIds}
             />
           ))}
@@ -372,6 +380,8 @@ export default function ExerciseResponses({
             marksForP={marks ? (marks[s.participant.id] || {}) : null}
             onMark={onMark}
             onComment={onComment}
+            guidance={guidance}
+            onBreakdown={onBreakdown}
             markingIds={markingIds}
           />
         );
@@ -421,12 +431,12 @@ export default function ExerciseResponses({
 function ParticipantFocus({
   stat, position, sectionTitle, onPrev, onNext, onClose, blocks, answersForP, notesForP,
   sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints,
-  questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, reviewMarks = null,
+  questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, reviewMarks = null,
 }) {
   const { participant, answered, total, lastTs } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const score = (answerKey || answerModes)
-    ? scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP)
+    ? scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP, guidance)
     : null;
 
   useBodyScrollLock(true);
@@ -481,6 +491,8 @@ function ParticipantFocus({
             marksForP={marksForP}
             onMark={onMark}
             onComment={onComment}
+            guidance={guidance}
+            onBreakdown={onBreakdown}
             markingIds={markingIds}
           />
         </div>
@@ -490,7 +502,7 @@ function ParticipantFocus({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, reviewMarks = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, guidance = null, onBreakdown = null, reviewMarks = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
@@ -499,7 +511,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   // In marks, not questions: a 4-mark matching question answered three-quarters
   // right contributes 3.
   const score = (answerKey || answerModes)
-    ? scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP)
+    ? scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP, guidance)
     : null;
   const scoreClass = score == null ? '' : score.pct === 100 ? 'full' : score.pct === 0 ? 'none' : 'partial';
 
@@ -566,6 +578,8 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
             marksForP={marksForP}
             onMark={onMark}
             onComment={onComment}
+            guidance={guidance}
+            onBreakdown={onBreakdown}
             markingIds={markingIds}
           />
         </div>
@@ -577,7 +591,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
 // One participant's answers for the selected exercise. Rendered inside the
 // tile, and again in the expanded view — same component, so a mark awarded in
 // either place is the same control with the same rules.
-function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, reviewMarks = null }) {
+function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, reviewMarks = null }) {
   return (
     <>
           {prepText && (
@@ -610,6 +624,8 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
               reviewMarks={reviewMarks}
               onMark={onMark}
               onComment={onComment}
+              guidanceForBlock={guidance ? guidance[b.id] : null}
+              onBreakdown={onBreakdown}
               marking={markingIds ? markingIds.has(`${participant.id}:${b.id}`) : false}
             />
           ))}
@@ -618,7 +634,7 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
   );
 }
 
-function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, marking = false, reviewMarks = null }) {
+function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, onBreakdown = null, guidanceForBlock = null, marking = false, reviewMarks = null }) {
   // slot → { right, trainer } for this person and block, when the trainer has
   // right/wrong turned on.
   const review = reviewMarks && reviewMarks.size
@@ -634,8 +650,15 @@ function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNo
   // { state, fraction, earned, possible } — or null when this question isn't
   // marked at all. A manual question is judged by the trainer, so its result
   // comes from what was awarded rather than from a comparison.
+  // Criteria turn one verdict into a list of them. A question that has them is
+  // only judged once every criterion has one, which manualResultFor reads from
+  // the breakdown — so a part-marked question shows as "not marked yet" here
+  // and counts as unmarked in every total.
+  const criteria = manual ? guidanceForBlock : null;
+  const hasCriteria = !!criteria?.criteria?.length;
+
   const mark = manual
-    ? { ...manualResultFor(block.id, points, markForBlock ? { [block.id]: markForBlock } : {}), possible: points }
+    ? { ...manualResultFor(block.id, points, markForBlock ? { [block.id]: markForBlock } : {}, criteria), possible: points }
     : key != null
       ? earnedFor(block, key, value, points)
       : null;
@@ -661,16 +684,35 @@ function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNo
           plainly one or the other; the box is for everything in between — a
           booking made with meals added but no seats assigned. */}
       {manual && onMark && (
-        <ManualMarkControls
-          points={points}
-          awarded={markForBlock?.awarded}
-          comment={markForBlock?.comment || ''}
-          markedBy={markForBlock?.marked_by_name}
-          busy={marking}
-          onAward={n => onMark(participantId, block.id, n)}
-          onClear={() => onMark(participantId, block.id, null)}
-          onComment={onComment ? text => onComment(participantId, block.id, text) : null}
-        />
+        hasCriteria && onBreakdown ? (
+          <div className={`exresp-manual ${mark?.state !== 'unmarked' ? 'is-marked' : ''}`}>
+            <CriteriaMarkList
+              guidance={criteria}
+              breakdown={markForBlock?.breakdown || null}
+              busy={marking}
+              onChange={b => onBreakdown(participantId, block.id, b, criteria)}
+              onCommentChange={b => onBreakdown(participantId, block.id, b, criteria)}
+            />
+            {/* No question-level comment box here, deliberately. The criteria
+                carry their own reasons and the report gathers them into one
+                block against the question — a second box would either duplicate
+                that or compete with it for the same sentence. */}
+            {markForBlock?.marked_by_name && (
+              <span className="exresp-mark-by">by {markForBlock.marked_by_name}</span>
+            )}
+          </div>
+        ) : (
+          <ManualMarkControls
+            points={points}
+            awarded={markForBlock?.awarded}
+            comment={markForBlock?.comment || ''}
+            markedBy={markForBlock?.marked_by_name}
+            busy={marking}
+            onAward={n => onMark(participantId, block.id, n)}
+            onClear={() => onMark(participantId, block.id, null)}
+            onComment={onComment ? text => onComment(participantId, block.id, text) : null}
+          />
+        )
       )}
       {block.block_type === 'field' && <FieldRender label={label} value={value} review={review} />}
       {block.block_type === 'table' && <TableRender block={block} label={label} value={value} review={review} />}
@@ -774,22 +816,6 @@ function relativeTime(ts) {
 function ManualMarkControls({ points, awarded, comment = '', markedBy, busy, onAward, onClear, onComment = null }) {
   const [draft, setDraft] = useState('');
   const marked = awarded != null;
-  // The comment is a local draft until blur, like the part-marks box: saving
-  // on every keystroke would be a write per character.
-  const [note, setNote] = useState(comment);
-  // Re-sync when the stored comment changes underneath us (a reload, or
-  // switching which participant this tile is showing) — but never while the
-  // trainer is mid-sentence, which is what the focus check is for.
-  const noteRef = useRef(null);
-  useEffect(() => {
-    if (document.activeElement !== noteRef.current) setNote(comment);
-  }, [comment]);
-
-  function commitNote() {
-    const next = note.trim();
-    if (next === (comment || '').trim()) return; // nothing changed — no write
-    onComment(next);
-  }
 
   function commitDraft() {
     const n = Number(draft);
@@ -849,20 +875,41 @@ function ManualMarkControls({ points, awarded, comment = '', markedBy, busy, onA
           then, and a note with no judgement behind it would print in the
           report under a question showing no score. */}
       {marked && onComment && (
-        <label className="exresp-mark-comment">
-          <span className="exresp-mark-comment-label">Comment</span>
-          <textarea
-            ref={noteRef}
-            className="form-input"
-            rows={2}
-            placeholder="Why these marks? Appears on the participant's report."
-            value={note}
-            disabled={busy}
-            onChange={e => setNote(e.target.value)}
-            onBlur={commitNote}
-          />
-        </label>
+        <QuestionComment comment={comment} busy={busy} onComment={onComment} />
       )}
     </div>
+  );
+}
+
+// The comment on the question as a whole, as opposed to the ones written
+// against individual criteria. On a question with criteria this is the
+// trainer's overall note; the criteria carry the detail.
+function QuestionComment({ comment = '', busy, onComment }) {
+  const [note, setNote] = useState(comment);
+  const noteRef = useRef(null);
+  useEffect(() => {
+    if (document.activeElement !== noteRef.current) setNote(comment);
+  }, [comment]);
+
+  function commitNote() {
+    const next = note.trim();
+    if (next === (comment || '').trim()) return; // nothing changed — no write
+    onComment(next);
+  }
+
+  return (
+    <label className="exresp-mark-comment">
+      <span className="exresp-mark-comment-label">Comment</span>
+      <textarea
+        ref={noteRef}
+        className="form-input"
+        rows={2}
+        placeholder="Why these marks? Appears on the participant's report."
+        value={note}
+        disabled={busy}
+        onChange={e => setNote(e.target.value)}
+        onBlur={commitNote}
+      />
+    </label>
   );
 }

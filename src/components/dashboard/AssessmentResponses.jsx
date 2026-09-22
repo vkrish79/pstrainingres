@@ -1,6 +1,8 @@
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { SkeletonTable } from '../Skeleton.jsx';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
+import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
+import { resolveMarking } from '../../lib/markingCriteria.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
 import { isInactiveBlock } from '../../lib/assessmentScoring.js';
@@ -20,7 +22,11 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
   const {
     loading, error, sections, blocks, answers, answerKey, answerPoints, answerModes,
   } = useSessionAssessmentResponses(sessionId, assessmentId);
-  const { marks, setMark, setComment, clearMark, savingIds, error: marksError } = useAssessmentMarks(sessionId);
+  const { marks, setMark, setBreakdown, setComment, clearMark, savingIds, error: marksError } = useAssessmentMarks(sessionId);
+  // Criteria come through a definer function rather than a table read, because
+  // a session that hasn't started is marked against the PROGRAMME's criteria,
+  // which a vendor trainer has no policy to read directly.
+  const { guidance, points: criteriaPoints, error: criteriaError } = useSessionCriteria(sessionId);
 
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
@@ -54,20 +60,45 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
     return setComment(participantId, blockId, text);
   }
 
+  // A criterion was marked or commented on. The question's own `awarded` is the
+  // criteria's running total — written even when only some have been judged,
+  // because a part-finished breakdown has to be stored against something and
+  // losing an interrupted marker's work would be worse. What keeps a half-done
+  // question out of the participant's score is manualResultFor, which reads the
+  // breakdown and calls it unmarked until every criterion has a verdict.
+  function handleBreakdown(participantId, blockId, breakdown, blockGuidance) {
+    const { total } = resolveMarking(blockGuidance, breakdown);
+    return setBreakdown(participantId, blockId, breakdown, total, {
+      id: profile?.id,
+      name: profile?.full_name || null,
+    });
+  }
+
   return (
     <>
       {marksError && <div className="error" style={{ padding: '0.5rem 1rem' }}>{marksError}</div>}
+      {criteriaError && (
+        <div className="error" style={{ padding: '0.5rem 1rem' }}>
+          Marking criteria couldn’t be loaded, so questions that have them are shown
+          with the plain marking control instead. {criteriaError}
+        </div>
+      )}
       <ExerciseResponses
         sections={sections}
         blocks={liveBlocks}
         participants={participants}
         answers={answers}
         answerKey={answerKey}
-        answerPoints={answerPoints}
+        // A question with criteria is worth what they add up to, which is what
+        // the resolver returns. For an unstarted session that figure comes from
+        // the programme, not from this session's copy, so it must win.
+        answerPoints={{ ...answerPoints, ...criteriaPoints }}
         answerModes={answerModes}
         marks={marks}
         onMark={handleMark}
         onComment={handleComment}
+        guidance={guidance}
+        onBreakdown={handleBreakdown}
         markingIds={savingIds}
         showNotes={false}
         emptyLabel="No questions in this assessment yet."

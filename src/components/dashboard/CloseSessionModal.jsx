@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
+import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
 import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
 import { buildCohortReport } from '../../lib/assessmentReport.js';
 import { isInactiveBlock } from '../../lib/assessmentScoring.js';
@@ -71,7 +72,14 @@ export default function CloseSessionModal({
   );
   const { marks, loaded: marksLoaded, error: marksError } = useAssessmentMarks(hasAssessment ? session.id : null);
   const { passMark, loading: passMarkLoading } = useAssessmentPassMark(session?.assessment_id);
-  const asmtLoading = hasAssessment && (asmt.loading || !marksLoaded || passMarkLoading);
+  // The criteria matter here more than anywhere: closing BANKS these scores.
+  // Without them a question whose criteria are only half judged would be
+  // recorded as marked and scoring badly, and closing is the one place that
+  // cannot be taken back.
+  const {
+    guidance, points: criteriaPoints, loaded: criteriaLoaded,
+  } = useSessionCriteria(hasAssessment ? session.id : null);
+  const asmtLoading = hasAssessment && (asmt.loading || !marksLoaded || !criteriaLoaded || passMarkLoading);
   const asmtFailed = hasAssessment && !asmtLoading && !!(asmt.error || marksError);
 
   // Scored by buildCohortReport — the same call the Report tab makes — so the
@@ -85,9 +93,10 @@ export default function CloseSessionModal({
       blocks: asmt.blocks,
       answers: asmt.answers,
       answerKey: asmt.answerKey,
-      answerPoints: asmt.answerPoints,
+      answerPoints: { ...asmt.answerPoints, ...criteriaPoints },
       answerModes: asmt.answerModes,
       marks,
+      guidance,
     });
     return cohort.reports.map(r => {
       const forP = asmt.answers[r.participant.id] || {};
@@ -107,7 +116,8 @@ export default function CloseSessionModal({
       };
     });
   }, [hasAssessment, asmtLoading, asmtFailed, asmt.sections, asmt.blocks, asmt.answers,
-    asmt.answerKey, asmt.answerPoints, asmt.answerModes, participants, marks, passMark]);
+    asmt.answerKey, asmt.answerPoints, asmt.answerModes, participants, marks, passMark,
+    guidance, criteriaPoints]);
 
   const activeResults = (asmtResults || []).filter(r => !r.deactivated);
   const sat = activeResults.filter(r => r.sat);
