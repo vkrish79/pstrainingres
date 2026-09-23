@@ -15,6 +15,7 @@ import ClosedSessionView from '../components/dashboard/ClosedSessionView.jsx';
 import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
 import AssessmentRunStrip from '../components/dashboard/AssessmentRunStrip.jsx';
+import HandsBar from '../components/dashboard/HandsBar.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, expectedInputs, filledInputs } from '../lib/blockHelpers.js';
@@ -861,6 +862,27 @@ export default function SessionDashboardPage() {
           onOpenAssessment={() => setView('assessment')}
         />
 
+        {/* Raised hands, above every tab body rather than only inside Room.
+            The hook has always run at page level; until now only Room rendered
+            what it returned, so a hand raised while the trainer was in the
+            workbook went unnoticed by everyone except the person waiting. */}
+        <HandsBar
+          hands={help.open}
+          participants={participants}
+          error={helpError}
+          onShowInRoom={() => setView('participants')}
+          onAcknowledge={async (reqId) => {
+            setHelpError('');
+            const { error: e } = await help.acknowledge(reqId);
+            if (e) setHelpError(e.message);
+          }}
+          onResolve={async (reqId) => {
+            setHelpError('');
+            const { error: e } = await help.resolve(reqId);
+            if (e) setHelpError(e.message);
+          }}
+        />
+
 
         {view === 'participants' && roomView !== 'exercise' && (
           <div className={`cockpit-room${reading ? ' is-reading' : ''}`}>
@@ -1246,6 +1268,7 @@ export default function SessionDashboardPage() {
                 sessionId={session?.id}
                 assessmentId={session?.assessment_id}
                 participants={participants}
+                hands={help.byParticipant}
               />
             )}
             {assessmentSubView === 'preview' && (

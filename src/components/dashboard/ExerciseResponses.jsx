@@ -38,6 +38,9 @@ export default function ExerciseResponses({
   marks = null,
   onMark = null,
   onComment = null,
+  // { [participantId]: helpRequest } — who has their hand up. Optional; the
+  // workbook view passes none.
+  hands = null,
   // Marking criteria per question, and the writer for a criterion-by-criterion
   // breakdown. Present only on the assessment view, and only once someone has
   // authored criteria; without them this renders exactly as it always has.
@@ -344,6 +347,7 @@ export default function ExerciseResponses({
               marksForP={marks ? (marks[s.participant.id] || {}) : null}
               onMark={onMark}
               onComment={onComment}
+              hands={hands}
               guidance={guidance}
               onBreakdown={onBreakdown}
               markingIds={markingIds}
@@ -380,6 +384,7 @@ export default function ExerciseResponses({
             marksForP={marks ? (marks[s.participant.id] || {}) : null}
             onMark={onMark}
             onComment={onComment}
+            hands={hands}
             guidance={guidance}
             onBreakdown={onBreakdown}
             markingIds={markingIds}
@@ -431,7 +436,7 @@ export default function ExerciseResponses({
 function ParticipantFocus({
   stat, position, sectionTitle, onPrev, onNext, onClose, blocks, answersForP, notesForP,
   sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints,
-  questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, reviewMarks = null,
+  questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, hands = null, reviewMarks = null,
 }) {
   const { participant, answered, total, lastTs } = stat;
   const pct = total ? Math.round((answered / total) * 100) : 0;
@@ -491,6 +496,7 @@ function ParticipantFocus({
             marksForP={marksForP}
             onMark={onMark}
             onComment={onComment}
+            hands={hands}
             guidance={guidance}
             onBreakdown={onBreakdown}
             markingIds={markingIds}
@@ -502,8 +508,11 @@ function ParticipantFocus({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, guidance = null, onBreakdown = null, reviewMarks = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, guidance = null, onBreakdown = null, hands = null, reviewMarks = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
+  // Their raised hand, if any. Only the assessment view passes these — on the
+  // workbook the hands already show on the Room tiles.
+  const hand = hands ? hands[participant.id] : null;
   const pct = total ? Math.round((answered / total) * 100) : 0;
   const progressClass = answered === 0 ? 'none' : answered === total ? 'full' : 'partial';
   const lastLabel = lastTs ? relativeTime(lastTs) : 'No activity yet';
@@ -516,12 +525,20 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
   const scoreClass = score == null ? '' : score.pct === 100 ? 'full' : score.pct === 0 ? 'none' : 'partial';
 
   return (
-    <div id={`exresp-tile-${participant.id}`} className={`exresp-tile ${expanded ? 'expanded' : 'collapsed'} ${flaggedCount > 0 ? 'has-flag' : ''}`}>
+    <div id={`exresp-tile-${participant.id}`} className={`exresp-tile ${expanded ? 'expanded' : 'collapsed'} ${flaggedCount > 0 ? 'has-flag' : ''} ${hand ? 'has-hand' : ''}`}>
       <div className="exresp-tile-head">
       <button className="exresp-tile-headbtn" onClick={onToggle} aria-expanded={expanded}>
         <div className="exresp-tile-head-left">
           <span className="exresp-chevron" aria-hidden>{expanded ? '▾' : '▸'}</span>
           <span className="exresp-tile-name">{participant.full_name || '(unnamed)'}</span>
+          {/* Says it in words rather than repeating ✋. This tile already
+              carries "✋ N to mark" on its right-hand side, and two unrelated
+              hands on one row would be read as one. */}
+          {hand && (
+            <span className="exresp-needs-you" title={hand.acknowledged_at ? 'You said you’re coming over' : 'Asked for help'}>
+              {hand.acknowledged_at ? 'you’re going' : 'needs you'}
+            </span>
+          )}
           {flaggedCount > 0 && <span className="exresp-flag-badge" title={`${flaggedCount} flagged`}>🚩 {flaggedCount}</span>}
           {noteCount > 0 && <span className="exresp-note-badge" title={`${noteCount} note${noteCount === 1 ? '' : 's'}`}>💬 {noteCount}</span>}
         </div>
@@ -578,6 +595,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
             marksForP={marksForP}
             onMark={onMark}
             onComment={onComment}
+            hands={hands}
             guidance={guidance}
             onBreakdown={onBreakdown}
             markingIds={markingIds}
@@ -624,6 +642,7 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
               reviewMarks={reviewMarks}
               onMark={onMark}
               onComment={onComment}
+              hands={hands}
               guidanceForBlock={guidance ? guidance[b.id] : null}
               onBreakdown={onBreakdown}
               marking={markingIds ? markingIds.has(`${participant.id}:${b.id}`) : false}

@@ -1015,6 +1015,24 @@
 .exresp-flag-badge { background: #fce8e8; color: #b94a48; }
 .exresp-note-badge { background: #e8f0ff; color: #2c5aa0; }
 .exresp-tile.has-flag { border-color: #f0caca; }
+/* Someone with their hand up, on the assessment tiles. Gold border to match the
+   Room tiles, but the marker says it in WORDS rather than repeating ✋ — this
+   tile already carries "✋ N to mark" on its right-hand side, and two unrelated
+   hands on one row read as one thing. */
+.exresp-tile.has-hand { border-color: #b5985a; box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.35); }
+.exresp-needs-you {
+  flex-shrink: 0;
+  background: #faf3e4;
+  color: #8a5a00;
+  border: 1px solid #e9d4a8;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
 /* Per-block note row */
 .exresp-block { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -1320,6 +1338,50 @@
   cursor: pointer; white-space: nowrap;
 }
 .lowprep-banner .lowprep-review:hover:not(:disabled) { background: #f7e6c4; }
+
+/* ===== Raised hands, on every tab =====
+   Built to the low-prep banner above: same summons shape, same amber, and
+   deliberately NOT dismissible — the only thing dismissing would change is
+   whether the trainer is told. It clears when the hand does.
+
+   It names the person and where they are instead of carrying a count. A badge
+   reading "2" sends you to find out what it means; this has already said it.
+   Same reasoning that removed the count badge from the top bar. */
+.hands-bar {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  background: #fdf3e0; border: 1px solid #f0d9af; border-radius: 10px;
+  padding: 0.7rem 1rem; margin-bottom: 1rem;
+}
+.hands-bar.is-coming { background: #e9f4ec; border-color: #bfe3cb; }
+.hands-bar-icon { font-size: 1.15rem; line-height: 1; }
+.hands-bar-what {
+  flex: 1 1 16rem; min-width: 0; font-size: 0.92rem; color: #7a5f1a;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.hands-bar.is-coming .hands-bar-what { color: #2a6b45; }
+.hands-bar-what strong { color: #8a5a00; }
+.hands-bar.is-coming .hands-bar-what strong { color: #1d7a44; }
+.hands-bar-where { color: #8a7a52; }
+.hands-bar.is-coming .hands-bar-where { color: #4b8462; }
+.hands-bar-age { font-variant-numeric: tabular-nums; }
+.hands-bar-more {
+  flex-shrink: 0; background: transparent; border: 0; color: #8a5a00;
+  font-size: 0.82rem; font-weight: 700; text-decoration: underline;
+  cursor: pointer; padding: 0.2rem 0.1rem;
+}
+.hands-bar-btn {
+  flex-shrink: 0; background: #fff; color: #8a5a00; border: 1px solid #e0b566;
+  padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.hands-bar .hands-bar-btn:hover { background: #f7e6c4; }
+.hands-bar .hands-bar-btn.is-primary {
+  background: var(--midnight); border-color: var(--midnight); color: #fff;
+}
+.hands-bar .hands-bar-btn.is-primary:hover { background: var(--midnight-hover); }
+.hands-bar.is-coming .hands-bar-btn { border-color: #bfe3cb; color: #1d7a44; }
+.hands-bar.is-coming .hands-bar-btn:hover { background: #d9ecdf; }
+.hands-bar-error { flex-basis: 100%; font-size: 0.8rem; color: #a13a3a; }
 
 /* Change-trainer control in the session hero. Scoped overrides beat the gold
    `.page-hero-actions button` rule so Save reads as primary and Change/Cancel

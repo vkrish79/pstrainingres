@@ -201,3 +201,55 @@
 @media print {
   .exam .exam-bar { position: static; box-shadow: none; }
 }
+
+/* ===== Calling the trainer during the paper =====
+   Sits in the exam bar between the title and the clock, so it is on screen
+   wherever they are in the paper. Deliberately quieter than the clock: it is
+   there when needed, not competing for attention with the time remaining.
+
+   Unlike the workbook's hand, this one never lowers itself — moving to the
+   next question says nothing about the problem with the last one. */
+.exam-hand {
+  flex-shrink: 0;
+  align-self: center;
+  background: #fff;
+  color: #8a5a00;
+  border: 1px solid #e0b566;
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.exam-bar .exam-hand:hover:not(:disabled) { background: #fdf3e0; }
+.exam-bar .exam-hand.is-up {
+  background: #8a5a00;
+  border-color: #8a5a00;
+  color: #fff;
+}
+.exam-bar .exam-hand.is-up:hover:not(:disabled) { background: #7a5000; }
+.exam-hand:disabled { opacity: 0.55; cursor: default; }
+
+.exam-hand-banner {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  background: #e9f4ec;
+  border: 1px solid #bfe3cb;
+  color: #2a6b45;
+  font-size: 0.9rem;
+}
+.exam-hand-error {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  background: #f6e3e3;
+  border: 1px solid #d99999;
+  color: #a13a3a;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .exam-hand { padding: 0.4rem 0.6rem; font-size: 0.8rem; }
+}

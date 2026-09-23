@@ -17,7 +17,7 @@ import ExerciseResponses from './ExerciseResponses.jsx';
 //
 // It is also where marking BY HAND happens: questions set to manual get ✓ / ✗
 // / a part-marks box, and what is awarded is written to assessment_marks.
-export default function AssessmentResponses({ sessionId, assessmentId, participants }) {
+export default function AssessmentResponses({ sessionId, assessmentId, participants, hands = null }) {
   const { profile } = useAuth();
   const {
     loading, error, sections, blocks, answers, answerKey, answerPoints, answerModes,
@@ -99,6 +99,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
         onComment={handleComment}
         guidance={guidance}
         onBreakdown={handleBreakdown}
+        hands={hands}
         markingIds={savingIds}
         showNotes={false}
         emptyLabel="No questions in this assessment yet."

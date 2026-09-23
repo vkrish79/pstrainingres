@@ -4,6 +4,7 @@ import { useCountdown } from '../lib/assessmentTimer.js';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useParticipantAssessment } from '../hooks/useParticipantAssessment.js';
+import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useParticipantAssessmentPrep } from '../hooks/useParticipantAssessmentPrep.js';
 import { isAnswered } from '../lib/blockHelpers.js';
 import { buildQuestions } from '../lib/assessmentStructure.js';
@@ -104,6 +105,40 @@ export default function ParticipantAssessmentPage() {
   }
   const page = typeof current === 'number' ? paper.pages[current] || null : null;
 
+  // Calling the trainer during the paper.
+  //
+  // Same table and same RPCs as the workbook's "Ask for help" — section_id has
+  // no foreign key and both of help_raise's location arguments are optional, so
+  // an assessment question's id goes in the same field with no schema change.
+  //
+  // Two rules differ from the workbook, and both are deliberate:
+  //   • the wording. "Ask for help" invites a conversation that cannot happen
+  //     mid-paper; "Call the trainer" asks someone to come without promising an
+  //     answer to the question being marked.
+  //   • it NEVER lowers itself. The workbook drops a hand when someone moves to
+  //     a later exercise, a fair guess they sorted it out. Moving to question 4
+  //     says nothing about the problem with question 3.
+  const help = useHelpRequests(session?.id, { mine: true, selfId: authSession?.user.id });
+  const handUp = help.mineOpen;
+  const [helpBusy, setHelpBusy] = useState(false);
+  const [helpError, setHelpError] = useState('');
+
+  async function toggleHelp() {
+    setHelpBusy(true);
+    setHelpError('');
+    // Where they are, in the trainer's words. A hand raised on the start or
+    // review screen has no question to name, so it says so rather than
+    // inventing one.
+    const where = typeof current === 'number'
+      ? `Assessment · Q${current + 1}`
+      : 'Assessment';
+    const { error: e } = handUp
+      ? await help.lower('cancelled')
+      : await help.raise(page?.id || null, where);
+    setHelpBusy(false);
+    if (e) setHelpError(e.message);
+  }
+
   if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading assessment…" /></>;
   if (error) {
     return (
@@ -203,6 +238,21 @@ export default function ParticipantAssessmentPage() {
               )}
             </p>
           </div>
+          {/* Only once the paper is open: before that the assessment is locked
+              and this page never renders the exam bar at all. */}
+          <button
+            type="button"
+            className={`exam-hand${handUp ? ' is-up' : ''}`}
+            onClick={toggleHelp}
+            disabled={helpBusy || !session?.id}
+            aria-pressed={!!handUp}
+            data-tip={handUp
+              ? 'Put your hand down'
+              : 'Ask your trainer to come over — only they will see it'}
+          >
+            {handUp ? '✋ Hand up · Cancel' : '✋ Call the trainer'}
+          </button>
+
           <div className={`exam-bar-clock ${timerTone}`} role="timer" aria-live="off">
             {remainingLabel == null ? (
               <span className="exam-bar-clock-note">No time limit</span>
@@ -216,6 +266,17 @@ export default function ParticipantAssessmentPage() {
             )}
           </div>
         </section>
+
+        {helpError && <p className="exam-hand-error" role="alert">{helpError}</p>}
+        {handUp?.acknowledged_at && (
+          <p className="exam-hand-banner">
+            👋 {handUp.acknowledged_by_name || 'Your trainer'} is coming over.
+            {/* The clock is deliberately not touched. If waiting cost them
+                time, the trainer extends the deadline themselves — a hand
+                quietly adding minutes to one person's exam is not something
+                that should happen without the trainer deciding it. */}
+          </p>
+        )}
 
         <div className="assessment-body">
           <AssessmentQuestionNav
