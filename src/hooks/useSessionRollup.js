@@ -22,27 +22,45 @@ const SUPER_ROLES = new Set(['super_admin', 'super_trainer']);
 // this page keeps working on a database that has not yet had
 // 20260917000000_participant_dropout_close_check.sql applied — the new fields
 // simply read as zero.
-export function useSessionRollup() {
+//
+// `sinceDays` scopes the SESSIONS query itself, not just what the page draws:
+// without it this hook downloads every session and every frozen result on each
+// visit, which gets slower with every session that closes. The filter has to
+// allow for `starts_at` being null (the time axis falls back to created_at), so
+// a bare starts_at.gte would silently drop undated sessions. session_analytics
+// is then fetched only for the sessions that survived the filter.
+export function useSessionRollup({ sinceDays = null } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
-        const [s, a, c] = await Promise.all([
-          supabase.from('sessions').select(`
+        let q = supabase.from('sessions').select(`
             id, name, vendor_id, trainer_id, program_id, city_code, closed_at, created_at, starts_at,
             vendors ( id, name ),
             program:programs ( id, program_type_id, program_type:program_types ( id, name ) ),
             trainer:profiles!sessions_trainer_id_fkey ( id, full_name, role ),
             session_participants ( * )
-          `),
-          supabase.from('session_analytics').select('*'),
+          `);
+        if (sinceDays) {
+          const cut = new Date(Date.now() - sinceDays * 864e5).toISOString();
+          q = q.or(`starts_at.gte.${cut},and(starts_at.is.null,created_at.gte.${cut})`);
+        }
+        const s = await q;
+        if (s.error) throw s.error;
+        if (cancelled) return;
+        const ids = (s.data || []).map(r => r.id);
+
+        const [a, c] = await Promise.all([
+          ids.length
+            ? supabase.from('session_analytics').select('*').in('session_id', ids)
+            : Promise.resolve({ data: [], error: null }),
           supabase.from('cities').select('code, name'),
         ]);
-        if (s.error) throw s.error;
         if (a.error) throw a.error;
         if (c.error) throw c.error;
         if (cancelled) return;
@@ -70,6 +88,18 @@ export function useSessionRollup() {
             participants: isClosed ? (sa?.participant_count ?? 0) : enrolled.length,
             dropouts: isClosed ? (sa?.deactivated_count ?? 0) : enrolled.filter(sp => sp.deactivated_at).length,
             belowThreshold: isClosed ? (sa?.below_threshold_count ?? 0) : 0,
+            // Closed-session shape figures. All null-safe: a live session has
+            // no session_analytics row at all, and an old closed one may
+            // predate some of these columns.
+            completionPct: isClosed && sa?.completion_pct != null ? Number(sa.completion_pct) : null,
+            fullyCompleted: isClosed ? (sa?.fully_completed_count ?? null) : null,
+            notStarted: isClosed ? (sa?.not_started_count ?? null) : null,
+            blockCount: isClosed ? (sa?.block_count ?? null) : null,
+            // Scheduled length. 0 minutes means it started and ended the same
+            // day, which is one training day, not none.
+            trainingDays: isClosed && sa?.duration_minutes != null
+              ? Math.max(1, Math.round(Number(sa.duration_minutes) / 1440))
+              : null,
             // null unless this is a closed session whose assessment was recorded.
             assessment: isClosed && sa?.has_assessment ? {
               title: sa.assessment_title || '(untitled assessment)',
@@ -105,7 +135,7 @@ export function useSessionRollup() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [sinceDays]);
 
   return { loading, error, sessions };
 }
