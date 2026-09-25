@@ -24,6 +24,8 @@ import ProgramsListPage from './pages/ProgramsListPage.jsx';
 import ProgramEditorPage from './pages/ProgramEditorPage.jsx';
 import AssessmentsListPage from './pages/AssessmentsListPage.jsx';
 import AssessmentEditorPage from './pages/AssessmentEditorPage.jsx';
+import QuestionBankListPage from './pages/QuestionBankListPage.jsx';
+import QuestionBankEditorPage from './pages/QuestionBankEditorPage.jsx';
 import QuizzesListPage from './pages/QuizzesListPage.jsx';
 import QuizEditorPage from './pages/QuizEditorPage.jsx';
 import PollsListPage from './pages/PollsListPage.jsx';
@@ -119,6 +121,16 @@ export default function App() {
       } />
       <Route path="/trainer/assessments/:id" element={
         <ProtectedRoute role="super"><AssessmentEditorPage /></ProtectedRoute>
+      } />
+      {/* role="super", matching assessments: a bank question carries its answer
+          key and marking scheme, and the assessment_answer_keys policies only
+          grant a vendor trainer read access to a session's own clone keys —
+          never to a template's. Same tier in the UI as in the DB. */}
+      <Route path="/trainer/question-bank" element={
+        <ProtectedRoute role="super"><QuestionBankListPage /></ProtectedRoute>
+      } />
+      <Route path="/trainer/question-bank/:id" element={
+        <ProtectedRoute role="super"><QuestionBankEditorPage /></ProtectedRoute>
       } />
       {/* role="trainer", not "super": both tiers author quizzes, unlike
           workbooks and assessments. Matches quiz_can_author() in the DB. */}

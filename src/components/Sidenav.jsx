@@ -41,6 +41,10 @@ const GROUPS = [
       // rows, so the page is safe to open; only authoring is gated, on the page.
       { to: '/trainer/workbooks', icon: '▥', label: 'Workbooks' },
       { to: '/trainer/assessments', icon: '✎', label: 'Assessments' },
+      // Directly under Assessments, because that is the only thing it feeds.
+      // superOnly like the rest of the group: a bank question carries its answer
+      // key and marking scheme, which template RLS never shows a vendor trainer.
+      { to: '/trainer/question-bank', icon: '⛁', label: 'Question bank', superOnly: true },
       // NOT superOnly: vendor trainers author and run quizzes too, unlike
       // assessments. quiz_can_author() in the DB is the matching rule.
       { to: '/trainer/quizzes', icon: '◑', label: 'Quizzes' },

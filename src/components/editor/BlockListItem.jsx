@@ -7,7 +7,7 @@ import { mixedWording } from '../../lib/tableCells.js';
 // questionNumber is the older whole-question form, rendered as "Q3". A block
 // gets one or the other, never both: inside a question the heading already
 // carries the number, so only the letter is worth repeating.
-export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onMoveTo, onLocate, isFirst, isLast, canEdit = true, questionNumber = null, partLabel = null, headExtra = null, inactive = false, onToggleInactive = null }) {
+export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onMoveTo, onLocate, isFirst, isLast, canEdit = true, questionNumber = null, partLabel = null, headExtra = null, inactive = false, onToggleInactive = null, answerKey = undefined, canSetAnswer = false }) {
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -165,6 +165,8 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
           block={block}
           onSave={handleSave}
           onCancel={() => setEditing(false)}
+          answerKey={answerKey}
+          canSetAnswer={canSetAnswer}
         />
       )}
     </div>

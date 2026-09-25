@@ -55,7 +55,16 @@ export function questionNumbers(orderedBlocks) {
 
 export function labelOf(block) {
   if (!block) return '';
-  if (block.block_type === 'field') return block.config?.label || '(unlabeled field)';
+  if (block.block_type === 'field') {
+    // A PNR question is a long-text field whose real title is the scenario, and
+    // it is usually created before the label is typed. Falling through to
+    // "(unlabeled field)" would leave a whole paper of them indistinguishable in
+    // the question list, the scorecard and the marking screens.
+    if (!block.config?.label?.trim() && block.config?.pnr?.scenario?.trim()) {
+      return block.config.pnr.scenario.trim();
+    }
+    return block.config?.label || '(unlabeled field)';
+  }
   if (block.block_type === 'table') {
     const cfg = block.config || {};
     if (cfg.caption?.trim()) return cfg.caption.trim();

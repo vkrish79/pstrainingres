@@ -27,7 +27,7 @@ export default function AddExercisesModal({
   const targetId = currentParentId ?? currentWorkbookId;
   const {
     parentTable, sectionsTable, blocksTable, parentFK,
-    prepTemplateCol, addRpc, addRpcParams, label,
+    prepTemplateCol, addRpc, addRpcParams, parentFilter, label,
   } = kindConfig;
 
   const { run: runBusy } = useBusyOverlay();
@@ -55,16 +55,17 @@ export default function AddExercisesModal({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from(parentTable)
-        .select(`id, title, ${prepTemplateCol}`)
-        .eq('is_template', true)
-        .order('title');
+      const { data } = await (parentFilter ?? ((q) => q))(
+        supabase
+          .from(parentTable)
+          .select(`id, title, ${prepTemplateCol}`)
+          .eq('is_template', true),
+      ).order('title');
       if (cancelled) return;
       setTemplates((data || []).filter(w => w.id !== targetId));
     })();
     return () => { cancelled = true; };
-  }, [targetId, parentTable, prepTemplateCol]);
+  }, [targetId, parentTable, prepTemplateCol, parentFilter]);
 
   // Load the chosen source's sections + blocks + which sections carry prep.
   useEffect(() => {
@@ -184,8 +185,11 @@ export default function AddExercisesModal({
                     {isOpen && (
                       <div className="picker-preview">
                         {secBlocks.length === 0 && <p className="muted">(empty)</p>}
+                        {/* Same as the bank picker: preview shows the question
+                            with its options, readOnly alone would show a dash
+                            where nobody has answered. */}
                         {secBlocks.map(b => (
-                          <Block key={b.id} block={b} value={undefined} onChange={() => {}} readOnly />
+                          <Block key={b.id} block={b} value={undefined} onChange={() => {}} readOnly preview />
                         ))}
                       </div>
                     )}

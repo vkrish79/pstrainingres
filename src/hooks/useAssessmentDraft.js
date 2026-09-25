@@ -358,16 +358,60 @@ export function useAssessmentDraft({ sections, blocks, reload }) {
       const realSectionId = id => (isDraftId(id) ? idMap.get(id) : id);
 
       // 2. New blocks.
+      //
+      // `.select()` is new and load-bearing: a correct answer marked on a question
+      // that had not been saved yet is staged on the draft block as `pending_key`,
+      // and writing it needs the real id the insert just minted. Without reading
+      // the rows back there is nothing to attach it to, and the answer would be
+      // silently dropped on the first save of a brand-new question.
+      //
+      // pending_key is deliberately NOT in the insert payload — there is no such
+      // column. It rides along on the plan and is written in step 2b.
+      let insertedBlocks = [];
       if (plan.insertBlocks.length) {
-        const { error } = await supabase.from('assessment_blocks').insert(
+        const { data, error } = await supabase.from('assessment_blocks').insert(
           plan.insertBlocks.map(b => ({
             section_id: realSectionId(b.section_id),
             order_index: b.order_index,
             block_type: b.block_type,
             config: b.config,
           }))
-        );
+        ).select('id, section_id, order_index');
         if (error) throw Object.assign(error, { stage: 'create blocks' });
+        insertedBlocks = data || [];
+      }
+
+      // 2b. The answers staged against those blocks.
+      //
+      // Matched back by (section_id, order_index) rather than by trusting insert()
+      // to return rows in input order — the same reasoning step 1 uses for
+      // sections, and for the same reason: input order is an assumption, while
+      // those two columns are values we set ourselves.
+      //
+      // A failure here does NOT throw. The questions are already saved by this
+      // point, and losing the whole save over an answer would be worse than
+      // reporting that the answer needs setting again — which the scorecard will
+      // show as "No correct answer set".
+      const withKeys = plan.insertBlocks.filter(b => b.pending_key != null);
+      if (withKeys.length && insertedBlocks.length) {
+        const byPos = new Map(
+          insertedBlocks.map(r => [`${r.section_id}|${r.order_index}`, r.id]),
+        );
+        const rows = withKeys
+          .map((b) => {
+            const id = byPos.get(`${realSectionId(b.section_id)}|${b.order_index}`);
+            return id ? { assessment_block_id: id, key: b.pending_key } : null;
+          })
+          .filter(Boolean);
+        if (rows.length) {
+          const { error: keyErr } = await supabase
+            .from('assessment_answer_keys')
+            .upsert(rows, { onConflict: 'assessment_block_id' });
+          if (keyErr) {
+            // Surfaced, not thrown: see above.
+            console.warn('[draft save] questions saved but their answers were not:', keyErr.message);
+          }
+        }
       }
 
       // 3. Renames and moves. Sequential, not parallel: this project has a

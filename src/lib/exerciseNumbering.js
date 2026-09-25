@@ -42,6 +42,12 @@ export async function renumberExercises(workbookId) {
 }
 
 // Same-kind cross-import configs for AddExercisesModal.
+//
+// `parentFilter` narrows the list of source parents. Workbooks need no
+// narrowing; assessments do, because a question bank is an assessments row and
+// must not appear in a list of assessments to copy exercises from. It is a
+// function rather than a column/value pair because `workbooks` has no `kind`
+// column at all, so there is nothing to compare against there.
 export const WORKBOOK_CONTENT_KIND = {
   parentTable: 'workbooks',
   sectionsTable: 'sections',
@@ -53,6 +59,7 @@ export const WORKBOOK_CONTENT_KIND = {
     p_target_workbook_id: targetId,
     p_source_section_ids: sourceIds,
   }),
+  parentFilter: (q) => q,
   label: 'workbook',
 };
 export const ASSESSMENT_CONTENT_KIND = {
@@ -66,5 +73,26 @@ export const ASSESSMENT_CONTENT_KIND = {
     p_target_assessment_id: targetId,
     p_source_section_ids: sourceIds,
   }),
+  parentFilter: (q) => q.eq('kind', 'assessment'),
   label: 'assessment',
+};
+
+// Source config for the question bank picker: read a bank's questions, copy them
+// into the assessment being edited. Same shape as the two above so the picker
+// can stay generic, but a different RPC — add_bank_questions_to_assessment also
+// carries each question's answer key, marks, marking mode and rubric, and stamps
+// where the copy came from so it can be re-pulled later.
+export const QUESTION_BANK_SOURCE_KIND = {
+  parentTable: 'assessments',
+  sectionsTable: 'assessment_sections',
+  blocksTable: 'assessment_blocks',
+  parentFK: 'assessment_id',
+  prepTemplateCol: 'prep_template',
+  addRpc: 'add_bank_questions_to_assessment',
+  addRpcParams: (targetId, sourceIds) => ({
+    p_target_assessment_id: targetId,
+    p_source_section_ids: sourceIds,
+  }),
+  parentFilter: (q) => q.eq('kind', 'bank'),
+  label: 'question bank',
 };

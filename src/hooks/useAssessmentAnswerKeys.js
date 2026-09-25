@@ -32,6 +32,13 @@ export function useAssessmentAnswerKeys(blockIds) {
   const [pointsMap, setPointsMap] = useState({}); // { [blockId]: number } — what each question is worth
   const [modes, setModes] = useState({});         // { [blockId]: 'auto' | 'manual' }
   const [guidanceMap, setGuidanceMap] = useState({}); // { [blockId]: { criteria: [...] } }
+  // Has the first read finished? This is not cosmetic. The correct answer is
+  // marked on the question, in a form that seeds its state from `keys` when it
+  // opens. Open that form before this read lands and the form sees NO answer,
+  // and saving it would then clear the real one — silently deleting a correct
+  // answer because a fetch had not come back yet. Callers gate the control on
+  // this instead.
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(null); // surfaced to the editor so a failed
   // load/save isn't silent (e.g. the table missing, or a write that hangs).
   const idsKey = (blockIds || []).join(',');
@@ -41,7 +48,10 @@ export function useAssessmentAnswerKeys(blockIds) {
 
   useEffect(() => {
     const ids = (blockIds || []);
-    if (!ids.length) { setKeys({}); return undefined; }
+    // No blocks to read is a finished read, not a pending one — otherwise a
+    // brand-new assessment would never enable the control at all.
+    if (!ids.length) { setKeys({}); setLoaded(true); return undefined; }
+    setLoaded(false);
     let cancelled = false;
     (async () => {
       const { data, error: loadErr } = await supabase
@@ -49,6 +59,9 @@ export function useAssessmentAnswerKeys(blockIds) {
         .select('assessment_block_id, key, points, marking_mode, guidance')
         .in('assessment_block_id', ids);
       if (cancelled) return;
+      // Deliberately NOT marked loaded on failure: a read that errored tells us
+      // nothing about what is stored, so the control stays disabled rather than
+      // letting a save act on an empty picture.
       if (loadErr) { setError(loadErr.message || String(loadErr)); return; }
       const m = {};
       const p = {};
@@ -71,6 +84,7 @@ export function useAssessmentAnswerKeys(blockIds) {
       setModes(md);
       setGuidanceMap(gd);
       setError(null);
+      setLoaded(true);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,6 +297,32 @@ export function useAssessmentAnswerKeys(blockIds) {
     }
   }, []);
 
+  // The correct answer as marked ON THE QUESTION, in its own editor, rather than
+  // in the scorecard panel.
+  //
+  // This is not just setKey with a null branch, and the difference is destructive
+  // if you get it wrong. clearKey DELETES THE WHOLE ROW, and that row also holds
+  // the question's marks and its marking criteria. So:
+  //
+  //   manual question   -> do nothing at all. A written answer or a PNR exercise
+  //                        has no correct answer to record, and its criteria live
+  //                        on this row. Clearing "the answer it doesn't have"
+  //                        would take the entire marking scheme with it.
+  //   an answer given    -> normal debounced write.
+  //   answer removed     -> clear it, but only if one was actually stored. Doing
+  //                        it unconditionally would delete the row of a question
+  //                        that simply never had an answer, and with it any marks
+  //                        someone had already set on it.
+  const setCorrectAnswer = useCallback(async (blockId, value) => {
+    if (modes[blockId] === 'manual') return {};
+    if (value != null && !(Array.isArray(value) && value.length === 0)) {
+      setKey(blockId, value);
+      return {};
+    }
+    if (keys[blockId] == null) return {};
+    return clearKey(blockId);
+  }, [modes, keys, setKey, clearKey]);
+
   // On unmount, flush anything still pending so an in-progress edit isn't lost
   // (e.g. the trainer types a key then immediately navigates away). Points
   // timers share this map under a "pts:" prefix and must go through their own
@@ -300,7 +340,7 @@ export function useAssessmentAnswerKeys(blockIds) {
   }, [flushKey, flushPoints, flushGuidance]);
 
   return {
-    keys, points: pointsMap, modes, guidance: guidanceMap,
-    setKey, setPoints, setMode, setGuidance, clearKey, error,
+    keys, points: pointsMap, modes, guidance: guidanceMap, loaded,
+    setKey, setPoints, setMode, setGuidance, clearKey, setCorrectAnswer, error,
   };
 }

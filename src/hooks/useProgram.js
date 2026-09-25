@@ -47,7 +47,13 @@ export function useProgram(programId) {
         .select('id, name, starts_at, ends_at, closed_at, created_at, assessment_id, session_participants ( count )')
         .eq('program_id', programId),
       supabase.from('workbooks').select('id, title, updated_at').eq('is_template', true).is('program_id', null).order('updated_at', { ascending: false }),
-      supabase.from('assessments').select('id, title, updated_at').eq('is_template', true).is('program_id', null).order('updated_at', { ascending: false }),
+      // The free-assessment picker. kind='assessment' is REQUIRED here, not
+      // tidiness: a question bank is an assessments row whose shape is exactly
+      // is_template = true AND program_id IS NULL, so without this filter every
+      // bank would be offered as a programme's assessment — and attaching one
+      // would set program_id and trip the assessments_bank_is_library CHECK as a
+      // raw Postgres error.
+      supabase.from('assessments').select('id, title, updated_at').eq('is_template', true).eq('kind', 'assessment').is('program_id', null).order('updated_at', { ascending: false }),
     ]);
     const firstErr = results.find(r => r.error)?.error;
     if (firstErr) { setError(firstErr.message); setLoading(false); return; }

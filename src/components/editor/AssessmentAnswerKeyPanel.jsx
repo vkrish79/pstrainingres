@@ -5,6 +5,7 @@ import { isScorableBlock, isManuallyMarkable, isInactiveBlock } from '../../lib/
 import { labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
 import { hasCriteria } from '../../lib/markingCriteria.js';
+import { isPnrQuestion, starterGuidance, starterCriteriaTotal } from '../../lib/pnrQuestion.js';
 import MarkingCriteriaEditor from './MarkingCriteriaEditor.jsx';
 import CriteriaPushModal from './CriteriaPushModal.jsx';
 import { useCriteriaPush } from '../../hooks/useCriteriaPush.js';
@@ -18,10 +19,17 @@ import { useCriteriaPush } from '../../hooks/useCriteriaPush.js';
 // block's database id, so a block that exists only in the editor's draft has
 // nothing to attach one to. Rather than offer a control that would fail, those
 // are left out and the panel says how many and why.
-export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCount = 0 }) {
+// keysApi — the shared useAssessmentAnswerKeys instance, supplied by the page.
+// It MUST be shared: the correct answer is now marked on the question itself, so
+// two independent instances would each hold their own copy of the same keys and
+// the one that did not do the write would keep showing the old value until the
+// page was reloaded. Left optional so the hook is still created here if a caller
+// has no reason to share it.
+export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCount = 0, keysApi = null }) {
   const blockIds = useMemo(() => blocks.map(b => b.id), [blocks]);
+  const ownApi = useAssessmentAnswerKeys(keysApi ? [] : blockIds);
   const { keys, points, modes, guidance, setKey, setPoints, setMode, setGuidance, clearKey, error } =
-    useAssessmentAnswerKeys(blockIds);
+    keysApi || ownApi;
   const [open, setOpen] = useState(false);
 
   // Offering the push is held back until the scorecard has ACTUALLY been
@@ -177,6 +185,16 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
   );
 }
 
+// The types whose correct answer is marked on the question itself. The
+// interactive four (fill-blank, card sort, match pairs, reorder) and table cells
+// still key here — their controls are whole widgets, not a tick beside an option,
+// and moving them is a separate job.
+function inlineAnswered(block) {
+  if (block?.block_type !== 'field') return false;
+  const t = block.config?.input_type;
+  return t === 'choice' || t === 'check_group' || t === 'short_text';
+}
+
 function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel = null, guidance = null, onChange, onPoints, onMode, onGuidance, onClear }) {
   const label = labelOf(block);
   const manual = mode === 'manual';
@@ -275,7 +293,30 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
                 <strong>📝 Assessment → Live responses</strong>.
               </p>
             )}
-            <MarkingCriteriaEditor guidance={guidance} onChange={onGuidance} />
+            <MarkingCriteriaEditor
+              guidance={guidance}
+              onChange={onGuidance}
+              starter={isPnrQuestion(block)
+                ? { label: 'ARDW scheme', guidance: starterGuidance(), total: starterCriteriaTotal() }
+                : null}
+            />
+          </div>
+        ) : inlineAnswered(block) ? (
+          /* The correct answer for these types is marked ON THE QUESTION now, in
+             its own editor. Showing an editable copy here as well would be two
+             controls writing one value, and whichever you did not touch would
+             look stale. So this is a read-only echo: the scorecard still answers
+             "which questions have no answer yet" at a glance, which is the thing
+             it is genuinely good for. */
+          <div className="answer-key-echo">
+            {value == null || (Array.isArray(value) && value.length === 0) ? (
+              <span className="answer-key-echo-none">No correct answer set</span>
+            ) : (
+              <span className="answer-key-echo-val">
+                {Array.isArray(value) ? value.join(' + ') : String(value)}
+              </span>
+            )}
+            <span className="muted">— set on the question, in Edit</span>
           </div>
         ) : canAuto ? (
           <KeyControl block={block} value={value} onChange={onChange} />

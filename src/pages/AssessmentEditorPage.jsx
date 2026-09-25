@@ -5,8 +5,13 @@ import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
 import { useAssessmentDraft, isDraftId } from '../hooks/useAssessmentDraft.js';
+import { useAssessmentAnswerKeys } from '../hooks/useAssessmentAnswerKeys.js';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
 import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
+import AddFromBankModal from '../components/editor/AddFromBankModal.jsx';
+import BankUpdatesBar from '../components/editor/BankUpdatesBar.jsx';
+import SaveToBankPanel from '../components/editor/SaveToBankPanel.jsx';
+import { useBankLinks } from '../hooks/useBankLinks.js';
 import AssessmentPrepPanel from '../components/editor/AssessmentPrepPanel.jsx';
 import AssessmentAnswerKeyPanel from '../components/editor/AssessmentAnswerKeyPanel.jsx';
 import QuestionNav from '../components/editor/QuestionNav.jsx';
@@ -51,6 +56,7 @@ export default function AssessmentEditorPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState('');
   const [showAddExercises, setShowAddExercises] = useState(false);
+  const [showAddFromBank, setShowAddFromBank] = useState(false);
   const [withdrawBusy, setWithdrawBusy] = useState(null);
   const [withdrawErr, setWithdrawErr] = useState({});
   const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
@@ -64,6 +70,23 @@ export default function AssessmentEditorPage() {
     bySection: heatBySection, byBlock: heatByBlock,
     openSections, totalSections, refresh: refreshHeat,
   } = useAssessmentEditHeat(id, heatEnabled);
+
+  // Questions pulled from the bank, and which of them the bank has since
+  // changed. Only meaningful on a template: a session clone is a deep copy
+  // with no live link to anything.
+  const bankLinks = useBankLinks(id, assessment?.is_template === true);
+
+  // ONE answer-key instance for the whole page, shared by the question editor
+  // (where the correct option is marked) and the scorecard (which shows marks
+  // and manual criteria). Two instances would each cache the same rows and the
+  // one that did not write would show a stale answer.
+  //
+  // Saved blocks only: a key is stored against a block’s database id, and a
+  // block that exists only in the draft has none yet.
+  const savedBlockIds = blocks
+    .filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))
+    .map(b => b.id);
+  const keysApi = useAssessmentAnswerKeys(savedBlockIds);
 
   // A section IS a question (lib/assessmentStructure.js). A brand-new
   // assessment starts with one empty question rather than nothing, so there is
@@ -337,7 +360,23 @@ export default function AssessmentEditorPage() {
           onSaveBlock={draft.updateBlock}
         />
 
+        {/* Saved sections only: a draft question has no row yet, so there is
+            no answer key for the copy to carry. */}
+        <SaveToBankPanel
+          sections={sections.filter(s => !isDraftId(s.id))}
+          blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
+          unsavedCount={sections.filter(s => isDraftId(s.id)).length
+            + blocks.filter(b => isDraftId(b.id)).length}
+        />
+
+        <BankUpdatesBar
+          stale={bankLinks.stale}
+          orphaned={bankLinks.orphaned}
+          onResync={async (ids) => { const r = await bankLinks.resync(ids); await reload(); return r; }}
+        />
+
         <AssessmentAnswerKeyPanel
+          keysApi={keysApi}
           sections={sections.filter(s => !isDraftId(s.id))}
           blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
           unsavedCount={blocks.filter(b => isDraftId(b.id)).length}
@@ -356,6 +395,9 @@ export default function AssessmentEditorPage() {
               onCreateBlock={draft.createBlock}
               onMoveBlockTo={draft.moveBlockTo}
               onUpdateBlock={draft.updateBlock}
+              answerKeys={keysApi.keys}
+              onSaveAnswerKey={keysApi.setCorrectAnswer}
+              answerKeysLoaded={keysApi.loaded}
               onDeleteBlock={draft.deleteBlock}
               onMoveBlock={draft.moveBlock}
               onDuplicateBlock={draft.duplicateBlock}
@@ -371,9 +413,40 @@ export default function AssessmentEditorPage() {
               heat={heatEnabled ? { bySection: heatBySection, byBlock: heatByBlock } : null}
               onOpenHeat={heatEnabled ? setHeatFocus : null}
               extraAddSectionActions={
-                <button className="ghost" onClick={() => setShowAddExercises(true)}>
-                  <span className="btn-glyph" aria-hidden>⊕</span> Add questions from another assessment
-                </button>
+                <>
+                  {/* Two ways in, deliberately separate. The bank is the reusable
+                      pool built for this; the other assessment is the older
+                      "I know there's one like it in that paper" route, which
+                      stays as it was.
+
+                      BOTH are blocked while there are unsaved structural edits,
+                      and that is not caution — it prevents silent loss. Either
+                      one writes its questions server-side and then reloads, and
+                      the draft re-seeds from whatever comes back. Any staged
+                      move, rename or DELETE is thrown away in that moment, with
+                      nothing on screen to say so: remove a question, add one
+                      from the bank, and the removed question quietly returns. */}
+                  <button
+                    className="ghost"
+                    disabled={draft.dirty}
+                    data-tip={draft.dirty
+                      ? 'Save your changes first — adding reloads the questions, which would discard them'
+                      : 'Pick questions from a bank, or draw some at random'}
+                    onClick={() => setShowAddFromBank(true)}
+                  >
+                    <span className="btn-glyph" aria-hidden>✈</span> Add from the question bank
+                  </button>
+                  <button
+                    className="ghost"
+                    disabled={draft.dirty}
+                    data-tip={draft.dirty
+                      ? 'Save your changes first — adding reloads the questions, which would discard them'
+                      : 'Copy questions out of another assessment'}
+                    onClick={() => setShowAddExercises(true)}
+                  >
+                    <span className="btn-glyph" aria-hidden>⊕</span> Add questions from another assessment
+                  </button>
+                </>
               }
             />
           </div>
@@ -407,6 +480,17 @@ export default function AssessmentEditorPage() {
           kindConfig={ASSESSMENT_CONTENT_KIND}
           onClose={() => setShowAddExercises(false)}
           onAdded={reload}
+        />
+      )}
+      {showAddFromBank && (
+        <AddFromBankModal
+          currentParentId={id}
+          // From the DRAFT list, not from the database. A removed question is
+          // staged until Save, so reading the database would keep calling it
+          // "already added" after it had gone from the screen.
+          usedBankSectionIds={sections.map(s => s.source_bank_section_id)}
+          onClose={() => setShowAddFromBank(false)}
+          onAdded={async () => { await reload(); await bankLinks.refresh(); }}
         />
       )}
     </>

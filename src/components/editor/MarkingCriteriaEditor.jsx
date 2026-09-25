@@ -19,7 +19,12 @@ import {
 // each criterion all of its marks, none of them, or a typed figure — which can
 // already express every "deduct N" and "deduct all of it" in a paper scheme,
 // with the comment carrying the reason.
-export default function MarkingCriteriaEditor({ guidance, onChange }) {
+// `starter` (optional): a ready-made scheme offered on the empty state, for a
+// question whose kind implies one — a PNR exercise is always marked against the
+// same nine-criterion shape, so retyping it for every paper is wasted work.
+// Offered, never applied automatically: it is a starting point to edit, and a
+// trainer who wants something else should not have to clear a table first.
+export default function MarkingCriteriaEditor({ guidance, onChange, starter = null }) {
   const g = normaliseGuidance(guidance);
   const total = criteriaTotal(g);
   const hasAny = g.criteria.length > 0;
@@ -34,6 +39,16 @@ export default function MarkingCriteriaEditor({ guidance, onChange }) {
         <button type="button" className="ghost" onClick={() => onChange(addCriterion(g))}>
           + Add marking criteria
         </button>
+        {starter && (
+          <button
+            type="button"
+            className="ghost"
+            data-tip={`Start from the ${starter.label} — ${starter.total} marks across ${starter.guidance.criteria.length} criteria, all editable`}
+            onClick={() => onChange(starter.guidance)}
+          >
+            Use the {starter.label}
+          </button>
+        )}
         <span className="mc-hint">or leave it and mark this question as a whole</span>
       </div>
     );

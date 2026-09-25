@@ -64,6 +64,22 @@ export default function AddBlockMenu({
     ['reorder', '↕', 'Reorder'],
   ];
 
+  // The four flavours of `field`, named the way a marking scheme names them.
+  //
+  // These are shorthands, not block types: each one creates a `field` with its
+  // input_type already set, and the choice ones arrive with starter options. That
+  // is the whole point. Adding a multiple-choice question used to mean picking
+  // "Field" — which gave a SHORT TEXT box — then opening its form, finding the
+  // Input type dropdown, changing it, and adding options one at a time. Seven
+  // steps, and the words "multiple choice" appeared at step four. A trainer
+  // writing a paper should not have to know that a radio group is a `field`.
+  const answerable = [
+    ['choice', '◉', 'Multiple choice'],
+    ['check_group', '☑', 'Multi-select'],
+    ['short_answer', '▭', 'Short answer'],
+    ['written', '¶', 'Written answer'],
+  ];
+
   return (
     <div className={`addblock ${compact ? 'addblock-compact' : ''}`} ref={wrapRef}>
       {!compact && (
@@ -71,9 +87,18 @@ export default function AddBlockMenu({
           <button type="button" className="addblock-chip" onClick={() => choose('prose')}>
             <span className="addblock-glyph" aria-hidden>¶</span> Prose
           </button>
-          <button type="button" className="addblock-chip" onClick={() => choose('field')}>
-            <span className="addblock-glyph" aria-hidden>▭</span> Field
-          </button>
+          {/* On an assessment the everyday question is a multiple choice, so it
+              gets the one-click chip. On a workbook there are no answer keys and
+              "Field" is still the right word, so that path is untouched. */}
+          {allowInteractive ? (
+            <button type="button" className="addblock-chip" onClick={() => choose('choice')}>
+              <span className="addblock-glyph" aria-hidden>◉</span> Multiple choice
+            </button>
+          ) : (
+            <button type="button" className="addblock-chip" onClick={() => choose('field')}>
+              <span className="addblock-glyph" aria-hidden>▭</span> Field
+            </button>
+          )}
           <button type="button" className="addblock-chip" onClick={() => choose('table')}>
             <span className="addblock-glyph" aria-hidden>▦</span> Table
           </button>
@@ -108,8 +133,8 @@ export default function AddBlockMenu({
               )}
               {allowInteractive && (
                 <>
-                  <div className="addblock-group">Interactive</div>
-                  {interactive.map(([type, glyph, text], i) => (
+                  <div className="addblock-group">Answerable</div>
+                  {answerable.map(([type, glyph, text], i) => (
                     <MenuItem
                       key={type}
                       glyph={glyph}
@@ -119,6 +144,23 @@ export default function AddBlockMenu({
                       {text}
                     </MenuItem>
                   ))}
+                  <div className="addblock-group">Interactive</div>
+                  {/* No firstItemRef here: the Answerable group above is now the
+                      first thing in the menu, so it owns the opening focus. Two
+                      elements claiming the same ref would leave focus wherever
+                      the last render happened to put it. */}
+                  {interactive.map(([type, glyph, text]) => (
+                    <MenuItem key={type} glyph={glyph} onSelect={() => choose(type)}>
+                      {text}
+                    </MenuItem>
+                  ))}
+                  {/* `pnr` is not a block_type — it is a shorthand the scaffold
+                      expands into a long-text field carrying a scenario, marked
+                      by hand against criteria. Listed separately from the
+                      interactive types because it is a different kind of thing:
+                      the work happens in Amadeus, not on this page. */}
+                  <div className="addblock-group">Practical</div>
+                  <MenuItem glyph="✈" onSelect={() => choose('pnr')}>PNR build / change</MenuItem>
                 </>
               )}
             </div>

@@ -45,6 +45,11 @@ export function planSave(base, draft) {
       order_index: b.order_index,
       block_type: b.block_type,
       config: b.config,
+      // The correct answer, marked on the question before it had a database row
+      // to hang one on. Carried through the plan so save() can write it once the
+      // insert has produced real ids. NOT a column on assessment_blocks — save()
+      // must never put it in the insert payload.
+      pending_key: b.pending_key,
     }));
 
   const updateSections = draft.sections

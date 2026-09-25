@@ -191,13 +191,24 @@ button.primary:hover:where(:not(:disabled)) { background: var(--midnight-hover);
   cursor: pointer;
 }
 .editor-section-head .form-input { flex: 1; }
+/* This row swaps one "Delete question" button for a sentence plus Yes and No, so
+   its width roughly triples the moment it is clicked. It used to be
+   flex-shrink:0 with no wrapping, which meant the group simply kept growing past
+   the edge of the card and the No button was clipped off — the confirmation you
+   could not decline. It wraps now, and the buttons stay together on the line they
+   wrap to. */
 .editor-section-actions {
   display: flex;
   gap: 0.4rem;
   align-items: center;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
-.editor-section-actions button { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
+.editor-section-actions button { font-size: 0.8rem; padding: 0.25rem 0.6rem; white-space: nowrap; }
+/* The question owns the line; Yes/No sit under it rather than being pushed off
+   the end. Scoped to this row so the same class elsewhere is untouched. */
+.editor-section-actions .confirm-text { flex: 1 0 100%; text-align: right; margin-right: 0; }
 
 .import-counts {
   display: flex;
@@ -1090,3 +1101,79 @@ button.primary .btn-glyph { color: var(--gold); }
   font-size: 0.85rem;
   line-height: 1.45;
 }
+
+/* ── Question bank ─────────────────────────────────────────────────────── */
+
+/* Filter row above the bank picker's list. Search takes the slack; the two
+   selects size to their content so they do not stretch into empty boxes. */
+.bank-filters {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+  margin: 0.75rem 0 0.25rem;
+}
+.bank-filters .form-input { width: auto; }
+.bank-filter-search { flex: 1 1 12rem; min-width: 8rem; }
+
+/* A topic tag. Distinct from .type-tag, which is the question's type and is not
+   editable — a reader has to be able to tell "this is a matching question" from
+   "somebody filed this under ticketing" at a glance. */
+.bank-tag {
+  flex: none; display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.7rem; font-weight: 600; color: var(--midnight);
+  background: #eef2f6; border: 1px solid #dbe3ea;
+  border-radius: 999px; padding: 0.05rem 0.45rem;
+}
+.bank-tag.is-editable { padding-right: 0.2rem; }
+.bank-tag-x {
+  border: 0; background: none; cursor: pointer; padding: 0 0.15rem;
+  color: var(--muted); font-size: 0.75rem; line-height: 1;
+}
+.bank-tag-x:hover { color: var(--danger); }
+.bank-tag-x:disabled { opacity: 0.4; cursor: default; }
+
+/* One row per question in the Topics panel. */
+.qb-tag-list { display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.5rem; }
+.qb-tag-row {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+}
+.qb-tag-row:last-child { border-bottom: 0; }
+.qb-tag-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.qb-tag-label { font-weight: 600; color: var(--text); }
+.qb-tag-chips { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+/* Sized to a topic word, not to the row: a full-width input on every question
+   reads as thirty empty boxes down a long panel. */
+.qb-tag-input { width: 8rem; font-size: 0.8rem; padding: 0.2rem 0.4rem; }
+
+/* "The bank has changed these questions." Gold edge rather than red: something
+   upstream moved and is offered, which is news, not a fault. */
+.bank-updates { border-left: 3px solid var(--gold); }
+.bank-updates-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.bank-updates-dot {
+  flex: none; width: 0.55rem; height: 0.55rem; border-radius: 50%;
+  background: var(--gold);
+}
+.bank-updates-list {
+  list-style: none; margin: 0.6rem 0 0; padding: 0;
+  display: flex; flex-direction: column;
+}
+.bank-updates-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  padding: 0.35rem 0; border-bottom: 1px solid var(--border);
+}
+.bank-updates-list li:last-child { border-bottom: 0; }
+
+/* Random draw, sitting under the filter row it draws from. */
+.bank-draw {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  margin: 0.35rem 0 0.5rem;
+  padding-top: 0.5rem; border-top: 1px dashed var(--border);
+}
+.bank-draw-or { color: var(--muted); font-size: 0.85rem; }
+.bank-draw-n { width: 4.5rem; }
+.bank-draw-pool { font-size: 0.8rem; }
+.bank-draw-only { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--muted); }
+
+/* A question this assessment already holds. Dimmed and not tickable — a second
+   identical copy in one paper is a mistake every time. */
+.picker-row.is-used { opacity: 0.55; }
+.picker-row.is-used .picker-title { text-decoration: line-through; }

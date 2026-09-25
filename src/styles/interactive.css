@@ -94,3 +94,84 @@
 @media (max-width: 560px) {
   .matchpairs-form-cols { grid-template-columns: 1fr; }
 }
+
+/* ── PNR question: the scenario panel ──────────────────────────────────
+   The question half of a PNR build/modification exercise — what to build, for
+   whom, in which booking classes. Always read-only: it is the paper, not an
+   answer. Sits directly above the answer box, and because it renders inside
+   FieldBlock it appears identically on the participant's paper, in the editor
+   preview, in the bank picker and in a closed session's report. */
+.pnr-scenario {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.7rem;
+}
+.pnr-scenario-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.pnr-scenario-tag {
+  flex: none; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #fff; background: var(--midnight);
+  border-radius: var(--radius-sm); padding: 0.1rem 0.35rem;
+}
+.pnr-scenario-title { font-weight: 600; color: var(--text); }
+.pnr-scenario-prep {
+  flex: none; font-size: 0.7rem; font-weight: 600; color: var(--gold-dark);
+  border: 1px solid var(--qasr); border-radius: var(--radius-sm);
+  padding: 0.05rem 0.35rem; cursor: help;
+}
+/* Label/value pairs, two columns on a laptop and stacked on a narrow screen.
+   The workbook is laptop-minimum, so two columns is the normal case. */
+.pnr-scenario-grid {
+  margin: 0.5rem 0 0; display: grid; gap: 0.15rem 1.2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.pnr-scenario-row { display: flex; gap: 0.4rem; min-width: 0; }
+.pnr-scenario-row dt {
+  flex: none; color: var(--muted); font-size: 0.8rem;
+}
+.pnr-scenario-row dd {
+  margin: 0; min-width: 0; font-size: 0.85rem; color: var(--text);
+  font-weight: 600; font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* The same fields, being authored. */
+.pnr-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem 1rem; }
+.pnr-form-full { grid-column: 1 / -1; }
+.pnr-form-check { display: flex; align-items: center; gap: 0.45rem; }
+
+@media (max-width: 640px) {
+  .pnr-scenario-grid, .pnr-form { grid-template-columns: 1fr; }
+}
+
+/* ── Marking the correct option, on the question ────────────────────────── */
+/* The tick sits to the LEFT of the option text, so a column of them reads as a
+   single answer column rather than as decoration hanging off each row. */
+.option-correct { flex: none; display: grid; place-items: center; width: 1.5rem; cursor: pointer; }
+.option-correct input { cursor: pointer; }
+.option-row.is-correct .form-input {
+  border-color: var(--success);
+  background: #f2f9f3;
+  font-weight: 600;
+}
+
+/* The scorecard's read-only echo of an answer set on the question. Deliberately
+   plain text, not a disabled input: a greyed-out box invites clicking. */
+.answer-key-echo { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; font-size: 0.85rem; }
+.answer-key-echo-val { font-weight: 600; color: var(--text); }
+.answer-key-echo-none { color: var(--muted); font-style: italic; }
+
+/* The correct answer, shown in a question PREVIEW only — a trainer deciding
+   whether to take a question needs to see what it is marked against. Never
+   rendered on an answering path: it requires the `correct` prop, which only the
+   super-trainer-gated pickers pass. */
+.wb-choice.is-correct { color: var(--text); font-weight: 600; }
+.wb-correct-tick {
+  color: var(--success); font-weight: 700; margin-left: 0.35rem;
+}
+.wb-correct-note {
+  margin: 0.35rem 0 0; font-size: 0.82rem; color: var(--muted);
+}
+.wb-correct-note strong { color: var(--text); }

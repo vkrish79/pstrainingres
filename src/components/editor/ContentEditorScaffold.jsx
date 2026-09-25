@@ -3,6 +3,10 @@ import BlockListItem from './BlockListItem.jsx';
 import AddBlockMenu from './AddBlockMenu.jsx';
 import Block from '../blocks/Block.jsx';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
+import { newPnrConfig } from '../../lib/pnrQuestion.js';
+// Only reached when a caller supplies onSaveAnswerKey, i.e. an assessment or a
+// question bank. A workbook never passes it, so this branch is dead there.
+import { isDraftId } from '../../hooks/useAssessmentDraft.js';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
 import { isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { heatLevel } from '../../lib/configDiff.js';
@@ -21,6 +25,9 @@ export default function ContentEditorScaffold({
   onCreateBlock,
   onMoveBlockTo = null,
   onUpdateBlock,
+  answerKeys = null,        // { [blockId]: correct answer } — assessment/bank only
+  onSaveAnswerKey = null,   // (blockId, key) => Promise; absent = no answers here
+  answerKeysLoaded = true,  // false while the first read is in flight
   onDeleteBlock,
   onMoveBlock,
   onDuplicateBlock,
@@ -217,10 +224,76 @@ export default function ContentEditorScaffold({
     );
   }
 
+  // Saving a question from its own form writes to TWO places, because the correct
+  // answer cannot live in the block.
+  //
+  // `config` goes to assessment_blocks, which the participant reads. The answer
+  // goes to assessment_answer_keys, which has no participant policy at all — that
+  // absence is the only thing keeping answers away from candidates, so putting the
+  // answer in config would hand every paper its own answer sheet. Marking the
+  // correct option on the question is a UI choice; where it is stored is not.
+  //
+  // Order matters. Config first: if the key write fails, the wording is still
+  // saved and the trainer can retry the answer. The reverse order could leave a
+  // key pointing at an option that was never written.
+  async function handleBlockSave(blockId, patch) {
+    const { answerKey, ...rest } = patch || {};
+    const wantsKey = onSaveAnswerKey && answerKey !== undefined;
+
+    // A question added in this sitting has no database row yet, so there is no id
+    // for a key to point at. Stage the answer on the draft block instead and let
+    // Save write it once the insert has produced a real id — otherwise ticking the
+    // correct option on a new question would either throw (a temp id is not a
+    // uuid) or, worse, be quietly discarded.
+    if (wantsKey && isDraftId(blockId)) {
+      return onUpdateBlock(blockId, { ...rest, pending_key: answerKey });
+    }
+
+    const res = await onUpdateBlock(blockId, rest);
+    if (wantsKey) {
+      const keyRes = await onSaveAnswerKey(blockId, answerKey);
+      if (keyRes?.error) return keyRes;
+    }
+    return res;
+  }
+
   // afterIndex is null to append (the row at the foot of a section) or the
   // index of the block to insert after.
   async function handleAdd(sectionId, type, afterIndex = null) {
     let defaultConfig;
+    // 'pnr' is a shorthand from the add menu, not a block_type. It expands into
+    // the manual question the app already has — a long-text field — carrying the
+    // ARDW scenario fields. Expanded here so there is one definition of what a
+    // PNR question is, and so nothing downstream has to know the shorthand
+    // existed: what gets created is an ordinary `field`.
+    if (type === 'pnr') {
+      await onCreateBlock(sectionId, 'field', newPnrConfig(), afterIndex);
+      return;
+    }
+    // The four `field` flavours, expanded here so the add menu can offer them by
+    // the name a marking scheme uses. The choice types arrive WITH options: an
+    // empty options list renders as nothing at all in the preview, and
+    // FieldForm strips blank ones on save, so seeding them is what makes the
+    // question visible and editable straight away rather than after a detour
+    // through the Input type dropdown.
+    const FIELD_SHORTHANDS = {
+      choice: {
+        label: 'New question',
+        input_type: 'choice',
+        options: ['Option A', 'Option B', 'Option C'],
+      },
+      check_group: {
+        label: 'New question — select all that apply',
+        input_type: 'check_group',
+        options: ['Option A', 'Option B', 'Option C'],
+      },
+      short_answer: { label: 'New question', input_type: 'short_text' },
+      written: { label: 'New question', input_type: 'long_text' },
+    };
+    if (FIELD_SHORTHANDS[type]) {
+      await onCreateBlock(sectionId, 'field', FIELD_SHORTHANDS[type], afterIndex);
+      return;
+    }
     if (type === 'prose') defaultConfig = { html: '<p>New prose block</p>' };
     else if (type === 'field') defaultConfig = { label: 'New field', input_type: 'short_text' };
     else if (type === 'table') defaultConfig = {
@@ -358,11 +431,13 @@ export default function ContentEditorScaffold({
                             }),
                           )}
                           block={b}
+                          answerKey={answerKeys ? answerKeys[b.id] : undefined}
+                          canSetAnswer={!!onSaveAnswerKey && answerKeysLoaded}
                           partLabel={partLabelByBlockId[b.id] ?? null}
                           inactive={isInactiveBlock(b)}
                           isFirst={i === 0}
                           isLast={i === q.blocks.length - 1}
-                          onSave={(blockId, patch) => onUpdateBlock(blockId, patch)}
+                          onSave={(blockId, patch) => handleBlockSave(blockId, patch)}
                           onDelete={(blockId) => onDeleteBlock(blockId)}
                           onDuplicate={(blockId) => onDuplicateBlock(blockId)}
                           onMoveUp={() => onMoveBlock(b.id, 'up')}
@@ -475,9 +550,11 @@ export default function ContentEditorScaffold({
                         }),
                       )}
                       block={b}
+                      answerKey={answerKeys ? answerKeys[b.id] : undefined}
+                      canSetAnswer={!!onSaveAnswerKey && answerKeysLoaded}
                       isFirst={i === 0}
                       isLast={i === sectionBlocks.length - 1}
-                      onSave={(blockId, patch) => onUpdateBlock(blockId, patch)}
+                      onSave={(blockId, patch) => handleBlockSave(blockId, patch)}
                       onDelete={(blockId) => onDeleteBlock(blockId)}
                       onDuplicate={(blockId) => onDuplicateBlock(blockId)}
                       onMoveUp={() => onMoveBlock(b.id, 'up')}
