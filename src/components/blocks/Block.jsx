@@ -19,7 +19,7 @@ export default function Block({ block, value, onChange, readOnly = false, previe
   switch (block.block_type) {
     case 'prose': inner = <ProseBlock block={block} />; break;
     case 'field': inner = <FieldBlock block={block} value={value} onChange={onChange} readOnly={readOnly} preview={preview} correct={correct} marks={marks} marksAudience={marksAudience} />; break;
-    case 'table': inner = <TableBlock block={block} value={value} onChange={onChange} readOnly={readOnly} marks={marks} marksAudience={marksAudience} />; break;
+    case 'table': inner = <TableBlock block={block} value={value} onChange={onChange} readOnly={readOnly} preview={preview} marks={marks} marksAudience={marksAudience} />; break;
     case 'fill_blank': inner = <FillBlankBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;
     case 'card_sort': inner = <CardSortBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;
     case 'match_pairs': inner = <MatchPairsBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;

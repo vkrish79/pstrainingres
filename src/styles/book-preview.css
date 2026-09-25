@@ -1,0 +1,203 @@
+/* The workbook book preview: two facing pages in a wide modal.
+   Page geometry lives here and is mirrored by PAGE_H in WorkbookPreviewModal —
+   the paginator measures in px, so the two have to agree or the last line of
+   every page is cut. */
+:root {
+  --bk-page-w: 620px;
+  --bk-page-h: 980px;     /* usable content height; keep in step with PAGE_H */
+  --bk-page-pad: 2.2rem;
+}
+
+/* Full screen. A book wants the whole desk: capped at 1420px it sat in the
+   middle of a wide monitor with grey all round it, which is the one shape a book
+   never has. The backdrop's own padding is removed for this modal so the edges
+   really do reach the edges. */
+.modal-backdrop:has(> .bk-modal) { padding: 0; }
+.bk-modal {
+  max-width: none;
+  width: 100vw;
+  border-radius: 0;
+  /* A DEFINITE height, not max-height, and that is the whole point.
+     The spread is scaled to fit the body, and the body's height was being
+     measured from the body itself — so with max-height the box collapsed onto
+     its content and the two fed each other downwards: smaller content, shorter
+     body, smaller scale, round again. It settled at about 16% and drew a
+     postage stamp. A fixed height breaks the loop: the body is the same size
+     whatever is inside it. */
+  height: 100vh;
+  /* .modal-card sets max-height: 90vh, which silently beat the height above and
+     left a tenth of the screen unused. */
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.bk-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #efece6;          /* the desk the book sits on */
+  display: flex;
+  justify-content: center;
+  padding: 0.6rem;
+}
+
+/* The spread. The gutter is a shadow on both inner edges rather than a drawn
+   line, which is what makes two rectangles read as one open book. */
+.bk-spread {
+  display: flex;
+  gap: 0;
+  align-items: flex-start;
+  /* Scaled down to fit the viewport height without changing the measured
+     geometry: the paginator works in unscaled px and the reader sees whatever
+     fits. transform, not zoom — zoom would change layout and invalidate the
+     measurements the pages were built from. */
+  transform: scale(var(--bk-scale, 1));
+  transform-origin: top center;
+  /* A transform does not shrink the layout box, so a scaled-down spread would
+     leave a band of empty desk under it exactly as tall as it was scaled by.
+     Pull that back. */
+  margin-bottom: calc((var(--bk-scale, 1) - 1) * (var(--bk-page-h) + var(--bk-page-pad) * 2));
+}
+.bk-page {
+  position: relative;
+  width: var(--bk-page-w);
+  height: calc(var(--bk-page-h) + var(--bk-page-pad) * 2);
+  background: var(--card);
+  padding: var(--bk-page-pad);
+  overflow: hidden;             /* a page never scrolls; that is the point */
+  box-sizing: border-box;
+}
+.bk-page:first-child {
+  border-radius: 3px 0 0 3px;
+  box-shadow: -2px 2px 10px rgba(0,0,0,0.13), inset -14px 0 18px -14px rgba(0,0,0,0.22);
+}
+.bk-page:last-child {
+  border-radius: 0 3px 3px 0;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.13), inset 14px 0 18px -14px rgba(0,0,0,0.22);
+}
+.bk-page.is-blank { background: #f4f2ee; box-shadow: none; }
+
+/* --bk-page-fit is 1 on almost every page. It drops below 1 only where a single
+   item is taller than a whole page and cannot be split — scaling it down loses
+   nothing, where the alternative is overflow:hidden quietly cutting the bottom
+   off. width is divided back out so the content still fills the page's width at
+   the smaller scale rather than leaving a margin down the right. */
+.bk-page-content {
+  width: calc(100% / var(--bk-page-fit, 1));
+  transform: scale(var(--bk-page-fit, 1));
+  transform-origin: top left;
+}
+
+/* SPACING IS PADDING, NOT MARGIN, AND THAT IS LOAD-BEARING.
+   The paginator packs pages using getBoundingClientRect().height, which does NOT
+   include margins — so a margin between items is height the paginator cannot see,
+   and every page comes out over-full by one gap per item. Worse, a prose block's
+   own <p> margins would collapse straight through a margin-only wrapper and
+   escape the measurement altogether.
+   Padding is inside the box, so it is measured. `display: flow-root` stops any
+   child margin collapsing out of it. Between them, what is measured is exactly
+   what is rendered. */
+.bk-item {
+  break-inside: avoid;
+  display: flow-root;
+  padding-bottom: 0.85rem;
+}
+.bk-item > :first-child { margin-top: 0; }
+.bk-item > :last-child { margin-bottom: 0; }
+
+.bk-chapter {
+  margin: 0 0 0.6rem;
+  font-size: 1.35rem;
+  color: var(--midnight);
+  border-bottom: 2px solid var(--gold);
+  padding-bottom: 0.35rem;
+}
+.bk-heading {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  color: var(--text);
+}
+.bk-page-number {
+  position: absolute;
+  bottom: 0.85rem;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.bk-foot { display: flex; align-items: center; gap: 0.75rem; }
+.bk-pageno { font-size: 0.85rem; color: var(--muted); min-width: 8rem; text-align: center; }
+.bk-close { margin-left: auto; }
+
+/* The measuring pass. Off-screen, NOT display:none — a hidden element has no
+   layout and every height comes back as zero. Same width and padding as a real
+   page so the numbers it produces are the ones that will be used. */
+.bk-measure {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: var(--bk-page-w);
+  padding: var(--bk-page-pad);
+  box-sizing: border-box;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  /* Two pages no longer fit side by side honestly, so show one at a time. */
+  .bk-spread { flex-direction: column; gap: 1rem; }
+  .bk-page:first-child, .bk-page:last-child { border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,0.13); }
+  .bk-page.is-blank { display: none; }
+}
+
+/* ── Turning a page: a sheet that bends ───────────────────────────────────
+   The leaf is a COPY of the page being left, laid over the spread. The pages
+   underneath have already changed to the new spread, so when the leaf is removed
+   what is revealed is simply correct — nothing to keep in step mid-flight, and
+   clicking Next twice quickly cannot desynchronise it.
+
+   The bend itself is done in BookLeaf.jsx: the page is sliced into vertical
+   strips hinged end to end, and each strip is rotated a little more than the
+   last. CSS cannot curve a surface — a single element is always a flat plane,
+   which is what made the first attempt read as a card flipping rather than paper
+   turning. Enough strips and the polyline reads as a curve. */
+.bk-stage { perspective: 2200px; perspective-origin: center 45%; }
+
+.bk-leaf3 {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+.bk-leaf3.is-forward { left: 50%; }
+.bk-leaf3.is-back { right: 50%; }
+
+.bk-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  background: var(--card);
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, filter;
+  /* A hair of overlap: at fractional widths, adjacent strips can otherwise leave
+     a hairline of background showing between them that reads as a crack down the
+     turning page. */
+  box-shadow: 1px 0 0 0 var(--card);
+}
+.bk-leaf3.is-back .bk-strip { transform-origin: right center; }
+
+/* The page content inside a strip, slid sideways so the strip is a window onto
+   its own slice of the whole page. */
+.bk-strip-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: var(--bk-page-pad);
+  box-sizing: border-box;
+  overflow: hidden;
+}

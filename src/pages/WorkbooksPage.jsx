@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
+import WorkbookPreviewModal from '../components/workbook/WorkbookPreviewModal.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
@@ -25,6 +27,7 @@ export default function WorkbooksPage() {
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   const { loading, workbooks } = useTrainerWorkbooks(authSession?.user.id, profile?.role);
   const heatTotals = useEditHeatTotals(isSuper);
+  const [preview, setPreview] = useState(null);   // { id, title } | null
 
   return (
     <>
@@ -54,9 +57,16 @@ export default function WorkbooksPage() {
 
         {!loading && workbooks.length > 0 && (
           <div className="session-grid">
+            {/* The card was one big <Link>. It cannot stay that way once it has a
+                Preview button: a button inside an anchor is invalid markup and a
+                click would follow the link as well as open the preview. So the
+                title is the link and the actions are buttons — the same shape the
+                quizzes list already uses. */}
             {workbooks.map(w => (
-              <Link key={w.id} to={`/trainer/workbooks/${w.id}`} className="session-card">
-                <h3>{w.title}</h3>
+              <div key={w.id} className="session-card">
+                <h3>
+                  <Link to={`/trainer/workbooks/${w.id}`}>{w.title}</Link>
+                </h3>
                 {w.description && <p className="session-card-workbook">{w.description}</p>}
                 <p className="session-card-meta">
                   Updated {new Date(w.updated_at).toLocaleDateString()}
@@ -67,11 +77,28 @@ export default function WorkbooksPage() {
                     {heatTotals.get(w.id).sectionCount} to review
                   </p>
                 )}
-              </Link>
+                <div className="wb-card-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-tip="Read it as a book, the way a participant meets it"
+                    onClick={() => setPreview({ id: w.id, title: w.title })}
+                  >
+                    📖 Preview
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
       </main>
+      {preview && (
+        <WorkbookPreviewModal
+          workbookId={preview.id}
+          title={preview.title}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </>
   );
 }

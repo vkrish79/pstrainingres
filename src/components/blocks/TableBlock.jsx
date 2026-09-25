@@ -1,9 +1,16 @@
 import { boxLabel } from '../../lib/tableCells.js';
 import ReviewMark from './ReviewMark.jsx';
 
-export default function TableBlock({ block, value, onChange, readOnly = false, marks = null, marksAudience = 'participant' }) {
+// `preview` — draw the table as a candidate meets it: empty cells to fill in,
+// inert. Without it, readOnly renders each input cell as the answer that was
+// given, which on an unanswered table is a column of em-dashes. Same distinction
+// FieldBlock makes; a table is where it is most visible, because these workbooks
+// are mostly tables.
+export default function TableBlock({ block, value, onChange, readOnly = false, preview = false, marks = null, marksAudience = 'participant' }) {
   const cfg = block.config || {};
   const ans = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const showAnswer = readOnly && !preview;
+  const noop = () => {};
 
   function setCell(cellId, v) {
     onChange({ ...ans, [cellId]: v });
@@ -35,22 +42,24 @@ export default function TableBlock({ block, value, onChange, readOnly = false, m
                   {cell.kind === 'static' ? (
                     cell.text
                   ) : cell.kind === 'mixed' ? (
-                    <MixedCell cell={cell} ans={ans} setCell={setCell} readOnly={readOnly} marks={marks} marksAudience={marksAudience} />
-                  ) : readOnly ? (
+                    <MixedCell cell={cell} ans={ans} setCell={setCell} readOnly={readOnly} preview={preview} marks={marks} marksAudience={marksAudience} />
+                  ) : showAnswer ? (
                     <span className={`wb-readonly inline ${ans[cell.id] ? '' : 'empty'}`}>
                       {ans[cell.id] || '—'}
                     </span>
                   ) : cell.input_type === 'long_text' ? (
                     <textarea
                       rows="2"
-                      value={ans[cell.id] || ''}
-                      onChange={e => setCell(cell.id, e.target.value)}
+                      value={preview ? '' : (ans[cell.id] || '')}
+                      disabled={preview}
+                      onChange={preview ? noop : (e => setCell(cell.id, e.target.value))}
                     />
                   ) : (
                     <input
                       type="text"
-                      value={ans[cell.id] || ''}
-                      onChange={e => setCell(cell.id, e.target.value)}
+                      value={preview ? '' : (ans[cell.id] || '')}
+                      disabled={preview}
+                      onChange={preview ? noop : (e => setCell(cell.id, e.target.value))}
                     />
                   )}
                   {cell.kind === 'input' && marks?.[cell.id] && !marks[cell.id].right && (
@@ -68,7 +77,8 @@ export default function TableBlock({ block, value, onChange, readOnly = false, m
 
 // Wording with answer boxes inside it ("City code: [    ]"). Each box is its
 // own answer, keyed by the box id like an input cell.
-function MixedCell({ cell, ans, setCell, readOnly, marks, marksAudience = 'participant' }) {
+function MixedCell({ cell, ans, setCell, readOnly, preview = false, marks, marksAudience = 'participant' }) {
+  const showAnswer = readOnly && !preview;
   let boxNo = -1;
   return (
     <span className="wb-mixed">
@@ -80,7 +90,7 @@ function MixedCell({ cell, ans, setCell, readOnly, marks, marksAudience = 'parti
         const markEl = mark ? (
           <ReviewMark compact mark={mark} readOnly={readOnly} audience={marksAudience} onApply={v => setCell(p.id, v)} />
         ) : null;
-        if (readOnly) {
+        if (showAnswer) {
           return (
             <span key={p.id} className="wb-mixed-slot">
               <span className={`wb-readonly inline wb-mixed-box ${ans[p.id] ? '' : 'empty'}`}>
@@ -97,8 +107,9 @@ function MixedCell({ cell, ans, setCell, readOnly, marks, marksAudience = 'parti
               type="text"
               className="wb-mixed-box"
               aria-label={label}
-              value={ans[p.id] || ''}
-              onChange={e => setCell(p.id, e.target.value)}
+              value={preview ? '' : (ans[p.id] || '')}
+              disabled={preview}
+              onChange={preview ? undefined : (e => setCell(p.id, e.target.value))}
             />
           );
         }
@@ -108,8 +119,9 @@ function MixedCell({ cell, ans, setCell, readOnly, marks, marksAudience = 'parti
               type="text"
               className="wb-mixed-box"
               aria-label={label}
-              value={ans[p.id] || ''}
-              onChange={e => setCell(p.id, e.target.value)}
+              value={preview ? '' : (ans[p.id] || '')}
+              disabled={preview}
+              onChange={preview ? undefined : (e => setCell(p.id, e.target.value))}
             />
             {markEl}
           </span>
