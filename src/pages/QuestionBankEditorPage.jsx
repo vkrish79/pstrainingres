@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
 import { useAssessmentDraft, isDraftId } from '../hooks/useAssessmentDraft.js';
 import { useAssessmentAnswerKeys } from '../hooks/useAssessmentAnswerKeys.js';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
-import QuestionTagsPanel from '../components/editor/QuestionTagsPanel.jsx';
+import QuestionTopics from '../components/editor/QuestionTopics.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/editor.css';
 import '../styles/workbook.css';
@@ -43,6 +43,32 @@ export default function QuestionBankEditorPage() {
     .filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))
     .map(b => b.id);
   const keysApi = useAssessmentAnswerKeys(savedBlockIds);
+
+  // ── Topics ───────────────────────────────────────────────────────────────
+  //
+  // Owned HERE rather than read off the draft, and that placement is the whole
+  // fix. The draft re-seeds only when the shape changes (ids, titles, order), so
+  // it never saw a tag write: the topic went to the database and stayed
+  // invisible until a page reload, and the next add then composed its array from
+  // those stale tags and overwrote the ones already stored. Seeded from the
+  // saved rows, advanced only by the row each write returns.
+  const savedTagSig = useMemo(
+    () => JSON.stringify(savedSections.map(s => [s.id, s.tags || []])),
+    [savedSections],
+  );
+  const [tagsById, setTagsById] = useState({});
+  const [tagSeed, setTagSeed] = useState(null);
+  if (tagSeed !== savedTagSig) {
+    // Derived during render, the same idiom useAssessmentDraft uses, so nothing
+    // ever paints one commit behind the data.
+    setTagSeed(savedTagSig);
+    setTagsById(Object.fromEntries(savedSections.map(s => [s.id, s.tags || []])));
+  }
+  const knownTags = useMemo(() => {
+    const t = new Set();
+    Object.values(tagsById).forEach(list => (list || []).forEach(x => { if (x) t.add(x); }));
+    return [...t].sort((a, b) => a.localeCompare(b));
+  }, [tagsById]);
 
   const [titleDraft, setTitleDraft] = useState('');
   const [descDraft, setDescDraft] = useState('');
@@ -176,16 +202,6 @@ export default function QuestionBankEditorPage() {
           </div>
         )}
 
-        {/* Tags are what make a bank browsable by subject rather than only by
-            widget type. Saved sections only — a tag is written straight to the
-            row, and a draft question has no row yet. */}
-        <QuestionTagsPanel
-          sections={sections.filter(s => !isDraftId(s.id))}
-          blocks={blocks}
-          unsavedCount={sections.filter(s => isDraftId(s.id)).length}
-          onSaved={reload}
-        />
-
         {/* NO SCORECARD PANEL HERE, deliberately. Marks and marking criteria are a
             property of the paper a question appears in, not of the question — the
             same question is worth 2 in a foundation test and 5 in a certification.
@@ -212,6 +228,23 @@ export default function QuestionBankEditorPage() {
           previewTitle={title || 'Untitled question bank'}
           allowInteractive
           questions
+          // Topics belong to the question, so they live on the question —
+          // not in a separate panel that made you match up numbered rows by eye.
+          // A staged question has no row to write a tag to yet, so it says so.
+          renderQuestionExtra={q => (
+            isDraftId(q.section.id) ? (
+              <p className="q-topics q-topics-pending">
+                Topics can be added once this question is saved.
+              </p>
+            ) : (
+              <QuestionTopics
+                sectionId={q.section.id}
+                tags={tagsById[q.section.id] || []}
+                known={knownTags}
+                onWrote={(id, next) => setTagsById(prev => ({ ...prev, [id]: next }))}
+              />
+            )
+          )}
         />
       </main>
     </>

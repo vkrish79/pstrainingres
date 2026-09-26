@@ -56,6 +56,9 @@ export default function ContentEditorScaffold({
   // while everything else in this editor is staged — the scaffold should not
   // have to know the difference.
   renderQuestionWithdraw = null,
+  // Rendered under a question's heading. A bank puts its topics here; an
+  // assessment passes nothing and is unchanged.
+  renderQuestionExtra = null,
 }) {
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
@@ -394,6 +397,10 @@ export default function ContentEditorScaffold({
                       )}
                     </div>
                   </div>
+                  {/* Kind-specific extras that belong to the question itself
+                      rather than to the paper — topics, on a bank. Optional, so
+                      an assessment renders exactly as before. */}
+                  {renderQuestionExtra && renderQuestionExtra(q)}
                   {q.blocks.length === 0 && (
                     <div className="block-empty">
                       <div className="block-empty-title">Nothing in this question yet</div>

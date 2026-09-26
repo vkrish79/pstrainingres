@@ -1130,19 +1130,24 @@ button.primary .btn-glyph { color: var(--gold); }
 .bank-tag-x:hover { color: var(--danger); }
 .bank-tag-x:disabled { opacity: 0.4; cursor: default; }
 
-/* One row per question in the Topics panel. */
-.qb-tag-list { display: flex; flex-direction: column; gap: 0.1rem; margin-top: 0.5rem; }
-.qb-tag-row {
-  display: flex; flex-direction: column; gap: 0.3rem;
-  padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+/* Topics, on the question they belong to. A quiet strip directly under the
+   heading — filing information, not part of the question, so it sits apart from
+   the parts below without becoming a second panel. */
+.q-topics {
+  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+  padding: 0.4rem 0 0.55rem;
+  margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
 }
-.qb-tag-row:last-child { border-bottom: 0; }
-.qb-tag-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-.qb-tag-label { font-weight: 600; color: var(--text); }
-.qb-tag-chips { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.q-topics-label {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted); margin-right: 0.15rem;
+}
 /* Sized to a topic word, not to the row: a full-width input on every question
-   reads as thirty empty boxes down a long panel. */
-.qb-tag-input { width: 8rem; font-size: 0.8rem; padding: 0.2rem 0.4rem; }
+   reads as a column of empty boxes down a long bank. */
+.q-topics-input { width: 9rem; font-size: 0.8rem; padding: 0.2rem 0.45rem; }
+.q-topics-error { font-size: 0.75rem; color: var(--danger); flex-basis: 100%; }
+.q-topics-pending { font-size: 0.75rem; color: var(--muted); font-style: italic; }
 
 /* "The bank has changed these questions." Gold edge rather than red: something
    upstream moved and is offered, which is news, not a fault. */
