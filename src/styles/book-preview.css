@@ -31,13 +31,35 @@
   display: flex;
   flex-direction: column;
 }
-.bk-body {
+/* The row the book sits in: contents rail, then the desk. The rail is a SIBLING
+   of .bk-body and not a child, because .bk-body's own clientWidth is what the
+   fit calculation measures — a rail inside it would be counted as room for the
+   book and the spread would be scaled to a width it does not have. */
+.bk-work {
   flex: 1;
   min-height: 0;
+  display: flex;
+  position: relative;           /* the Find panel floats against this */
+}
+
+.bk-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
-  background: #efece6;          /* the desk the book sits on */
+  /* The desk the book sits on. A gradient rather than a flat fill: at the sizes
+     this modal runs at there is more desk than book, and a single grey reads as
+     an empty dialog rather than a surface something is lying on. */
+  background: radial-gradient(120% 90% at 50% 0%, #f3f0ea 0%, #e6e1d7 62%, #ddd7cb 100%);
   display: flex;
   justify-content: center;
+  /* `safe` is load-bearing once zoom can push the spread wider than the desk.
+     Plain `center` on an overflowing flex container puts the overflow on BOTH
+     sides and makes the left half unreachable — you can scroll right, never back
+     past the start. `safe center` falls back to flex-start exactly when that
+     would happen. Declared twice so a browser without it still gets `center`. */
+  justify-content: safe center;
+  align-items: flex-start;
   padding: 0.6rem;
 }
 
@@ -47,16 +69,29 @@
   display: flex;
   gap: 0;
   align-items: flex-start;
+  position: relative;           /* the page edges and the gutter hang off this */
   /* Scaled down to fit the viewport height without changing the measured
      geometry: the paginator works in unscaled px and the reader sees whatever
      fits. transform, not zoom — zoom would change layout and invalidate the
      measurements the pages were built from. */
   transform: scale(var(--bk-scale, 1));
   transform-origin: top center;
-  /* A transform does not shrink the layout box, so a scaled-down spread would
-     leave a band of empty desk under it exactly as tall as it was scaled by.
-     Pull that back. */
+  /* A transform does not change the layout box, so the box is always the page's
+     UNSCALED size whatever the spread actually looks like. Below 1 that leaves
+     a band of empty desk under the book exactly as tall as it was scaled by;
+     above 1 — which zoom can now reach — the box is smaller than the drawing and
+     the desk cannot scroll far enough to reach the edge of the page.
+     One expression covers both: it is negative when scaling down and positive
+     when scaling up, which is exactly the correction each case needs. */
   margin-bottom: calc((var(--bk-scale, 1) - 1) * (var(--bk-page-h) + var(--bk-page-pad) * 2));
+  /* And the same correction sideways, which matters only once zoom exists.
+     transform-origin is `top center`, so a spread wider than its box overhangs
+     by half the difference on EACH side — and the half hanging off the left sits
+     at a negative offset, which no amount of scrolling can reach. Widening the
+     box by that overhang puts both edges back inside the scrollable area.
+     Half of (2 × page-w × (scale − 1)) is page-w × (scale − 1). */
+  margin-left: calc((var(--bk-scale, 1) - 1) * var(--bk-page-w));
+  margin-right: calc((var(--bk-scale, 1) - 1) * var(--bk-page-w));
 }
 .bk-page {
   position: relative;
@@ -147,6 +182,15 @@
 @media (max-width: 1100px) {
   /* Two pages no longer fit side by side honestly, so show one at a time. */
   .bk-spread { flex-direction: column; gap: 1rem; }
+  /* A stacked spread is one page wide, not two, so it overhangs by half as much
+     as the side-by-side correction assumes. (The fit calculation still solves
+     for a two-page spread down here, which it did before zoom existed too —
+     left alone deliberately: the workbook is a laptop-minimum surface and this
+     breakpoint is a courtesy, not a supported reading size.) */
+  .bk-spread {
+    margin-left: calc((var(--bk-scale, 1) - 1) * var(--bk-page-w) / 2);
+    margin-right: calc((var(--bk-scale, 1) - 1) * var(--bk-page-w) / 2);
+  }
   .bk-page:first-child, .bk-page:last-child { border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,0.13); }
   .bk-page.is-blank { display: none; }
 }
@@ -200,4 +244,226 @@
   padding: var(--bk-page-pad);
   box-sizing: border-box;
   overflow: hidden;
+}
+
+/* ── Header tools ────────────────────────────────────────────────────────── */
+.bk-head { gap: 1rem; }
+.bk-tools { display: flex; gap: 0.4rem; margin-left: 0.5rem; }
+.bk-tool {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 7px;
+  padding: 0.34rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--midnight);
+  cursor: pointer;
+}
+.bk-tool:hover { border-color: var(--gold); }
+.bk-tool.is-on { background: var(--midnight); border-color: var(--midnight); color: #fff; }
+
+/* ── The contents rail ───────────────────────────────────────────────────── */
+.bk-rail {
+  width: 236px;
+  flex: none;
+  background: #e7e3db;
+  border-right: 1px solid #d6d1c6;
+  padding: 0.75rem 0;
+  /* Twenty-four entries do not fit 599px of desk. The rail scrolls rather than
+     folding the exercises away, because the exercise is the thing a trainer is
+     looking for and a disclosure puts two clicks in front of the one job the
+     rail has. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.bk-rail h4 {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+  margin: 0 0 0.5rem;
+  padding: 0 0.9rem;
+}
+.bk-toc { list-style: none; margin: 0; padding: 0; }
+.bk-toc-b {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: #3d4a58;
+  text-align: left;
+  padding: 0.32rem 0.9rem;
+  cursor: pointer;
+  box-shadow: inset 3px 0 0 transparent;
+}
+.bk-toc li.sub .bk-toc-b { padding-left: 1.65rem; font-size: 0.72rem; color: #6f7b88; }
+.bk-toc-b:hover { background: #efece6; }
+.bk-toc-b.ctx { color: var(--midnight); }
+.bk-toc-b.on {
+  background: var(--card);
+  box-shadow: inset 3px 0 0 var(--gold);
+  font-weight: 700;
+  color: var(--midnight);
+}
+.bk-toc-t { min-width: 0; }
+.bk-toc-p { margin-left: auto; font-size: 0.68rem; font-weight: 500; color: #9b9789; font-variant-numeric: tabular-nums; }
+
+/* ── The book's body: edges and gutter ───────────────────────────────────── */
+/* Pure decoration, but it is what stops two white rectangles reading as two
+   cards side by side. The stripes are a gradient rather than drawn elements
+   because a stack of page edges is exactly a repeating 2px pattern. */
+.bk-edge {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 12px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, #fdfcfa 0 1px, #e3ded2 1px 2px);
+  pointer-events: none;
+}
+.bk-edge.is-l { left: -12px; box-shadow: -2px 3px 9px rgba(0,0,0,0.14); }
+.bk-edge.is-r { right: -12px; box-shadow: 2px 3px 9px rgba(0,0,0,0.14); }
+.bk-gutter {
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 34px;
+  transform: translateX(-17px);
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(90deg,
+    rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.19) 50%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0) 100%);
+}
+
+/* ── A found block ───────────────────────────────────────────────────────── */
+/* Background and inset shadow ONLY. These classes ride on the very element the
+   paginator measured, so anything adding padding or a border would change its
+   height and re-flow the book under the person reading it. */
+.bk-item.is-hit { background: rgba(181, 152, 90, 0.16); }
+.bk-item.is-hit-active { background: rgba(181, 152, 90, 0.32); box-shadow: inset 0 0 0 2px var(--gold); }
+
+/* ── Find ────────────────────────────────────────────────────────────────── */
+.bk-find {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  width: 300px;
+  max-height: calc(100% - 1.5rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid #d8d4cc;
+  border-radius: 10px;
+  box-shadow: 0 8px 26px rgba(20, 25, 35, 0.18);
+  padding: 0.7rem;
+  z-index: 5;
+}
+.bk-find-top { display: flex; gap: 0.4rem; align-items: center; }
+.bk-find-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.bk-find-input:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+.bk-find-x { border: 0; background: none; font-size: 1.1rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 0.2rem; }
+.bk-find-count { font-size: 0.7rem; color: var(--muted); margin: 0.5rem 0.15rem 0.35rem; }
+.bk-find-hits { list-style: none; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
+.bk-find-hit {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--text);
+  text-align: left;
+  padding: 0.38rem 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.bk-find-hit:hover { background: #f6f2e9; }
+.bk-find-hit.on { background: #f6f2e9; box-shadow: inset 0 0 0 1px var(--gold); }
+.bk-find-hit b { color: var(--midnight); font-variant-numeric: tabular-nums; flex: none; }
+.bk-find-hit em { font-style: normal; background: rgba(181, 152, 90, 0.34); border-radius: 2px; padding: 0 2px; }
+/* Clear of the rail when there is one. The sibling combinator does the asking:
+   .bk-rail is only in the DOM while Contents is open, so with it shut the panel
+   goes back to the desk's own edge instead of floating in a gap left for
+   something that is not there. */
+.bk-rail ~ .bk-find { left: 252px; }
+
+/* ── The scrubber ────────────────────────────────────────────────────────── */
+.bk-scrub {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 2px 0.4rem;
+}
+.bk-sp {
+  flex: none;
+  display: flex;
+  width: 30px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid #d8d4cc;
+  border-radius: 2px;
+  background: var(--card);
+  cursor: pointer;
+}
+.bk-sp:hover { border-color: var(--gold); }
+.bk-sp.ch { background: #f6f2e9; }
+.bk-sp.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.32); }
+.bk-sp-pg {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 1px;
+  overflow: hidden;
+}
+.bk-sp-pg:first-child { border-right: 1px solid #eae7e0; }
+.bk-sp-m { display: block; background: #ddd9d1; border-radius: 1px; min-height: 1px; }
+.bk-sp-m.k-chapter { background: var(--gold); }
+.bk-sp-m.k-heading { background: #9aa6b2; }
+
+/* ── Zoom ────────────────────────────────────────────────────────────────── */
+.bk-zoom { display: flex; align-items: center; flex: none; }
+.bk-zoom button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--midnight);
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+.bk-zoom button:first-child { border-radius: 7px 0 0 7px; }
+.bk-zoom button:last-child { border-radius: 0 7px 7px 0; }
+.bk-zoom button + button { border-left: 0; }
+.bk-zoom button:hover:not(:disabled) { border-color: var(--gold); }
+.bk-zoom button:disabled { color: #c9c6c0; cursor: default; }
+.bk-zoom-v { min-width: 3.2rem; font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1100px) {
+  /* There is no spare width left to spend, so the things that spend it go. */
+  .bk-rail { display: none; }
+  .bk-find { left: 0.75rem; }
+  .bk-edge, .bk-gutter { display: none; }
+  .bk-scrub { display: none; }
 }

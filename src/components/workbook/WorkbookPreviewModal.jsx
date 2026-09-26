@@ -1,10 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonLines } from '../Skeleton.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import Block from '../blocks/Block.jsx';
 import BookLeaf from './BookLeaf.jsx';
-import { paginate, pageScale, spreadsOf, spreadLabel } from '../../lib/bookPagination.js';
+import BookContents from './BookContents.jsx';
+import BookScrubber from './BookScrubber.jsx';
+import BookFind from './BookFind.jsx';
+import { paginate, pageScale, spreadsOf, spreadForPage, spreadLabel } from '../../lib/bookPagination.js';
 import '../../styles/workbook.css';
 import '../../styles/book-preview.css';
 
@@ -21,6 +24,28 @@ import '../../styles/book-preview.css';
 // same width, so the heights it reports are the heights that will actually be
 // used. Measuring a simplified stand-in is how a paginator ends up off by a line
 // on page nine.
+
+// Zoom steps, as a multiplier on the auto-fit scale. 1 is "fit", which is what
+// the book opens at.
+//
+// These deliberately run past the 2.2 ceiling the auto-fit uses. That cap exists
+// so a big monitor does not blow the type up larger than the rest of the app
+// unasked; it is about what happens automatically. Someone who has reached for a
+// magnifier has asked, and what they are usually asking is "read me this table",
+// which 2.2 does not always answer.
+const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+const FIT_ZOOM = ZOOMS.indexOf(1);
+
+// A match, with just enough either side of it to recognise which one it is.
+function snippet(text, at, len) {
+  const before = text.slice(Math.max(0, at - 38), at);
+  return {
+    before: (at > 38 ? '…' : '') + before,
+    match: text.slice(at, at + len),
+    after: text.slice(at + len, at + len + 46) + (text.length > at + len + 46 ? '…' : ''),
+  };
+}
+
 export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
   useBodyScrollLock();
 
@@ -29,18 +54,46 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [heights, setHeights] = useState(null);   // { [itemId]: px }
+  const [texts, setTexts] = useState(null);       // { [itemId]: rendered text }
   const [spread, setSpread] = useState(0);
 
+  const [railOpen, setRailOpen] = useState(true);
+  const [findOpen, setFindOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [active, setActive] = useState(-1);       // index into hits; -1 = none yet
+  const [zoomIx, setZoomIx] = useState(FIT_ZOOM);
+
   const measureRef = useRef(null);
-  // The key handler is bound once; go() changes every render, so it is reached
-  // through a ref rather than by rebinding the listener on each one.
+  // The key handler is bound once; these change every render, so they are reached
+  // through refs rather than by rebinding the listener on each one.
   const goRef = useRef(() => {});
+  const keyRef = useRef({});
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') onClose();
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')
+        || e.target?.isContentEditable;
+      const k = keyRef.current;
+
+      // Ctrl+F would open the browser's own find, which can only see the two
+      // pages in the DOM and cannot see the measuring copy at all — so it always
+      // reports nothing on a 32-page book. Take it over.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        k.openFind?.();
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (k.findOpen) { k.closeFind?.(); return; }
+        onClose();
+        return;
+      }
+      if (typing) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown') goRef.current(1);
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') goRef.current(-1);
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); k.zoom?.(1); }
+      if (e.key === '-' || e.key === '_') { e.preventDefault(); k.zoom?.(-1); }
+      if (e.key === '0') { e.preventDefault(); k.zoomFit?.(); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -108,18 +161,26 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
   // Measure once the content is in the DOM, and again if fonts arrive late —
   // a webfont swapping in after the first pass changes every height, and a book
   // paginated against the fallback font is wrong from the first page.
+  //
+  // The same sweep harvests each item's rendered text, which is what Find
+  // searches. Taking it from the DOM rather than reaching into every block type's
+  // config means there is exactly one extractor instead of seven, and it can
+  // never drift from what a reader can actually see on the page.
   useLayoutEffect(() => {
     if (loading || !measureRef.current || items.length === 0) return undefined;
     let cancelled = false;
     const read = () => {
       if (cancelled || !measureRef.current) return;
-      const next = {};
+      const nextH = {};
+      const nextT = {};
       measureRef.current.querySelectorAll('[data-item]').forEach((el) => {
         // getBoundingClientRect, not offsetHeight: it is fractional, and rounding
         // 60 items down by half a pixel each loses most of a line per page.
-        next[el.dataset.item] = el.getBoundingClientRect().height;
+        nextH[el.dataset.item] = el.getBoundingClientRect().height;
+        nextT[el.dataset.item] = (el.textContent || '').replace(/\s+/g, ' ').trim();
       });
-      setHeights(next);
+      setHeights(nextH);
+      setTexts(nextT);
     };
     read();
     if (document.fonts?.ready) document.fonts.ready.then(read).catch(() => {});
@@ -142,19 +203,23 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
   // keep those dimensions; only the picture of them is scaled. A 1024px-tall
   // spread on a 768px laptop would otherwise be a book you scroll, which is the
   // one thing a book is not.
+  //
+  // `fit` and `zoom` are kept apart on purpose and multiplied at render. If zoom
+  // wrote into fit, the next resize — and the ResizeObserver fires on every rail
+  // toggle — would quietly throw the reader's magnification away.
   const bodyRef = useRef(null);
-  const [scale, setScale] = useState(1);
+  const [fit, setFit] = useState(1);
   useLayoutEffect(() => {
     const el = bodyRef.current;
     if (!el) return undefined;
-    const fit = () => {
+    const recalc = () => {
       const styles = getComputedStyle(el);
       const padY = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
       const padX = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
       const availH = el.clientHeight - padY;
       const availW = el.clientWidth - padX;
-      const pageOuterH = PAGE_H + 2 * 35.2;      // 2.2rem of padding, top and bottom
-      const spreadW = 2 * 620;                   // two pages, --bk-page-w each
+      const pageOuterH = PAGE_H + 2 * PAGE_PAD;
+      const spreadW = 2 * PAGE_W;
       if (availH <= 0 || availW <= 0) return;
       // Scale UP as well as down, which the first version refused to do — it
       // capped at 1, so on a big screen the book stayed at its 620px-a-page
@@ -163,13 +228,16 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
       //
       // The ceiling is there because past about double size the type is larger
       // than anything else in the app and the book stops reading as a document.
-      setScale(Math.max(0.2, Math.min(2.2, availH / pageOuterH, availW / spreadW)));
+      setFit(Math.max(0.2, Math.min(2.2, availH / pageOuterH, availW / spreadW)));
     };
-    fit();
-    const ro = new ResizeObserver(fit);
+    recalc();
+    const ro = new ResizeObserver(recalc);
     ro.observe(el);
     return () => ro.disconnect();
   }, [loading]);
+
+  const zoom = ZOOMS[zoomIx];
+  const scale = fit * zoom;
 
   const pages = useMemo(() => {
     if (!heights) return [];
@@ -188,6 +256,37 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
   const spreads = useMemo(() => spreadsOf(pages.length), [pages]);
   const current = spreads[Math.min(spread, Math.max(0, spreads.length - 1))] || null;
 
+  // Which page each item landed on. The rail, the scrubber and Find all need it,
+  // and it is the paginator's own answer rather than a second guess at it.
+  const pageOfItem = useMemo(() => {
+    const m = new Map();
+    pages.forEach((ids, p) => ids.forEach(id => m.set(id, p)));
+    return m;
+  }, [pages]);
+
+  const outline = useMemo(() => items
+    .filter(it => it.kind === 'chapter' || it.kind === 'heading')
+    .map(it => ({ key: it.id, title: it.section.title, kind: it.kind, page: pageOfItem.get(it.id) }))
+    .filter(o => o.page != null), [items, pageOfItem]);
+
+  const hits = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!texts || q.length < 2) return [];
+    const out = [];
+    for (const it of items) {
+      const t = texts[it.id] || '';
+      const at = t.toLowerCase().indexOf(q);
+      if (at === -1) continue;
+      const page = pageOfItem.get(it.id);
+      if (page == null) continue;
+      out.push({ id: it.id, page, ...snippet(t, at, q.length) });
+    }
+    return out;
+  }, [query, texts, items, pageOfItem]);
+
+  const hitIds = useMemo(() => new Set(hits.map(h => h.id)), [hits]);
+  const activeHitId = active >= 0 && hits[active] ? hits[active].id : null;
+
   // Clamp if the content shrank under us (a re-measure with fewer pages).
   useEffect(() => {
     if (spread > 0 && spread >= spreads.length) setSpread(Math.max(0, spreads.length - 1));
@@ -205,14 +304,15 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
   const turnTimer = useRef(null);
   useEffect(() => () => clearTimeout(turnTimer.current), []);
 
-  function go(delta) {
-    const target = Math.min(Math.max(0, spread + delta), Math.max(0, spreads.length - 1));
-    if (target === spread) return;
-    const from = spreads[spread];
-    // Forward turns the right-hand page over; back turns the left-hand one.
-    const leafPage = delta > 0 ? from?.[1] : from?.[0];
+  const goToSpread = useCallback((target, delta) => {
     setSpread(target);
     clearTimeout(turnTimer.current);
+    // Only a step of one gets the leaf. Jumping nine spreads from the contents
+    // and watching a single sheet turn would be a lie about what just happened,
+    // and a slow one.
+    if (Math.abs(delta) !== 1) { setTurn(null); return; }
+    const from = spreads[target - delta];
+    const leafPage = delta > 0 ? from?.[1] : from?.[0];
     if (leafPage == null) { setTurn(null); return; }
     setTurn({ page: leafPage, dir: delta > 0 ? 'forward' : 'back' });
     // BookLeaf calls onDone when it lands, including immediately under reduced
@@ -220,8 +320,37 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
     // backgrounded tab means that call never arrives and the leaf is left
     // covering the page.
     turnTimer.current = setTimeout(() => setTurn(null), TURN_MS + 400);
+  }, [spreads]);
+
+  function go(delta) {
+    const target = Math.min(Math.max(0, spread + delta), Math.max(0, spreads.length - 1));
+    if (target === spread) return;
+    goToSpread(target, delta);
   }
   goRef.current = go;
+
+  // One jump for all three callers — rail, scrubber and Find.
+  const jumpTo = useCallback((pageIndex) => {
+    const target = Math.min(spreadForPage(pageIndex), Math.max(0, spreads.length - 1));
+    if (target === spread) return;
+    goToSpread(target, target - spread);
+  }, [spread, spreads.length, goToSpread]);
+
+  function stepHit(delta) {
+    if (!hits.length) return;
+    const n = hits.length;
+    const next = (((active + delta) % n) + n) % n;
+    setActive(next);
+    jumpTo(hits[next].page);
+  }
+
+  function openFind() { setFindOpen(true); }
+  function closeFind() { setFindOpen(false); setQuery(''); setActive(-1); }
+
+  function stepZoom(d) {
+    setZoomIx(i => Math.min(ZOOMS.length - 1, Math.max(0, i + d)));
+  }
+  keyRef.current = { openFind, closeFind, findOpen, zoom: stepZoom, zoomFit: () => setZoomIx(FIT_ZOOM) };
 
   function renderItem(it) {
     if (!it) return null;
@@ -236,71 +365,129 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
     return <Block block={it.block} value={undefined} onChange={() => {}} readOnly preview />;
   }
 
+  // The hit wash is background only, never padding or a border. These same
+  // classes ride on the element the paginator measured, and a highlight that
+  // changed an item's height would silently re-flow the book underneath the
+  // person reading it.
+  function itemClass(id) {
+    if (id === activeHitId) return 'bk-item is-hit is-hit-active';
+    if (hitIds.has(id)) return 'bk-item is-hit';
+    return 'bk-item';
+  }
+
+  function renderPage(pageIndex) {
+    return (
+      <>
+        <div
+          className="bk-page-content"
+          style={{ '--bk-page-fit': pageScale(pages[pageIndex], heights, PAGE_H) }}
+        >
+          {pages[pageIndex].map(id => (
+            <div key={id} className={itemClass(id)}>{renderItem(byId.get(id))}</div>
+          ))}
+        </div>
+        <div className="bk-page-number">{pageIndex + 1}</div>
+      </>
+    );
+  }
+
   const ready = !loading && !error && heights && pages.length > 0;
   const empty = !loading && !error && items.length === 0;
 
   return (
     <div className="modal-backdrop visible" onClick={onClose}>
       <div className="modal-card bk-modal" onClick={e => e.stopPropagation()}>
-        <header className="modal-head">
+        <header className="modal-head bk-head">
           <h2>📖 {title || 'Workbook'}</h2>
+          <div className="bk-tools">
+            <button
+              type="button"
+              className={`bk-tool ${railOpen ? 'is-on' : ''}`}
+              onClick={() => setRailOpen(v => !v)}
+              aria-pressed={railOpen}
+              data-tip="Show or hide the contents"
+            >
+              ☰ Contents
+            </button>
+            <button
+              type="button"
+              className={`bk-tool ${findOpen ? 'is-on' : ''}`}
+              onClick={() => (findOpen ? closeFind() : openFind())}
+              aria-pressed={findOpen}
+              data-tip="Search every page of this workbook (Ctrl+F)"
+            >
+              ⌕ Find
+            </button>
+          </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </header>
 
-        <div className="modal-body bk-body" ref={bodyRef} style={{ '--bk-scale': scale }}>
-          {loading && <SkeletonLines rows={6} label="Opening the workbook…" />}
-          {error && <p className="error">{error}</p>}
-          {empty && <p className="muted">This workbook has no content yet.</p>}
-          {!loading && !error && !heights && items.length > 0 && (
-            <SkeletonLines rows={6} label="Laying out the pages…" />
+        <div className="bk-work">
+          {railOpen && ready && (
+            <BookContents outline={outline} spread={current} onJump={jumpTo} />
           )}
 
-          {ready && current && (
-            <div className="bk-stage">
-            <div className="bk-spread">
-              {[current[0], current[1]].map((pageIndex, side) => (
-                <div
-                  key={side}
-                  className={`bk-page ${pageIndex == null ? 'is-blank' : ''}`}
-                  aria-label={pageIndex == null ? 'Blank page' : `Page ${pageIndex + 1}`}
-                >
-                  {pageIndex != null && (
-                    <>
-                      <div
-                        className="bk-page-content"
-                        style={{ '--bk-page-fit': pageScale(pages[pageIndex], heights, PAGE_H) }}
-                      >
-                        {pages[pageIndex].map(id => (
-                          <div key={id} className="bk-item">{renderItem(byId.get(id))}</div>
-                        ))}
-                      </div>
-                      <div className="bk-page-number">{pageIndex + 1}</div>
-                    </>
-                  )}
-                </div>
-              ))}
-              {/* The page being left, bending away over the spread. A copy, so
-                  what is underneath is already the new spread. */}
-              {turn && pages[turn.page] && (
-                <BookLeaf
-                  pageWidth={PAGE_W}
-                  pageHeight={PAGE_H + PAGE_PAD * 2}
-                  direction={turn.dir}
-                  duration={TURN_MS}
-                  onDone={() => setTurn(null)}
-                >
+          <div className="modal-body bk-body" ref={bodyRef} style={{ '--bk-scale': scale }}>
+            {loading && <SkeletonLines rows={6} label="Opening the workbook…" />}
+            {error && <p className="error">{error}</p>}
+            {empty && <p className="muted">This workbook has no content yet.</p>}
+            {!loading && !error && !heights && items.length > 0 && (
+              <SkeletonLines rows={6} label="Laying out the pages…" />
+            )}
+
+            {ready && current && (
+              <div className="bk-stage">
+              <div className="bk-spread">
+                {/* The stacked page edges and the gutter shadow: what makes two
+                    white rectangles read as one opened volume rather than two
+                    cards side by side. Decoration only — aria-hidden, and no
+                    layout of its own. */}
+                <span className="bk-edge is-l" aria-hidden />
+                <span className="bk-edge is-r" aria-hidden />
+                {[current[0], current[1]].map((pageIndex, side) => (
                   <div
-                    className="bk-page-content"
-                    style={{ '--bk-page-fit': pageScale(pages[turn.page], heights, PAGE_H) }}
+                    key={side}
+                    className={`bk-page ${pageIndex == null ? 'is-blank' : ''}`}
+                    aria-label={pageIndex == null ? 'Blank page' : `Page ${pageIndex + 1}`}
                   >
-                    {pages[turn.page].map(id => (
-                      <div key={id} className="bk-item">{renderItem(byId.get(id))}</div>
-                    ))}
+                    {pageIndex != null && renderPage(pageIndex)}
                   </div>
-                </BookLeaf>
-              )}
-            </div>
-            </div>
+                ))}
+                <span className="bk-gutter" aria-hidden />
+                {/* The page being left, bending away over the spread. A copy, so
+                    what is underneath is already the new spread. */}
+                {turn && pages[turn.page] && (
+                  <BookLeaf
+                    pageWidth={PAGE_W}
+                    pageHeight={PAGE_H + PAGE_PAD * 2}
+                    direction={turn.dir}
+                    duration={TURN_MS}
+                    onDone={() => setTurn(null)}
+                  >
+                    <div
+                      className="bk-page-content"
+                      style={{ '--bk-page-fit': pageScale(pages[turn.page], heights, PAGE_H) }}
+                    >
+                      {pages[turn.page].map(id => (
+                        <div key={id} className="bk-item">{renderItem(byId.get(id))}</div>
+                      ))}
+                    </div>
+                  </BookLeaf>
+                )}
+              </div>
+              </div>
+            )}
+          </div>
+
+          {findOpen && (
+            <BookFind
+              query={query}
+              onQuery={(v) => { setQuery(v); setActive(-1); }}
+              hits={hits}
+              active={active}
+              onJump={stepHit}
+              onClose={closeFind}
+            />
           )}
         </div>
 
@@ -324,6 +511,48 @@ export default function WorkbookPreviewModal({ workbookId, title, onClose }) {
           >
             Next ▶
           </button>
+
+          {ready && (
+            <BookScrubber
+              pages={pages}
+              byId={byId}
+              heights={heights}
+              spreads={spreads}
+              spread={spread}
+              pageHeight={PAGE_H}
+              onJump={jumpTo}
+            />
+          )}
+
+          <div className="bk-zoom" role="group" aria-label="Zoom">
+            <button
+              type="button"
+              onClick={() => stepZoom(-1)}
+              disabled={zoomIx === 0}
+              data-tip="Smaller (−)"
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="bk-zoom-v"
+              onClick={() => setZoomIx(FIT_ZOOM)}
+              data-tip="Back to the size that fits the window (0)"
+            >
+              {zoomIx === FIT_ZOOM ? 'Fit' : `${Math.round(zoom * 100)}%`}
+            </button>
+            <button
+              type="button"
+              onClick={() => stepZoom(1)}
+              disabled={zoomIx === ZOOMS.length - 1}
+              data-tip="Bigger (+)"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+          </div>
+
           <button type="button" className="ghost bk-close" onClick={onClose}>Close</button>
         </footer>
 
