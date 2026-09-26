@@ -169,7 +169,16 @@ export default function AddFromBankModal({ currentParentId, usedBankSectionIds =
     return sections.filter(s => {
       if (typeFilter && !questionTypeKeys(blocksBySection.get(s.id) || []).includes(typeFilter)) return false;
       if (tagFilter && !(s.tags || []).includes(tagFilter)) return false;
-      if (q && !(s.title || '').toLowerCase().includes(q)) return false;
+      // Title OR topic. Matching the title alone made this box useless for the
+      // one thing it is reached for: bank questions are called "Question 1",
+      // "Question 2", so there is nothing in a title a trainer would ever think
+      // to type. Typing the topic they tagged it with found nothing, which reads
+      // as "the bank does not have it" rather than "the box does not look there".
+      if (q) {
+        const inTitle = (s.title || '').toLowerCase().includes(q);
+        const inTags = (s.tags || []).some(t => String(t).toLowerCase().includes(q));
+        if (!inTitle && !inTags) return false;
+      }
       return true;
     });
   }, [sections, blocksBySection, typeFilter, tagFilter, search]);
@@ -271,7 +280,7 @@ export default function AddFromBankModal({ currentParentId, usedBankSectionIds =
               <input
                 className="form-input bank-filter-search"
                 value={search}
-                placeholder="Search questions…"
+                placeholder="Search questions or topics…"
                 onChange={e => setSearch(e.target.value)}
               />
               {presentTypes.length > 1 && (
