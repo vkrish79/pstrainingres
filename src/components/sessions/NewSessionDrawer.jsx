@@ -8,6 +8,8 @@ import { useVendors } from '../../hooks/useVendors.js';
 import { useCities } from '../../hooks/useCities.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../../lib/roles.js';
+import { useResitSessions, useResitCandidates } from '../../hooks/useResitCandidates.js';
+import { arrangeResit } from '../../lib/arrangeResit.js';
 import '../../styles/editor.css';
 import '../../styles/session-drawer.css';
 
@@ -35,7 +37,18 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   // vendor_manager OR super — anyone who needs to *pick* the trainer.
   const canPickTrainer = isVendorManagerOrAbove(profile?.role);
 
+  // 'regular' | 'resit'. A re-sit is not this form with fields left blank: it
+  // derives its programme, trainer and vendor from the session being re-sat, so
+  // it asks three questions instead of seven.
+  const [kind, setKind] = useState('regular');
+  const [ofSessionId, setOfSessionId] = useState('');
+  const [picked, setPicked] = useState(() => new Set());
+  const isResit = kind === 'resit';
+
   useBodyScrollLock(open);
+
+  const { sessions: resitSessions, loading: resitSessionsLoading } = useResitSessions(open && isResit);
+  const { candidates, passMark, loading: candidatesLoading } = useResitCandidates(isResit ? ofSessionId : null);
 
   const [programs, setPrograms] = useState([]);
   const [name, setName] = useState('');
@@ -83,6 +96,13 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
     })();
   }, [open]);
 
+  // Below the pass mark, pre-ticked — the common case is "these are the people
+  // who failed". Re-runs when the session changes, never on every render, so a
+  // trainer's own ticking is not undone under them.
+  useEffect(() => {
+    setPicked(new Set(candidates.filter(c => c.failed === true).map(c => c.id)));
+  }, [candidates]);
+
   const trainerOptions = useMemo(() => {
     const assignableRoles = new Set([ROLES.VENDOR_MANAGER, ROLES.VENDOR_TRAINER, 'trainer']);
     return staff
@@ -111,7 +131,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   // counting it as "typed" would make every drawer dirty from the moment it
   // opened, and the discard prompt would fire on an untouched form.
   const dirty = Boolean(
-    name.trim() || startsAt || endsAt || cityCode || vendorId || trainerId || !superSelfDeliver
+    name.trim() || startsAt || endsAt || cityCode || vendorId || trainerId || !superSelfDeliver || isResit
   );
 
   // Reset on close so the next open is a clean form rather than the last
@@ -129,6 +149,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
     ) || 420;
     const t = setTimeout(() => {
       setName(''); setStartsAt(''); setEndsAt(''); setCityCode('');
+      setKind('regular'); setOfSessionId(''); setPicked(new Set());
       setVendorId(''); setTrainerId(''); setSuperSelfDeliver(true);
       setError(''); setConfirmDiscard(false);
     }, ms + 80);
@@ -200,6 +221,13 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   }
 
   function validate() {
+    if (isResit) {
+      if (!ofSessionId) return 'Pick the session being re-sat.';
+      if (picked.size === 0) return 'Pick at least one person to sit again.';
+      if (!startsAt || !endsAt) return 'Give the re-sit a start and end date.';
+      if (endsAt < startsAt) return 'End date cannot be before start date.';
+      return null;
+    }
     if (cities.length === 0 && cityCode && !/^[A-Z]{3}$/.test(cityCode)) {
       return 'City code must be three uppercase letters (e.g. AUH).';
     }
@@ -231,6 +259,35 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
     const v = validate();
     if (v) { setError(v); return; }
     setBusy(true);
+
+    if (isResit) {
+      const people = candidates.filter(c => picked.has(c.id));
+      const src = resitSessions.find(s => s.id === ofSessionId);
+      const result = await runBusy(
+        'Arranging the re-sit…',
+        () => arrangeResit({
+          ofSessionId,
+          name: name.trim() || `Re-sit — ${src?.name ?? ''}`.trim(),
+          startsAt, endsAt, people,
+        }),
+      );
+      setBusy(false);
+      if (result.error) {
+        // The session may exist even though this failed: enrolment is a separate
+        // call and is not rolled back. Say so, and say where it is.
+        setError(result.sessionId
+          ? `${result.error.message} — the re-sit session was created; open it to finish adding people.`
+          : result.error.message);
+        return;
+      }
+      if (result.failures.length) {
+        setError(`Created, but ${result.failures.map(f => `${f.name} (${f.why})`).join('; ')}. Open the session to finish.`);
+        return;
+      }
+      navigate(`/trainer/sessions/${result.sessionId}`);
+      return;
+    }
+
     // RPC clones the program's workbook (and assessment if any) and creates
     // the session atomically. Returns the new session id.
     const { data: newSessionId, error: rpcErr } = await runBusy(
@@ -276,10 +333,11 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
       >
         <header className="session-drawer-head">
           <div>
-            <h2>New session</h2>
+            <h2>{isResit ? 'Arrange a re-sit' : 'New session'}</h2>
             <p className="session-drawer-sub">
-              Pick a published program, name your cohort, and set the dates. You'll add
-              participants on the next screen.
+              {isResit
+                ? 'Pick the session being re-sat and who is sitting again. Everything else comes from that session.'
+                : "Pick a published program, name your cohort, and set the dates. You'll add participants on the next screen."}
             </p>
           </div>
           <button
@@ -295,6 +353,102 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
 
         <div className="session-drawer-body">
           <form id="new-session-form" onSubmit={handleSubmit}>
+            <div className="resit-kind" role="group" aria-label="What kind of session">
+              <button
+                type="button"
+                className={`resit-kind-opt${!isResit ? ' on' : ''}`}
+                aria-pressed={!isResit}
+                onClick={() => setKind('regular')}
+              >
+                <strong>Regular session</strong>
+                <small>Workbook, exercises, prep, assessment</small>
+              </button>
+              <button
+                type="button"
+                className={`resit-kind-opt${isResit ? ' on' : ''}`}
+                aria-pressed={isResit}
+                onClick={() => setKind('resit')}
+              >
+                <strong>Re-sit</strong>
+                <small>The paper only — no workbook or handouts</small>
+              </button>
+            </div>
+
+            {isResit ? (
+              <>
+                <label className="form-label" htmlFor="ns-of">Re-sitting which session</label>
+                <select
+                  id="ns-of"
+                  ref={firstFieldRef}
+                  className="form-input"
+                  value={ofSessionId}
+                  onChange={e => { setOfSessionId(e.target.value); setPicked(new Set()); }}
+                  required
+                >
+                  <option value="" disabled>{resitSessionsLoading ? 'Loading…' : 'Select…'}</option>
+                  {resitSessions.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}{s.city_code ? ` · ${s.city_code}` : ''}{s.join_code ? ` · ${s.join_code}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {!resitSessionsLoading && resitSessions.length === 0 && (
+                  <p className="muted" style={{ marginTop: '0.25rem' }}>
+                    No open session has a paper to re-sit. A session must still be open —
+                    closing it deletes the participants&rsquo; accounts, which is what the
+                    first attempt is read from.
+                  </p>
+                )}
+
+                {ofSessionId && (
+                  <>
+                    <label className="form-label" style={{ marginTop: '0.75rem' }}>Who is sitting again</label>
+                    {candidatesLoading && <p className="muted">Working out who failed…</p>}
+                    {!candidatesLoading && candidates.length === 0 && (
+                      <p className="muted">Nobody is enrolled in that session.</p>
+                    )}
+                    {!candidatesLoading && candidates.length > 0 && (
+                      <>
+                        <ul className="resit-people">
+                          {candidates.map(c => (
+                            <li key={c.id}>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={picked.has(c.id)}
+                                  onChange={e => setPicked(prev => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) next.add(c.id); else next.delete(c.id);
+                                    return next;
+                                  })}
+                                />
+                                <span className="resit-people-name">
+                                  {c.name}{c.deactivated ? ' · dropped out' : ''}
+                                </span>
+                                <span className={`resit-people-score${c.failed === true ? ' is-fail' : ''}`}>
+                                  {c.pct == null ? 'not marked'
+                                    : `${c.pct}%${c.failed === true ? ' · failed' : c.failed === false ? ' · passed' : ''}`}
+                                </span>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="muted" style={{ marginTop: '0.25rem' }}>
+                          {passMark == null
+                            ? 'That session has no pass mark, so nobody is marked as failed — pick whoever needs to sit again.'
+                            : `Below the ${passMark}% pass mark, pre-ticked. Anyone can be picked.`}
+                        </p>
+                        <p className="muted">
+                          Their paper is copied from that session, and its assessment is
+                          locked so the first attempt stays as it is.
+                        </p>
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+            <>
             <label className="form-label" htmlFor="ns-program">Program</label>
             <select
               id="ns-program"
@@ -376,14 +530,19 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
               </>
             )}
 
-            <label className="form-label" htmlFor="ns-name">Session name</label>
+            </>
+            )}
+
+            <label className="form-label" htmlFor="ns-name">
+              {isResit ? 'Name this re-sit' : 'Session name'}
+            </label>
             <input
               id="ns-name"
               className="form-input"
               value={name}
               onChange={e => setName(e.target.value)}
-              required
-              placeholder="e.g. ARDW — Cohort 2026-05"
+              required={!isResit}
+              placeholder={isResit ? 'Re-sit — ARDW Sept intake' : 'e.g. ARDW — Cohort 2026-05'}
             />
 
             <div className="form-grid">
@@ -414,6 +573,8 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
               </div>
             </div>
 
+            {!isResit && (
+            <>
             <label className="form-label" htmlFor="ns-city">City / venue (optional)</label>
             {cities.length > 0 ? (
               <select
@@ -436,6 +597,8 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
                 maxLength={3}
                 placeholder="AUH"
               />
+            )}
+            </>
             )}
 
             {error && <p className="error">{error}</p>}
