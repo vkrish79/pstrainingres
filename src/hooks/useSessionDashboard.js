@@ -60,7 +60,7 @@ export function useSessionDashboard(sessionId) {
         const { data: sess, error: e1 } = await supabase
           .from('sessions')
           .select(`
-            id, name, workbook_id, assessment_id, assessment_unlocked_at, assessment_deadline_at, program_id, created_at, starts_at, ends_at, city_code, join_code,
+            id, name, kind, workbook_id, assessment_id, assessment_unlocked_at, assessment_deadline_at, program_id, created_at, starts_at, ends_at, city_code, join_code,
             closed_at, closed_by, closed_summary, trainer_id, vendor_id,
             workbooks ( id, title, description, template_id ),
             program:programs ( id, title, program_type:program_types ( id, name ) ),
@@ -74,11 +74,17 @@ export function useSessionDashboard(sessionId) {
         const wb = sess.workbooks;
         const parts = toParticipants(sess.session_participants);
 
-        // A closed session whose copies the retention job has removed has no
-        // workbook any more — the closed view reads only the saved summary, so
-        // that is fine. A LIVE session without one cannot happen (a table
-        // constraint forbids it) and would be a real fault, so it says so.
-        if (!wb && !sess.closed_at) throw new Error('This session has no workbook.');
+        // Three ways a session can have no workbook, and only one of them is a
+        // fault.
+        //
+        //   closed + retention ran — the copies were removed on purpose, and the
+        //     closed view reads the saved summary rather than the workbook.
+        //   kind = 'resit' — a paper-only session never had one. That is what
+        //     paper-only means.
+        //   anything else — cannot happen (sessions_workbook_required_unless_archived
+        //     forbids it) and is a real fault, so it still says so.
+        const isResit = sess.kind === 'resit';
+        if (!wb && !sess.closed_at && !isResit) throw new Error('This session has no workbook.');
 
         // Does this session's workbook expect prep? The prep template lives on
         // the MASTER (template) workbook, not the per-session clone.
@@ -143,6 +149,7 @@ export function useSessionDashboard(sessionId) {
           closed_at: sess.closed_at, closed_by: sess.closed_by, closed_summary: sess.closed_summary,
           trainer_id: sess.trainer_id, vendor_id: sess.vendor_id, trainer: sess.trainer || null,
           program_id: sess.program_id, program: sess.program || null,
+          kind: sess.kind || 'regular',
           assessment_id: sess.assessment_id,
           assessment_unlocked_at: sess.assessment_unlocked_at,
           assessment_deadline_at: sess.assessment_deadline_at,

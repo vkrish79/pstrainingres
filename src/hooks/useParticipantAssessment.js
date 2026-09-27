@@ -35,7 +35,7 @@ export function useParticipantAssessment(userId, sessionId = null) {
         if (sessionId) {
           const { data: s, error: eS } = await supabase
             .from('sessions')
-            .select('id, name, assessment_id, assessment_unlocked_at, assessment_deadline_at, starts_at, ends_at, city_code')
+            .select('id, name, kind, assessment_id, assessment_unlocked_at, assessment_deadline_at, starts_at, ends_at, city_code')
             .eq('id', sessionId)
             .single();
           if (eS) throw eS;
@@ -43,7 +43,10 @@ export function useParticipantAssessment(userId, sessionId = null) {
         } else {
           const { data: spRows, error: e1 } = await supabase
             .from('session_participants')
-            .select('session_id, sessions ( id, name, assessment_id, assessment_unlocked_at, assessment_deadline_at, starts_at, ends_at, city_code )')
+            .select('session_id, sessions ( id, name, kind, assessment_id, assessment_unlocked_at, assessment_deadline_at, starts_at, ends_at, city_code )')
+            // One account, one session — see the same note in useWorkbook.js.
+            // .limit(1) has no ORDER BY, so a person enrolled twice gets an
+            // arbitrary one of the two. A re-sitter is given a new account.
             .eq('participant_id', userId)
             .limit(1);
           if (e1) throw e1;

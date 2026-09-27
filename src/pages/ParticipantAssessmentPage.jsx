@@ -25,6 +25,9 @@ export default function ParticipantAssessmentPage() {
   const {
     loading, error, session, assessment, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated,
   } = useParticipantAssessment(authSession?.user.id, sessionIdParam);
+  // A paper-only re-sit has no workbook, so every "back to the workbook" here
+  // would send them to a page that immediately bounces them back.
+  const isResit = session?.kind === 'resit';
   const { prep: sectionPrep, standalone: standalonePrep } = useParticipantAssessmentPrep(
     session?.id, authSession?.user.id, session?.assessment_id
   );
@@ -162,7 +165,7 @@ export default function ParticipantAssessmentPage() {
         <main className="page">
           <section className="page-hero compact">
             <div className="page-hero-text">
-              <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>
+              {!isResit && <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>}
               <h1>Assessment</h1>
               <p>This session does not include an assessment.</p>
             </div>
@@ -178,7 +181,7 @@ export default function ParticipantAssessmentPage() {
         <main className="page">
           <section className="page-hero compact">
             <div className="page-hero-text">
-              <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>
+              {!isResit && <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>}
               <h1>🔒 Assessment locked</h1>
               <p>Your trainer hasn't unlocked the assessment yet. Check back when they're ready.</p>
             </div>
@@ -205,7 +208,7 @@ export default function ParticipantAssessmentPage() {
         <main className="page">
           <section className="page-hero compact">
             <div className="page-hero-text">
-              <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>
+              {!isResit && <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>}
               <h1>Assessment</h1>
               <p>Loading…</p>
             </div>
@@ -224,7 +227,7 @@ export default function ParticipantAssessmentPage() {
         {/* The exam bar: always in view, so the clock and "saved" never scroll away. */}
         <section className="exam-bar" aria-label="Assessment">
           <div className="exam-bar-text">
-            <Link to="/workbook" className="exam-bar-back">← Workbook</Link>
+            {!isResit && <Link to="/workbook" className="exam-bar-back">← Workbook</Link>}
             <h1>
               {assessment.title}
               {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
@@ -405,7 +408,7 @@ export default function ParticipantAssessmentPage() {
                       ‹ {paper.pages[paper.pages.length - 1].question.heading}
                     </button>
                   ) : <span />}
-                  <Link to="/workbook" className="exam-next">Back to the workbook</Link>
+                  {!isResit && <Link to="/workbook" className="exam-next">Back to the workbook</Link>}
                 </div>
               </section>
             )}

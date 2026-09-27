@@ -140,7 +140,11 @@ function names(list) {
   return list.length > 2 ? `${shown} +${list.length - 2} more` : shown;
 }
 
-export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssessment }) {
+// paperOnly — a re-sit session. Three of these five gauges are measured against
+// a workbook (pace, behind pace, quiet reads "no move to another exercise"), and
+// a paper-only session has none, so they would each sit at 0/0 saying nothing.
+// Online and the assessment gauge are the two that still mean something.
+export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssessment, paperOnly = false }) {
   const { active, pace, behind, quiet, online } = stats;
 
   return (
@@ -151,11 +155,12 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
           <div className="cockpit-gauge-label">Online</div>
           <div className="cockpit-gauge-value">{online.length}<small> / {active.length}</small></div>
           <div className="cockpit-gauge-hint">
-            {dropouts > 0 ? `${dropouts} dropped out` : 'in the workbook now'}
+            {dropouts > 0 ? `${dropouts} dropped out` : (paperOnly ? 'sitting the paper now' : 'in the workbook now')}
           </div>
         </div>
       </div>
 
+      {!paperOnly && (<>
       <div className="cockpit-gauge" title="Half the class has done at least this many">
         <Ring frac={total ? pace / total : 0} tone="gold" />
         <div>
@@ -183,6 +188,7 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
           <div className="cockpit-gauge-hint">{names(quiet)}</div>
         </div>
       </div>
+      </>)}
 
       <AssessmentGauge assessment={assessment} onOpen={onOpenAssessment} />
     </section>
@@ -195,7 +201,7 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
 // the bottom of the screen.
 const OFFLINE_FOLD = 3;
 
-export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, onOpenMaterials, onPick }) {
+export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, onOpenMaterials, onPick, paperOnly = false }) {
   const { behind, quiet, offline, pace } = stats;
   const [showOffline, setShowOffline] = useState(false);
   const fold = offline.length > OFFLINE_FOLD && !showOffline;
@@ -258,7 +264,9 @@ export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, o
         )}
       </section>
 
-      {materialsCount > 0 && (
+      {/* Handouts belong to a workbook. A paper-only re-sit has none, and the
+          user was explicit that a re-sit needs no workbook or other materials. */}
+      {!paperOnly && materialsCount > 0 && (
         <section className="cockpit-card cockpit-materials">
           <span><strong>Materials</strong> · {materialsCount} handout{materialsCount === 1 ? '' : 's'}</span>
           <button type="button" className="ghost btn-sm" onClick={onOpenMaterials}>Open</button>

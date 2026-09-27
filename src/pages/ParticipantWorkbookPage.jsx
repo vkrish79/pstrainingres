@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useWorkbook } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
@@ -603,6 +603,14 @@ export default function ParticipantWorkbookPage() {
   }
 
   if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
+
+  // A paper-only re-sit has no workbook, so this page has nothing to be. Send
+  // them to the paper instead — which is still locked until the trainer opens
+  // it, so they land on the same "not started yet" notice everyone else sees.
+  //
+  // replace, not push: the workbook is not a place they came from and should
+  // not be somewhere Back returns them to.
+  if (session?.kind === 'resit') return <Navigate to="/assessment" replace />;
   if (error) {
     return (
       <>

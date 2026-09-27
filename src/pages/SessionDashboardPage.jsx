@@ -779,7 +779,13 @@ export default function SessionDashboardPage() {
             </div>
             <div className="view-tabs">
               <button className={`view-tab ${view === 'participants' ? 'active' : ''}`} onClick={() => setView('participants')}>Room</button>
-              <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
+              {/* No Workbook tab on a paper-only re-sit: there is no workbook to
+                  show, and a tab that opens an empty shell is worse than one
+                  that is not there. Room, Assessment, Quiz and Polls all still
+                  make sense for a room sitting a paper. */}
+              {session?.kind !== 'resit' && (
+                <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
+              )}
               {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
                   whenever the session had no assessment — which is exactly when a
                   trainer needs it, because a session scheduled before its
@@ -849,6 +855,7 @@ export default function SessionDashboardPage() {
             in the panel beside the roster now, in the same drawer participants
             use. */}
         <CockpitGauges
+          paperOnly={session?.kind === 'resit'}
           stats={cockpit}
           total={totalFillable}
           dropouts={dropoutCount}
@@ -1138,6 +1145,7 @@ export default function SessionDashboardPage() {
               width, and reading one person is not the moment for the room. */}
           {!reading && (
             <CockpitRail
+              paperOnly={session?.kind === 'resit'}
               selectedCard={selected ? selectedCard : null}
               hands={roomPeople.filter(x => x.hand).sort((a, b) => a.hand.raised_at.localeCompare(b.hand.raised_at))}
               stats={cockpit}

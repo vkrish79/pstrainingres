@@ -28,7 +28,13 @@ export function useWorkbook(userId) {
       try {
         const { data: spRows, error: e1 } = await supabase
           .from('session_participants')
-          .select('session_id, sessions ( id, name, workbook_id, assessment_id, assessment_unlocked_at, assessment_deadline_at, starts_at, ends_at, city_code, trainer:profiles!sessions_trainer_id_fkey ( full_name ) )')
+          .select('session_id, sessions ( id, name, kind, workbook_id, assessment_id, assessment_unlocked_at, assessment_deadline_at, starts_at, ends_at, city_code, trainer:profiles!sessions_trainer_id_fkey ( full_name ) )')
+          // ONE ACCOUNT BELONGS TO EXACTLY ONE SESSION, and .limit(1) with no
+          // ORDER BY is why: enrol the same account in two and Postgres may hand
+          // back either, differently on different loads. So a re-sitter gets a
+          // NEW account rather than their original one — which is what
+          // add_session_participants makes anyway. The comment is here because
+          // the failure mode is silent: they simply land on the wrong paper.
           .eq('participant_id', userId)
           .limit(1);
         if (e1) throw e1;
@@ -37,6 +43,20 @@ export function useWorkbook(userId) {
           return;
         }
         const sess = spRows[0].sessions;
+
+        // A paper-only re-sit has no workbook to load, and fetching one by a
+        // null id errors. Hand the session back and let the page send them to
+        // the assessment instead.
+        //
+        // Decided HERE rather than at /join on purpose: get_session_by_join_code
+        // returns a fixed set of columns and does not carry kind, and widening it
+        // means DROP + CREATE on the function the join page depends on. Deciding
+        // at the workbook also catches a bookmark, a refresh, and the return trip
+        // after an idle sign-out.
+        if (sess.kind === 'resit') {
+          if (!cancelled) { setSession(sess); setLoading(false); }
+          return;
+        }
 
         const [{ data: wb, error: e2 }, { data: secs, error: e3 }] = await Promise.all([
           supabase.from('workbooks').select('*').eq('id', sess.workbook_id).single(),
