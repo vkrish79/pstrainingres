@@ -60,6 +60,9 @@ export default function SessionDashboardPage() {
     loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, programAssessment, attachProgramAssessment,
     setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
   } = useSessionDashboard(id);
+  // A re-sit is a paper-only session: no workbook, so nothing measured against
+  // one has anything to say here.
+  const paperOnly = session?.kind === 'resit';
   const { session: authSession, profile } = useAuth();
   const { run: runBusy } = useBusyOverlay();
   const canChangeTrainer = isVendorManagerOrAbove(profile?.role);
@@ -181,6 +184,14 @@ export default function SessionDashboardPage() {
     setRoomViewState(v);
     try { localStorage.setItem('session-room-view', v); } catch { /* private window — fine */ }
   }
+
+  // The room view is remembered per browser, so a trainer arriving from a
+  // regular session can land on a board this session cannot draw. Fall back
+  // rather than render an empty one with no obvious way out.
+  useEffect(() => {
+    if (paperOnly && (roomView === 'heat' || roomView === 'exercise')) setRoomView('tiles');
+  }, [paperOnly, roomView]);
+
   // Where "By exercise" should open when the heat board sends a trainer there.
   const [exerciseJump, setExerciseJump] = useState(null); // { sectionId, participantId, n }
 
@@ -647,8 +658,11 @@ export default function SessionDashboardPage() {
     <div className="room-view-switch" role="group" aria-label="Show the class as">
       <button type="button" aria-pressed={roomView === 'tiles'} onClick={() => setRoomView('tiles')}>Tiles</button>
       <button type="button" aria-pressed={roomView === 'table'} onClick={() => setRoomView('table')}>Table</button>
-      <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>
-      <button type="button" aria-pressed={roomView === 'exercise'} onClick={() => { setExerciseJump(null); setRoomView('exercise'); }}>By exercise</button>
+      {/* Both of these read the workbook -- the board is heat per exercise, and
+          By exercise is one exercise at a time. A paper-only session has none,
+          so they are not offered. Tiles and Table still say who is here. */}
+      {!paperOnly && <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>}
+      {!paperOnly && <button type="button" aria-pressed={roomView === 'exercise'} onClick={() => { setExerciseJump(null); setRoomView('exercise'); }}>By exercise</button>}
     </div>
   );
 
@@ -783,7 +797,7 @@ export default function SessionDashboardPage() {
                   show, and a tab that opens an empty shell is worse than one
                   that is not there. Room, Assessment, Quiz and Polls all still
                   make sense for a room sitting a paper. */}
-              {session?.kind !== 'resit' && (
+              {!paperOnly && (
                 <button className={`view-tab ${view === 'practice' ? 'active' : ''}`} onClick={() => setView('practice')}>Workbook</button>
               )}
               {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
@@ -855,7 +869,7 @@ export default function SessionDashboardPage() {
             in the panel beside the roster now, in the same drawer participants
             use. */}
         <CockpitGauges
-          paperOnly={session?.kind === 'resit'}
+          paperOnly={paperOnly}
           stats={cockpit}
           total={totalFillable}
           dropouts={dropoutCount}
@@ -1145,7 +1159,7 @@ export default function SessionDashboardPage() {
               width, and reading one person is not the moment for the room. */}
           {!reading && (
             <CockpitRail
-              paperOnly={session?.kind === 'resit'}
+              paperOnly={paperOnly}
               selectedCard={selected ? selectedCard : null}
               hands={roomPeople.filter(x => x.hand).sort((a, b) => a.hand.raised_at.localeCompare(b.hand.raised_at))}
               stats={cockpit}
@@ -1296,13 +1310,16 @@ export default function SessionDashboardPage() {
         {view === 'quiz' && <SessionQuizzes sessionId={id} joinCode={session?.join_code} />}
         {view === 'poll' && <SessionPolls sessionId={id} />}
       </main>
-      <MaterialsDrawer
+      {/* Not mounted at all on a paper-only session: its opener is hidden, so
+          the drawer would only ever be unreachable markup carrying handouts
+          this session does not have. */}
+      {!paperOnly && <MaterialsDrawer
         open={materialsOpen}
         onClose={() => setMaterialsOpen(false)}
         materials={materials}
         signedUrlFor={materialUrlFor}
         loading={materialsLoading}
-      />
+      />}
       <PrepEditor
         open={!!prepEditorFor}
         onClose={() => setPrepEditorFor(null)}
