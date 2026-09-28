@@ -232,11 +232,10 @@ export default function WorkbooksPage() {
 
               {shown.length > 0 && (
                 <div className="wb-grid">
-                  {/* The card was one big <Link>. It cannot stay that way once
-                      it has buttons: a button inside an anchor is invalid markup
-                      and a click would follow the link as well. So the title is
-                      the link and the actions are buttons — the same shape the
-                      quizzes list uses. */}
+                  {/* The card is a single control that opens the details, so it
+                      carries no links or buttons of its own — which also settles
+                      the button-inside-an-anchor problem that stopped it being
+                      one big <Link> in the first place. */}
                   {shown.map(w => {
                     const heat = heatTotals.get(w.id);
                     const on = selected?.id === w.id;
@@ -244,15 +243,21 @@ export default function WorkbooksPage() {
                       <article
                         key={w.id}
                         className={`wb-card${on ? ' is-selected' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={on && railOpen}
                         onClick={() => (on && railOpen ? closeRail() : openRail(w.id))}
+                        onKeyDown={e => {
+                          // A div that behaves like a button has to answer to
+                          // the keyboard like one.
+                          if (e.key !== 'Enter' && e.key !== ' ') return;
+                          e.preventDefault();
+                          if (on && railOpen) closeRail(); else openRail(w.id);
+                        }}
                       >
                         <div className="wb-card-body">
                           <div className="wb-card-top">
-                            <h3 className="wb-card-title">
-                              <Link to={`/trainer/workbooks/${w.id}`} onClick={e => e.stopPropagation()}>
-                                {w.title}
-                              </Link>
-                            </h3>
+                            <h3 className="wb-card-title">{w.title}</h3>
                             {/* The one thing on this card that needs somebody
                                 to do something, so it reads as a status and not
                                 as a sentence in the middle of the card. */}
@@ -283,23 +288,6 @@ export default function WorkbooksPage() {
                             )}
                             {isStale(w) && <span className="wb-stale">not touched in 3 months</span>}
                           </p>
-                        </div>
-                        <div className="wb-card-actions">
-                          <Link
-                            to={`/trainer/workbooks/${w.id}`}
-                            className="wb-act"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            Open
-                          </Link>
-                          <button
-                            type="button"
-                            className="wb-act"
-                            data-tip="Read it as a book, the way a participant meets it"
-                            onClick={e => { e.stopPropagation(); setPreview({ id: w.id, title: w.title }); }}
-                          >
-                            Preview
-                          </button>
                         </div>
                       </article>
                     );

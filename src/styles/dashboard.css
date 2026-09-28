@@ -3319,8 +3319,6 @@
 .wb-card-body { display: flex; flex-direction: column; flex: 1; gap: 0.35rem; padding: 0.8rem 0.85rem; }
 .wb-card-top { display: flex; align-items: flex-start; gap: 0.5rem; }
 .wb-card-title { margin: 0; flex: 1; font-size: 0.95rem; line-height: 1.3; }
-.wb-card-title a { color: inherit; text-decoration: none; }
-.wb-card-title a:hover { text-decoration: underline; }
 .wb-card-desc { margin: 0; font-size: 0.8rem; color: #4b5a6a; }
 .wb-card-facts {
   margin: auto 0 0;
@@ -3351,7 +3349,13 @@
 .wb-prog { color: var(--midnight); font-weight: 600; }
 .wb-running { color: #1d7a44; font-weight: 600; }
 
+/* The whole card is ONE control: it opens the details, and nothing else. Open
+   and Preview live in the panel, and having them on the card too meant two
+   routes to each action and a card that did different things depending on
+   where you hit it. */
 .wb-card { cursor: pointer; transition: border-color 120ms ease, box-shadow 120ms ease; }
+.wb-card:hover { border-color: var(--gold, #b5985a); }
+.wb-card:focus-visible { outline: 2px solid var(--gold, #b5985a); outline-offset: 2px; }
 .wb-card.is-selected {
   border-color: var(--gold, #b5985a);
   box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.22);
@@ -3468,28 +3472,5 @@
 .wb-rail-actions { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.85rem; }
 .wb-rail-actions > * { text-align: center; }
 
-/* Actions on a workbook card. The card stopped being one big link when Preview
-   arrived — a button inside an anchor is invalid, and clicking it would have
-   navigated as well as opened the preview. Open is a real control here rather
-   than a bare title link with nothing marking it as one. */
-.wb-card-actions {
-  display: flex;
-  gap: 0.4rem;
-  padding: 0.5rem 0.85rem;
-  border-top: 1px solid var(--border);
-  background: #faf8f4;
-}
-.wb-act {
-  font: inherit;
-  font-size: 0.78rem;
-  padding: 0.22rem 0.6rem;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--midnight);
-  text-decoration: none;
-  cursor: pointer;
-}
-.wb-act:hover { border-color: var(--gold, #b5985a); }
 .session-card > h3 > a { color: inherit; text-decoration: none; }
 .session-card > h3 > a:hover { text-decoration: underline; }
