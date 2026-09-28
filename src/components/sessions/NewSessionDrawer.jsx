@@ -67,7 +67,13 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   useBodyScrollLock(open);
 
   const { sessions: resitSessions, loading: resitSessionsLoading } = useResitSessions(open && isResit);
-  const { candidates, passMark, loading: candidatesLoading } = useResitCandidates(isResit ? ofSessionId : null);
+  // `open &&` matters once this drawer is kept mounted behind a session page:
+  // opened from a session, `kind` starts as 'resit' with the session already
+  // set, so without it this would query on every page load for a drawer nobody
+  // has asked for.
+  const { candidates, passMark, loading: candidatesLoading } = useResitCandidates(
+    open && isResit ? ofSessionId : null,
+  );
 
   const [programs, setPrograms] = useState([]);
   const [name, setName] = useState('');

@@ -105,6 +105,17 @@ export default function SessionDashboardPage() {
   // cities that list is a row of near-identical names, and choosing the wrong
   // one re-locks a paper somebody else is sitting.
   const [arrangingResit, setArrangingResit] = useState(false);
+  // Mount and open are two separate things, one frame apart — see where the
+  // drawer is rendered for why.
+  const [resitMounted, setResitMounted] = useState(false);
+  function openResitDrawer() {
+    setResitMounted(true);
+    // Two frames: the first lets React paint the drawer in its closed,
+    // off-screen state, the second flips it open so the transition has
+    // somewhere to travel from. One frame is enough in most browsers and not
+    // in all of them.
+    requestAnimationFrame(() => requestAnimationFrame(() => setArrangingResit(true)));
+  }
   const [closeError, setCloseError] = useState('');
   const [confirmDeleteSession, setConfirmDeleteSession] = useState(false);
   const [deleteSessionError, setDeleteSessionError] = useState('');
@@ -855,7 +866,7 @@ export default function SessionDashboardPage() {
                   canArrangeResit && {
                     label: "Arrange a re-sit…",
                     glyph: '↻',
-                    onClick: () => setArrangingResit(true),
+                    onClick: openResitDrawer,
                   },
                   prepEnabled && {
                     label: 'Manage prep',
@@ -1383,13 +1394,19 @@ export default function SessionDashboardPage() {
           onClose={() => setEditingDates(false)}
         />
       )}
-      {/* Mounted only once asked for. The drawer is normally always-mounted on
-          the session LIST, where it animates in and out; here it is a rarely
-          used action, and keeping its queries off every session page load
-          matters more than the slide-out. */}
-      {arrangingResit && (
+      {/* MOUNTED LAZILY, THEN KEPT. The drawer slides in and out on a CSS
+          transition, and a transition needs a previous state to move from — so
+          mounting it already open (which is what this did) put it on screen
+          with no slide at all, and unmounting it on close removed it before it
+          could slide back.
+
+          So: nothing is mounted until the action is used once, which keeps this
+          drawer's queries off every session page load; from then on it stays
+          mounted and only `open` changes, which is exactly what the sessions
+          list does and what the animation is written for. */}
+      {resitMounted && (
         <NewSessionDrawer
-          open
+          open={arrangingResit}
           onClose={() => setArrangingResit(false)}
           resitOf={{
             id: session.id,
