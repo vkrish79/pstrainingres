@@ -37,6 +37,7 @@ import CloseSessionModal from '../components/dashboard/CloseSessionModal.jsx';
 import DeactivateParticipantModal from '../components/dashboard/DeactivateParticipantModal.jsx';
 import EditSessionDatesModal from '../components/dashboard/EditSessionDatesModal.jsx';
 import KebabMenu from '../components/KebabMenu.jsx';
+import NewSessionDrawer from '../components/sessions/NewSessionDrawer.jsx';
 import SessionQuizzes from '../components/dashboard/SessionQuizzes.jsx';
 import SessionPolls from '../components/dashboard/SessionPolls.jsx';
 import TopBar from '../components/TopBar.jsx';
@@ -63,6 +64,11 @@ export default function SessionDashboardPage() {
   // A re-sit is a paper-only session: no workbook, so nothing measured against
   // one has anything to say here.
   const paperOnly = session?.kind === 'resit';
+  // A re-sit needs a paper to copy, and a session that is still OPEN: closing
+  // deletes the participant accounts the first attempt is read from, which is
+  // the same rule create_resit_session enforces. A re-sit of a re-sit is not a
+  // thing, so a paper-only session does not offer it.
+  const canArrangeResit = !!session?.assessment_id && !paperOnly && !session?.closed_at;
   const { session: authSession, profile } = useAuth();
   const { run: runBusy } = useBusyOverlay();
   const canChangeTrainer = isVendorManagerOrAbove(profile?.role);
@@ -94,6 +100,11 @@ export default function SessionDashboardPage() {
   const [deactivating, setDeactivating] = useState(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [editingDates, setEditingDates] = useState(false);
+  // Arranging a re-sit starts HERE, from the session being re-sat, rather than
+  // from a dropdown of every open session. With cohorts running in several
+  // cities that list is a row of near-identical names, and choosing the wrong
+  // one re-locks a paper somebody else is sitting.
+  const [arrangingResit, setArrangingResit] = useState(false);
   const [closeError, setCloseError] = useState('');
   const [confirmDeleteSession, setConfirmDeleteSession] = useState(false);
   const [deleteSessionError, setDeleteSessionError] = useState('');
@@ -841,6 +852,11 @@ export default function SessionDashboardPage() {
                     glyph: '▦',
                     onClick: () => setEditingDates(true),
                   },
+                  canArrangeResit && {
+                    label: "Arrange a re-sit…",
+                    glyph: '↻',
+                    onClick: () => setArrangingResit(true),
+                  },
                   prepEnabled && {
                     label: 'Manage prep',
                     glyph: '▤',
@@ -1365,6 +1381,22 @@ export default function SessionDashboardPage() {
           session={session}
           onSave={updateSessionDates}
           onClose={() => setEditingDates(false)}
+        />
+      )}
+      {/* Mounted only once asked for. The drawer is normally always-mounted on
+          the session LIST, where it animates in and out; here it is a rarely
+          used action, and keeping its queries off every session page load
+          matters more than the slide-out. */}
+      {arrangingResit && (
+        <NewSessionDrawer
+          open
+          onClose={() => setArrangingResit(false)}
+          resitOf={{
+            id: session.id,
+            name: session.name,
+            join_code: session.join_code,
+            city_code: session.city_code,
+          }}
         />
       )}
       {confirmDeleteSession && (

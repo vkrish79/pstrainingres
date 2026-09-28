@@ -26,7 +26,15 @@ import '../../styles/session-drawer.css';
 // one way, and vanishing is exactly the abruptness this was meant to fix.
 // `visibility` is on the transition too, so a closed drawer is out of the tab
 // order rather than sitting off-screen collecting focus.
-export default function NewSessionDrawer({ open, onClose, initialProgramId = null }) {
+// `resitOf` — open straight onto the re-sit form for THIS session, which is how
+// a trainer arranges one: from the session they are standing in, not by finding
+// it again in a dropdown. With several cohorts running in several cities that
+// dropdown is a list of near-identical names, and picking the wrong one re-locks
+// a paper somebody else is sitting. Given a session, the picker is replaced by a
+// plain statement of which session this is.
+//
+// Shape: { id, name, join_code, city_code } — whatever the caller already has.
+export default function NewSessionDrawer({ open, onClose, initialProgramId = null, resitOf = null }) {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const { run: runBusy } = useBusyOverlay();
@@ -40,10 +48,21 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   // 'regular' | 'resit'. A re-sit is not this form with fields left blank: it
   // derives its programme, trainer and vendor from the session being re-sat, so
   // it asks three questions instead of seven.
-  const [kind, setKind] = useState('regular');
-  const [ofSessionId, setOfSessionId] = useState('');
+  const [kind, setKind] = useState(resitOf ? 'resit' : 'regular');
+  const [ofSessionId, setOfSessionId] = useState(resitOf?.id || '');
   const [picked, setPicked] = useState(() => new Set());
   const isResit = kind === 'resit';
+  // Opened from a session: the kind is not a choice and the session is not a
+  // question, so neither is offered.
+  const pinned = !!resitOf;
+
+  // The drawer is always mounted, so a later open with a different session
+  // must not inherit the last one.
+  useEffect(() => {
+    if (!open || !resitOf) return;
+    setKind('resit');
+    setOfSessionId(resitOf.id);
+  }, [open, resitOf]);
 
   useBodyScrollLock(open);
 
@@ -269,7 +288,9 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
 
     if (isResit) {
       const people = candidates.filter(c => picked.has(c.id));
-      const src = resitSessions.find(s => s.id === ofSessionId);
+      // resitOf when the drawer was opened from a session: the list the
+      // dropdown uses is not loaded in that case, so it cannot be looked up.
+      const src = resitOf || resitSessions.find(s => s.id === ofSessionId);
       const result = await runBusy(
         'Arranging the re-sit…',
         () => arrangeResit({
@@ -351,7 +372,9 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
             <h2>{isResit ? 'Arrange a re-sit' : 'New session'}</h2>
             <p className="session-drawer-sub">
               {isResit
-                ? 'Pick the session being re-sat and who is sitting again. Everything else comes from that session.'
+                ? (pinned
+                  ? "Pick who is sitting again and when. Everything else comes from this session, and its paper will be re-locked."
+                  : 'Pick the session being re-sat and who is sitting again. Everything else comes from that session.')
                 : "Pick a published program, name your cohort, and set the dates. You'll add participants on the next screen."}
             </p>
           </div>
@@ -407,7 +430,10 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
             </div>
           ) : (
           <form id="new-session-form" onSubmit={handleSubmit}>
-            <div className="resit-kind" role="group" aria-label="What kind of session">
+            {/* Arriving from a session, the kind is already settled — offering
+                "Regular session" here would be offering to throw the context
+                away and start an unrelated form. */}
+            <div className="resit-kind" role="group" aria-label="What kind of session" hidden={pinned}>
               <button
                 type="button"
                 className={`resit-kind-opt${!isResit ? ' on' : ''}`}
@@ -430,28 +456,41 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
 
             {isResit ? (
               <>
-                <label className="form-label" htmlFor="ns-of">Re-sitting which session</label>
-                <select
-                  id="ns-of"
-                  ref={firstFieldRef}
-                  className="form-input"
-                  value={ofSessionId}
-                  onChange={e => { setOfSessionId(e.target.value); setPicked(new Set()); }}
-                  required
-                >
-                  <option value="" disabled>{resitSessionsLoading ? 'Loading…' : 'Select…'}</option>
-                  {resitSessions.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}{s.city_code ? ` · ${s.city_code}` : ''}{s.join_code ? ` · ${s.join_code}` : ''}
-                    </option>
-                  ))}
-                </select>
-                {!resitSessionsLoading && resitSessions.length === 0 && (
-                  <p className="muted" style={{ marginTop: '0.25rem' }}>
-                    No open session has a paper to re-sit. A session must still be open —
-                    closing it deletes the participants&rsquo; accounts, which is what the
-                    first attempt is read from.
-                  </p>
+                {pinned ? (
+                  <div className="resit-of-fixed">
+                    <span className="resit-of-label">Re-sitting</span>
+                    <strong>{resitOf.name}</strong>
+                    <span className="resit-of-meta">
+                      {resitOf.city_code ? `${resitOf.city_code} · ` : ''}
+                      {resitOf.join_code || ''}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <label className="form-label" htmlFor="ns-of">Re-sitting which session</label>
+                    <select
+                      id="ns-of"
+                      ref={firstFieldRef}
+                      className="form-input"
+                      value={ofSessionId}
+                      onChange={e => { setOfSessionId(e.target.value); setPicked(new Set()); }}
+                      required
+                    >
+                      <option value="" disabled>{resitSessionsLoading ? 'Loading…' : 'Select…'}</option>
+                      {resitSessions.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}{s.city_code ? ` · ${s.city_code}` : ''}{s.join_code ? ` · ${s.join_code}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {!resitSessionsLoading && resitSessions.length === 0 && (
+                      <p className="muted" style={{ marginTop: '0.25rem' }}>
+                        No open session has a paper to re-sit. A session must still be open —
+                        closing it deletes the participants&rsquo; accounts, which is what the
+                        first attempt is read from.
+                      </p>
+                    )}
+                  </>
                 )}
 
                 {ofSessionId && (

@@ -222,3 +222,29 @@
   font-size: 0.9rem;
 }
 .resit-creds-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* Which session is being re-sat, when the drawer was opened from it. A
+   statement, not a control: the trainer chose it by being there. */
+.resit-of-fixed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-left: 3px solid var(--gold, #b5985a);
+  background: rgba(181, 152, 90, 0.10);
+}
+.resit-of-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted, #8a8a8a);
+  flex: none;
+}
+.resit-of-fixed strong { font-size: 1rem; }
+.resit-of-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--muted, #8a8a8a);
+}
