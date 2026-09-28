@@ -7,6 +7,7 @@ import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import { heatLevel } from '../lib/configDiff.js';
+import { shortDate, shortRange } from '../lib/programReadiness.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/edit-heat.css';
@@ -25,17 +26,16 @@ import '../styles/edit-heat.css';
 //
 // IN THE COCKPIT, like Sessions, Programmes and Analytics. Same classes, not a
 // second visual language: a compact hero carrying the filters and the actions,
-// a gauge strip, then the library. No page heading and no explanatory line --
-// the rail and the app bar both already say Workbooks. What this page
-// deliberately does NOT have yet is the pane-and-rail split those pages use —
-// a detail rail earns its place at twenty workbooks, not at four.
+// a gauge strip, then the pane-and-rail split. No page heading and no
+// explanatory line — the rail and the app bar both already say Workbooks.
 //
-// EVERY FIGURE HERE IS FREE. Workbook rows and the edit-heat totals are already
-// loaded; the counts below are arithmetic over them. The genuinely useful
-// questions — which templates are attached to a programme, which are running in
-// a room right now — need a join this page does not make, and are deliberately
-// left out rather than guessed at.
+// THE QUESTION THIS PAGE EXISTS TO ANSWER is not "what templates are there" —
+// the titles were never in doubt — but "which of these matters". So the
+// organising fact is the programme a template is attached to and the classes
+// running on it, and an unattached workbook is called out rather than left
+// looking identical to one in daily use.
 const MONTH = 1000 * 60 * 60 * 24 * 30;
+const STALE = MONTH * 3;
 
 export default function WorkbooksPage() {
   const { profile, session: authSession } = useAuth();
@@ -43,39 +43,48 @@ export default function WorkbooksPage() {
   const { loading, workbooks } = useTrainerWorkbooks(authSession?.user.id, profile?.role);
   const heatTotals = useEditHeatTotals(isSuper);
   const [preview, setPreview] = useState(null);   // { id, title } | null
-  const [filter, setFilter] = useState('all');    // 'all' | 'review' | 'stale'
+  const [filter, setFilter] = useState('all');    // 'all' | 'used' | 'unused' | 'review'
   const [find, setFind] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+
+  const isStale = w => Date.now() - new Date(w.updated_at).getTime() >= STALE;
 
   // Everything the strip and the filters need, in one pass over rows we have.
   const stats = useMemo(() => {
-    const now = Date.now();
     let reviewSections = 0;
     let reviewBooks = 0;
-    let fresh = 0;
+    let used = 0;
+    let running = 0;
+    let runningBooks = 0;
     let oldest = null;
     for (const w of workbooks) {
       const heat = heatTotals.get(w.id);
       if (heat) { reviewSections += heat.sectionCount; reviewBooks += 1; }
+      if (w.program) used += 1;
+      if (w.classes.running.length) { running += w.classes.running.length; runningBooks += 1; }
       const t = new Date(w.updated_at).getTime();
-      if (now - t < MONTH) fresh += 1;
       if (!oldest || t < oldest.t) oldest = { t, title: w.title };
     }
-    return { reviewSections, reviewBooks, fresh, oldest };
+    return { reviewSections, reviewBooks, used, running, runningBooks, oldest };
   }, [workbooks, heatTotals]);
 
-  const isStale = w => Date.now() - new Date(w.updated_at).getTime() >= MONTH * 3;
+  const unused = workbooks.length - stats.used;
 
   const shown = useMemo(() => {
     const q = find.trim().toLowerCase();
     return workbooks.filter(w => {
+      if (filter === 'used' && !w.program) return false;
+      if (filter === 'unused' && w.program) return false;
       if (filter === 'review' && !heatTotals.get(w.id)) return false;
-      if (filter === 'stale' && !isStale(w)) return false;
       if (!q) return true;
-      return `${w.title} ${w.description || ''}`.toLowerCase().includes(q);
+      return `${w.title} ${w.description || ''} ${w.program?.title || ''}`.toLowerCase().includes(q);
     });
   }, [workbooks, filter, find, heatTotals]);
 
-  const staleCount = workbooks.filter(isStale).length;
+  // The rail follows the grid rather than holding its own idea of what is
+  // selected: a filter that hides the chosen workbook must not leave its
+  // details on screen beside a list it is not in.
+  const selected = shown.find(w => w.id === selectedId) || null;
 
   return (
     <>
@@ -90,8 +99,9 @@ export default function WorkbooksPage() {
             <div className="view-tabs" role="group" aria-label="Show workbooks">
               {[
                 ['all', `All · ${workbooks.length}`],
+                ['used', `In use · ${stats.used}`],
+                ['unused', `Unused · ${unused}`],
                 ['review', `To review · ${stats.reviewBooks}`],
-                ['stale', `Not touched in 3 months · ${staleCount}`],
               ].map(([k, label]) => (
                 <button
                   key={k}
@@ -133,6 +143,28 @@ export default function WorkbooksPage() {
                 <div className="cockpit-gauge-hint">templates you can deliver from</div>
               </div>
             </div>
+            <div className="cockpit-gauge">
+              <div>
+                <div className="cockpit-gauge-label">In use</div>
+                <div className="cockpit-gauge-value">{stats.used}<small> / {workbooks.length}</small></div>
+                <div className="cockpit-gauge-hint">
+                  {unused === 0 ? 'every one attached' : `${unused} on no programme`}
+                </div>
+              </div>
+            </div>
+            <div className="cockpit-gauge">
+              <div>
+                <div className="cockpit-gauge-label">Running now</div>
+                <div className={`cockpit-gauge-value${stats.running ? ' state-open' : ' is-muted'}`}>
+                  {stats.running}
+                </div>
+                <div className="cockpit-gauge-hint">
+                  {stats.running
+                    ? `class${stats.running === 1 ? '' : 'es'} on ${stats.runningBooks} template${stats.runningBooks === 1 ? '' : 's'}`
+                    : 'no class in its dates today'}
+                </div>
+              </div>
+            </div>
             {/* The only gauge that ever asks for anything, so the only one that
                 is allowed to carry an edge. */}
             <div className={`cockpit-gauge ${stats.reviewSections > 0 ? 'is-warn' : ''}`}>
@@ -150,17 +182,8 @@ export default function WorkbooksPage() {
             </div>
             <div className="cockpit-gauge">
               <div>
-                <div className="cockpit-gauge-label">Edited recently</div>
-                <div className="cockpit-gauge-value">{stats.fresh}<small> / {workbooks.length}</small></div>
-                <div className="cockpit-gauge-hint">in the last 30 days</div>
-              </div>
-            </div>
-            <div className="cockpit-gauge">
-              <div>
                 <div className="cockpit-gauge-label">Oldest edit</div>
-                <div className="cockpit-gauge-value">
-                  {stats.oldest ? monthsSince(stats.oldest.t) : '—'}
-                </div>
+                <div className="cockpit-gauge-value">{stats.oldest ? monthsSince(stats.oldest.t) : '—'}</div>
                 <div className="cockpit-gauge-hint">{stats.oldest?.title || 'nothing yet'}</div>
               </div>
             </div>
@@ -174,58 +197,160 @@ export default function WorkbooksPage() {
           </p>
         )}
 
-        {!loading && workbooks.length > 0 && shown.length === 0 && (
-          <p className="cockpit-empty">Nothing here with this filter.</p>
-        )}
+        {!loading && workbooks.length > 0 && (
+          <div className={`cockpit-room${selected ? '' : ' is-reading'}`}>
+            <section className="participants-pane wb-pane">
+              {shown.length === 0 && <p className="cockpit-empty">Nothing here with this filter.</p>}
 
-        {!loading && shown.length > 0 && (
-          <div className="wb-grid">
-            {/* The card was one big <Link>. It cannot stay that way once it has
-                buttons: a button inside an anchor is invalid markup and a click
-                would follow the link as well. So the title is the link and the
-                actions are buttons — the same shape the quizzes list uses. */}
-            {shown.map(w => {
-              const heat = heatTotals.get(w.id);
-              return (
-                <article key={w.id} className="wb-card">
-                  <div className="wb-card-body">
-                    <div className="wb-card-top">
-                      <h3 className="wb-card-title">
-                        <Link to={`/trainer/workbooks/${w.id}`}>{w.title}</Link>
-                      </h3>
-                      {/* The one thing on this card that needs somebody to do
-                          something, so it reads as a status and not as a
-                          sentence in the middle of the card. */}
-                      {heat && (
-                        <span className="wb-pill is-review">
-                          <span className={`heat-dot heat-l${heatLevel(heat.sessionCount)}`} aria-hidden />
-                          {heat.sectionCount} to review
-                        </span>
-                      )}
-                    </div>
-                    {w.description && <p className="wb-card-desc">{w.description}</p>}
-                    {/* Pushed to the bottom by margin-top:auto, so the action
-                        bar sits on the same line on every card whether or not
-                        there is a description above it. */}
-                    <p className="wb-card-facts">
-                      <span>Updated <b>{shortDate(w.updated_at)}</b></span>
-                      {isStale(w) && <span className="wb-stale">not touched in 3 months</span>}
-                    </p>
-                  </div>
-                  <div className="wb-card-actions">
-                    <Link to={`/trainer/workbooks/${w.id}`} className="wb-act">Open</Link>
+              {shown.length > 0 && (
+                <div className="wb-grid">
+                  {/* The card was one big <Link>. It cannot stay that way once
+                      it has buttons: a button inside an anchor is invalid markup
+                      and a click would follow the link as well. So the title is
+                      the link and the actions are buttons — the same shape the
+                      quizzes list uses. */}
+                  {shown.map(w => {
+                    const heat = heatTotals.get(w.id);
+                    const on = selected?.id === w.id;
+                    return (
+                      <article
+                        key={w.id}
+                        className={`wb-card${on ? ' is-selected' : ''}`}
+                        onClick={() => setSelectedId(on ? null : w.id)}
+                      >
+                        <div className="wb-card-body">
+                          <div className="wb-card-top">
+                            <h3 className="wb-card-title">
+                              <Link to={`/trainer/workbooks/${w.id}`} onClick={e => e.stopPropagation()}>
+                                {w.title}
+                              </Link>
+                            </h3>
+                            {/* The one thing on this card that needs somebody
+                                to do something, so it reads as a status and not
+                                as a sentence in the middle of the card. */}
+                            {heat && (
+                              <span className="wb-pill is-review">
+                                <span className={`heat-dot heat-l${heatLevel(heat.sessionCount)}`} aria-hidden />
+                                {heat.sectionCount} to review
+                              </span>
+                            )}
+                            {!w.program && <span className="wb-pill is-idle">unused</span>}
+                          </div>
+                          {w.description && <p className="wb-card-desc">{w.description}</p>}
+                          {/* Pushed to the bottom by margin-top:auto, so the
+                              action bar sits on the same line on every card
+                              whether or not there is a description above it. */}
+                          <p className="wb-card-facts">
+                            {w.program
+                              ? <span className="wb-prog">{w.program.title}</span>
+                              : <span className="wb-stale">no programme</span>}
+                            <span>Updated <b>{shortDate(w.updated_at)}</b></span>
+                            {w.classes.total > 0 && (
+                              <span>
+                                <b>{w.classes.total}</b> class{w.classes.total === 1 ? '' : 'es'}
+                                {w.classes.running.length > 0 && (
+                                  <span className="wb-running"> · {w.classes.running.length} running</span>
+                                )}
+                              </span>
+                            )}
+                            {isStale(w) && <span className="wb-stale">not touched in 3 months</span>}
+                          </p>
+                        </div>
+                        <div className="wb-card-actions">
+                          <Link
+                            to={`/trainer/workbooks/${w.id}`}
+                            className="wb-act"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            Open
+                          </Link>
+                          <button
+                            type="button"
+                            className="wb-act"
+                            data-tip="Read it as a book, the way a participant meets it"
+                            onClick={e => { e.stopPropagation(); setPreview({ id: w.id, title: w.title }); }}
+                          >
+                            Preview
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {selected && (
+              <aside className="cockpit-rail" aria-label="Workbook details">
+                <div className="wb-rail-card">
+                  <div className="wb-rail-head">
+                    <h2>{selected.title}</h2>
                     <button
                       type="button"
-                      className="wb-act"
-                      data-tip="Read it as a book, the way a participant meets it"
-                      onClick={() => setPreview({ id: w.id, title: w.title })}
+                      className="icon-btn"
+                      aria-label="Close details"
+                      onClick={() => setSelectedId(null)}
                     >
-                      Preview
+                      ×
                     </button>
                   </div>
-                </article>
-              );
-            })}
+                  {selected.description && <p className="wb-rail-desc">{selected.description}</p>}
+
+                  <dl className="wb-rail-facts">
+                    <div><dt>Programme</dt><dd>{selected.program
+                      ? <Link to={`/trainer/programs/${selected.program.id}`}>{selected.program.title}</Link>
+                      : <span className="wb-stale">none — nobody delivers this</span>}</dd></div>
+                    <div><dt>Updated</dt><dd>{shortDate(selected.updated_at)}</dd></div>
+                    <div><dt>Classes</dt><dd>
+                      {selected.classes.total === 0 ? 'none yet' : (
+                        <>
+                          {selected.classes.total} · {selected.classes.open.length} open
+                          {selected.classes.running.length > 0 && `, ${selected.classes.running.length} running`}
+                        </>
+                      )}
+                    </dd></div>
+                    <div><dt>To review</dt><dd>
+                      {heatTotals.get(selected.id)
+                        ? `${heatTotals.get(selected.id).sectionCount} sections changed in class`
+                        : 'nothing'}
+                    </dd></div>
+                  </dl>
+
+                  {/* The classes themselves, newest first. This is the answer to
+                      "can I safely edit this?" — an edit reaches every class
+                      that has not started, so the ones listed here are who it
+                      would reach. */}
+                  {selected.classes.list.length > 0 && (
+                    <div className="wb-rail-classes">
+                      <h3>Classes</h3>
+                      <ul>
+                        {selected.classes.list.slice(0, 6).map(s => (
+                          <li key={s.id}>
+                            <Link to={`/trainer/sessions/${s.id}`}>{s.name}</Link>
+                            <span className={`wb-class-state is-${s.state.key}`}>{s.state.label}</span>
+                            <span className="wb-class-dates">{shortRange(s.starts_at, s.ends_at)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {selected.classes.list.length > 6 && (
+                        <p className="cockpit-empty">+{selected.classes.list.length - 6} more</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="wb-rail-actions">
+                    <Link to={`/trainer/workbooks/${selected.id}`} className="primary-link">Open editor</Link>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => setPreview({ id: selected.id, title: selected.title })}
+                    >
+                      📖 Preview as a book
+                    </button>
+                  </div>
+                </div>
+              </aside>
+            )}
           </div>
         )}
       </main>
@@ -238,16 +363,6 @@ export default function WorkbooksPage() {
       )}
     </>
   );
-}
-
-// "19 Jul" for this year, "19 Jul 2025" for any other — the year is noise on a
-// library that is mostly edited within one.
-function shortDate(iso) {
-  const d = new Date(iso);
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }),
-  });
 }
 
 // Whole months, floored, because "3 mo" is the useful reading and "94 days"
