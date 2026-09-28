@@ -183,3 +183,42 @@
 /* The score is the reason a name is ticked, so it reads as data, not decoration. */
 .resit-people-score { flex: none; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .resit-people-score.is-fail { color: var(--danger); font-weight: 700; }
+
+/* ── Sign-in details for a re-sit, shown once ──────────────────────────────
+   These cannot be fetched again: add-session-participants generates each
+   temp password, returns it once and keeps only the hash. So this panel
+   replaces the form rather than sitting under it — the trainer has to deal
+   with it before moving on. */
+.resit-creds { padding: 4px 0 8px; }
+.resit-creds-lead {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--gold, #b5985a);
+  background: rgba(181, 152, 90, 0.10);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.resit-creds-code { margin: 0 0 12px; font-size: 0.92rem; }
+.resit-creds-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 18px;
+}
+.resit-creds-table th,
+.resit-creds-table td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border, #e2ddd2);
+  font-size: 0.92rem;
+}
+.resit-creds-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #8a8a8a);
+}
+.resit-creds-table .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+}
+.resit-creds-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }

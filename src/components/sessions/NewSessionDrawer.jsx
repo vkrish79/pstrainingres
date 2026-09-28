@@ -67,6 +67,13 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Sign-in details for the accounts a re-sit just created. THEY EXIST ONLY
+  // HERE: add-session-participants generates each temp password, returns it
+  // once, and stores nothing but the hash. Navigating straight to the new
+  // session — which is what this did — threw them away, leaving a re-sitter
+  // who cannot sign in and a trainer whose only route back is a password
+  // reset. So the drawer stops and shows them before going anywhere.
+  const [credentials, setCredentials] = useState(null);
 
   const panelRef = useRef(null);
   const firstFieldRef = useRef(null);
@@ -151,7 +158,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
       setName(''); setStartsAt(''); setEndsAt(''); setCityCode('');
       setKind('regular'); setOfSessionId(''); setPicked(new Set());
       setVendorId(''); setTrainerId(''); setSuperSelfDeliver(true);
-      setError(''); setConfirmDiscard(false);
+      setError(''); setConfirmDiscard(false); setCredentials(null);
     }, ms + 80);
     return () => clearTimeout(t);
   }, [open]);
@@ -284,6 +291,14 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
         setError(`Created, but ${result.failures.map(f => `${f.name} (${f.why})`).join('; ')}. Open the session to finish.`);
         return;
       }
+      // Hold the sign-in details rather than navigating past them. Only rows
+      // the function actually created carry one; anything else is reported by
+      // the failure branch above.
+      const made = (result.created?.results || []).filter(r => r.temp_password);
+      if (made.length) {
+        setCredentials({ sessionId: result.sessionId, joinCode: result.created?.join_code || null, rows: made });
+        return;
+      }
       navigate(`/trainer/sessions/${result.sessionId}`);
       return;
     }
@@ -352,6 +367,45 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
         </header>
 
         <div className="session-drawer-body">
+          {credentials ? (
+            <div className="resit-creds">
+              <p className="resit-creds-lead">
+                The re-sit is ready. <strong>Write these down now</strong> — each password is
+                generated once and is not stored, so this is the only time it can be read.
+                After this, the only way back is to reset it from the session.
+              </p>
+              {credentials.joinCode && (
+                <p className="resit-creds-code">
+                  Join code <strong>{credentials.joinCode}</strong>
+                </p>
+              )}
+              <table className="resit-creds-table">
+                <thead>
+                  <tr><th>Username</th><th>Temporary password</th></tr>
+                </thead>
+                <tbody>
+                  {credentials.rows.map(r => (
+                    <tr key={r.username}>
+                      <td className="mono">{r.username}</td>
+                      <td className="mono">{r.temp_password}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="resit-creds-actions">
+                <button type="button" className="secondary" onClick={() => window.print()}>
+                  Print
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => { const id = credentials.sessionId; setCredentials(null); navigate(`/trainer/sessions/${id}`); }}
+                >
+                  I have these — open the re-sit
+                </button>
+              </div>
+            </div>
+          ) : (
           <form id="new-session-form" onSubmit={handleSubmit}>
             <div className="resit-kind" role="group" aria-label="What kind of session">
               <button
@@ -603,6 +657,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
 
             {error && <p className="error">{error}</p>}
           </form>
+          )}
         </div>
 
         <footer className="session-drawer-foot">
