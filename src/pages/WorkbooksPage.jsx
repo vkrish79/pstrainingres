@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
 import WorkbookPreviewModal from '../components/workbook/WorkbookPreviewModal.jsx';
@@ -46,6 +46,12 @@ export default function WorkbooksPage() {
   const [filter, setFilter] = useState('all');    // 'all' | 'used' | 'unused' | 'review'
   const [find, setFind] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  // MOUNT AND OPEN ARE SEPARATE, one pair of frames apart. A CSS transition
+  // needs a previous state to travel from, so a panel rendered already open
+  // simply appears; and clearing the selection on close would unmount it
+  // before it could travel back. selectedId therefore survives the slide out
+  // and is cleared when it lands.
+  const [railOpen, setRailOpen] = useState(false);
 
   const isStale = w => Date.now() - new Date(w.updated_at).getTime() >= STALE;
 
@@ -81,10 +87,32 @@ export default function WorkbooksPage() {
     });
   }, [workbooks, filter, find, heatTotals]);
 
-  // The rail follows the grid rather than holding its own idea of what is
-  // selected: a filter that hides the chosen workbook must not leave its
-  // details on screen beside a list it is not in.
-  const selected = shown.find(w => w.id === selectedId) || null;
+  // Held on the FULL list, not the filtered one, so the panel still has
+  // something to draw while it slides out after a filter hides the card.
+  const selected = workbooks.find(w => w.id === selectedId) || null;
+
+  function openRail(id) {
+    setSelectedId(id);
+    // Two frames: the first paints the panel off-screen, the second sends it
+    // in. One is enough in most browsers and not in all of them.
+    requestAnimationFrame(() => requestAnimationFrame(() => setRailOpen(true)));
+  }
+
+  function closeRail() { setRailOpen(false); }
+
+  // Esc closes it, like every other slide-over here.
+  useEffect(() => {
+    if (!railOpen) return undefined;
+    const onKey = e => { if (e.key === 'Escape') closeRail(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [railOpen]);
+
+  // A filter that hides the chosen workbook must not leave its details open
+  // over a list it is not in.
+  useEffect(() => {
+    if (railOpen && selectedId && !shown.some(w => w.id === selectedId)) closeRail();
+  }, [railOpen, selectedId, shown]);
 
   return (
     <>
@@ -198,8 +226,8 @@ export default function WorkbooksPage() {
         )}
 
         {!loading && workbooks.length > 0 && (
-          <div className={`cockpit-room${selected ? '' : ' is-reading'}`}>
-            <section className="participants-pane wb-pane">
+          <div className="wb-room">
+            <section className="wb-pane">
               {shown.length === 0 && <p className="cockpit-empty">Nothing here with this filter.</p>}
 
               {shown.length > 0 && (
@@ -216,7 +244,7 @@ export default function WorkbooksPage() {
                       <article
                         key={w.id}
                         className={`wb-card${on ? ' is-selected' : ''}`}
-                        onClick={() => setSelectedId(on ? null : w.id)}
+                        onClick={() => (on && railOpen ? closeRail() : openRail(w.id))}
                       >
                         <div className="wb-card-body">
                           <div className="wb-card-top">
@@ -279,9 +307,32 @@ export default function WorkbooksPage() {
                 </div>
               )}
             </section>
+          </div>
+        )}
 
-            {selected && (
-              <aside className="cockpit-rail" aria-label="Workbook details">
+        {/* THE DETAILS ARRIVE OVER THE PAGE, not beside it. Same slide-over
+            idiom as the new-session drawer, down to the duration variable, so
+            there is one way a panel enters this app and not two. */}
+        {selectedId && (
+          <>
+            <div
+              className={`wb-rail-backdrop${railOpen ? ' visible' : ''}`}
+              onClick={closeRail}
+              aria-hidden="true"
+            />
+            <aside
+              className={`wb-rail-panel${railOpen ? ' open' : ''}`}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Workbook details"
+              aria-hidden={railOpen ? undefined : 'true'}
+              onTransitionEnd={e => {
+                // Only when the slide OUT has landed, and only for the slide
+                // itself -- visibility and opacity fire here too.
+                if (e.propertyName === 'transform' && !railOpen) setSelectedId(null);
+              }}
+            >
+              {selected && (
                 <div className="wb-rail-card">
                   <div className="wb-rail-head">
                     <h2>{selected.title}</h2>
@@ -289,7 +340,7 @@ export default function WorkbooksPage() {
                       type="button"
                       className="icon-btn"
                       aria-label="Close details"
-                      onClick={() => setSelectedId(null)}
+                      onClick={closeRail}
                     >
                       ×
                     </button>
@@ -349,9 +400,9 @@ export default function WorkbooksPage() {
                     </button>
                   </div>
                 </div>
-              </aside>
-            )}
-          </div>
+              )}
+            </aside>
+          </>
         )}
       </main>
       {preview && (
