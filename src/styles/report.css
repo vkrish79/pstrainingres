@@ -230,13 +230,6 @@
   color: #333;
   padding: 0.05rem 0;
 }
-.ld-crit-marks {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  white-space: nowrap;
-  min-width: 2.4rem;
-}
-.ld-error-criteria li.is-zero .ld-crit-marks { color: #a13a3a; }
 .ld-crit-what { min-width: 0; }
 
 .ld-clean { margin: 0; color: #1d7a44; font-weight: 500; }

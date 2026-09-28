@@ -330,7 +330,9 @@ function IndividualReport({ session, report, passMark }) {
                         <ul className="ld-error-criteria">
                           {e.criteria.map(c => (
                             <li key={c.id} className={c.zero ? 'is-zero' : ''}>
-                              <span className="ld-crit-marks">{c.awarded}/{c.marks}</span>
+                              {/* Criterion marks are left off for the same
+                                  reason the question's own mark is: this is
+                                  the explanation, not the arithmetic. */}
                               <span className="ld-crit-what">
                                 <strong>{c.label || 'Criterion'}</strong>
                                 {c.comment ? ` — ${c.comment}` : ''}
