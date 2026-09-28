@@ -24,8 +24,9 @@ import '../styles/edit-heat.css';
 // What IS super-only is authoring — the two buttons in the hero.
 //
 // IN THE COCKPIT, like Sessions, Programmes and Analytics. Same classes, not a
-// second visual language: cockpit-page-title, a compact hero carrying the
-// filters and the actions, a gauge strip, then the library. What this page
+// second visual language: a compact hero carrying the filters and the actions,
+// a gauge strip, then the library. No page heading and no explanatory line --
+// the rail and the app bar both already say Workbooks. What this page
 // deliberately does NOT have yet is the pane-and-rail split those pages use —
 // a detail rail earns its place at twenty workbooks, not at four.
 //
@@ -80,10 +81,10 @@ export default function WorkbooksPage() {
     <>
       <TopBar />
       <main className="page dashboard workbooks-page">
-        <header className="cockpit-page-title">
-          <h1>Workbooks</h1>
-        </header>
-
+        {/* NO PAGE HEADING, and no line explaining what a workbook is. The rail
+            says Workbooks and so does the app bar; a third one saying it again
+            over a sentence a returning user has read a hundred times was a band
+            of the page that told them nothing. The hero carries controls only. */}
         <section className="page-hero compact cockpit-hero">
           <div className="cockpit-hero-row">
             <div className="view-tabs" role="group" aria-label="Show workbooks">
@@ -102,11 +103,6 @@ export default function WorkbooksPage() {
                   {label}
                 </button>
               ))}
-            </div>
-            <div className="page-hero-text">
-              <p className="cockpit-hero-sub">
-                Editing a template reaches every class that has not started yet.
-              </p>
             </div>
             <div className="page-hero-actions">
               {/* The search box is here rather than over the grid because it

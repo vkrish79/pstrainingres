@@ -3291,6 +3291,11 @@
 @media (max-width: 480px) { .wb-gauges { grid-template-columns: 1fr; } }
 
 .workbooks-page .cockpit-hero .page-hero-actions { display: flex; align-items: center; gap: 0.6rem; }
+/* This hero carries no title block, and the shared rule orders the tabs AFTER
+   the actions on the assumption that one sits between them. With nothing in
+   the middle that puts the buttons first, so the order is restated here. */
+.workbooks-page .cockpit-hero .cockpit-hero-row .view-tabs { order: 1; margin: 0; }
+.workbooks-page .cockpit-hero .cockpit-hero-row .page-hero-actions { order: 2; margin-left: auto; }
 .wb-find { width: 12rem; max-width: 40vw; font-size: 0.85rem; padding: 0.38rem 0.7rem; }
 
 .wb-grid {
