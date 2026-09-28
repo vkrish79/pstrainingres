@@ -318,7 +318,9 @@ function IndividualReport({ session, report, passMark }) {
                           matches the paper the participant sat. */}
                       <span className="ld-error-q">Question – {pad(e.label)}:</span>{' '}
                       <span className="ld-error-title">({e.title})</span>
-                      <span className="ld-error-marks">{e.earned}/{e.possible}</span>
+                      {/* No per-question mark here on purpose. This is a list
+                          of what went wrong, not a second mark sheet: the
+                          score is already stated once, above. */}
                       {e.comment && <div className="ld-error-comment">{e.comment}</div>}
                       {/* Where a question was marked against a scorecard, the
                           reasons were written criterion by criterion. They are

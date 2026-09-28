@@ -207,15 +207,6 @@
 .ld-error-list li:last-child { margin-bottom: 0; }
 .ld-error-q { font-weight: 700; color: var(--ld-midnight); }
 .ld-error-title { color: #333; }
-.ld-error-marks {
-  display: inline-block;
-  margin-left: 0.5rem;
-  padding: 0.02rem 0.4rem;
-  border: 1px solid var(--ld-rule);
-  border-radius: 3px;
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
 .ld-error-comment {
   margin-top: 0.15rem;
   padding-left: 0.6rem;
