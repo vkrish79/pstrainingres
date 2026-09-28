@@ -3286,6 +3286,10 @@
    reach without a join it does not make. Which templates are attached to a
    programme, and which are running in a room right now, are the two questions
    worth asking next — and they need data that is not loaded here. */
+/* The libraries carry different numbers of gauges -- five for workbooks, six
+   for assessments, which has two ways a paper can be unfinished. Fitting to
+   the content beats a column count each page has to keep in step. */
+.wb-gauges { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
 @media (max-width: 900px) { .wb-gauges { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .wb-gauges { grid-template-columns: 1fr; } }
 

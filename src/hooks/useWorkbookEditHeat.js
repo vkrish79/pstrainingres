@@ -203,25 +203,40 @@ export async function resolveSectionChanges({ workbookId, sectionId, status, not
 // Totals for the workbook LIST — one call covering every workbook, never one
 // per card. Without this the heat map is invisible until you happen to open
 // the right master, which is how a log ends up unread.
-export function useEditHeatTotals(enabled = true) {
+// `kind` — 'workbook' (default) or 'assessment', the same pair the per-item
+// heat reads take. Both libraries want the same badge, and the two RPCs were
+// written as a matched set.
+//
+// The id column is read as EITHER master_assessment_id or master_workbook_id
+// rather than picked by kind: these two functions are the one place the
+// assessment side is not a straight rename of the workbook side, and a wrong
+// guess here would not error — it would quietly key the map on undefined and
+// show no badges at all, which looks exactly like "nothing to review".
+export function useEditHeatTotals(enabled = true, kind = 'workbook') {
   const [totals, setTotals] = useState(() => new Map());
 
   useEffect(() => {
     if (!enabled) { setTotals(new Map()); return undefined; }
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.rpc('workbook_edit_heat_totals');
+      const { data, error } = await supabase.rpc(
+        kind === 'assessment' ? 'assessment_edit_heat_totals' : 'workbook_edit_heat_totals',
+      );
       if (cancelled || error) return; // migration not applied yet = no badges
       const m = new Map();
-      (data || []).forEach(r => m.set(r.master_workbook_id, {
-        sectionCount: Number(r.section_count) || 0,
-        sessionCount: Number(r.session_count) || 0,
-        lastChangedAt: r.last_changed_at,
-      }));
+      (data || []).forEach(r => {
+        const id = r.master_assessment_id ?? r.master_workbook_id;
+        if (!id) return;
+        m.set(id, {
+          sectionCount: Number(r.section_count) || 0,
+          sessionCount: Number(r.session_count) || 0,
+          lastChangedAt: r.last_changed_at,
+        });
+      });
       setTotals(m);
     })();
     return () => { cancelled = true; };
-  }, [enabled]);
+  }, [enabled, kind]);
 
   return totals;
 }

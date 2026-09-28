@@ -4,10 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAssessments } from '../hooks/useAssessments.js';
+import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
+import { heatLevel } from '../lib/configDiff.js';
 import { shortDate, shortRange } from '../lib/programReadiness.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
+import '../styles/edit-heat.css';
 
 // The assessment library, in the cockpit — the same shape as Workbooks, which
 // is the same shape as Sessions and Programmes. One visual language.
@@ -26,8 +29,11 @@ export default function AssessmentsListPage() {
   const { session: authSession } = useAuth();
   const { run: runBusy } = useBusyOverlay();
   const { loading, error, assessments, createAssessment } = useAssessments({ detail: true });
+  // What the field has been changing in a class, per master paper -- the same
+  // badge the workbook library carries.
+  const heatTotals = useEditHeatTotals(true, 'assessment');
 
-  const [filter, setFilter] = useState('all');   // 'all' | 'used' | 'unused' | 'unfinished'
+  const [filter, setFilter] = useState('all');   // 'all' | 'used' | 'unused' | 'unfinished' | 'review'
   const [find, setFind] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   // Mount and open are one pair of frames apart — a transition needs a previous
@@ -45,14 +51,18 @@ export default function AssessmentsListPage() {
     let runningPapers = 0;
     let noPassMark = 0;
     let unkeyed = 0;
+    let reviewSections = 0;
+    let reviewPapers = 0;
     for (const a of assessments) {
       if (a.program) used += 1;
       if (a.classes.running.length) { running += a.classes.running.length; runningPapers += 1; }
       if (a.pass_mark == null) noPassMark += 1;
       unkeyed += a.paper.unkeyed;
+      const heat = heatTotals.get(a.id);
+      if (heat) { reviewSections += heat.sectionCount; reviewPapers += 1; }
     }
-    return { used, running, runningPapers, noPassMark, unkeyed };
-  }, [assessments]);
+    return { used, running, runningPapers, noPassMark, unkeyed, reviewSections, reviewPapers };
+  }, [assessments, heatTotals]);
 
   const unusedCount = assessments.length - stats.used;
   const unfinishedCount = assessments.filter(unfinished).length;
@@ -63,10 +73,11 @@ export default function AssessmentsListPage() {
       if (filter === 'used' && !a.program) return false;
       if (filter === 'unused' && a.program) return false;
       if (filter === 'unfinished' && !unfinished(a)) return false;
+      if (filter === 'review' && !heatTotals.get(a.id)) return false;
       if (!q) return true;
       return `${a.title} ${a.description || ''} ${a.program?.title || ''}`.toLowerCase().includes(q);
     });
-  }, [assessments, filter, find]);
+  }, [assessments, filter, find, heatTotals]);
 
   // Held on the FULL list so the panel still has something to draw while it
   // slides out after a filter hides the card.
@@ -101,6 +112,7 @@ export default function AssessmentsListPage() {
                 ['used', `In use · ${stats.used}`],
                 ['unused', `Unused · ${unusedCount}`],
                 ['unfinished', `Unfinished · ${unfinishedCount}`],
+                ['review', `To review · ${stats.reviewPapers}`],
               ].map(([k, label]) => (
                 <button
                   key={k}
@@ -186,6 +198,19 @@ export default function AssessmentsListPage() {
                 </div>
               </div>
             </div>
+            <div className={`cockpit-gauge ${stats.reviewSections > 0 ? 'is-warn' : ''}`}>
+              <div>
+                <div className="cockpit-gauge-label">To review</div>
+                <div className="cockpit-gauge-value">
+                  {stats.reviewSections}<small> question{stats.reviewSections === 1 ? '' : 's'}</small>
+                </div>
+                <div className="cockpit-gauge-hint">
+                  {stats.reviewPapers === 0
+                    ? 'nothing changed in a class'
+                    : `in ${stats.reviewPapers} paper${stats.reviewPapers === 1 ? '' : 's'}, from class edits`}
+                </div>
+              </div>
+            </div>
             <div className={`cockpit-gauge ${stats.unkeyed > 0 ? 'is-bad' : ''}`}>
               <div>
                 <div className="cockpit-gauge-label">Unkeyed</div>
@@ -213,6 +238,7 @@ export default function AssessmentsListPage() {
                       else. Open editor lives in the panel. */}
                   {shown.map(a => {
                     const on = selected?.id === a.id;
+                    const heat = heatTotals.get(a.id);
                     return (
                       <article
                         key={a.id}
@@ -230,6 +256,12 @@ export default function AssessmentsListPage() {
                         <div className="wb-card-body">
                           <div className="wb-card-top">
                             <h3 className="wb-card-title">{a.title}</h3>
+                            {heat && (
+                              <span className="wb-pill is-review">
+                                <span className={`heat-dot heat-l${heatLevel(heat.sessionCount)}`} aria-hidden />
+                                {heat.sectionCount} to review
+                              </span>
+                            )}
                             {a.paper.unkeyed > 0 && (
                               <span className="wb-pill is-bad">{a.paper.unkeyed} unkeyed</span>
                             )}
@@ -297,6 +329,11 @@ export default function AssessmentsListPage() {
                     <div><dt>Unkeyed</dt><dd>{selected.paper.unkeyed
                       ? <span className="wb-unkeyed">{selected.paper.unkeyed} cannot be marked</span>
                       : 'none'}</dd></div>
+                    <div><dt>To review</dt><dd>
+                      {heatTotals.get(selected.id)
+                        ? `${heatTotals.get(selected.id).sectionCount} changed in class`
+                        : 'nothing'}
+                    </dd></div>
                     <div><dt>Updated</dt><dd>{shortDate(selected.updated_at)}</dd></div>
                   </dl>
 
