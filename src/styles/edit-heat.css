@@ -176,17 +176,9 @@
 }
 .wb-heat-note .heat-dot { flex: 0 0 auto; }
 
-/* Badge on a workbook card in the library list. */
-.wb-card-heat {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0.35rem 0 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--gold-dark, #8b7342);
-}
-.wb-card-heat .heat-dot { flex: 0 0 auto; }
+/* The workbook card's review badge moved to .wb-pill.is-review in
+   dashboard.css when the library became a cockpit: it is a status pill in the
+   card's header now, not a line of text in the middle of it. */
 
 /* ===== Review state ===== */
 
