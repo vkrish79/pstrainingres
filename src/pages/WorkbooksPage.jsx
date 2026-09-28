@@ -117,7 +117,7 @@ export default function WorkbooksPage() {
   return (
     <>
       <TopBar />
-      <main className="page dashboard workbooks-page">
+      <main className="page dashboard library-page">
         {/* NO PAGE HEADING, and no line explaining what a workbook is. The rail
             says Workbooks and so does the app bar; a third one saying it again
             over a sentence a returning user has read a hundred times was a band

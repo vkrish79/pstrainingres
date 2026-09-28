@@ -3289,12 +3289,12 @@
 @media (max-width: 900px) { .wb-gauges { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .wb-gauges { grid-template-columns: 1fr; } }
 
-.workbooks-page .cockpit-hero .page-hero-actions { display: flex; align-items: center; gap: 0.6rem; }
+.library-page .cockpit-hero .page-hero-actions { display: flex; align-items: center; gap: 0.6rem; }
 /* This hero carries no title block, and the shared rule orders the tabs AFTER
    the actions on the assumption that one sits between them. With nothing in
    the middle that puts the buttons first, so the order is restated here. */
-.workbooks-page .cockpit-hero .cockpit-hero-row .view-tabs { order: 1; margin: 0; }
-.workbooks-page .cockpit-hero .cockpit-hero-row .page-hero-actions { order: 2; margin-left: auto; }
+.library-page .cockpit-hero .cockpit-hero-row .view-tabs { order: 1; margin: 0; }
+.library-page .cockpit-hero .cockpit-hero-row .page-hero-actions { order: 2; margin-left: auto; }
 .wb-find { width: 12rem; max-width: 40vw; font-size: 0.85rem; padding: 0.38rem 0.7rem; }
 
 .wb-grid {
@@ -3345,6 +3345,30 @@
 }
 .wb-pill.is-review { color: #8a5a00; background: #fdf4e0; }
 .wb-pill.is-idle { color: #7d8a97; background: #f2f1ee; }
+/* A question with no answer key cannot be marked at all, which is a fault in
+   the paper rather than something still to do. */
+.wb-pill.is-bad { color: #a5342a; background: #fbeeec; }
+.wb-unkeyed { color: #a5342a; font-weight: 600; }
+
+/* A button that becomes a field. Creating a template is a few-times-a-year
+   job, and the form for it used to sit permanently open above the library. */
+.lib-new-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.42rem 0.9rem;
+  white-space: nowrap;
+  border-radius: 8px;
+  border: 1px solid var(--gold, #b5985a);
+  background: var(--gold, #b5985a);
+  color: #1c1608;
+  font-weight: 700;
+  cursor: pointer;
+}
+.lib-new-btn:hover { filter: brightness(1.04); }
+.lib-new-btn:focus-visible { outline: 2px solid var(--midnight); outline-offset: 2px; }
+.lib-new-form { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.lib-new-form .form-input { width: 18rem; max-width: 60vw; margin: 0; padding: 0.4rem 0.6rem; }
+.lib-new-form .error { flex: 1 1 100%; margin: 0.2rem 0 0; }
 
 .wb-prog { color: var(--midnight); font-weight: 600; }
 .wb-running { color: #1d7a44; font-weight: 600; }
