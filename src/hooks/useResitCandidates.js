@@ -24,35 +24,6 @@ import { supabase } from '../lib/supabase.js';
 // nobody is pre-ticked. That is the honest reading, and it matches
 // ClosedSessionView, which says "no pass mark set" rather than inventing one.
 
-// Sessions this trainer could arrange a re-sit for: open, carrying a paper, and
-// not themselves re-sits. RLS decides which are theirs, so there is no role
-// filtering here.
-export function useResitSessions(enabled = true) {
-  const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!enabled) return undefined;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from('sessions')
-        .select('id, name, join_code, starts_at, city_code, kind, assessment_id, closed_at')
-        .is('closed_at', null)
-        .not('assessment_id', 'is', null)
-        .neq('kind', 'resit')
-        .order('starts_at', { ascending: false });
-      if (cancelled) return;
-      setSessions(data || []);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [enabled]);
-
-  return { sessions, loading };
-}
-
 // Everyone enrolled in one session, with what they scored.
 export function useResitCandidates(sessionId) {
   const [candidates, setCandidates] = useState([]);
