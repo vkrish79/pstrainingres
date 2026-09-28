@@ -3,7 +3,8 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
 import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
-import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
+import { useSessionResits } from '../../hooks/useSessionResits.js';
+import { useAssessmentPassMark } from '../../hooks/useAssessmentPassMark.js';
 import { buildCohortReport } from '../../lib/assessmentReport.js';
 import { isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { isFillableBlock, isAnswered, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
@@ -79,7 +80,17 @@ export default function CloseSessionModal({
   const {
     guidance, points: criteriaPoints, loaded: criteriaLoaded,
   } = useSessionCriteria(hasAssessment ? session.id : null);
-  const asmtLoading = hasAssessment && (asmt.loading || !marksLoaded || !criteriaLoaded || passMarkLoading);
+  // Second sittings. CLOSING BANKS THESE SCORES, so this is not optional
+  // detail: if the figures frozen here came from the first sitting while the
+  // Report tab is showing the re-sit, the report printed after closing would
+  // contradict the one printed five minutes before it, about the same person.
+  // Same hook, same buildCohortReport call, so the two agree by construction
+  // rather than by two people remembering to keep them in step.
+  const { resitsByPriorParticipant, loading: resitsLoading } = useSessionResits(
+    hasAssessment ? session.id : null,
+  );
+  const asmtLoading = hasAssessment
+    && (asmt.loading || !marksLoaded || !criteriaLoaded || passMarkLoading || resitsLoading);
   const asmtFailed = hasAssessment && !asmtLoading && !!(asmt.error || marksError);
 
   // Scored by buildCohortReport — the same call the Report tab makes — so the
@@ -97,6 +108,8 @@ export default function CloseSessionModal({
       answerModes: asmt.answerModes,
       marks,
       guidance,
+      resits: resitsByPriorParticipant,
+      passMark,
     });
     return cohort.reports.map(r => {
       const forP = asmt.answers[r.participant.id] || {};
@@ -107,17 +120,21 @@ export default function CloseSessionModal({
         // Sat = answered something, OR a trainer awarded marks (a paper done
         // on paper and marked by hand has no typed answers, but the Report
         // tab grades it, so it must count here too).
-        sat: liveBlocks.some(b => isAnswered(b, forP[b.id]?.value) || marksForP[b.id]?.awarded != null),
-        earned: r.score.earned,
-        possible: r.score.possible,
-        pct: r.score.pct,
-        unmarked: r.unmarked.length,
-        result: resultOf(r.score, passMark, r.unmarked.length),
+        // A re-sitter sat something even if this session's paper is thin.
+        sat: liveBlocks.some(b => isAnswered(b, forP[b.id]?.value) || marksForP[b.id]?.awarded != null)
+          || !!r.resit?.sat,
+        // THE RESULT OF RECORD, not this sitting. For everybody without a
+        // marked re-sit the two are the same object, so nothing changes.
+        earned: r.record.earned,
+        possible: r.record.possible,
+        pct: r.record.pct,
+        unmarked: r.record.unmarked,
+        result: r.verdict,
       };
     });
   }, [hasAssessment, asmtLoading, asmtFailed, asmt.sections, asmt.blocks, asmt.answers,
     asmt.answerKey, asmt.answerPoints, asmt.answerModes, participants, marks, passMark,
-    guidance, criteriaPoints]);
+    guidance, criteriaPoints, resitsByPriorParticipant]);
 
   const activeResults = (asmtResults || []).filter(r => !r.deactivated);
   const sat = activeResults.filter(r => r.sat);

@@ -42,17 +42,7 @@ export function useAssessmentPassMark(assessmentId) {
   return { passMark, loading };
 }
 
-// PASS / FAIL / blank. Exported so the report and any future results screen
-// reach the same verdict.
-//
-// Returns null — meaning print nothing — when there is no threshold, when
-// nothing was scorable, or when marking is not finished. That last one
-// matters: calling a paper a fail while questions are still unmarked would put
-// a result in someone's file that the next click could overturn.
-export function resultOf(score, passMark, unmarkedCount = 0) {
-  if (passMark == null) return null;
-  if (!score || !score.possible) return null;
-  if (unmarkedCount > 0) return null;
-  if (score.pct == null) return null;
-  return score.pct >= passMark ? 'PASS' : 'FAIL';
-}
+// resultOf used to be defined here. It moved to assessmentScoring.js so that
+// buildCohortReport — which is pure — can reach the same verdict without
+// importing a hook. Re-exported, so every existing import keeps working.
+export { resultOf } from '../lib/assessmentScoring.js';
