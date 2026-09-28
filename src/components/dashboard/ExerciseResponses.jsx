@@ -642,7 +642,6 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
               reviewMarks={reviewMarks}
               onMark={onMark}
               onComment={onComment}
-              hands={hands}
               guidanceForBlock={guidance ? guidance[b.id] : null}
               onBreakdown={onBreakdown}
               marking={markingIds ? markingIds.has(`${participant.id}:${b.id}`) : false}
