@@ -3,7 +3,6 @@ import { SkeletonTable } from '../Skeleton.jsx';
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
 import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
-import { useSessionResits } from '../../hooks/useSessionResits.js';
 import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
 import { buildCohortReport } from '../../lib/assessmentReport.js';
 import '../../styles/report.css';
@@ -27,11 +26,6 @@ import '../../styles/report.css';
 // as blank ruled cells to be completed by hand. That is faithful to the source
 // documents, which are forms with empty cells, and it beats inventing data or
 // dropping rows the filing expects to see.
-//
-// RE-SITS ARE PRINTED FROM HERE, the ORIGINAL session, and never from the
-// paper-only session somebody sat the second time. That session has one person
-// in it and no programme context; this sheet is the cohort's record, and a
-// re-sitter belongs in it on their own row with both marks visible.
 export default function AssessmentReport({ sessionId, assessmentId, participants, session }) {
   const {
     loading, error, sections, blocks, answers, answerKey, answerPoints, answerModes,
@@ -42,9 +36,6 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
   // verdict from the one the trainer just gave — including which questions are
   // still only part-marked and therefore not scored at all.
   const { guidance, points: criteriaPoints } = useSessionCriteria(sessionId);
-  // Second sittings, found through the re-sit sessions that point back here.
-  // A session nobody has re-sat returns an empty map and nothing below changes.
-  const { resitsByPriorParticipant, error: resitError } = useSessionResits(sessionId);
 
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
@@ -61,11 +52,10 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
       answerModes={answerModes}
       guidance={guidance}
       marks={marks}
-      resits={resitsByPriorParticipant}
       passMark={passMark}
       loading={loading}
       error={error}
-      notice={marksError || resitError}
+      notice={marksError}
     />
   );
 }
@@ -79,13 +69,9 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
 // gone (a session slimmed by the retention job). The group sheet needs only
 // scores, so it still prints; the individual sheet, which lists areas of
 // error, is not offered because there is nothing left to list.
-//
-// `resits` — optional, and absent on every closed-session path. See the note
-// on the recorded branch below for why that is the honest default rather than
-// an oversight.
 export function AssessmentReportView({
   session, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance = null,
-  resits = null, passMark, loading, error, notice, recorded = null, recordedNote = null, closed = false,
+  passMark, loading, error, notice, recorded = null, recordedNote = null, closed = false,
 }) {
   const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
   const [selectedId, setSelectedId] = useState('');
@@ -93,37 +79,20 @@ export function AssessmentReportView({
   const cohort = useMemo(() => {
     if (recorded) {
       // Shaped like buildCohortReport's reports, so GroupReport reads both.
-      //
-      // `record` is the sitting itself and `resit` is null on purpose. These
-      // are the figures frozen at close, already the result of record at that
-      // moment; there is nothing left to supersede them with, and no re-sit
-      // information survives in the summary to look one up by.
       const reports = recorded
-        .map(r => {
-          const score = { earned: r.earned, possible: r.possible, pct: r.pct, unmarked: r.unmarked };
-          return {
-            participant: r.participant,
-            score,
-            record: { ...score, source: 'first' },
-            verdict: resultOf(score, passMark, r.unmarked || 0),
-            resit: null,
-            resitDue: false,
-            unmarked: Array.from({ length: r.unmarked || 0 }),
-            errors: [],
-          };
-        })
+        .map(r => ({
+          participant: r.participant,
+          score: { earned: r.earned, possible: r.possible, pct: r.pct, unmarked: r.unmarked },
+          unmarked: Array.from({ length: r.unmarked || 0 }),
+          errors: [],
+        }))
         .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
-      return {
-        reports, commonErrors: [], resatCount: 0, resitDueCount: 0,
-        totalUnmarked: reports.reduce((n, r) => n + r.unmarked.length, 0),
-      };
+      return { reports, commonErrors: [], totalUnmarked: reports.reduce((n, r) => n + r.unmarked.length, 0) };
     }
     return buildCohortReport({
       participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance,
-      resits, passMark, closed,
     });
-  }, [recorded, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
-    guidance, resits, passMark, closed]);
+  }, [recorded, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance]);
 
   if (loading) return <SkeletonTable rows={6} label="Loading assessment report…" />;
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
@@ -133,12 +102,6 @@ export function AssessmentReportView({
   const outstanding = scope === 'individual'
     ? (chosen?.unmarked.length || 0)
     : cohort.totalUnmarked;
-
-  // Re-sits arranged but not yet sat, or sat but not yet marked. Called out
-  // because until one of them IS marked the sheet keeps printing the first
-  // attempt, and a reader who knows a re-sit happened needs telling why the
-  // old mark is still there.
-  const pendingResits = cohort.reports.filter(r => r.resit && !r.resit.marked);
 
   return (
     <div className="assessment-report">
@@ -198,16 +161,6 @@ export function AssessmentReportView({
               Scores below are interim, and Result stays blank until marking is finished.
             </>
           )}
-        </div>
-      )}
-
-      {pendingResits.length > 0 && (
-        <div className="report-warning no-print">
-          ↻ {pendingResits.length === 1 ? 'A re-sit has' : `${pendingResits.length} re-sits have`} been
-          arranged but {pendingResits.length === 1 ? 'has' : 'have'} no result yet
-          ({pendingResits.map(r => r.participant.full_name || '(unnamed)').join(', ')}).
-          The first attempt is still the result of record and is what prints below — a paper nobody
-          has marked is not a score of nought.
         </div>
       )}
 
@@ -280,37 +233,15 @@ function GroupReport({ session, cohort, passMark }) {
         </thead>
         <tbody>
           {rows.map((r, i) => {
-            // The verdict comes off the row, where it was reached from the
-            // result of record. Computing it again here from r.score would
-            // quietly judge a re-sitter on the paper they already failed.
-            const verdict = r.verdict;
-            const superseded = !!r.resit && r.resit.marked;
+            const verdict = resultOf(r.score, passMark, r.unmarked.length);
             return (
-              <tr key={r.participant.id} className={r.resit ? 'ld-row-resit' : undefined}>
+              <tr key={r.participant.id}>
                 <td className="col-sr">{i + 1}</td>
                 <td className="col-staff fill-in" />
-                <td>
-                  {r.participant.full_name || '(unnamed)'}
-                  {r.resit && <ResitNote resit={r.resit} />}
-                </td>
+                <td>{r.participant.full_name || '(unnamed)'}</td>
                 <td className="col-role fill-in" />
-                <td className="col-score">
-                  {superseded ? (
-                    <span className="score-pair">
-                      {/* The first attempt is kept visible and struck through
-                          rather than dropped. It is a real sitting that really
-                          happened, and a sheet that simply showed the better
-                          number would be a sheet nobody could audit. */}
-                      <span className="score-first">{pct(r.score.pct)}</span>
-                      <span className="score-record">{pct(r.record.pct)}</span>
-                    </span>
-                  ) : pct(r.record.pct)}
-                </td>
-                <td className={`col-result ${verdict ? `result-${verdict.toLowerCase()}` : ''}`}>
-                  {verdict || ''}
-                  {r.resit && <span className="report-chip chip-resit">re-sit</span>}
-                  {r.resitDue && <span className="report-chip chip-due">re-sit due</span>}
-                </td>
+                <td className="col-score">{r.score.pct == null ? '' : `${r.score.pct}%`}</td>
+                <td className={`col-result ${verdict ? `result-${verdict.toLowerCase()}` : ''}`}>{verdict || ''}</td>
               </tr>
             );
           })}
@@ -325,51 +256,15 @@ function GroupReport({ session, cohort, passMark }) {
         </tbody>
       </table>
 
-      {(cohort.resatCount > 0 || cohort.resitDueCount > 0) && (
-        <p className="ld-resit-legend">
-          {/* Described rather than illustrated. A legend with specimen
-              percentages in it would be inventing figures on a document that
-              goes into somebody's file. */}
-          {cohort.resatCount > 0 && (
-            <>
-              A struck-through score is a first sitting that has been superseded; the bold figure
-              beside it is the result of record, and is the one every total on this sheet counts.
-            </>
-          )}
-          {cohort.resitDueCount > 0 && (
-            <>
-              {cohort.resatCount > 0 && ' '}
-              <span className="report-chip chip-due">re-sit due</span>
-              {' '}below the pass mark with no second sitting arranged.
-            </>
-          )}
-        </p>
-      )}
-
       <FacilitatorComments />
       <ReportFootnote />
     </section>
   );
 }
 
-// Which second sitting this is, under the name. Three states, because
-// "arranged", "sat" and "marked" are three different things to a reader
-// wondering why the old mark is still printing.
-function ResitNote({ resit }) {
-  const when = resit.resitStartsAt ? formatRange(resit.resitStartsAt, null) : '';
-  const code = resit.resitJoinCode ? ` · ${resit.resitJoinCode}` : '';
-  const text = resit.marked
-    ? `re-sat ${when}${code}`
-    : resit.sat
-      ? `re-sat ${when}${code} — not marked yet`
-      : `re-sit arranged ${when}${code} — not sat yet`;
-  return <small className="ld-resit-note">{text}</small>;
-}
-
 // ── L&D Training Report (IND) ───────────────────────────────────────────────
 function IndividualReport({ session, report, passMark }) {
-  const verdict = report.verdict;
-  const superseded = !!report.resit && report.resit.marked;
+  const verdict = resultOf(report.score, passMark, report.unmarked.length);
 
   return (
     <section className="report-page ld-report">
@@ -396,31 +291,13 @@ function IndividualReport({ session, report, passMark }) {
           <tr>
             <th>Assessment Score</th>
             <td>
-              {superseded ? (
-                <span className="score-pair">
-                  <span className="score-first">{pct(report.score.pct)}</span>
-                  <span className="score-record">{pct(report.record.pct)}</span>
-                </span>
-              ) : pct(report.record.pct)}
+              {report.score.pct == null ? '' : `${report.score.pct}%`}
             </td>
             <th className="narrow">Result</th>
-            <td className={verdict ? `result-${verdict.toLowerCase()}` : ''}>
-              {verdict || ''}
-              {report.resit && <span className="report-chip chip-resit">re-sit</span>}
-              {report.resitDue && <span className="report-chip chip-due">re-sit due</span>}
-            </td>
+            <td className={verdict ? `result-${verdict.toLowerCase()}` : ''}>{verdict || ''}</td>
           </tr>
         </tbody>
       </table>
-
-      {superseded && (
-        <p className="ld-resit-lead">
-          Sat again on {formatRange(report.resit.resitStartsAt, null)}
-          {report.resit.resitJoinCode ? ` (${report.resit.resitJoinCode})` : ''}.
-          The feedback below is from that second paper, which is the result of record;
-          the first sitting scored {pct(report.score.pct)} and is shown struck through above.
-        </p>
-      )}
 
       <h3 className="ld-heading">Assessment Feedback</h3>
       <table className="ld-table ld-feedback">
@@ -442,20 +319,6 @@ function IndividualReport({ session, report, passMark }) {
                       <span className="ld-error-q">Question – {pad(e.label)}:</span>{' '}
                       <span className="ld-error-title">({e.title})</span>
                       <span className="ld-error-marks">{e.earned}/{e.possible}</span>
-                      {/* How this question relates to the one first sat. Only
-                          present when a re-sit is the result of record, and
-                          the reason the two papers can be compared at all. */}
-                      {e.pairing === 'amended' && (
-                        <span className="q-flag flag-amended" data-tip="Same question, with a value changed for the re-sit">amended</span>
-                      )}
-                      {e.pairing === 'replaced' && (
-                        <span className="q-flag flag-replaced" data-tip="A different question, drawn from the bank — there is nothing to compare it with">replaced</span>
-                      )}
-                      {e.first && (
-                        <span className="q-first" data-tip="What this question scored at the first sitting">
-                          first sitting {e.first.earned}/{e.first.possible}
-                        </span>
-                      )}
                       {e.comment && <div className="ld-error-comment">{e.comment}</div>}
                       {/* Where a question was marked against a scorecard, the
                           reasons were written criterion by criterion. They are
@@ -554,12 +417,6 @@ function pad(label) {
   const s = String(label ?? '');
   const m = s.match(/^(\d+)(.*)$/);
   return m ? m[1].padStart(2, '0') + m[2] : s;
-}
-
-// A percentage, or nothing at all. Never "0%" standing in for "not known" —
-// that is the whole distinction a re-sit with no result depends on.
-function pct(v) {
-  return v == null ? '' : `${v}%`;
 }
 
 function formatRange(a, b) {

@@ -3,7 +3,7 @@
 // Everything here is PURE. It reads the same blocks, keys, answers and marks
 // the trainer's marking screen reads, and it reaches the same verdicts by
 // calling the same functions — earnedFor, manualResultFor, pointsFor,
-// scoreBlocks, resultOf from assessmentScoring.js, and buildQuestions from
+// scoreBlocks from assessmentScoring.js, and buildQuestions from
 // assessmentStructure.js for the labels.
 //
 // THAT REUSE IS THE POINT, not an economy. A report that recomputed marks its
@@ -22,15 +22,8 @@
 // WITHDRAWN QUESTIONS ARE OUT, and the caller must filter them before calling
 // in — the same isInactiveBlock filter the marking view applies. A report whose
 // totals disagreed with the screen would be worse than no report.
-//
-// TWO SITTINGS, ONE ROW. A re-sit is a separate session with its own paper, so
-// its marks arrive through `resits` rather than through `marks`. It is never a
-// second row: the person sat the same course once, and a second row would
-// double-count them in every tally on the sheet.
 
-import {
-  earnedFor, manualResultFor, pointsFor, scoreBlocks, isInactiveBlock, resultOf,
-} from './assessmentScoring.js';
+import { earnedFor, manualResultFor, pointsFor, scoreBlocks, isInactiveBlock } from './assessmentScoring.js';
 import { buildQuestions } from './assessmentStructure.js';
 import { labelOf, isFillableBlock } from './blockHelpers.js';
 import { areasOfError } from './markingCriteria.js';
@@ -70,40 +63,28 @@ export function answerTextOf(block, value) {
   return String(value).trim();
 }
 
-// Is this the same question, or has its given information been changed?
+// One participant's report.
 //
-// An amendment is an ordinary edit to the question's `config` — a new date, a
-// different passenger count — made on the re-sit's copy. The answer and the key
-// are never touched, so comparing the two configs is the whole test. It is done
-// on a STABLE serialisation because an edit through the builder rewrites the
-// object, and key order alone must not read as a change.
-function stableJson(v) {
-  if (v === null || typeof v !== 'object') return JSON.stringify(v ?? null);
-  if (Array.isArray(v)) return '[' + v.map(stableJson).join(',') + ']';
-  return '{' + Object.keys(v).sort()
-    .map(k => JSON.stringify(k) + ':' + stableJson(v[k]))
-    .join(',') + '}';
-}
-
-// Every question's verdict for one participant, keyed by block id.
-//
-// Split out of buildParticipantReport because a RE-SIT needs exactly this, for
-// a different paper, and the two sittings have to be judged the same way. A
-// second loop reaching its own verdicts is the thing the note at the top of
-// this file forbids.
-export function questionResults({
-  blocks, answersForP, answerKey, answerPoints, answerModes, marksForP, labelByBlockId, guidance = null,
+// Returns { participant, username, score, errors[], unmarked[] } where
+//   score    — the scoreBlocks total, so the figure matches the tile exactly
+//   errors   — questions that lost marks, in paper order
+//   unmarked — manual questions still awaiting judgement, in paper order
+export function buildParticipantReport({
+  participant, blocks, answers, answerKey, answerPoints, answerModes, marksForP, labelByBlockId,
+  guidance = null,
 }) {
+  const answersForP = answers?.[participant.id] || {};
   const marks = marksForP || {};
-  const answersOf = answersForP || {};
-  const out = new Map();
+
+  const errors = [];
+  const unmarked = [];
 
   for (const block of blocks) {
     if (!isFillableBlock(block)) continue;
     const points = pointsFor(block.id, answerPoints);
     const isManual = answerModes?.[block.id] === 'manual';
     const key = answerKey ? answerKey[block.id] : null;
-    const value = answersOf[block.id]?.value;
+    const value = answersForP[block.id]?.value;
 
     // Exactly the reasoning BlockAnswer uses, so a row here and a row there
     // never disagree.
@@ -126,21 +107,12 @@ export function questionResults({
       ? areasOfError(blockGuidance, marks[block.id]?.breakdown)
       : [];
 
-    out.set(block.id, {
+    const row = {
       blockId: block.id,
-      // The pointer to the master question, and the ONLY thing a re-sit's paper
-      // shares with the paper it was copied from. Null on a question swapped in
-      // from the bank, which is how "a different question" is detected rather
-      // than guessed.
-      templateBlockId: block.template_block_id || null,
-      config: block.config ?? null,
       label: labelByBlockId?.[block.id] || '',
       title: labelOf(block),
       state: result.state,
       earned: Math.round((result.earned || 0) * 10) / 10,
-      // Unrounded, and used ONLY for the "did this lose marks?" test. Rounding
-      // first would quietly turn 4.96 out of 5 into full marks.
-      earnedRaw: result.earned || 0,
       possible: points,
       manual: isManual,
       criteria,
@@ -149,129 +121,25 @@ export function questionResults({
       comment: criteria.length ? '' : (marks[block.id]?.comment || ''),
       markedBy: marks[block.id]?.marked_by_name || '',
       answerText: answerTextOf(block, value),
-    });
-  }
-
-  return out;
-}
-
-// How a re-sit question relates to the one it stands in for.
-//
-//   same      it pairs, and the given information is identical
-//   amended   it pairs — the same master question — but a value was changed
-//   replaced  it does not pair: a question drawn from the bank, which has no
-//             master and therefore nothing to compare against
-function pairingFor(resitRow, firstByTemplate) {
-  if (!resitRow.templateBlockId) return { pairing: 'replaced', first: null };
-  const first = firstByTemplate.get(resitRow.templateBlockId) || null;
-  if (!first) return { pairing: 'replaced', first: null };
-  const pairing = stableJson(first.config) === stableJson(resitRow.config) ? 'same' : 'amended';
-  return {
-    pairing,
-    first: { earned: first.earned, possible: first.possible, state: first.state, label: first.label },
-  };
-}
-
-// One participant's report.
-//
-// Returns { participant, username, score, record, verdict, resit, resitDue,
-//           errors[], unmarked[] } where
-//   score    — THIS session's sitting, always, so a first attempt is still
-//              readable after it has been superseded
-//   record   — the result of record: the re-sit when there is a marked one,
-//              otherwise this sitting. Every tally and every verdict is built
-//              from this and not from `score`
-//   errors   — questions that lost marks, on the paper `record` came from
-//   unmarked — questions on that same paper still awaiting judgement
-export function buildParticipantReport({
-  participant, blocks, answers, answerKey, answerPoints, answerModes, marksForP, labelByBlockId,
-  guidance = null, resit = null, passMark = null, closed = false,
-}) {
-  const answersForP = answers?.[participant.id] || {};
-  const marks = marksForP || {};
-
-  const rows = questionResults({
-    blocks, answersForP, answerKey, answerPoints, answerModes, marksForP: marks, labelByBlockId, guidance,
-  });
-
-  const score = scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marks, guidance);
-
-  // A RE-SIT NOBODY HAS MARKED YET IS NOT A SCORE OF ZERO. Until somebody marks
-  // it, the only real figure this person has is their first attempt, and
-  // substituting an empty paper would supersede a genuine result with a nought,
-  // drag the cohort average down with it, and turn a pass into a fail.
-  const superseded = !!resit && resit.marked;
-
-  // WHICH SITTING THE FEEDBACK DESCRIBES. When the re-sit is the result of
-  // record, the areas of error have to come from the paper that produced it —
-  // printing the first sitting's mistakes beside the second sitting's score
-  // would describe a paper nobody is being judged on.
-  const sourceRows = superseded ? resit.rows : rows;
-
-  // The first sitting, reachable by master question, which is the only join
-  // the two papers have.
-  const firstByTemplate = new Map();
-  for (const row of rows.values()) {
-    if (row.templateBlockId) firstByTemplate.set(row.templateBlockId, row);
-  }
-
-  const errors = [];
-  const unmarked = [];
-  for (const row of sourceRows.values()) {
-    const out = superseded ? { ...row, ...pairingFor(row, firstByTemplate) } : row;
-    if (row.state === 'unmarked') unmarked.push(out);
-    else if (row.earnedRaw < row.possible) errors.push(out);
-  }
-
-  const record = superseded
-    ? {
-      earned: resit.earned, possible: resit.possible, pct: resit.pct,
-      unmarked: resit.unmarked, source: 'resit',
-    }
-    : {
-      earned: score.earned, possible: score.possible, pct: score.pct,
-      unmarked: score.unmarked, source: 'first',
     };
 
-  const verdict = resultOf(record, passMark, record.unmarked);
+    if (result.state === 'unmarked') unmarked.push(row);
+    else if ((result.earned || 0) < points) errors.push(row);
+  }
 
   return {
     participant,
     username: usernameOf(participant),
-    score,
-    record,
-    verdict,
-    resit,
-    // Below the pass mark with no re-sit pointing back at this row. Derived,
-    // never stored — the moment a re-sit is arranged the chip has to disappear
-    // on its own, and a stored flag is one somebody has to remember to clear.
-    //
-    // NEVER ON A CLOSED SESSION, and not merely because it would be untidy.
-    // create_resit_session refuses a closed session outright, so the chip would
-    // be advertising something nobody can do; the pointers it is derived from
-    // dangle once the accounts are deleted at close, so somebody who DID re-sit
-    // would be marked as owing one; and this is a document that has already
-    // been printed and filed, which must not grow a new mark afterwards.
-    resitDue: !closed && verdict === 'FAIL' && !resit,
+    score: scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marks, guidance),
     errors,
     unmarked,
   };
 }
 
 // The whole cohort, in the same name order the roster uses everywhere else.
-//
-// `resits` — Map of participant id IN THIS SESSION to their re-sit, from
-// useSessionResits. Optional, and deliberately absent wherever a re-sit cannot
-// apply (a closed session's recorded scores). With no map, every row's result
-// of record is simply its own sitting, which is what this function did before
-// re-sits existed.
-//
-// `passMark` — needed here, not only in the view, because "re-sit due" is the
-// answer to "did this person fail and has nobody arranged anything?" and that
-// question cannot be asked without the threshold.
 export function buildCohortReport({
   participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
-  guidance = null, resits = null, passMark = null, closed = false,
+  guidance = null,
 }) {
   // Withdrawn questions are out of the paper entirely — filter before labels
   // are built, so numbering matches the paper the participants actually sat.
@@ -296,46 +164,28 @@ export function buildCohortReport({
       marksForP: marks?.[p.id] || {},
       labelByBlockId,
       guidance,
-      resit: resits?.get?.(p.id) || null,
-      passMark,
-      closed,
     }))
     .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
 
   // Which questions the cohort as a whole struggled with. The trainer's own
   // use for this is deciding what to go over in the debrief, so it is ordered
   // by how many people got it wrong rather than by question number.
-  //
-  // Keyed by MASTER question, not by block: a re-sitter's copy of a question is
-  // a different row with a different id, and counting it separately would list
-  // the same question twice with its tally split between the two.
   const byQuestion = new Map();
   for (const r of reports) {
     for (const e of r.errors) {
-      const k = e.templateBlockId || e.blockId;
-      const cur = byQuestion.get(k)
+      const cur = byQuestion.get(e.blockId)
         || { blockId: e.blockId, label: e.label, title: e.title, count: 0, possible: e.possible };
       cur.count += 1;
-      byQuestion.set(k, cur);
+      byQuestion.set(e.blockId, cur);
     }
   }
   const commonErrors = [...byQuestion.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
   const totalUnmarked = reports.reduce((n, r) => n + r.unmarked.length, 0);
-  // Built from the result of record, so a re-sitter counts once, at the mark
-  // that now stands.
-  const scored = reports.filter(r => r.record.possible > 0);
+  const scored = reports.filter(r => r.score.possible > 0);
   const avgPct = scored.length
-    ? Math.round(scored.reduce((n, r) => n + (r.record.pct || 0), 0) / scored.length)
+    ? Math.round(scored.reduce((n, r) => n + (r.score.pct || 0), 0) / scored.length)
     : null;
 
-  return {
-    reports,
-    commonErrors,
-    totalUnmarked,
-    avgPct,
-    resatCount: reports.filter(r => r.resit).length,
-    resitDueCount: reports.filter(r => r.resitDue).length,
-    questionCount: ordered.filter(isFillableBlock).length,
-  };
+  return { reports, commonErrors, totalUnmarked, avgPct, questionCount: ordered.filter(isFillableBlock).length };
 }

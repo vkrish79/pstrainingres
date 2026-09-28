@@ -278,22 +278,3 @@ export function scoreBlocks(
     pct: possible ? Math.round((earned / possible) * 100) : null,
   };
 }
-
-// PASS / FAIL / blank. The one verdict function, so the Report tab, the cohort
-// sheet and the figures frozen at close cannot disagree about the same person.
-//
-// Returns null — meaning print nothing — when there is no threshold, when
-// nothing was scorable, or when marking is not finished. That last one
-// matters: calling a paper a fail while questions are still unmarked would put
-// a result in somebody's file that the next click could overturn.
-//
-// It lives here rather than beside the pass-mark hook because buildCohortReport
-// needs it and that file is pure: it must not pull React or supabase into the
-// payload the close-session edge function is handed.
-export function resultOf(score, passMark, unmarkedCount = 0) {
-  if (passMark == null) return null;
-  if (!score || !score.possible) return null;
-  if (unmarkedCount > 0) return null;
-  if (score.pct == null) return null;
-  return score.pct >= passMark ? 'PASS' : 'FAIL';
-}
