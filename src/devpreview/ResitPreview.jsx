@@ -86,6 +86,9 @@ function App() {
       <hr style={{ margin: '2rem 0' }} />
       <h1 id="case-c" style={{ font: '700 15px system-ui' }}>C — no re-sits at all (unchanged behaviour)</h1>
       <AssessmentReportView {...common} resits={null} />
+      <hr style={{ margin: '2rem 0' }} />
+      <h1 id="case-d" style={{ font: '700 15px system-ui' }}>D — CLOSED: same failures, but no &ldquo;re-sit due&rdquo; anywhere</h1>
+      <AssessmentReportView {...common} resits={null} closed />
     </div>
   );
 }

@@ -185,7 +185,7 @@ function pairingFor(resitRow, firstByTemplate) {
 //   unmarked — questions on that same paper still awaiting judgement
 export function buildParticipantReport({
   participant, blocks, answers, answerKey, answerPoints, answerModes, marksForP, labelByBlockId,
-  guidance = null, resit = null, passMark = null,
+  guidance = null, resit = null, passMark = null, closed = false,
 }) {
   const answersForP = answers?.[participant.id] || {};
   const marks = marksForP || {};
@@ -245,7 +245,14 @@ export function buildParticipantReport({
     // Below the pass mark with no re-sit pointing back at this row. Derived,
     // never stored — the moment a re-sit is arranged the chip has to disappear
     // on its own, and a stored flag is one somebody has to remember to clear.
-    resitDue: verdict === 'FAIL' && !resit,
+    //
+    // NEVER ON A CLOSED SESSION, and not merely because it would be untidy.
+    // create_resit_session refuses a closed session outright, so the chip would
+    // be advertising something nobody can do; the pointers it is derived from
+    // dangle once the accounts are deleted at close, so somebody who DID re-sit
+    // would be marked as owing one; and this is a document that has already
+    // been printed and filed, which must not grow a new mark afterwards.
+    resitDue: !closed && verdict === 'FAIL' && !resit,
     errors,
     unmarked,
   };
@@ -264,7 +271,7 @@ export function buildParticipantReport({
 // question cannot be asked without the threshold.
 export function buildCohortReport({
   participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
-  guidance = null, resits = null, passMark = null,
+  guidance = null, resits = null, passMark = null, closed = false,
 }) {
   // Withdrawn questions are out of the paper entirely — filter before labels
   // are built, so numbering matches the paper the participants actually sat.
@@ -291,6 +298,7 @@ export function buildCohortReport({
       guidance,
       resit: resits?.get?.(p.id) || null,
       passMark,
+      closed,
     }))
     .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
 

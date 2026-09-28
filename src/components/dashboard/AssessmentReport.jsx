@@ -120,10 +120,10 @@ export function AssessmentReportView({
     }
     return buildCohortReport({
       participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance,
-      resits, passMark,
+      resits, passMark, closed,
     });
   }, [recorded, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks,
-    guidance, resits, passMark]);
+    guidance, resits, passMark, closed]);
 
   if (loading) return <SkeletonTable rows={6} label="Loading assessment report…" />;
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;

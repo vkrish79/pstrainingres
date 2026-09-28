@@ -86,12 +86,17 @@ export default function CloseSessionModal({
   // contradict the one printed five minutes before it, about the same person.
   // Same hook, same buildCohortReport call, so the two agree by construction
   // rather than by two people remembering to keep them in step.
-  const { resitsByPriorParticipant, loading: resitsLoading } = useSessionResits(
+  const { resitsByPriorParticipant, loading: resitsLoading, error: resitsError } = useSessionResits(
     hasAssessment ? session.id : null,
   );
   const asmtLoading = hasAssessment
     && (asmt.loading || !marksLoaded || !criteriaLoaded || passMarkLoading || resitsLoading);
-  const asmtFailed = hasAssessment && !asmtLoading && !!(asmt.error || marksError);
+  // A FAILED RE-SIT READ COUNTS AS A FAILURE, and quietly carrying on is the
+  // one thing that must not happen here. The hook returns an empty map when it
+  // errors, which is indistinguishable from 'nobody re-sat' — so closing would
+  // freeze the first sitting for somebody who has already passed a second one,
+  // permanently, with no error shown.
+  const asmtFailed = hasAssessment && !asmtLoading && !!(asmt.error || marksError || resitsError);
 
   // Scored by buildCohortReport — the same call the Report tab makes — so the
   // figure recorded at close is the figure the trainer last saw on screen.
@@ -232,7 +237,7 @@ export default function CloseSessionModal({
                 <p className="muted">Scoring the assessment…</p>
               ) : asmtFailed ? (
                 <p className="error">
-                  The assessment could not be scored ({asmt.error || marksError}). You can still close: the raw
+                  The assessment could not be scored ({asmt.error || marksError || resitsError}). You can still close: the raw
                   answers and marks are saved, but no scores will appear in Analytics for this session.
                 </p>
               ) : (
