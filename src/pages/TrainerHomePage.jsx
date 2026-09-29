@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove } from '../lib/roles.js';
 import SessionViews from '../components/dashboard/SessionViews.jsx';
-import LowPrepBanner from '../components/dashboard/LowPrepBanner.jsx';
 import NewSessionDrawer from '../components/sessions/NewSessionDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -35,11 +34,17 @@ export default function TrainerHomePage() {
   return (
     <>
       <TopBar />
-      <main className="page">
-        {/* The prep warning comes before the hero because it is the only thing
-            on this page that is asking for something. */}
-        <LowPrepBanner profile={profile} />
+      {/* THE PREP BANNER HAS GONE INTO THE GAUGE STRIP, with the left-open
+          one — see SessionGauges. It still opens the same PrepUploadModal, so
+          nothing lost a way in; it stopped costing a band of the page to say
+          one number.
 
+          `library-page` is here for its hero ordering: it puts the tabs first
+          and the actions hard right in a cockpit hero that carries no title
+          block. That is exactly this page's shape, and it is already what
+          Workbooks and Assessments use — so this is the same rule, not a
+          second copy of it. */}
+      <main className="page dashboard library-page sessions-cockpit">
         {isSuper && <SuperHome userId={authSession?.user.id} />}
         {isManager && <VendorManagerHome userId={authSession?.user.id} />}
         {!isSuper && !isManager && <VendorTrainerHome userId={authSession?.user.id} />}
@@ -83,6 +88,7 @@ function SuperHome({ userId }) {
       {!msl && sessions.length > 0 && (
         <SessionViews
           id="sup"
+          cockpit
           sessions={sessions}
           showTrainer
           showVendor
@@ -118,6 +124,7 @@ function VendorManagerHome({ userId }) {
       {!sl && sessions.length > 0 && (
         <SessionViews
           id="ven"
+          cockpit
           sessions={sessions}
           showTrainer
           action={<NewSessionLink />}
@@ -143,6 +150,7 @@ function VendorTrainerHome({ userId }) {
       {!sl && sessions.length > 0 && (
         <SessionViews
           id="my"
+          cockpit
           sessions={sessions}
           action={<NewSessionLink />}
           emptyLabel="You have no sessions yet."

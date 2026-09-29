@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { sessionColour } from '../../lib/programColour.js';
 import { formatRange } from '../../lib/sessionDates.js';
+import { isLeftOpen, isRunning, relativeDay } from '../../lib/sessionFilters.js';
 
 // Sessions as a sortable table.
 //
@@ -57,6 +58,12 @@ export default function SessionList({
         start,
         undated: !s.starts_at && !s.ends_at,
         closed: !!s.closed_at,
+        // THE RELATIVE HALF OF THE DATE CELL. An absolute date says WHICH
+        // class; this says whether it wants you. "16–22 Sept 2026" and
+        // "30 Sept – 01 Oct 2026" are two dates a reader has to subtract from
+        // today to tell apart — "ended 7 days ago" and "tomorrow" are not.
+        running: isRunning(s),
+        leftOpen: isLeftOpen(s),
         people: (s.session_participants || []).length,
         program: s.program?.program_type?.name || s.program?.title || '',
         programType: s.program?.program_type?.name || '',
@@ -152,7 +159,28 @@ export default function SessionList({
               <td className="session-list-dates">
                 {r.undated
                   ? <span className="session-pill undated" title="This session has no dates, so it cannot appear on the calendar">No dates</span>
-                  : (formatRange(r.session.starts_at, r.session.ends_at) || '—')}
+                  : (
+                    <>
+                      {formatRange(r.session.starts_at, r.session.ends_at) || '—'}
+                      {/* Said only for the rows where it changes what you
+                          would do. A class three weeks out with nothing
+                          remarkable about it gets its date and no commentary,
+                          which is what keeps the amber ones visible. */}
+                      {!r.closed && r.running && (
+                        <span className="session-list-sub is-running">running now</span>
+                      )}
+                      {!r.closed && r.leftOpen && (
+                        <span className="session-list-sub is-late">
+                          ended {relativeDay(r.session.ends_at)}
+                        </span>
+                      )}
+                      {!r.closed && !r.running && !r.leftOpen && r.session.starts_at && (
+                        <span className="session-list-sub">
+                          {relativeDay(r.session.starts_at)}
+                        </span>
+                      )}
+                    </>
+                  )}
               </td>
               <td>{r.city || '—'}</td>
               {showVendor && (
