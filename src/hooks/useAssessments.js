@@ -3,6 +3,91 @@ import { supabase } from '../lib/supabase.js';
 import { isFillableBlock } from '../lib/blockHelpers.js';
 import { isInactiveBlock } from '../lib/assessmentScoring.js';
 import { classSummary } from '../lib/programReadiness.js';
+import { questionKeyState } from '../lib/bankQuestions.js';
+
+// What each bank holds, for the bank library's gauges and cards.
+//
+// Four counts and a topic list, all off flat queries:
+//  • questions — a question is a SECTION, so this counts sections that hold at
+//    least one fillable block, not blocks.
+//  • byHand    — written answers and PNR builds. These have no key BY DESIGN
+//    (they are marked by hand), so counting them as unkeyed would paint every
+//    scenario bank red for doing the right thing.
+//  • unkeyed   — a question that can be marked automatically but has no key. A
+//    genuine fault: whichever paper takes it cannot mark it.
+//  • used      — how many assessment questions were drawn from this bank, via
+//    the source_bank_section_id the picker writes.
+async function withBankDetail(rows) {
+  const ids = rows.map(a => a.id);
+  if (!ids.length) return rows.map(a => ({ ...a, bank: emptyBank() }));
+
+  const { data: secs } = await supabase
+    .from('assessment_sections')
+    .select('id, assessment_id, tags, kind')
+    .in('assessment_id', ids);
+  // Group sections are Word-H1 banners and hold no question.
+  const sections = (secs || []).filter(s => s.kind !== 'group');
+  const sectionIds = sections.map(s => s.id);
+
+  const [{ data: blks }, { data: copies }] = await Promise.all([
+    sectionIds.length
+      ? supabase.from('assessment_blocks').select('id, section_id, block_type, config')
+        .in('section_id', sectionIds)
+      : Promise.resolve({ data: [] }),
+    // Who took a copy. Reading the CHILD side means one query for the whole
+    // library rather than one per bank.
+    sectionIds.length
+      ? supabase.from('assessment_sections').select('source_bank_section_id')
+        .in('source_bank_section_id', sectionIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const blockIds = (blks || []).map(b => b.id);
+  const { data: keyRows } = blockIds.length
+    ? await supabase.from('assessment_answer_keys')
+      .select('assessment_block_id').in('assessment_block_id', blockIds)
+    : { data: [] };
+
+  const keyed = new Set((keyRows || []).map(k => k.assessment_block_id));
+  const hasKey = b => keyed.has(b.id);
+  const usedSections = new Set((copies || []).map(c => c.source_bank_section_id).filter(Boolean));
+
+  const blocksBySection = new Map();
+  for (const b of blks || []) {
+    if (!blocksBySection.has(b.section_id)) blocksBySection.set(b.section_id, []);
+    blocksBySection.get(b.section_id).push(b);
+  }
+
+  const stats = new Map(ids.map(id => [id, emptyBank()]));
+  const topics = new Map(ids.map(id => [id, new Set()]));
+
+  // Counted PER QUESTION, so every figure on the card is in the same unit as
+  // the word "questions" beside it.
+  for (const s of sections) {
+    const row = stats.get(s.assessment_id);
+    if (!row) continue;
+    for (const tag of s.tags || []) if (tag) topics.get(s.assessment_id).add(tag);
+
+    const state = questionKeyState(blocksBySection.get(s.id) || [], hasKey);
+    if (!state) continue;                 // a section holding only prose
+    row.questions += 1;
+    if (state === 'hand') row.byHand += 1;
+    else if (state === 'unkeyed') row.unkeyed += 1;
+    if (usedSections.has(s.id)) row.used += 1;
+  }
+
+  return rows.map(a => ({
+    ...a,
+    bank: {
+      ...(stats.get(a.id) || emptyBank()),
+      topics: [...(topics.get(a.id) || [])].sort((x, y) => x.localeCompare(y)),
+    },
+  }));
+}
+
+function emptyBank() {
+  return { questions: 0, byHand: 0, unkeyed: 0, used: 0, topics: [] };
+}
 
 // Template-only list of assessments visible to the caller. RLS scopes to
 // super-tier in PR2a; vendor + participant access lands in PR4. The embed
@@ -16,7 +101,12 @@ import { classSummary } from '../lib/programReadiness.js';
 // `detail` — also load what each paper contains and the classes run from it.
 // Off by default: the question bank uses this hook too, and none of it applies
 // there.
-export function useAssessments({ kind = 'assessment', detail = false } = {}) {
+// `bankDetail` — the same idea as `detail`, for the other library. A bank has
+// no programme and no classes, so none of the paper/class work above applies;
+// what a bank is judged on is whether its questions can be marked and whether
+// anybody has taken them. Separate flag rather than a mode of `detail` so
+// neither library pays for the other's queries.
+export function useAssessments({ kind = 'assessment', detail = false, bankDetail = false } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [assessments, setAssessments] = useState([]);
@@ -36,6 +126,11 @@ export function useAssessments({ kind = 'assessment', detail = false } = {}) {
     if (e) { setError(e.message); setLoading(false); return; }
 
     const rows = data || [];
+    if (bankDetail) {
+      setAssessments(await withBankDetail(rows));
+      setLoading(false);
+      return;
+    }
     if (!detail) { setAssessments(rows); setLoading(false); return; }
 
     // WHAT EACH PAPER IS AND WHETHER IT IS FINISHED, not just its title. An
@@ -102,7 +197,7 @@ export function useAssessments({ kind = 'assessment', detail = false } = {}) {
       classes: classSummary(sessByProgram.get(a.program_id) || []),
     })));
     setLoading(false);
-  }, [kind, detail]);
+  }, [kind, detail, bankDetail]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

@@ -1,0 +1,256 @@
+/* ── Reading a question bank ──────────────────────────────────────────────
+   The library half of this page borrows .library-page wholesale from the
+   workbook and assessment libraries. Only the question browser is new, and it
+   is a READING surface: a list of questions that open in place, not cards.
+   Everything here is prefixed qb- so none of it can reach the two libraries it
+   sits beside. */
+
+/* The bank being read, and the way back out. */
+.qb-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 0.7rem;
+}
+.qb-back {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--midnight);
+  cursor: pointer;
+}
+.qb-back:hover { text-decoration: underline; }
+.qb-strip h2 { margin: 0; font-size: 0.98rem; flex: 1 1 14rem; min-width: 0; }
+.qb-strip-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.8rem;
+  font-size: 0.75rem;
+  color: #6c7a88;
+}
+.qb-strip-facts b { color: var(--midnight); font-weight: 600; }
+.qb-bad { color: #a5342a; }
+.qb-bad b { color: #a5342a; }
+
+.qb-open {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--midnight);
+  border: 1px solid var(--midnight);
+  border-radius: 8px;
+  padding: 0.35rem 0.8rem;
+  white-space: nowrap;
+}
+.qb-open:hover { background: var(--midnight-hover); color: #fff; }
+
+/* The filter bar. */
+.qb-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  background: #f7f5f0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.55rem 0.8rem;
+  margin-bottom: 0.65rem;
+}
+.qb-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; flex: 1 1 18rem; min-width: 0; }
+.qb-chip {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #44505c;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.qb-chip:hover { border-color: var(--qasr); }
+.qb-chip.is-on { background: var(--midnight); border-color: var(--midnight); color: #fff; }
+
+.qb-bar-right { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-left: auto; }
+.qb-find { width: 11rem; max-width: 40vw; font-size: 0.82rem; padding: 0.3rem 0.6rem; margin: 0; }
+
+.qb-seg { display: inline-flex; background: #ece7dc; border-radius: 8px; padding: 2px; gap: 2px; }
+.qb-seg button {
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  padding: 0.25rem 0.65rem;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #6c7a88;
+  cursor: pointer;
+}
+.qb-seg button:hover { color: var(--midnight); }
+.qb-seg button.is-on {
+  background: #fff;
+  color: var(--midnight);
+  box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14);
+}
+
+.qb-mini {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--midnight);
+  border-radius: 7px;
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.qb-mini:hover { border-color: var(--qasr); }
+.qb-count { font-size: 0.74rem; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* The questions. */
+.qb-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.qb-row {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  overflow: hidden;
+}
+.qb-row.is-open { border-color: var(--qasr); }
+.qb-row.is-focus { box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.35); }
+
+.qb-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.qb-head:hover { background: #f7f5f0; }
+.qb-num {
+  flex: none;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 6px;
+  background: #f1ede5;
+  color: var(--midnight);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.05rem;
+}
+.qb-row.is-open .qb-num { background: var(--midnight); color: #fff; }
+.qb-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.qb-title { font-size: 0.85rem; font-weight: 600; color: var(--text); line-height: 1.35; }
+.qb-tags { display: flex; flex-wrap: wrap; gap: 0.2rem 0.3rem; align-items: center; }
+
+.qb-type {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #4b5a6a;
+  background: #f7f5f0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.05rem 0.35rem;
+  white-space: nowrap;
+}
+.qb-topic {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--gold-dark, #8b7342);
+  background: #f6f1e6;
+  border: 1px solid #ece2cd;
+  border-radius: 5px;
+  padding: 0.05rem 0.35rem;
+  white-space: nowrap;
+}
+.qb-topic-wrap { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.qb-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.qb-pill.is-bad { color: #a5342a; background: #fbeeec; }
+.qb-pill.is-hand { color: #8a5a00; background: #fdf4e0; }
+.qb-used { font-size: 0.7rem; color: #6c7a88; }
+.qb-used b { color: var(--midnight); font-weight: 600; }
+
+.qb-chev { flex: none; color: var(--muted); font-size: 0.68rem; transition: transform 0.16s ease; }
+.qb-row.is-open .qb-chev { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .qb-chev { transition: none; } }
+
+.qb-body {
+  border-top: 1px solid var(--border);
+  padding: 0.8rem 0.85rem 0.85rem;
+  background: #fdfdfc;
+}
+.qb-hand-note, .qb-unkeyed-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  border-radius: 7px;
+  padding: 0.4rem 0.55rem;
+}
+.qb-hand-note { color: #8a5a00; background: #fdf4e0; border: 1px solid #efdcb4; }
+.qb-unkeyed-note { color: #a5342a; background: #fbeeec; border: 1px solid #f0cfc9; }
+
+.qb-row-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border);
+}
+.qb-why { font-size: 0.72rem; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .qb-bar-right { margin-left: 0; }
+  .qb-find { width: 100%; max-width: none; }
+}
+
+/* Browse is an action on this page rather than a navigation, so it is a button
+   — and .primary-link was written for anchors, which carry the page font. */
+.wb-rail-actions button.primary-link {
+  font: inherit;
+  font-size: 0.9rem;
+  border: 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+/* A bank card can carry two pills beside its title on a 15rem track, and the
+   shared row does not wrap — so the second one was clipped at the card edge.
+   Scoped to this library: the other two are free to keep a single line. */
+.qb-library .wb-card-top { flex-wrap: wrap; }
+
+/* ── Hover backgrounds, restated ──────────────────────────────────────────
+   index.css carries a global `button:hover:where(:not(:disabled))` that fills
+   with --midnight-hover. `:where()` costs nothing, so that selector is (0,1,1)
+   and beats a plain class — every light button here would flip to dark navy on
+   hover unless its own hover names a background. */
+.qb-back:hover { background: transparent; }
+.qb-chip:hover { background: #fff; border-color: var(--qasr); color: var(--midnight); }
+.qb-chip.is-on:hover { background: var(--midnight); border-color: var(--midnight); color: #fff; }
+.qb-mini:hover { background: #fff; border-color: var(--qasr); color: var(--midnight); }
+.qb-seg button:hover { background: rgba(255, 255, 255, 0.55); color: var(--midnight); }
+.qb-seg button.is-on:hover { background: #fff; color: var(--midnight); }
