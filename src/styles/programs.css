@@ -280,10 +280,12 @@
 .program-choose input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .program-choose:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* ── Rail ───────────────────────────────────────────────────────────────
-   The selected programme used to live here as a card. It is a slide-over now
-   (the .wb-rail-* idiom in dashboard.css, shared with the library), so the
-   rail carries "Needs you" alone and .program-selected-* is gone with it. */
+/* ── Rail (the programme page's own; the list has none) ─────────────────
+   The list used to carry a rail too: the selected programme, which is a
+   slide-over now (the .wb-rail-* idiom in dashboard.css, shared with the
+   library), and "Needs you", which repeated the NEED A WORKBOOK gauge and
+   what every tile already says. Both are gone, and so is .program-selected-*.
+   What is left below still serves the programme editor's rail. */
 .cockpit-rail .program-alert-static { cursor: default; }
 .cockpit-rail .program-alert-static:hover { background: transparent; }
 .cockpit-dot.tone-ok { background: #2f8f5f; }

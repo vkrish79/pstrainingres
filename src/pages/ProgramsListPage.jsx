@@ -11,9 +11,10 @@ import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/programs.css';
 
-// Programmes, laid out like the session cockpit's Room: a title, one bar with
-// the filter and the action, a row of gauges, tiles for the programmes and a
-// rail with the selected one and what needs attention.
+// Programmes, laid out like the session cockpit's Room: one bar with the
+// filter and the action, a row of gauges, and tiles for the programmes across
+// the full width. What used to sit in a rail beside them — the selected
+// programme, and what needs attention — is a slide-over and a gauge now.
 //
 // A programme is a template, not a class, so nothing here is live. The gauges
 // answer "is it ready" and "how is it being used" instead.
@@ -95,7 +96,7 @@ export default function ProgramsListPage() {
     <>
       <TopBar />
       <main className="page dashboard programs-page">
-        {/* NO PAGE HEADING, and no count above the tiles. The rail says
+        {/* NO PAGE HEADING, and no count above the tiles. The nav rail says
             Programmes and so does the app bar; the class count is already the
             CLASSES gauge a few pixels below. The bar carries controls only,
             the same as the library. */}
@@ -169,94 +170,63 @@ export default function ProgramsListPage() {
               </div>
             </section>
 
-            <div className="cockpit-room">
-              <section className="participants-pane programs-pane">
-                <div className="programs-pane-head">
-                  <h2>Programmes <span className="programs-pane-sub">most recent class first</span></h2>
-                  <div className="room-view-switch" role="group" aria-label="Show programmes as">
-                    <button type="button" aria-pressed={view === 'tiles'} onClick={() => pickView('tiles')}>Tiles</button>
-                    <button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button>
-                  </div>
+            {/* NO ROOM WRAPPER AND NO RAIL. "Needs you" listed the programmes
+                with no workbook, which the NEED A WORKBOOK gauge counts and
+                every tile already says in its own words. With the rail gone
+                the grid had nothing to hold but one pane and a 300px column of
+                nothing, so the pane takes the page. */}
+            <section className="participants-pane programs-pane">
+              <div className="programs-pane-head">
+                <h2>Programmes <span className="programs-pane-sub">most recent class first</span></h2>
+                <div className="room-view-switch" role="group" aria-label="Show programmes as">
+                  <button type="button" aria-pressed={view === 'tiles'} onClick={() => pickView('tiles')}>Tiles</button>
+                  <button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button>
                 </div>
+              </div>
 
-                {rows.length === 0 && <p className="cockpit-empty">No programmes yet. Use + New programme to make the first one.</p>}
-                {rows.length > 0 && shown.length === 0 && <p className="cockpit-empty">Nothing here with this filter.</p>}
+              {rows.length === 0 && <p className="cockpit-empty">No programmes yet. Use + New programme to make the first one.</p>}
+              {rows.length > 0 && shown.length === 0 && <p className="cockpit-empty">Nothing here with this filter.</p>}
 
-                {view === 'tiles' && shown.length > 0 && (
-                  <ul className="program-tiles" aria-label="Programmes">
-                    {shown.map(p => (
-                      <li key={p.id}>
-                        <ProgramTile p={p} selected={p.id === selectedId} onPick={() => openPanel(p.id)} />
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              {view === 'tiles' && shown.length > 0 && (
+                <ul className="program-tiles" aria-label="Programmes">
+                  {shown.map(p => (
+                    <li key={p.id}>
+                      <ProgramTile p={p} selected={p.id === selectedId} onPick={() => openPanel(p.id)} />
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-                {view === 'table' && shown.length > 0 && (
-                  <div className="programs-table-wrap">
-                    <table className="programs-table programs-list-table">
-                      <thead>
-                        <tr><th>Programme</th><th>Status</th><th>Workbook</th><th>Assessment</th><th className="num">PDFs</th><th className="num">Classes</th><th>Last class</th></tr>
-                      </thead>
-                      <tbody>
-                        {shown.map(p => (
-                          <tr key={p.id} className={p.id === selectedId ? 'is-selected' : ''} onClick={() => openPanel(p.id)}>
-                            <td>
-                              <span className="program-swatch" style={{ background: p.colour }} aria-hidden="true" />
-                              {/* The name no longer swallows the click to
-                                  navigate. The whole row opens the details,
-                                  which carry "Open programme" — one gesture
-                                  here, the same one the tiles have. */}
-                              <span className="program-name-link">{p.title}</span>
-                            </td>
-                            <td><StatusChip status={p.status} /></td>
-                            <td>{p.workbook ? <span className="piece is-yes">Yes</span> : <span className="piece is-no-bad">None</span>}</td>
-                            <td>{p.assessment ? <span className="piece is-yes">Yes</span> : <span className="piece is-no">None</span>}</td>
-                            <td className="num">{p.handouts + p.quickRefs}</td>
-                            <td className="num">{p.classes.total}{p.classes.running.length > 0 && <span className="programs-running"> · {p.classes.running.length} running</span>}</td>
-                            <td>{p.classes.lastCreated ? shortDate(p.classes.lastCreated) : '–'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-
-              {/* One card now, and it carries its own heading — a label here
-                  would only say "Needs you" a second time. */}
-              <aside className="cockpit-rail">
-                <section className="cockpit-card">
-                  <h3 className="cockpit-card-title">Needs you</h3>
-                  {publishedNotReady.length + draftsNotReady.length === 0 ? (
-                    <p className="cockpit-empty">Every programme has a workbook.</p>
-                  ) : (
-                    <ul className="cockpit-alerts">
-                      {publishedNotReady.map(p => (
-                        <li key={p.id}>
-                          <button type="button" className="cockpit-alert" onClick={() => navigate(`/trainer/programs/${p.id}`)}>
-                            <span className="cockpit-dot tone-bad" aria-hidden="true" />
-                            <span className="cockpit-alert-name">{p.title}</span>
-                            <span className="cockpit-alert-why">Published with no workbook, so no class can be made from it</span>
-                          </button>
-                        </li>
+              {view === 'table' && shown.length > 0 && (
+                <div className="programs-table-wrap">
+                  <table className="programs-table programs-list-table">
+                    <thead>
+                      <tr><th>Programme</th><th>Status</th><th>Workbook</th><th>Assessment</th><th className="num">PDFs</th><th className="num">Classes</th><th>Last class</th></tr>
+                    </thead>
+                    <tbody>
+                      {shown.map(p => (
+                        <tr key={p.id} className={p.id === selectedId ? 'is-selected' : ''} onClick={() => openPanel(p.id)}>
+                          <td>
+                            <span className="program-swatch" style={{ background: p.colour }} aria-hidden="true" />
+                            {/* The name no longer swallows the click to
+                                navigate. The whole row opens the details,
+                                which carry "Open programme" — one gesture
+                                here, the same one the tiles have. */}
+                            <span className="program-name-link">{p.title}</span>
+                          </td>
+                          <td><StatusChip status={p.status} /></td>
+                          <td>{p.workbook ? <span className="piece is-yes">Yes</span> : <span className="piece is-no-bad">None</span>}</td>
+                          <td>{p.assessment ? <span className="piece is-yes">Yes</span> : <span className="piece is-no">None</span>}</td>
+                          <td className="num">{p.handouts + p.quickRefs}</td>
+                          <td className="num">{p.classes.total}{p.classes.running.length > 0 && <span className="programs-running"> · {p.classes.running.length} running</span>}</td>
+                          <td>{p.classes.lastCreated ? shortDate(p.classes.lastCreated) : '–'}</td>
+                        </tr>
                       ))}
-                      {draftsNotReady.map(p => (
-                        <li key={p.id}>
-                          <button type="button" className="cockpit-alert" onClick={() => navigate(`/trainer/programs/${p.id}`)}>
-                            <span className="cockpit-dot tone-warn" aria-hidden="true" />
-                            <span className="cockpit-alert-name">{p.title}</span>
-                            <span className="cockpit-alert-why">
-                              Draft with no workbook{freeWorkbooks === 0 ? ' · no free workbook to attach' : ''}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              </aside>
-            </div>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
           </>
         )}
 
