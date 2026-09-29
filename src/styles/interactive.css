@@ -175,3 +175,43 @@
   margin: 0.35rem 0 0; font-size: 0.82rem; color: var(--muted);
 }
 .wb-correct-note strong { color: var(--text); }
+
+/* ── The key, drawn on the interactive four ───────────────────────────────
+   Same idea as .wb-choice.is-correct on a multiple choice: the question is
+   rendered as a candidate who got it right would have left it, in the success
+   colour, with one line saying so. Only the super-trainer-gated previews pass
+   `correct`, so none of this can reach an answering path. */
+.wb-answer-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: var(--success);
+  font-weight: 600;
+}
+.fillblank-slot.answer {
+  color: var(--text);
+  font-weight: 600;
+  background: #f2f9f3;
+  border-color: var(--success);
+}
+/* The pick is a bare span in this state (the select is gone), so it needs the
+   box the select used to draw. */
+.matchpairs-pick.answer {
+  color: var(--text);
+  font-weight: 600;
+  background: #f2f9f3;
+  border: 1px solid var(--success);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+}
+/* A blank the author never keyed. It must not wear the success colour — that
+   would read as "this is the answer" when the truth is there isn't one. */
+.fillblank-slot.answer.empty,
+.matchpairs-pick.answer.empty {
+  color: var(--muted);
+  font-weight: 400;
+  background: transparent;
+  border-color: var(--border);
+}
+.reorder-list.answer .reorder-item { background: #f2f9f3; border-color: var(--success); }
+.reorder-list.answer .reorder-rank { background: var(--success); color: #fff; }
+.cardsort-buckets.answer .cardsort-bucket { border-color: var(--success); background: #f6fbf7; }

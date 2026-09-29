@@ -6,11 +6,17 @@ const TRAY = '__tray__';
 // Card sort: drag (or tap-to-place) labelled cards into category buckets.
 // config: { prompt, cards: [{id,text}], buckets: [{id,label}] }.
 // Value shape: { [cardId]: bucketId }. Correct mapping lives in the answer key.
-export default function CardSortBlock({ block, value, onChange, readOnly = false }) {
+// `correct` — the key, { [cardId]: bucketId }, drawn only by the super-trainer
+// previews that pass it. Showing it means laying the cards out where they
+// belong, which is the whole question answered in one look.
+export default function CardSortBlock({ block, value, onChange, readOnly = false, correct = undefined }) {
   const cfg = block.config || {};
   const cards = Array.isArray(cfg.cards) ? cfg.cards : [];
   const buckets = Array.isArray(cfg.buckets) ? cfg.buckets : [];
-  const placement = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const key = correct && typeof correct === 'object' && !Array.isArray(correct) ? correct : null;
+  const placement = key || (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+  // A board showing the answer is not something to drag cards around on.
+  const inert = readOnly || !!key;
   const [selected, setSelected] = useState(null);
 
   function place(cardId, bucketId) {
@@ -22,7 +28,7 @@ export default function CardSortBlock({ block, value, onChange, readOnly = false
   }
 
   const drag = useCardDrag({
-    disabled: readOnly,
+    disabled: inert,
     onDrop: place,
     onTap: (cardId) => setSelected((s) => (s === cardId ? null : cardId)),
   });
@@ -39,8 +45,8 @@ export default function CardSortBlock({ block, value, onChange, readOnly = false
         // Stop the tap from also reaching the enclosing zone's tap-to-place
         // handler — selecting a card and placing the previously-selected one
         // must not happen in the same tap.
-        onClick={readOnly ? undefined : (e) => e.stopPropagation()}
-        {...(readOnly ? {} : drag.handlers(card.id, card.text))}
+        onClick={inert ? undefined : (e) => e.stopPropagation()}
+        {...(inert ? {} : drag.handlers(card.id, card.text))}
       >
         {card.text}
       </span>
@@ -48,12 +54,12 @@ export default function CardSortBlock({ block, value, onChange, readOnly = false
   }
 
   // When a card is selected (tap-to-place), tapping a zone drops it there.
-  const zoneTap = (bucketId) => (readOnly || !selected ? undefined : () => place(selected, bucketId));
+  const zoneTap = (bucketId) => (inert || !selected ? undefined : () => place(selected, bucketId));
 
   return (
     <div className="wb-field wb-cardsort">
       {cfg.prompt && <div className="wb-label">{cfg.prompt}</div>}
-      {!readOnly && (
+      {!inert && (
         <p className="cardsort-hint">Drag a card into a category — or tap a card, then tap a category.</p>
       )}
 
@@ -69,7 +75,7 @@ export default function CardSortBlock({ block, value, onChange, readOnly = false
         </div>
       </div>
 
-      <div className="cardsort-buckets">
+      <div className={`cardsort-buckets ${key ? 'answer' : ''}`}>
         {buckets.map((b) => (
           <div
             key={b.id}
@@ -86,6 +92,7 @@ export default function CardSortBlock({ block, value, onChange, readOnly = false
         ))}
       </div>
       {drag.ghost}
+      {key && <p className="wb-answer-note"><span aria-hidden="true">✓</span> Each card is shown in its correct category.</p>}
     </div>
   );
 }

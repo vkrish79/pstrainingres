@@ -20,10 +20,14 @@ export default function Block({ block, value, onChange, readOnly = false, previe
     case 'prose': inner = <ProseBlock block={block} />; break;
     case 'field': inner = <FieldBlock block={block} value={value} onChange={onChange} readOnly={readOnly} preview={preview} correct={correct} marks={marks} marksAudience={marksAudience} />; break;
     case 'table': inner = <TableBlock block={block} value={value} onChange={onChange} readOnly={readOnly} preview={preview} marks={marks} marksAudience={marksAudience} />; break;
-    case 'fill_blank': inner = <FillBlankBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;
-    case 'card_sort': inner = <CardSortBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;
-    case 'match_pairs': inner = <MatchPairsBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;
-    case 'reorder': inner = <ReorderBlock block={block} value={value} onChange={onChange} readOnly={readOnly} />; break;
+    // The interactive four take `correct` too. They used to be handed only
+    // `readOnly`, so a picker previewing one drew a row of em-dashes where the
+    // answer should be — the key was loaded, fetched and then thrown away
+    // because there was no prop to carry it in on.
+    case 'fill_blank': inner = <FillBlankBlock block={block} value={value} onChange={onChange} readOnly={readOnly} correct={correct} />; break;
+    case 'card_sort': inner = <CardSortBlock block={block} value={value} onChange={onChange} readOnly={readOnly} correct={correct} />; break;
+    case 'match_pairs': inner = <MatchPairsBlock block={block} value={value} onChange={onChange} readOnly={readOnly} correct={correct} />; break;
+    case 'reorder': inner = <ReorderBlock block={block} value={value} onChange={onChange} readOnly={readOnly} correct={correct} />; break;
     default: return null;
   }
   return (

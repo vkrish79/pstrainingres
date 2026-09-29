@@ -2,11 +2,16 @@ import { parseFillBlank } from '../../lib/interactiveBlocks.js';
 
 // Fill-in-the-blank: a sentence with inline text inputs where the trainer
 // placed `{{ }}` markers. Value shape: { [blankId]: text }. The correct answers
-// live in the answer key (never in config), so nothing here reveals them.
-export default function FillBlankBlock({ block, value, onChange, readOnly = false }) {
+// live in the answer key (never in config), so nothing here reveals them —
+// unless `correct` is handed in, which only the super-trainer-gated previews do.
+export default function FillBlankBlock({ block, value, onChange, readOnly = false, correct = undefined }) {
   const cfg = block.config || {};
   const { parts } = cfg.parts ? { parts: cfg.parts } : parseFillBlank(cfg.text || '', cfg.blanks || []);
   const answers = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  // Showing the key means filling the sentence in as a candidate who got it
+  // right would have — the blanks read as a sentence rather than as a list of
+  // expected strings hanging off the bottom.
+  const key = correct && typeof correct === 'object' && !Array.isArray(correct) ? correct : null;
 
   function setBlank(id, text) {
     onChange({ ...answers, [id]: text });
@@ -21,6 +26,14 @@ export default function FillBlankBlock({ block, value, onChange, readOnly = fals
           if (part.kind === 'text') return <span key={i}>{part.text}</span>;
           blankNo += 1;
           const v = answers[part.id] || '';
+          if (key) {
+            const expected = key[part.id] != null ? String(key[part.id]) : '';
+            return (
+              <span key={i} className={`fillblank-slot answer ${expected ? '' : 'empty'}`}>
+                {expected || '—'}
+              </span>
+            );
+          }
           if (readOnly) {
             return (
               <span key={i} className={`fillblank-slot readonly ${v ? '' : 'empty'}`}>
@@ -41,6 +54,7 @@ export default function FillBlankBlock({ block, value, onChange, readOnly = fals
           );
         })}
       </p>
+      {key && <p className="wb-answer-note"><span aria-hidden="true">✓</span> The correct answers are filled in.</p>}
     </div>
   );
 }

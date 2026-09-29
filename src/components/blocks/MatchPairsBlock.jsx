@@ -3,12 +3,15 @@
 // touch devices (drag-to-connect lines are fiddly on phones/tablets).
 // config: { prompt, left: [{id,text}], right: [{id,text}] }.
 // Value shape: { [leftId]: rightId }. Correct mapping lives in the answer key.
-export default function MatchPairsBlock({ block, value, onChange, readOnly = false }) {
+// `correct` — the key, { [leftId]: rightId }, drawn only by the super-trainer
+// previews that pass it.
+export default function MatchPairsBlock({ block, value, onChange, readOnly = false, correct = undefined }) {
   const cfg = block.config || {};
   const left = Array.isArray(cfg.left) ? cfg.left : [];
   const right = Array.isArray(cfg.right) ? cfg.right : [];
   const pairs = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const rightById = Object.fromEntries(right.map((r) => [r.id, r]));
+  const key = correct && typeof correct === 'object' && !Array.isArray(correct) ? correct : null;
 
   function setMatch(leftId, rightId) {
     const next = { ...pairs };
@@ -23,6 +26,18 @@ export default function MatchPairsBlock({ block, value, onChange, readOnly = fal
       <div className="matchpairs-list">
         {left.map((l) => {
           const sel = pairs[l.id] || '';
+          if (key) {
+            const want = key[l.id] || '';
+            return (
+              <div key={l.id} className="matchpairs-row">
+                <span className="matchpairs-left">{l.text}</span>
+                <span className="matchpairs-arrow">→</span>
+                <span className={`matchpairs-pick answer ${want ? '' : 'empty'}`}>
+                  {want ? (rightById[want]?.text || '—') : '—'}
+                </span>
+              </div>
+            );
+          }
           if (readOnly) {
             return (
               <div key={l.id} className="matchpairs-row">
@@ -53,6 +68,7 @@ export default function MatchPairsBlock({ block, value, onChange, readOnly = fal
           );
         })}
       </div>
+      {key && <p className="wb-answer-note"><span aria-hidden="true">✓</span> The correct matches are shown.</p>}
     </div>
   );
 }
