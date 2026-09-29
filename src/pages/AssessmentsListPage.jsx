@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SkeletonCards } from '../components/Skeleton.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAssessments } from '../hooks/useAssessments.js';
+import CreateDialog from '../components/library/CreateDialog.jsx';
 import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
 import { heatLevel } from '../lib/configDiff.js';
 import { shortDate, shortRange } from '../lib/programReadiness.js';
@@ -40,6 +41,7 @@ export default function AssessmentsListPage() {
   // state to travel from, and clearing the selection on close would unmount the
   // panel before it could travel back. See the workbook library, same pattern.
   const [panelOpen, setPanelOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   // A paper nobody can mark, or nobody can pass. Both are states an author
   // left behind rather than chose.
@@ -134,21 +136,10 @@ export default function AssessmentsListPage() {
                 value={find}
                 onChange={e => setFind(e.target.value)}
               />
-              <Link to="/trainer/assessments/import" className="ghost-link">↑ Import .docx</Link>
-              {/* The create form was a whole card sitting above the library,
-                  permanently open for a thing you do occasionally. It is a
-                  button that becomes a field, like New program. */}
-              <NewAssessmentControl
-                onCreate={async title => {
-                  const { data, error: err } = await runBusy(
-                    'Creating assessment…',
-                    () => createAssessment({ title, created_by: authSession?.user.id }),
-                  );
-                  if (err) return err.message;
-                  if (data?.id) navigate(`/trainer/assessments/${data.id}`);
-                  return null;
-                }}
-              />
+              {/* Import used to sit out here as a second, differently-shaped
+                  door. It is inside the dialog now: one button to make an
+                  assessment, and both ways of making one behind it. */}
+              <button type="button" className="lib-new-btn" onClick={() => setCreating(true)}>+ New assessment</button>
             </div>
           </div>
         </section>
@@ -292,6 +283,21 @@ export default function AssessmentsListPage() {
           </div>
         )}
 
+        {creating && (
+          <NewAssessmentDialog
+            onClose={() => setCreating(false)}
+            onCreate={async fields => {
+              const { data, error: err } = await runBusy(
+                'Creating assessment…',
+                () => createAssessment({ ...fields, created_by: authSession?.user.id }),
+              );
+              if (err) return err.message;
+              if (data?.id) navigate(`/trainer/assessments/${data.id}`);
+              return null;
+            }}
+          />
+        )}
+
         {selectedId && (
           <>
             <div
@@ -370,46 +376,61 @@ export default function AssessmentsListPage() {
   );
 }
 
-// A button that becomes a field, the same control Programs uses — so the
-// library is not permanently sharing the page with a form for something you
-// do a few times a year.
-function NewAssessmentControl({ onCreate }) {
-  const [open, setOpen] = useState(false);
+// The same shell Programs and Workbooks open, with the fields an assessment
+// needs. The description was always accepted by createAssessment and never
+// asked for, which is why the details panel so often had nothing to show under
+// the title.
+function NewAssessmentDialog({ onClose, onCreate }) {
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const inputRef = useRef(null);
-
-  useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
-
-  if (!open) {
-    return <button type="button" className="lib-new-btn" onClick={() => setOpen(true)}>+ New assessment</button>;
-  }
 
   async function submit(e) {
     e.preventDefault();
     if (!title.trim()) return;
     setBusy(true); setErr('');
-    const message = await onCreate(title.trim());
+    const message = await onCreate({ title: title.trim(), description: description.trim() || null });
     setBusy(false);
     if (message) setErr(message);
   }
 
   return (
-    <form className="lib-new-form" onSubmit={submit}>
-      <input
-        ref={inputRef}
-        id="new-assessment-title"
-        className="form-input"
-        placeholder="e.g. New joiner — Foundation assessment"
-        value={title}
-        maxLength={120}
-        onChange={e => setTitle(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); setTitle(''); setErr(''); } }}
-      />
-      <button type="submit" disabled={busy || !title.trim()}>{busy ? 'Creating…' : 'Create'}</button>
-      <button type="button" className="ghost" onClick={() => { setOpen(false); setTitle(''); setErr(''); }}>Cancel</button>
-      {err && <p className="error">{err}</p>}
-    </form>
+    <CreateDialog
+      heading="New assessment"
+      blurb="A paper you attach to a program and a class sits."
+      submitLabel="Create assessment"
+      importTo="/trainer/assessments/import"
+      importLabel="Import a .docx"
+      busy={busy}
+      error={err}
+      canSubmit={!!title.trim()}
+      onClose={onClose}
+      onSubmit={submit}
+    >
+      <div>
+        <label className="form-label" htmlFor="new-assessment-title">Title</label>
+        <input
+          id="new-assessment-title"
+          className="form-input"
+          placeholder="e.g. New joiner — Foundation assessment"
+          value={title}
+          maxLength={120}
+          onChange={e => setTitle(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="form-label" htmlFor="new-assessment-desc">Description <span className="muted">— optional</span></label>
+        <input
+          id="new-assessment-desc"
+          className="form-input"
+          placeholder="What this paper covers"
+          value={description}
+          maxLength={300}
+          onChange={e => setDescription(e.target.value)}
+        />
+      </div>
+    </CreateDialog>
   );
 }

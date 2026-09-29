@@ -10,7 +10,6 @@ import TrainerHomePage from './pages/TrainerHomePage.jsx';
 import WorkbookEditorPage from './pages/WorkbookEditorPage.jsx';
 import WorkbooksPage from './pages/WorkbooksPage.jsx';
 import ImportWorkbookPage from './pages/ImportWorkbookPage.jsx';
-import NewWorkbookPage from './pages/NewWorkbookPage.jsx';
 import SessionDashboardPage from './pages/SessionDashboardPage.jsx';
 // Vendors and Staff are Settings tabs now; their old URLs redirect.
 import VendorSessionsPage from './pages/VendorSessionsPage.jsx';
@@ -59,9 +58,6 @@ export default function App() {
       } />
       <Route path="/trainer/workbooks" element={
         <ProtectedRoute role="trainer"><WorkbooksPage /></ProtectedRoute>
-      } />
-      <Route path="/trainer/workbooks/new" element={
-        <ProtectedRoute role="trainer"><NewWorkbookPage /></ProtectedRoute>
       } />
       <Route path="/trainer/workbooks/import" element={
         <ProtectedRoute role="trainer"><ImportWorkbookPage /></ProtectedRoute>

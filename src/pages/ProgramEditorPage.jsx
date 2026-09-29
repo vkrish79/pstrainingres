@@ -188,7 +188,7 @@ export default function ProgramEditorPage() {
                     required
                     openHref={workbook && `/trainer/workbooks/${workbook.id}`}
                     free={prog.freeWorkbooks}
-                    noneFree={<>Every workbook is attached to a program. <Link to="/trainer/workbooks/new">Create a workbook</Link>.</>}
+                    noneFree={<>Every workbook is attached to a program. <Link to="/trainer/workbooks">Create a workbook</Link>.</>}
                     onAttach={wid => runBusy('Attaching workbook…', () => prog.attachWorkbook(wid))}
                     onDetach={() => runBusy('Detaching workbook…', () => prog.detachWorkbook())}
                     detachWarning={classes.open.length ? `The ${classes.open.length} open class${classes.open.length === 1 ? ' keeps its' : 'es keep their'} copy.` : ''}

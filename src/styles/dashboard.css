@@ -3506,3 +3506,70 @@
 
 .session-card > h3 > a { color: inherit; text-decoration: none; }
 .session-card > h3 > a:hover { text-decoration: underline; }
+
+/* ── The create dialog ─────────────────────────────────────────────────────
+   One shell for New program / New assessment / New workbook. Narrow, because
+   the widest thing in it is a single-line field, and a 720px modal around a
+   30rem form reads as a page that lost its way. */
+.create-dialog { max-width: 32rem; }
+/* The head carries a heading AND a line under it, so it stops centring them
+   against the close button. */
+.create-dialog .modal-head { align-items: flex-start; }
+.create-dialog-blurb { margin: 0.15rem 0 0; font-size: 0.8rem; color: #5b6875; }
+.create-dialog .modal-body { display: flex; flex-direction: column; gap: 0.85rem; }
+.create-dialog .form-label { margin: 0; }
+.create-dialog .form-input { margin: 0.25rem 0 0; width: 100%; }
+/* What a field means, under the field rather than in a tooltip nobody opens. */
+.create-dialog-help { margin: 0.3rem 0 0; font-size: 0.78rem; color: #5b6875; }
+.create-dialog .checkbox-row { margin: 0; }
+.create-dialog .error { margin: 0; }
+/* Pushes Cancel and the submit to the right whether or not an import link is
+   sitting on the left. */
+.create-dialog-gap { flex: 1 1 auto; }
+/* The foot carries up to four things on one line; none of them may wrap onto
+   a second, which turned "Create workbook" into two stacked words. */
+.create-dialog .modal-foot > * { white-space: nowrap; }
+
+/* ── How it arrives ───────────────────────────────────────────────────────
+   KEYFRAMES, NOT A TRANSITION, and that is forced rather than chosen: the
+   backdrop is display:none until it is shown, and there is no transition
+   from display:none to display:flex. The dialog is also mounted only while
+   it is open ({creating && …}), so it is new to the page every time — which
+   is exactly the case an animation handles and a transition cannot, because
+   a transition needs a previous state to travel from.
+
+   It RISES AND SETTLES rather than sliding in from an edge. The right edge
+   already means "the details of the row you clicked" on all three library
+   pages; a create dialog that flew in from there would say the wrong thing
+   with its movement. Coming up out of the middle, at the pace of the app's
+   other panels, reads as a new thing being made.
+
+   Scoped with :has() so the app's other modals — closing a session,
+   deactivating a participant, pushing a scorecard — are untouched. Same
+   idiom as .modal-backdrop:has(> .bk-modal) in book-preview.css. */
+@keyframes create-dialog-veil {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes create-dialog-rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-backdrop:has(> .create-dialog) {
+  animation: create-dialog-veil 180ms ease both;
+}
+.create-dialog {
+  /* NOT the slide-over's curve, and the reason is measurable:
+     cubic-bezier(0.32, 0.72, 0, 1) is 91% finished a third of the way
+     through. Over the 380px a slide-over travels that reads as
+     decisive; over a dozen pixels it lands before the eye finds it,
+     which is the "it just appears" this was written to fix. A gentler
+     ease-out spends its time where the movement can be seen. */
+  animation: create-dialog-rise 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+/* Less motion: it still arrives, it just does not travel or grow. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop:has(> .create-dialog),
+  .create-dialog { animation-duration: 0.01ms; }
+  .create-dialog { animation-name: create-dialog-veil; }
+}

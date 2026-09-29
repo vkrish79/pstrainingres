@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
 import WorkbookPreviewModal from '../components/workbook/WorkbookPreviewModal.jsx';
+import CreateDialog from '../components/library/CreateDialog.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
+import { supabase } from '../lib/supabase.js';
 import { useTrainerWorkbooks } from '../hooks/useTrainerWorkbooks.js';
 import { useEditHeatTotals } from '../hooks/useWorkbookEditHeat.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
@@ -38,9 +41,12 @@ const MONTH = 1000 * 60 * 60 * 24 * 30;
 const STALE = MONTH * 3;
 
 export default function WorkbooksPage() {
+  const navigate = useNavigate();
   const { profile, session: authSession } = useAuth();
+  const { run: runBusy } = useBusyOverlay();
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   const { loading, workbooks } = useTrainerWorkbooks(authSession?.user.id, profile?.role);
+  const [creating, setCreating] = useState(false);
   const heatTotals = useEditHeatTotals(isSuper);
   const [preview, setPreview] = useState(null);   // { id, title } | null
   const [filter, setFilter] = useState('all');    // 'all' | 'used' | 'unused' | 'review'
@@ -154,8 +160,10 @@ export default function WorkbooksPage() {
                 value={find}
                 onChange={e => setFind(e.target.value)}
               />
-              {isSuper && <Link to="/trainer/workbooks/import" className="ghost-link">↑ Import .docx</Link>}
-              {isSuper && <Link to="/trainer/workbooks/new" className="primary-link">+ New workbook</Link>}
+              {/* Both ways of making a workbook are behind this one button
+                  now — the import link used to sit beside it as a second,
+                  differently-shaped door, and the blank one was a whole page. */}
+              {isSuper && <button type="button" className="lib-new-btn" onClick={() => setCreating(true)}>+ New workbook</button>}
             </div>
           </div>
         </section>
@@ -298,6 +306,33 @@ export default function WorkbooksPage() {
           </div>
         )}
 
+        {creating && (
+          <NewWorkbookDialog
+            createdBy={authSession?.user.id}
+            onClose={() => setCreating(false)}
+            onCreate={async row => {
+              try {
+                const newId = await runBusy('Creating workbook…', async () => {
+                  const { data: wb, error: wbErr } = await supabase
+                    .from('workbooks')
+                    .insert(row)
+                    .select()
+                    .single();
+                  if (wbErr) throw wbErr;
+                  // Seed an empty first section so the editor isn't blank —
+                  // carried over verbatim from the page this replaced.
+                  await supabase.from('sections').insert({ workbook_id: wb.id, title: 'Section 1', order_index: 0 });
+                  return wb.id;
+                });
+                navigate(`/trainer/workbooks/${newId}`);
+                return null;
+              } catch (e) {
+                return e.message;
+              }
+            }}
+          />
+        )}
+
         {/* THE DETAILS ARRIVE OVER THE PAGE, not beside it. Same slide-over
             idiom as the new-session drawer, down to the duration variable, so
             there is one way a panel enters this app and not two. */}
@@ -410,4 +445,75 @@ function monthsSince(t) {
   const days = Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
   if (days < 30) return `${days}d`;
   return `${Math.floor(days / 30)} mo`;
+}
+
+// A workbook asks the most at birth, and that is why this used to be a whole
+// page: the vendor switch is a real access decision and it deserves its
+// sentence. It fits in a dialog beside the title and description, which is what
+// retired /trainer/workbooks/new.
+function NewWorkbookDialog({ createdBy, onClose, onCreate }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [vendorVisible, setVendorVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setBusy(true); setErr('');
+    const message = await onCreate({
+      title: title.trim(),
+      description: description.trim() || null,
+      vendor_visible: vendorVisible,
+      is_template: true,
+      created_by: createdBy,
+    });
+    setBusy(false);
+    if (message) setErr(message);
+  }
+
+  return (
+    <CreateDialog
+      heading="New workbook"
+      blurb="The material a class is delivered from."
+      submitLabel="Create workbook"
+      importTo="/trainer/workbooks/import"
+      importLabel="Import a .docx"
+      busy={busy}
+      error={err}
+      canSubmit={!!title.trim()}
+      onClose={onClose}
+      onSubmit={submit}
+    >
+      <div>
+        <label className="form-label" htmlFor="new-workbook-title">Title</label>
+        <input
+          id="new-workbook-title"
+          className="form-input"
+          placeholder="e.g. ARD Web Certification – Workbook"
+          value={title}
+          maxLength={120}
+          onChange={e => setTitle(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="form-label" htmlFor="new-workbook-desc">Description <span className="muted">— optional</span></label>
+        <input
+          id="new-workbook-desc"
+          className="form-input"
+          placeholder="What this workbook covers"
+          value={description}
+          maxLength={300}
+          onChange={e => setDescription(e.target.value)}
+        />
+      </div>
+
+      <label className="checkbox-row">
+        <input type="checkbox" checked={vendorVisible} onChange={e => setVendorVisible(e.target.checked)} />
+        <span>Make available to vendors <span className="muted">— off for custom or one-off workbooks; on to let vendor trainers run sessions from it</span></span>
+      </label>
+    </CreateDialog>
+  );
 }

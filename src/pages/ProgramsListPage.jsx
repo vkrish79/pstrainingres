@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { usePrograms } from '../hooks/usePrograms.js';
+import { useProgramTypes } from '../hooks/useProgramTypes.js';
+import CreateDialog from '../components/library/CreateDialog.jsx';
 import { programColour } from '../lib/programColour.js';
 import { classSummary, isReady, shortDate, shortRange } from '../lib/programReadiness.js';
 import { Ring } from '../components/dashboard/SessionCockpit.jsx';
@@ -30,6 +32,9 @@ export default function ProgramsListPage() {
   const { session: authSession } = useAuth();
   const { run: runBusy } = useBusyOverlay();
   const { loading, error, programs, freeWorkbooks, createProgram } = usePrograms();
+  // Retired types stay off the picker but stay attached to the programs that
+  // already carry them.
+  const { types } = useProgramTypes();
 
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState(readView);
@@ -40,6 +45,7 @@ export default function ProgramsListPage() {
   // the selection on close would unmount it before it could travel back.
   // selectedId therefore survives the slide out and is cleared when it lands.
   const [panelOpen, setPanelOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   function pickView(v) {
     setView(v);
@@ -110,14 +116,7 @@ export default function ProgramsListPage() {
               ))}
             </div>
             <div className="page-hero-actions">
-              <NewProgramControl
-                onCreate={async title => {
-                  const { data, error: err } = await runBusy('Creating program…', () => createProgram({ title, created_by: authSession?.user.id }));
-                  if (err) return err.message;
-                  if (data?.id) navigate(`/trainer/programs/${data.id}`);
-                  return null;
-                }}
-              />
+              <button type="button" className="program-new-btn" onClick={() => setCreating(true)}>+ New program</button>
             </div>
           </div>
         </section>
@@ -228,6 +227,22 @@ export default function ProgramsListPage() {
               )}
             </section>
           </>
+        )}
+
+        {creating && (
+          <NewProgramDialog
+            types={types}
+            onClose={() => setCreating(false)}
+            onCreate={async fields => {
+              const { data, error: err } = await runBusy(
+                'Creating program…',
+                () => createProgram({ ...fields, created_by: authSession?.user.id }),
+              );
+              if (err) return err.message;
+              if (data?.id) navigate(`/trainer/programs/${data.id}`);
+              return null;
+            }}
+          />
         )}
 
         {/* THE DETAILS ARRIVE OVER THE PAGE, not beside it — the same slide-over
@@ -360,45 +375,79 @@ function ProgramTile({ p, selected, onPick }) {
   );
 }
 
-// "+ New program" asks for a title in place, then opens the new program.
-function NewProgramControl({ onCreate }) {
-  const [open, setOpen] = useState(false);
+// THE TYPE IS ASKED FOR HERE, and that is the point of the change. createProgram
+// has always accepted a program_type_id; the old inline field never sent one, so
+// every program was born "No type" and somebody set it afterwards in the editor
+// — if they remembered. It is a required choice now, with "No type" as an
+// explicit option rather than the default nobody picked.
+function NewProgramDialog({ types, onClose, onCreate }) {
   const [title, setTitle] = useState('');
+  const [typeId, setTypeId] = useState('');
+  const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const inputRef = useRef(null);
-
-  useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
-
-  if (!open) {
-    return <button type="button" className="program-new-btn" onClick={() => setOpen(true)}>+ New program</button>;
-  }
 
   async function submit(e) {
     e.preventDefault();
     if (!title.trim()) return;
     setBusy(true); setErr('');
-    const message = await onCreate(title.trim());
+    const message = await onCreate({
+      title: title.trim(),
+      program_type_id: typeId || null,
+      description: description.trim() || null,
+    });
     setBusy(false);
     if (message) setErr(message);
   }
 
   return (
-    <form className="program-new-form" onSubmit={submit}>
-      <input
-        ref={inputRef}
-        id="new-program-title"
-        className="form-input"
-        placeholder="Program title, e.g. New joiner – Foundation"
-        value={title}
-        maxLength={120}
-        onChange={e => setTitle(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); setTitle(''); setErr(''); } }}
-        aria-label="New program title"
-      />
-      <button type="submit" disabled={busy || !title.trim()}>{busy ? 'Creating…' : 'Create'}</button>
-      <button type="button" className="ghost" onClick={() => { setOpen(false); setTitle(''); setErr(''); }}>Cancel</button>
-      {err && <span className="error program-new-err">{err}</span>}
-    </form>
+    <CreateDialog
+      heading="New program"
+      blurb="A template you schedule classes from."
+      submitLabel="Create program"
+      busy={busy}
+      error={err}
+      canSubmit={!!title.trim()}
+      onClose={onClose}
+      onSubmit={submit}
+    >
+      <div>
+        <label className="form-label" htmlFor="new-program-title">Title</label>
+        <input
+          id="new-program-title"
+          className="form-input"
+          placeholder="e.g. New joiner – Foundation"
+          value={title}
+          maxLength={120}
+          onChange={e => setTitle(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="form-label" htmlFor="new-program-type">Type</label>
+        <select
+          id="new-program-type"
+          className="form-input"
+          value={typeId}
+          onChange={e => setTypeId(e.target.value)}
+        >
+          <option value="">No type</option>
+          {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <p className="create-dialog-help">Sets the colour it carries on every tile and calendar.</p>
+      </div>
+
+      <div>
+        <label className="form-label" htmlFor="new-program-desc">Description <span className="muted">— optional</span></label>
+        <input
+          id="new-program-desc"
+          className="form-input"
+          placeholder="What this program is for"
+          value={description}
+          maxLength={300}
+          onChange={e => setDescription(e.target.value)}
+        />
+      </div>
+    </CreateDialog>
   );
 }
