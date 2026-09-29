@@ -11,12 +11,12 @@ import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/programs.css';
 
-// Programmes, laid out like the session cockpit's Room: one bar with the
-// filter and the action, a row of gauges, and tiles for the programmes across
+// Programs, laid out like the session cockpit's Room: one bar with the
+// filter and the action, a row of gauges, and tiles for the programs across
 // the full width. What used to sit in a rail beside them — the selected
-// programme, and what needs attention — is a slide-over and a gauge now.
+// program, and what needs attention — is a slide-over and a gauge now.
 //
-// A programme is a template, not a class, so nothing here is live. The gauges
+// A program is a template, not a class, so nothing here is live. The gauges
 // answer "is it ready" and "how is it being used" instead.
 
 const VIEW_KEY = 'programs-view';
@@ -46,9 +46,9 @@ export default function ProgramsListPage() {
     try { localStorage.setItem(VIEW_KEY, v); } catch { /* per-browser nicety only */ }
   }
 
-  // Each programme with its classes summarised, newest class first — the
-  // programme somebody last ran a class from is the one they are most likely
-  // to be looking for. Programmes without classes follow, newest edit first.
+  // Each program with its classes summarised, newest class first — the
+  // program somebody last ran a class from is the one they are most likely
+  // to be looking for. Programs without classes follow, newest edit first.
   const rows = useMemo(() => programs
     .map(p => ({ ...p, classes: classSummary(p.sessions), colour: programColour(p.program_type?.id) }))
     .sort((a, b) => {
@@ -86,7 +86,7 @@ export default function ProgramsListPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [panelOpen]);
 
-  // A filter that hides the chosen programme must not leave its details open
+  // A filter that hides the chosen program must not leave its details open
   // over a list it is not in.
   useEffect(() => {
     if (panelOpen && selectedId && !shown.some(p => p.id === selectedId)) closePanel();
@@ -97,12 +97,12 @@ export default function ProgramsListPage() {
       <TopBar />
       <main className="page dashboard programs-page">
         {/* NO PAGE HEADING, and no count above the tiles. The nav rail says
-            Programmes and so does the app bar; the class count is already the
+            Programs and so does the app bar; the class count is already the
             CLASSES gauge a few pixels below. The bar carries controls only,
             the same as the library. */}
         <section className="page-hero compact cockpit-hero">
           <div className="cockpit-hero-row">
-            <div className="view-tabs" role="group" aria-label="Show programmes">
+            <div className="view-tabs" role="group" aria-label="Show programs">
               {[['all', `All · ${rows.length}`], ['pub', `Published · ${published.length}`], ['draft', `Drafts · ${drafts.length}`]].map(([k, label]) => (
                 <button key={k} type="button" className={`view-tab ${filter === k ? 'active' : ''}`} aria-pressed={filter === k} onClick={() => setFilter(k)}>
                   {label}
@@ -112,7 +112,7 @@ export default function ProgramsListPage() {
             <div className="page-hero-actions">
               <NewProgramControl
                 onCreate={async title => {
-                  const { data, error: err } = await runBusy('Creating programme…', () => createProgram({ title, created_by: authSession?.user.id }));
+                  const { data, error: err } = await runBusy('Creating program…', () => createProgram({ title, created_by: authSession?.user.id }));
                   if (err) return err.message;
                   if (data?.id) navigate(`/trainer/programs/${data.id}`);
                   return null;
@@ -122,12 +122,12 @@ export default function ProgramsListPage() {
           </div>
         </section>
 
-        {loading && <SkeletonCards count={6} label="Loading programmes…" />}
+        {loading && <SkeletonCards count={6} label="Loading programs…" />}
         {error && <p className="error">{error}</p>}
 
         {!loading && !error && (
           <>
-            <section className="cockpit-gauges" aria-label="Programmes at a glance">
+            <section className="cockpit-gauges" aria-label="Programs at a glance">
               <div className="cockpit-gauge">
                 <Ring frac={rows.length ? published.length / rows.length : 0} tone="ok" label={`${published.length}/${rows.length}`} />
                 <div>
@@ -150,7 +150,7 @@ export default function ProgramsListPage() {
                   <div className="cockpit-gauge-label">Need a workbook</div>
                   <div className="cockpit-gauge-value">{publishedNotReady.length + draftsNotReady.length}</div>
                   <div className="cockpit-gauge-hint">
-                    {publishedNotReady.length + draftsNotReady.length === 0 ? 'every programme has one' : `${freeWorkbooks} free workbook${freeWorkbooks === 1 ? '' : 's'} to attach`}
+                    {publishedNotReady.length + draftsNotReady.length === 0 ? 'every program has one' : `${freeWorkbooks} free workbook${freeWorkbooks === 1 ? '' : 's'} to attach`}
                   </div>
                 </div>
               </div>
@@ -170,25 +170,25 @@ export default function ProgramsListPage() {
               </div>
             </section>
 
-            {/* NO ROOM WRAPPER AND NO RAIL. "Needs you" listed the programmes
+            {/* NO ROOM WRAPPER AND NO RAIL. "Needs you" listed the programs
                 with no workbook, which the NEED A WORKBOOK gauge counts and
                 every tile already says in its own words. With the rail gone
                 the grid had nothing to hold but one pane and a 300px column of
                 nothing, so the pane takes the page. */}
             <section className="participants-pane programs-pane">
               <div className="programs-pane-head">
-                <h2>Programmes <span className="programs-pane-sub">most recent class first</span></h2>
-                <div className="room-view-switch" role="group" aria-label="Show programmes as">
+                <h2>Programs <span className="programs-pane-sub">most recent class first</span></h2>
+                <div className="room-view-switch" role="group" aria-label="Show programs as">
                   <button type="button" aria-pressed={view === 'tiles'} onClick={() => pickView('tiles')}>Tiles</button>
                   <button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button>
                 </div>
               </div>
 
-              {rows.length === 0 && <p className="cockpit-empty">No programmes yet. Use + New programme to make the first one.</p>}
+              {rows.length === 0 && <p className="cockpit-empty">No programs yet. Use + New program to make the first one.</p>}
               {rows.length > 0 && shown.length === 0 && <p className="cockpit-empty">Nothing here with this filter.</p>}
 
               {view === 'tiles' && shown.length > 0 && (
-                <ul className="program-tiles" aria-label="Programmes">
+                <ul className="program-tiles" aria-label="Programs">
                   {shown.map(p => (
                     <li key={p.id}>
                       <ProgramTile p={p} selected={p.id === selectedId} onPick={() => openPanel(p.id)} />
@@ -201,7 +201,7 @@ export default function ProgramsListPage() {
                 <div className="programs-table-wrap">
                   <table className="programs-table programs-list-table">
                     <thead>
-                      <tr><th>Programme</th><th>Status</th><th>Workbook</th><th>Assessment</th><th className="num">PDFs</th><th className="num">Classes</th><th>Last class</th></tr>
+                      <tr><th>Program</th><th>Status</th><th>Workbook</th><th>Assessment</th><th className="num">PDFs</th><th className="num">Classes</th><th>Last class</th></tr>
                     </thead>
                     <tbody>
                       {shown.map(p => (
@@ -210,7 +210,7 @@ export default function ProgramsListPage() {
                             <span className="program-swatch" style={{ background: p.colour }} aria-hidden="true" />
                             {/* The name no longer swallows the click to
                                 navigate. The whole row opens the details,
-                                which carry "Open programme" — one gesture
+                                which carry "Open program" — one gesture
                                 here, the same one the tiles have. */}
                             <span className="program-name-link">{p.title}</span>
                           </td>
@@ -245,7 +245,7 @@ export default function ProgramsListPage() {
               className={`wb-rail-panel${panelOpen ? ' open' : ''}`}
               role="dialog"
               aria-modal="true"
-              aria-label="Programme details"
+              aria-label="Program details"
               aria-hidden={panelOpen ? undefined : 'true'}
               onTransitionEnd={e => {
                 // Only when the slide OUT has landed, and only for the slide
@@ -305,7 +305,7 @@ export default function ProgramsListPage() {
                   )}
 
                   <div className="wb-rail-actions">
-                    <Link to={`/trainer/programs/${selected.id}`} className="primary-link">Open programme</Link>
+                    <Link to={`/trainer/programs/${selected.id}`} className="primary-link">Open program</Link>
                     {selected.status === 'published' && isReady(selected) && (
                       <Link to={`/trainer?new=1&program=${selected.id}`} className="ghost-link">New session</Link>
                     )}
@@ -328,7 +328,7 @@ export function StatusChip({ status }) {
 // ONE CLICK, ONE GESTURE. This used to select on a click and open on a
 // double-click; the details now arrive as a slide-over, whose backdrop would
 // swallow the second click before dblclick ever fired. So a click opens the
-// details and the panel carries "Open programme", exactly as in the library.
+// details and the panel carries "Open program", exactly as in the library.
 function ProgramTile({ p, selected, onPick }) {
   const pdfs = p.handouts + p.quickRefs;
   return (
@@ -360,7 +360,7 @@ function ProgramTile({ p, selected, onPick }) {
   );
 }
 
-// "+ New programme" asks for a title in place, then opens the new programme.
+// "+ New program" asks for a title in place, then opens the new program.
 function NewProgramControl({ onCreate }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -371,7 +371,7 @@ function NewProgramControl({ onCreate }) {
   useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
 
   if (!open) {
-    return <button type="button" className="program-new-btn" onClick={() => setOpen(true)}>+ New programme</button>;
+    return <button type="button" className="program-new-btn" onClick={() => setOpen(true)}>+ New program</button>;
   }
 
   async function submit(e) {
@@ -389,12 +389,12 @@ function NewProgramControl({ onCreate }) {
         ref={inputRef}
         id="new-program-title"
         className="form-input"
-        placeholder="Programme title, e.g. New joiner – Foundation"
+        placeholder="Program title, e.g. New joiner – Foundation"
         value={title}
         maxLength={120}
         onChange={e => setTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); setTitle(''); setErr(''); } }}
-        aria-label="New programme title"
+        aria-label="New program title"
       />
       <button type="submit" disabled={busy || !title.trim()}>{busy ? 'Creating…' : 'Create'}</button>
       <button type="button" className="ghost" onClick={() => { setOpen(false); setTitle(''); setErr(''); }}>Cancel</button>

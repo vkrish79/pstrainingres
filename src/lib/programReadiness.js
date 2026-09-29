@@ -1,20 +1,20 @@
 import { sessionDay } from './sessionPace.js';
 
-// What a programme has, and what its classes are doing — the facts both
-// Programmes screens draw their gauges, tiles and "Needs you" from.
+// What a program has, and what its classes are doing — the facts both
+// Programs screens draw their gauges, tiles and "Needs you" from.
 //
-// Kept apart from the pages so the list and the programme page cannot disagree
+// Kept apart from the pages so the list and the program page cannot disagree
 // about what "running" or "ready" means, and so node can import it.
 
 // A WORKBOOK IS THE ONLY REQUIRED PIECE. create_session_from_program refuses a
-// programme without one; the assessment is optional (a deliberate decision —
+// program without one; the assessment is optional (a deliberate decision —
 // Overview is published without one), so a missing assessment is never drawn
 // as a problem, only as "None".
 export function isReady(p) {
   return !!p.workbook;
 }
 
-// One class, as a programme sees it.
+// One class, as a program sees it.
 //   running — today is inside its dates and it is not closed
 //   upcoming — not started yet
 //   ended   — past its dates and not closed (the Sessions page nudges these)
@@ -61,7 +61,7 @@ export function titleFromFile(name) {
   return (name || '').replace(/\.pdf$/i, '').replace(/_+/g, ' ').trim() || 'Untitled';
 }
 
-// Counts for a programme's classes, newest first.
+// Counts for a program's classes, newest first.
 export function classSummary(sessions, now = new Date()) {
   const list = [...(sessions || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const withState = list.map(s => ({ ...s, state: classState(s, now) }));

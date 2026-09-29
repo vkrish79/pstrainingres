@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js';
 
 // Sending a changed scorecard to sessions that have already started.
 //
-// Sessions that HAVEN'T started need none of this: they read the programme's
+// Sessions that HAVEN'T started need none of this: they read the program's
 // criteria directly, so an edit reaches them the moment it is saved. This is
 // only for sessions past their freeze — and only the ones where nothing has
 // actually happened yet.

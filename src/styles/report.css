@@ -141,7 +141,7 @@
 .ld-meta th.narrow { width: 12%; }
 .ld-meta tr > td:nth-of-type(1) { width: 34%; }
 .ld-meta tr > td:nth-of-type(2) { width: 28%; }
-/* A long programme title or name must wrap rather than widen the table. */
+/* A long program title or name must wrap rather than widen the table. */
 .ld-meta th, .ld-meta td { overflow-wrap: break-word; }
 
 

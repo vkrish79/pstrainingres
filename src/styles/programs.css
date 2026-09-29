@@ -1,7 +1,7 @@
-/* Programmes — the list and the programme page, in the session cockpit's look.
+/* Programs — the list and the program page, in the session cockpit's look.
    The frame (title, bar, pill tabs, gauges, room + rail, alerts) is the
-   cockpit's own CSS in dashboard.css; this file only adds what a programme has
-   and a class does not: tiles for programmes, attach slots, the PDF list. */
+   cockpit's own CSS in dashboard.css; this file only adds what a program has
+   and a class does not: tiles for programs, attach slots, the PDF list. */
 
 /* ── Status + type ─────────────────────────────────────────────────────── */
 .program-status {
@@ -84,7 +84,7 @@
 .programs-pane .program-link-btn { background: transparent; font-weight: 600; font-size: 0.8rem; padding: 0.25rem 0.6rem; }
 .programs-pane .program-link-btn:hover { background: var(--border); }
 
-/* ── Programme tiles ──────────────────────────────────────────────────── */
+/* ── Program tiles ──────────────────────────────────────────────────── */
 .program-tiles {
   list-style: none;
   margin: 0;
@@ -280,12 +280,12 @@
 .program-choose input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .program-choose:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* ── Rail (the programme page's own; the list has none) ─────────────────
-   The list used to carry a rail too: the selected programme, which is a
+/* ── Rail (the program page's own; the list has none) ─────────────────
+   The list used to carry a rail too: the selected program, which is a
    slide-over now (the .wb-rail-* idiom in dashboard.css, shared with the
    library), and "Needs you", which repeated the NEED A WORKBOOK gauge and
    what every tile already says. Both are gone, and so is .program-selected-*.
-   What is left below still serves the programme editor's rail. */
+   What is left below still serves the program editor's rail. */
 .cockpit-rail .program-alert-static { cursor: default; }
 .cockpit-rail .program-alert-static:hover { background: transparent; }
 .cockpit-dot.tone-ok { background: #2f8f5f; }

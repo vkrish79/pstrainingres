@@ -24,7 +24,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
   } = useSessionAssessmentResponses(sessionId, assessmentId);
   const { marks, setMark, setBreakdown, setComment, clearMark, savingIds, error: marksError } = useAssessmentMarks(sessionId);
   // Criteria come through a definer function rather than a table read, because
-  // a session that hasn't started is marked against the PROGRAMME's criteria,
+  // a session that hasn't started is marked against the PROGRAM's criteria,
   // which a vendor trainer has no policy to read directly.
   const { guidance, points: criteriaPoints, error: criteriaError } = useSessionCriteria(sessionId);
 
@@ -91,7 +91,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
         answerKey={answerKey}
         // A question with criteria is worth what they add up to, which is what
         // the resolver returns. For an unstarted session that figure comes from
-        // the programme, not from this session's copy, so it must win.
+        // the program, not from this session's copy, so it must win.
         answerPoints={{ ...answerPoints, ...criteriaPoints }}
         answerModes={answerModes}
         marks={marks}

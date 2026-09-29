@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js';
 
 const BUCKET = 'program-materials';
 
-// Single-programme state for the programme page: the programme, what a class
+// Single-program state for the program page: the program, what a class
 // gets from it (workbook, assessment, PDFs), the classes made from it, and the
 // unattached masters that could be attached.
 //
@@ -50,7 +50,7 @@ export function useProgram(programId) {
       // The free-assessment picker. kind='assessment' is REQUIRED here, not
       // tidiness: a question bank is an assessments row whose shape is exactly
       // is_template = true AND program_id IS NULL, so without this filter every
-      // bank would be offered as a programme's assessment — and attaching one
+      // bank would be offered as a program's assessment — and attaching one
       // would set program_id and trip the assessments_bank_is_library CHECK as a
       // raw Postgres error.
       supabase.from('assessments').select('id, title, updated_at').eq('is_template', true).eq('kind', 'assessment').is('program_id', null).order('updated_at', { ascending: false }),
@@ -87,7 +87,7 @@ export function useProgram(programId) {
       .eq('id', programId)
       .select('id, title, description, status, program_type_id, created_at, updated_at, program_type:program_types ( id, name )');
     if (e) return { error: new Error(e.message) };
-    if (!data?.length) return { error: new Error('That change was not saved. You may not have permission to edit this programme.') };
+    if (!data?.length) return { error: new Error('That change was not saved. You may not have permission to edit this program.') };
     setProgram(data[0]);
     return { data: data[0] };
   }, [programId]);
@@ -97,7 +97,7 @@ export function useProgram(programId) {
   const deleteProgram = useCallback(async () => {
     const { data, error: e } = await supabase.from('programs').delete().eq('id', programId).select('id');
     if (e) return { error: new Error(e.message) };
-    if (!data?.length) return { error: new Error('The programme was not deleted. You may not have permission.') };
+    if (!data?.length) return { error: new Error('The program was not deleted. You may not have permission.') };
     return { data: true };
   }, [programId]);
 
@@ -106,7 +106,7 @@ export function useProgram(programId) {
     const q = supabase.from(table).update({ program_id: owner }).eq('id', rowId);
     const { data, error: e } = await (owner ? q.is('program_id', null) : q).select('id');
     if (e) {
-      if (e.code === '23505') return { error: new Error(`That ${label} is already attached to another programme.`) };
+      if (e.code === '23505') return { error: new Error(`That ${label} is already attached to another program.`) };
       return { error: new Error(e.message) };
     }
     if (!data?.length) {

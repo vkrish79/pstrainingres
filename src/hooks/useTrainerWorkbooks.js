@@ -11,15 +11,15 @@ import { classSummary } from '../lib/programReadiness.js';
 // only titles and dates cannot answer the question anybody actually arrives
 // with — is this one in use, and is anyone teaching from it right now — so a
 // template nobody delivers from looks exactly like one running in three rooms.
-// The programme and its classes come back with each row to answer that.
+// The program and its classes come back with each row to answer that.
 //
 // THREE FLAT QUERIES, NOT EMBEDS, the same rule usePrograms follows and for the
 // same reason: more than one path back to a table makes an un-hinted embed fail,
 // and that has taken a live page down here before.
 //
 // `workbooks.program_id` is the join, and it is on the workbook row itself —
-// attaching a template to a programme is what "in use" means. A workbook
-// belongs to at most one programme, so this is a name, never a count.
+// attaching a template to a program is what "in use" means. A workbook
+// belongs to at most one program, so this is a name, never a count.
 //
 // COUNTS ARE WHAT THE CALLER CAN SEE. RLS scopes sessions to the reader, so a
 // vendor trainer may legitimately see fewer classes against a template than a
@@ -44,7 +44,7 @@ export function useTrainerWorkbooks(trainerId, role) {
       const rows = wbs || [];
       const programIds = [...new Set(rows.map(w => w.program_id).filter(Boolean))];
 
-      // Nothing is attached to a programme yet, so there is nothing to look up
+      // Nothing is attached to a program yet, so there is nothing to look up
       // and no reason to ask.
       const [progs, sess] = programIds.length
         ? await Promise.all([
@@ -68,7 +68,7 @@ export function useTrainerWorkbooks(trainerId, role) {
         ...w,
         program: w.program_id ? progById.get(w.program_id) || null : null,
         // classSummary rather than a count of our own, so this page and the
-        // Programmes page cannot disagree about what "running" means.
+        // Programs page cannot disagree about what "running" means.
         classes: classSummary(sessByProgram.get(w.program_id) || []),
       })));
       setLoading(false);

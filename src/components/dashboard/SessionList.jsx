@@ -28,7 +28,7 @@ import { formatRange } from '../../lib/sessionDates.js';
 
 const COLUMNS = [
   { key: 'name', label: 'Session' },
-  { key: 'programme', label: 'Programme' },
+  { key: 'program', label: 'Program' },
   { key: 'dates', label: 'Dates' },
   { key: 'city', label: 'City' },
   { key: 'vendor', label: 'Vendor', optional: true },
@@ -58,9 +58,9 @@ export default function SessionList({
         undated: !s.starts_at && !s.ends_at,
         closed: !!s.closed_at,
         people: (s.session_participants || []).length,
-        programme: s.program?.program_type?.name || s.program?.title || '',
-        programmeType: s.program?.program_type?.name || '',
-        programmeTitle: s.program?.title || '',
+        program: s.program?.program_type?.name || s.program?.title || '',
+        programType: s.program?.program_type?.name || '',
+        programTitle: s.program?.title || '',
         trainer: s.trainer?.full_name || '',
         city: s.city_code || '',
         // In-house sessions sort under "PS" rather than under the empty
@@ -134,20 +134,20 @@ export default function SessionList({
                 {r.closed && <span className="session-pill closed">Closed</span>}
               </td>
               <td>
-                {/* Type on top, programme title beneath it. When there is no
+                {/* Type on top, program title beneath it. When there is no
                     TYPE — which is the common case for the loose "Overview"
-                    programmes — this used to print an em dash and stack the
+                    programs — this used to print an em dash and stack the
                     title under it, so the cell read as an error with a caption.
                     With no type, the title is the whole answer and takes the
                     first line itself. */}
-                {r.programmeType ? (
+                {r.programType ? (
                   <>
-                    {r.programmeType}
-                    {r.programmeTitle && (
-                      <span className="session-list-sub">{r.programmeTitle}</span>
+                    {r.programType}
+                    {r.programTitle && (
+                      <span className="session-list-sub">{r.programTitle}</span>
                     )}
                   </>
-                ) : (r.programmeTitle || '—')}
+                ) : (r.programTitle || '—')}
               </td>
               <td className="session-list-dates">
                 {r.undated

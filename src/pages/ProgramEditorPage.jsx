@@ -14,9 +14,9 @@ import '../styles/dashboard.css';
 import '../styles/editor.css';
 import '../styles/programs.css';
 
-// One programme, in the session cockpit's clothes: the title above one bar
+// One program, in the session cockpit's clothes: the title above one bar
 // (facts, tabs, actions), gauges that say whether it is ready and how it is
-// used, and a rail with what needs doing and the programme's details.
+// used, and a rail with what needs doing and the program's details.
 //
 // It replaces five stacked full-width cards. Nothing asks through a browser
 // pop-up any more: every destructive step confirms inline, in place.
@@ -33,9 +33,9 @@ export default function ProgramEditorPage() {
 
   const classes = useMemo(() => classSummary(sessions), [sessions]);
 
-  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={5} label="Loading programme…" /></>;
+  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={5} label="Loading program…" /></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
-  if (!program) return <><TopBar /><main className="page"><p className="muted">Programme not found.</p></main></>;
+  if (!program) return <><TopBar /><main className="page"><p className="muted">Program not found.</p></main></>;
 
   const published = program.status === 'published';
   // Sorted here, not trusted from load order: a move or a kind switch updates
@@ -52,7 +52,7 @@ export default function ProgramEditorPage() {
 
   async function handleDelete() {
     setActionErr('');
-    const { error: e } = await runBusy('Deleting programme…', () => prog.deleteProgram());
+    const { error: e } = await runBusy('Deleting program…', () => prog.deleteProgram());
     if (e) { setActionErr(e.message); setConfirmDelete(false); return; }
     navigate('/trainer/programs');
   }
@@ -95,12 +95,12 @@ export default function ProgramEditorPage() {
           <div className="cockpit-hero-row">
             <div className="page-hero-text">
               <p className="cockpit-hero-sub">
-                <Link to="/trainer/programs" className="back-link">&larr; Programmes</Link>
+                <Link to="/trainer/programs" className="back-link">&larr; Programs</Link>
                 <span>Created {shortDate(program.created_at)}</span>
                 <span>{classes.total} class{classes.total === 1 ? '' : 'es'}{classes.running.length ? ` · ${classes.running.length} running` : ''}</span>
               </p>
             </div>
-            <div className="view-tabs" role="tablist" aria-label="Programme sections">
+            <div className="view-tabs" role="tablist" aria-label="Program sections">
               {[['overview', 'Overview'], ['materials', `Materials · ${materials.length}`], ['classes', `Classes · ${classes.total}`]].map(([k, label]) => (
                 <button key={k} type="button" role="tab" aria-selected={tab === k} className={`view-tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>{label}</button>
               ))}
@@ -111,7 +111,7 @@ export default function ProgramEditorPage() {
                   type="button"
                   className="program-publish-btn"
                   disabled={!workbook}
-                  data-tip={workbook ? 'Offer this programme in New session' : 'Attach a workbook first'}
+                  data-tip={workbook ? 'Offer this program in New session' : 'Attach a workbook first'}
                   onClick={() => publish('published')}
                 >
                   Publish
@@ -121,7 +121,7 @@ export default function ProgramEditorPage() {
                 <Link to={`/trainer?new=1&program=${program.id}`} className="ghost-link">New class from this</Link>
               )}
               <KebabMenu
-                label="Programme actions"
+                label="Program actions"
                 items={[
                   published && {
                     label: 'Revert to draft',
@@ -130,7 +130,7 @@ export default function ProgramEditorPage() {
                   },
                   published && { separator: true },
                   {
-                    label: 'Delete programme…',
+                    label: 'Delete program…',
                     glyph: '✕',
                     danger: true,
                     onClick: () => setConfirmDelete(true),
@@ -142,7 +142,7 @@ export default function ProgramEditorPage() {
         </section>
 
         {/* sessions.program_id has no ON DELETE rule, so the database refuses
-            to delete a programme any class was made from. Say that up front
+            to delete a program any class was made from. Say that up front
             rather than offer a Delete that fails. */}
         {confirmDelete && classes.total > 0 && (
           <div className="program-confirm" role="alert">
@@ -184,11 +184,11 @@ export default function ProgramEditorPage() {
                     item={workbook}
                     detail={workbook && `${prog.sectionCount != null ? `${prog.sectionCount} sections · ` : ''}edited ${shortDate(workbook.updated_at)} · new classes get this version`}
                     emptyTitle="No workbook"
-                    emptyWhy={published ? 'No class can be made from this programme until it has one' : 'Needed before this programme can be published'}
+                    emptyWhy={published ? 'No class can be made from this program until it has one' : 'Needed before this program can be published'}
                     required
                     openHref={workbook && `/trainer/workbooks/${workbook.id}`}
                     free={prog.freeWorkbooks}
-                    noneFree={<>Every workbook is attached to a programme. <Link to="/trainer/workbooks/new">Create a workbook</Link>.</>}
+                    noneFree={<>Every workbook is attached to a program. <Link to="/trainer/workbooks/new">Create a workbook</Link>.</>}
                     onAttach={wid => runBusy('Attaching workbook…', () => prog.attachWorkbook(wid))}
                     onDetach={() => runBusy('Detaching workbook…', () => prog.detachWorkbook())}
                     detachWarning={classes.open.length ? `The ${classes.open.length} open class${classes.open.length === 1 ? ' keeps its' : 'es keep their'} copy.` : ''}
@@ -199,10 +199,10 @@ export default function ProgramEditorPage() {
                     item={assessment}
                     detail={assessment && `edited ${shortDate(assessment.updated_at)} · new classes get this version`}
                     emptyTitle="No assessment"
-                    emptyWhy="Optional. Classes made from this programme won't have one."
+                    emptyWhy="Optional. Classes made from this program won't have one."
                     openHref={assessment && `/trainer/assessments/${assessment.id}`}
                     free={prog.freeAssessments}
-                    noneFree={<>Every assessment is attached to a programme. <Link to="/trainer/assessments">Create an assessment</Link>.</>}
+                    noneFree={<>Every assessment is attached to a program. <Link to="/trainer/assessments">Create an assessment</Link>.</>}
                     onAttach={aid => runBusy('Attaching assessment…', () => prog.attachAssessment(aid))}
                     onDetach={() => runBusy('Detaching assessment…', () => prog.detachAssessment())}
                     detachWarning={classes.open.length ? `Open classes that already have it keep their copy.` : ''}
@@ -226,7 +226,7 @@ export default function ProgramEditorPage() {
             {tab === 'classes' && <ClassesPane classes={classes} />}
           </section>
 
-          <aside className="cockpit-rail" aria-label="Programme details">
+          <aside className="cockpit-rail" aria-label="Program details">
             <section className="cockpit-card">
               <h3 className="cockpit-card-title">Needs you</h3>
               {needs.length === 0 ? (
@@ -268,7 +268,7 @@ function ProgramGauges({ prog, classes, published, handouts, quickRefs, onTab })
   const run = classes.running[0];
   const people = classes.running.reduce((n, s) => n + (s.people || 0), 0);
   return (
-    <section className="cockpit-gauges" aria-label="Programme at a glance">
+    <section className="cockpit-gauges" aria-label="Program at a glance">
       <button type="button" className={`cockpit-gauge cockpit-gauge-button${workbook ? '' : published ? ' is-bad' : ' is-warn'}`} onClick={() => onTab('overview')}>
         <Ring frac={workbook ? 1 : 0} tone="ok" label={workbook ? '✓' : '!'} />
         <div>
@@ -398,7 +398,7 @@ function AttachSlot({ kind, code, item, detail, emptyTitle, emptyWhy, required, 
 // ----- classes ------------------------------------------------------------------
 
 function ClassesTable({ list, withAssessment = false }) {
-  if (list.length === 0) return <p className="cockpit-empty">No classes have been made from this programme yet.</p>;
+  if (list.length === 0) return <p className="cockpit-empty">No classes have been made from this program yet.</p>;
   return (
     <div className="programs-table-wrap">
       <table className="programs-table">
@@ -438,7 +438,7 @@ function ClassesPane({ classes }) {
   return (
     <>
       <div className="programs-pane-head">
-        <h2>Classes from this programme <span className="programs-pane-sub">{classes.total} · {openPeople} people in open classes</span></h2>
+        <h2>Classes from this program <span className="programs-pane-sub">{classes.total} · {openPeople} people in open classes</span></h2>
         <div className="room-view-switch" role="group" aria-label="Show classes">
           <button type="button" aria-pressed={f === 'all'} onClick={() => setF('all')}>All</button>
           <button type="button" aria-pressed={f === 'open'} onClick={() => setF('open')}>Open · {classes.open.length}</button>
@@ -645,7 +645,7 @@ function DetailsCard({ program, programTypes, updateFields }) {
 
   function saveTitle() {
     const t = title.trim();
-    if (!t) { setTitle(program.title); setState({ kind: 'error', text: 'A programme needs a title.' }); return; }
+    if (!t) { setTitle(program.title); setState({ kind: 'error', text: 'A program needs a title.' }); return; }
     if (t !== program.title) save({ title: t });
   }
   function saveDescription() {
@@ -677,7 +677,7 @@ function DetailsCard({ program, programTypes, updateFields }) {
         className="form-input"
         rows={6}
         value={description}
-        placeholder="What this programme covers"
+        placeholder="What this program covers"
         onChange={e => setDescription(e.target.value)}
         onBlur={saveDescription}
       />

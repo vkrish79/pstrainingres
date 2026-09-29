@@ -825,7 +825,7 @@ export default function SessionDashboardPage() {
               {/* ALWAYS SHOWN, like Quiz beside it. This tab used to hide itself
                   whenever the session had no assessment — which is exactly when a
                   trainer needs it, because a session scheduled before its
-                  programme had an assessment has no other way to get one. The tab
+                  program had an assessment has no other way to get one. The tab
                   that disappears when there is nothing in it is the tab you cannot
                   use to put something in it. */}
               <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
@@ -1248,7 +1248,7 @@ export default function SessionDashboardPage() {
               {programAssessment ? (
                 <>
                   <p className="muted">
-                    <strong>{session?.program?.title || 'This programme'}</strong> has{' '}
+                    <strong>{session?.program?.title || 'This program'}</strong> has{' '}
                     <strong>{programAssessment.title}</strong>, added after this session was scheduled.
                   </p>
                   <div className="assessment-empty-go">
@@ -1268,10 +1268,10 @@ export default function SessionDashboardPage() {
                 </>
               ) : session?.program_id ? (
                 <p className="muted">
-                  <strong>{session?.program?.title || 'This programme'}</strong> has no assessment yet.
+                  <strong>{session?.program?.title || 'This program'}</strong> has no assessment yet.
                 </p>
               ) : (
-                <p className="muted">This session was not created from a programme.</p>
+                <p className="muted">This session was not created from a program.</p>
               )}
             </div>
           </div>

@@ -66,9 +66,9 @@ export default function SessionHoverCard({ session, anchor }) {
         {session.closed_at && <span className="session-pill closed">Closed</span>}
       </div>
 
-      {/* The programme, said once. A session with no programme has only a type,
+      {/* The program, said once. A session with no program has only a type,
           and printing an em dash above it reads as an error rather than as
-          "Overview" — the same fix as the list's programme column. */}
+          "Overview" — the same fix as the list's program column. */}
       {(type || title) && (
         <div className="session-hovercard-prog">
           {title || type}

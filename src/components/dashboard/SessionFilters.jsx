@@ -12,7 +12,7 @@ import { FILTER_KEYS, filterSessions, filterOptions } from '../../lib/sessionFil
 //
 // A SELECT ONLY APPEARS WHEN THERE IS SOMETHING TO CHOOSE BETWEEN. A "City"
 // dropdown offering only AUH is a control that cannot do anything — it costs a
-// glance every time and rewards it never. Same for programme type, trainer and
+// glance every time and rewards it never. Same for program type, trainer and
 // vendor.
 //
 // Filters live ABOVE the view switch and apply to all three views, so changing
@@ -46,9 +46,9 @@ export default function SessionFilters({ sessions, value, onChange, showTrainer 
           className="form-input session-filter-select"
           value={value.type || 'all'}
           onChange={e => onChange('type', e.target.value)}
-          aria-label="Programme type"
+          aria-label="Program type"
         >
-          <option value="all">All programmes</option>
+          <option value="all">All programs</option>
           {types.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
       )}

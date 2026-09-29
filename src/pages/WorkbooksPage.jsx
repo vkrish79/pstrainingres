@@ -24,14 +24,14 @@ import '../styles/edit-heat.css';
 // useTrainerWorkbooks already narrows non-super roles to vendor_visible rows.
 // What IS super-only is authoring — the two buttons in the hero.
 //
-// IN THE COCKPIT, like Sessions, Programmes and Analytics. Same classes, not a
+// IN THE COCKPIT, like Sessions, Programs and Analytics. Same classes, not a
 // second visual language: a compact hero carrying the filters and the actions,
 // a gauge strip, then the pane-and-rail split. No page heading and no
 // explanatory line — the rail and the app bar both already say Workbooks.
 //
 // THE QUESTION THIS PAGE EXISTS TO ANSWER is not "what templates are there" —
 // the titles were never in doubt — but "which of these matters". So the
-// organising fact is the programme a template is attached to and the classes
+// organising fact is the program a template is attached to and the classes
 // running on it, and an unattached workbook is called out rather than left
 // looking identical to one in daily use.
 const MONTH = 1000 * 60 * 60 * 24 * 30;
@@ -176,7 +176,7 @@ export default function WorkbooksPage() {
                 <div className="cockpit-gauge-label">In use</div>
                 <div className="cockpit-gauge-value">{stats.used}<small> / {workbooks.length}</small></div>
                 <div className="cockpit-gauge-hint">
-                  {unused === 0 ? 'every one attached' : `${unused} on no programme`}
+                  {unused === 0 ? 'every one attached' : `${unused} on no program`}
                 </div>
               </div>
             </div>
@@ -276,7 +276,7 @@ export default function WorkbooksPage() {
                           <p className="wb-card-facts">
                             {w.program
                               ? <span className="wb-prog">{w.program.title}</span>
-                              : <span className="wb-stale">no programme</span>}
+                              : <span className="wb-stale">no program</span>}
                             <span>Updated <b>{shortDate(w.updated_at)}</b></span>
                             {w.classes.total > 0 && (
                               <span>
@@ -336,7 +336,7 @@ export default function WorkbooksPage() {
                   {selected.description && <p className="wb-rail-desc">{selected.description}</p>}
 
                   <dl className="wb-rail-facts">
-                    <div><dt>Programme</dt><dd>{selected.program
+                    <div><dt>Program</dt><dd>{selected.program
                       ? <Link to={`/trainer/programs/${selected.program.id}`}>{selected.program.title}</Link>
                       : <span className="wb-stale">none — nobody delivers this</span>}</dd></div>
                     <div><dt>Updated</dt><dd>{shortDate(selected.updated_at)}</dd></div>

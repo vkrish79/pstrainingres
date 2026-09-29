@@ -56,7 +56,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   // session you had just come from, and a re-sit option on the list was an
   // invitation to find that session again in a dropdown of near-identical
   // names. A re-sit is not this form with fields left blank either: it derives
-  // its programme, trainer and vendor from the session it copies, so it asks
+  // its program, trainer and vendor from the session it copies, so it asks
   // three questions instead of seven.
   const isResit = !!resitOf;
   const ofSessionId = resitOf?.id || '';
@@ -144,8 +144,8 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
     }
   }, [trainerOptions, trainerId, isSuper]);
 
-  // Opened from a programme ("New class from this", ?program=<id>): start on
-  // that programme, once the published list has arrived and only if it is in
+  // Opened from a program ("New class from this", ?program=<id>): start on
+  // that program, once the published list has arrived and only if it is in
   // it — a draft or a stale link falls back to the default.
   useEffect(() => {
     if (open && initialProgramId && programs.some(p => p.id === initialProgramId)) {

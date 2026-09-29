@@ -1,4 +1,4 @@
-// One colour per programme type, the same on every screen.
+// One colour per program type, the same on every screen.
 //
 // Modelled on myLearning Hub's shared courseColour() — a fixed palette indexed
 // by the thing's id, so a course is the same colour on the training plan grid
@@ -7,10 +7,10 @@
 // colour "Refresher" is; three views quietly using three palettes is worse
 // than having no colour at all.
 //
-// Keyed on PROGRAMME TYPE rather than on the session or the programme.
+// Keyed on PROGRAM TYPE rather than on the session or the program.
 // A trainer scanning a month is asking "what kind of thing is running", and
 // the type is already selected, already shown on the card, and small enough a
-// set that the colours stay distinguishable. Colouring per programme would
+// set that the colours stay distinguishable. Colouring per program would
 // give a hundred near-identical hues.
 
 // Muted, low-chroma, and deliberately clear of the app's gold accent, which is
@@ -26,7 +26,7 @@ export const PROGRAM_PALETTE = [
   '#4a6b8a', // slate
 ];
 
-// A session with no programme type still has to draw as something.
+// A session with no program type still has to draw as something.
 export const UNTYPED_COLOUR = '#6b7280';
 
 // UUIDs, not integers, so MLH's `id % length` cannot be used directly.

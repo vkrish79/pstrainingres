@@ -6,11 +6,11 @@ import { normaliseGuidance } from '../lib/markingCriteria.js';
 //
 // This does NOT read assessment_answer_keys directly, and the difference
 // matters. Criteria are late-bound: until a session starts, its questions are
-// marked against the PROGRAMME's criteria, not a copy of them, so that an edit
+// marked against the PROGRAM's criteria, not a copy of them, so that an edit
 // to the scheme reaches every session that hasn't begun. Only at the freeze —
 // the first answer or the first mark — are they copied onto the session.
 //
-// A vendor trainer cannot read the programme's rows at all: the
+// A vendor trainer cannot read the program's rows at all: the
 // assessment_answer_keys_trainer_read policy carries `a.is_template = false`.
 // So the resolution happens in assessment_criteria_for_session(), a SECURITY
 // DEFINER function with the same role checks as set_assessment_unlocked, and
@@ -20,7 +20,7 @@ import { normaliseGuidance } from '../lib/markingCriteria.js';
 //   guidance   { [blockId]: { criteria: [...] } } — only questions that have any
 //   points     { [blockId]: number } — what each of those questions is worth,
 //              which follows the criteria and so may differ from the clone row
-//   fromMaster { [blockId]: boolean } — true while still following the programme
+//   fromMaster { [blockId]: boolean } — true while still following the program
 export function useSessionCriteria(sessionId) {
   const [guidance, setGuidance] = useState({});
   const [points, setPoints] = useState({});

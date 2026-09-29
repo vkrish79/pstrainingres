@@ -97,12 +97,12 @@ function emptyBank() {
 // with kind='bank' — one model, not two, the same way a quiz template and a
 // session's quiz share one table. Both libraries therefore share this hook, and
 // the filter is not optional: without it banks would surface in the assessments
-// list and, worse, in the pickers that attach an assessment to a programme.
+// list and, worse, in the pickers that attach an assessment to a program.
 // `detail` — also load what each paper contains and the classes run from it.
 // Off by default: the question bank uses this hook too, and none of it applies
 // there.
 // `bankDetail` — the same idea as `detail`, for the other library. A bank has
-// no programme and no classes, so none of the paper/class work above applies;
+// no program and no classes, so none of the paper/class work above applies;
 // what a bank is judged on is whether its questions can be marked and whether
 // anybody has taken them. Separate flag rather than a mode of `detail` so
 // neither library pays for the other's queries.
@@ -139,7 +139,7 @@ export function useAssessments({ kind = 'assessment', detail = false, bankDetail
     // all — neither is visible from a list of names and dates.
     //
     // OPT-IN, because the question bank shares this hook and none of it means
-    // anything there: a bank is not attached to a programme and no class is
+    // anything there: a bank is not attached to a program and no class is
     // ever run from one.
     //
     // FLAT QUERIES past the embed above: several tables point back at
@@ -192,7 +192,7 @@ export function useAssessments({ kind = 'assessment', detail = false, bankDetail
     setAssessments(rows.map(a => ({
       ...a,
       paper: paper.get(a.id) || { questions: 0, marks: 0, unkeyed: 0 },
-      // classSummary rather than counting here, so this page and Programmes
+      // classSummary rather than counting here, so this page and Programs
       // cannot disagree about what "running" means.
       classes: classSummary(sessByProgram.get(a.program_id) || []),
     })));

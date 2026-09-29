@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
-// Every programme the caller can see, with what each one holds and the classes
+// Every program the caller can see, with what each one holds and the classes
 // made from it — enough for the list's tiles, gauges and "Needs you" without a
-// query per programme.
+// query per program.
 //
 // FIVE FLAT QUERIES, NOT EMBEDS. workbooks, assessments and sessions all point
 // at programs, and an embed across a table with more than one path back is the
@@ -13,7 +13,7 @@ export function usePrograms() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [programs, setPrograms] = useState([]);
-  // Master workbooks not attached to any programme. A draft can only be made
+  // Master workbooks not attached to any program. A draft can only be made
   // ready by attaching one, so "none free" is worth saying out loud.
   const [freeWorkbooks, setFreeWorkbooks] = useState(0);
 

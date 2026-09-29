@@ -127,7 +127,7 @@ export function WorkbookPrintFooter({ workbook, session, participantName }) {
 }
 
 // "ARD Web Certification – Workbook" → "ARD Web Certification". The cover
-// names the programme; that the document is a workbook goes without saying.
+// names the program; that the document is a workbook goes without saying.
 // Only a trailing "Workbook" (and the dash or colon before it) goes, and a
 // title that is nothing but "Workbook" is left alone.
 function programName(title = '') {

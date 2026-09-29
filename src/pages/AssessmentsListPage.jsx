@@ -13,7 +13,7 @@ import '../styles/editor.css';
 import '../styles/edit-heat.css';
 
 // The assessment library, in the cockpit — the same shape as Workbooks, which
-// is the same shape as Sessions and Programmes. One visual language.
+// is the same shape as Sessions and Programs. One visual language.
 //
 // WHAT THIS PAGE IS FOR is not listing titles, which were never in doubt, but
 // answering two questions a list of names and dates cannot: is this paper
@@ -137,7 +137,7 @@ export default function AssessmentsListPage() {
               <Link to="/trainer/assessments/import" className="ghost-link">↑ Import .docx</Link>
               {/* The create form was a whole card sitting above the library,
                   permanently open for a thing you do occasionally. It is a
-                  button that becomes a field, like New programme. */}
+                  button that becomes a field, like New program. */}
               <NewAssessmentControl
                 onCreate={async title => {
                   const { data, error: err } = await runBusy(
@@ -170,7 +170,7 @@ export default function AssessmentsListPage() {
                 <div className="cockpit-gauge-label">In use</div>
                 <div className="cockpit-gauge-value">{stats.used}<small> / {assessments.length}</small></div>
                 <div className="cockpit-gauge-hint">
-                  {unusedCount === 0 ? 'every one attached' : `${unusedCount} on no programme`}
+                  {unusedCount === 0 ? 'every one attached' : `${unusedCount} on no program`}
                 </div>
               </div>
             </div>
@@ -272,7 +272,7 @@ export default function AssessmentsListPage() {
                           <p className="wb-card-facts">
                             {a.program
                               ? <span className="wb-prog">{a.program.title}</span>
-                              : <span className="wb-stale">no programme</span>}
+                              : <span className="wb-stale">no program</span>}
                             <span>
                               <b>{a.paper.questions}</b> question{a.paper.questions === 1 ? '' : 's'}
                               {a.paper.marks > 0 && <> · <b>{a.paper.marks}</b> marks</>}
@@ -318,7 +318,7 @@ export default function AssessmentsListPage() {
                   {selected.description && <p className="wb-rail-desc">{selected.description}</p>}
 
                   <dl className="wb-rail-facts">
-                    <div><dt>Programme</dt><dd>{selected.program
+                    <div><dt>Program</dt><dd>{selected.program
                       ? <Link to={`/trainer/programs/${selected.program.id}`}>{selected.program.title}</Link>
                       : <span className="wb-stale">none — nobody sits this</span>}</dd></div>
                     <div><dt>Questions</dt><dd>{selected.paper.questions || 'none yet'}</dd></div>
@@ -370,7 +370,7 @@ export default function AssessmentsListPage() {
   );
 }
 
-// A button that becomes a field, the same control Programmes uses — so the
+// A button that becomes a field, the same control Programs uses — so the
 // library is not permanently sharing the page with a form for something you
 // do a few times a year.
 function NewAssessmentControl({ onCreate }) {

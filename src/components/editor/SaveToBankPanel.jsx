@@ -14,7 +14,7 @@ import { questionTypeKeys, typeGlyph, typeLabel } from '../../lib/questionTypeLa
 //
 // A promoted question is NOT linked back to the assessment it came from. The bank
 // copy becomes a master in its own right; linking it upstream would make the bank
-// downstream of a programme, which is backwards.
+// downstream of a program, which is backwards.
 export default function SaveToBankPanel({ sections, blocks, unsavedCount = 0, onSaved }) {
   const { run: runBusy } = useBusyOverlay();
   const [open, setOpen] = useState(false);

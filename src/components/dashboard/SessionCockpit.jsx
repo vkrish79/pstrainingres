@@ -9,7 +9,7 @@ import { useCountdown, assessmentState, STATE_LABEL } from '../../lib/assessment
 // the room, rather than a row of PDFs.
 
 // A small ring for a gauge. Drawn, not a library: two circles.
-// `label` replaces the percentage (the Programmes gauges say "3/6").
+// `label` replaces the percentage (the Programs gauges say "3/6").
 export function Ring({ frac, tone, label }) {
   const r = 16;
   const c = 2 * Math.PI * r;

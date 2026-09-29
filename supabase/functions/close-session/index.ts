@@ -555,7 +555,7 @@ Deno.serve(async (req: Request) => {
     // A note on the criteria read below, because it looks like it has a hole.
     //
     // Marking criteria are LATE-BOUND: until a session starts, its questions are
-    // marked against the programme's criteria rather than a copy of them, and
+    // marked against the program's criteria rather than a copy of them, and
     // k.guidance here is the copy. So a session closed without ever starting
     // snapshots no criteria at all — which is harmless, because the two triggers
     // that take that copy fire on the first answer and the first mark. A session

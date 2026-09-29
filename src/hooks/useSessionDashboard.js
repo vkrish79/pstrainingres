@@ -41,7 +41,7 @@ export function useSessionDashboard(sessionId) {
   const [assessmentStarted, setAssessmentStarted] = useState(() => new Set());
   const [answers, setAnswers] = useState({});              // { [participantId]: { [blockId]: { value, updated_at } } }
   const [prepEnabled, setPrepEnabled] = useState(false);   // master workbook has a prep template
-  // Does this session's PROGRAMME have an assessment that the session has not
+  // Does this session's PROGRAM have an assessment that the session has not
   // got? Only looked up while the session has none — the answer is what
   // decides whether the Assessment tab offers a way in or explains that there
   // is nothing to offer.
@@ -411,9 +411,9 @@ export function useSessionDashboard(sessionId) {
     return { data };
   }
 
-  // Take the programme's assessment into this session.
+  // Take the program's assessment into this session.
   //
-  // For a session scheduled BEFORE its programme had an assessment. The clone
+  // For a session scheduled BEFORE its program had an assessment. The clone
   // the RPC makes is the same one scheduling would have made, so afterwards
   // this session is indistinguishable from one created later.
   async function attachProgramAssessment() {

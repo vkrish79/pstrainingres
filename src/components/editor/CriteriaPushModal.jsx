@@ -47,7 +47,7 @@ export default function CriteriaPushModal({ eligible, blocked, pushing, onPush, 
               {done.some(d => d.questions_updated === 0) && (
                 <p className="muted">
                   Some took nothing: their questions have no criteria on the
-                  programme yet, so there was nothing to copy.
+                  program yet, so there was nothing to copy.
                 </p>
               )}
             </>
@@ -55,7 +55,7 @@ export default function CriteriaPushModal({ eligible, blocked, pushing, onPush, 
             <>
               <p className="muted">
                 Sessions that haven’t started already have this — they read the
-                programme’s scorecard directly. These are the ones that have begun.
+                program’s scorecard directly. These are the ones that have begun.
               </p>
 
               {eligible.length > 0 && (
