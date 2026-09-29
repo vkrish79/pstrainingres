@@ -3368,7 +3368,11 @@
   font-weight: 700;
   cursor: pointer;
 }
-.lib-new-btn:hover { filter: brightness(1.04); }
+/* The background is restated, not just brightened. The global
+   `button:hover:where(:not(:disabled))` in index.css is (0,1,1) and this class
+   is (0,1,0), so without it the gold button turned midnight on hover — on all
+   three libraries. */
+.lib-new-btn:hover { background: var(--gold, #b5985a); filter: brightness(1.04); }
 .lib-new-btn:focus-visible { outline: 2px solid var(--midnight); outline-offset: 2px; }
 .lib-new-form { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .lib-new-form .form-input { width: 18rem; max-width: 60vw; margin: 0; padding: 0.4rem 0.6rem; }
