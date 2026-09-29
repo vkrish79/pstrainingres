@@ -1,0 +1,359 @@
+/* The rehearsal room — the wall and one handset, side by side, for a trainer
+   playing their own quiz before anybody else sees it.
+
+   THIS SHEET ADDS A FRAME AND NOTHING ELSE. Everything inside the wall and
+   inside the phone is quiz-live.css, unchanged and unoverridden wherever it
+   can be helped: the same four answer colours, the same shapes, the same timer
+   ring, the same reveal. A rehearsal that drifted from the room visually would
+   be worth nothing, and reusing the sheet rather than copying it is what stops
+   that happening at the next change to either.
+
+   What IS overridden lives at the bottom, under one heading, and is all the
+   same thing: quiz-live.css sizes itself against the VIEWPORT because it is
+   normally the only thing on screen, and here it is in a 300px phone. */
+
+.qreh {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--midnight, #16304d);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── the bar ──────────────────────────────────────────────────────────── */
+.qreh-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.qreh-step {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+.qreh-title {
+  font-weight: 600;
+  opacity: 0.6;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* THE MARKER, and the reason it is amber rather than quiet. It sits exactly
+   where a real run puts its join code, and it is the only thing on this screen
+   that says nobody can walk into this room. A trainer who confuses the two in
+   the other direction — thinking a live room is a rehearsal — is the failure
+   this is here to prevent, so it never dims and never scrolls away. */
+.qreh-notlive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(229, 183, 90, 0.16);
+  border: 1px solid rgba(229, 183, 90, 0.5);
+  color: #f0d9a8;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.qreh-notlive::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e5b75a;
+}
+
+.qreh-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.qreh-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+.qreh-jump select {
+  font: inherit;
+  font-size: 0.78rem;
+  max-width: 13rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+/* A native <option> list is drawn by the OS on its own ground, so white-on-
+   transparent would be white-on-white in the open dropdown. */
+.qreh-jump select option { color: #1a1a1a; background: #fff; }
+
+.qreh-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+/* The background is RESTATED rather than left to inherit: the global
+   `button:hover:where(:not(:disabled))` in index.css is (0,1,1) and fills any
+   button with midnight, which on this already-midnight bar makes a hovered
+   button vanish. See project_global_button_hover. */
+.qreh-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.qreh-exit { border-color: rgba(255, 255, 255, 0.55); }
+
+/* ── the split ────────────────────────────────────────────────────────── */
+.qreh-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+}
+.qreh-wall {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.qreh-hand {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0.9rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.16);
+  overflow-y: auto;
+}
+.qreh-hand-cap {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  text-align: center;
+}
+
+/* THE PHONE. A frame, not a simulation — it exists so a trainer reads the
+   shapes as "what they are holding" rather than as a second control panel.
+   The workbook is laptop-minimum, but the quiz handset is phone-first and
+   always has been, so this is the honest width for it. */
+.qreh-phone {
+  width: 100%;
+  max-width: 17.5rem;
+  flex: 1 1 auto;
+  min-height: 22rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.8rem 0.75rem 1rem;
+  border-radius: 26px;
+  background: var(--midnight, #16304d);
+  box-shadow: 0 0 0 8px #10202f, 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+.qreh-notch {
+  width: 3.6rem;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.26);
+  margin: 0.1rem auto 0.2rem;
+}
+.qreh-phone-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+.qreh-who { font-weight: 800; color: var(--gold, #b5985a); opacity: 1; }
+.qreh-phone-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+.qreh-runtot {
+  margin: 0;
+  font-size: 0.72rem;
+  opacity: 0.6;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── wall furniture ───────────────────────────────────────────────────── */
+.qreh-thin { margin: 0; opacity: 0.55; font-size: 0.85rem; }
+
+.qreh-go {
+  font: inherit;
+  align-self: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.55rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--gold, #b5985a);
+  background: var(--gold, #b5985a);
+  color: #1c1608;
+  cursor: pointer;
+}
+/* Same trap as .qreh-btn, and worse here: without this the gold button turns
+   midnight on midnight and disappears entirely. */
+.qreh-go:hover { background: var(--gold, #b5985a); filter: brightness(1.05); }
+.qreh-go:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.qreh-skip {
+  font: inherit;
+  align-self: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+.qreh-skip:hover { background: rgba(255, 255, 255, 0.14); }
+
+.qreh-spread {
+  margin: 0;
+  font-size: 0.82rem;
+  opacity: 0.55;
+  text-align: center;
+  max-width: 44rem;
+  align-self: center;
+  line-height: 1.5;
+}
+.qreh-yours {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.32);
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+}
+.qreh-rank {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.72rem;
+  opacity: 0.8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.qreh-done-acts { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
+.qreh-maths {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.72rem;
+  opacity: 0.6;
+  text-align: center;
+  line-height: 1.5;
+}
+.qreh-maths code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.95em;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
+/* ── the handset's own screens ────────────────────────────────────────── */
+.qreh-mini-big { margin: 0; font-size: 1.25rem; line-height: 1.2; text-wrap: balance; }
+.qreh-mini-big.is-right { color: #7ee0a4; }
+.qreh-mini-big.is-wrong { color: #ffc2a1; }
+.qreh-pts {
+  margin: 0.15rem 0 0;
+  font-size: 1.9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* ── shrinking quiz-live.css into a phone ─────────────────────────────────
+   Everything above this line adds. Everything below it takes quiz-live.css's
+   viewport-sized type and padding — correct when the stage IS the screen — and
+   fits it to a 17rem box. Scoped to .qreh-mini so the wall, which genuinely is
+   a wall, keeps every one of those clamps untouched. */
+.qreh-mini {
+  padding: 0.5rem 0;
+  gap: 0.5rem;
+  overflow: visible;
+}
+.qreh-mini .qlive-sub { font-size: 0.78rem; max-width: none; }
+.qreh-mini .qlive-note { font-size: 0.7rem; }
+.qreh-mini .qlive-stake-label { font-size: 0.7rem; }
+.qreh-mini .qlive-stake-btn { padding: 0.3rem 0; font-size: 0.8rem; }
+.qreh-mini .qlive-picks { gap: 0.5rem; }
+/* The one-column rule in quiz-live.css fires on a NARROW VIEWPORT, which this
+   is not — the window is wide, the phone inside it is not. Without this the
+   four shapes stack into a column no thumb would ever see that way. */
+.qreh-mini .qlive-picks-bare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* SQUARE TILES, NOT COLUMNS. On a real handset `flex:1 1 auto` with
+   `grid-auto-rows:1fr` is right — the shapes should fill the phone, because a
+   thumb should not have to aim. Here the "phone" is a 17rem panel beside a
+   wall, and the same rule stretched a two-answer question into two coloured
+   bars 630px tall, which read as bar charts rather than as buttons. */
+.qreh-mini .qlive-picks-bare {
+  flex: 0 0 auto;
+  grid-auto-rows: auto;
+  align-content: start;
+}
+.qreh-mini .qlive-pick-bare {
+  aspect-ratio: 1;
+  padding: 0.55rem;
+  border-radius: 10px;
+}
+.qreh-mini .qlive-pick-bare .quiz-shape { width: min(56%, 3.4rem); }
+.qreh-mini .qlive-seq { gap: 0.3rem; }
+.qreh-mini .qlive-seq-num { font-size: 0.65rem; }
+.qreh-mini .qlive-restart { font-size: 0.72rem; padding: 0.25rem 0.6rem; }
+.qreh-mini .qlive-pin-answer .qpin-img { max-height: 11rem; }
+
+/* ── narrow: the phone goes under the wall ────────────────────────────── */
+@media (max-width: 900px) {
+  .qreh-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; overflow-y: auto; }
+  .qreh-hand {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .qreh-hand-cap { width: 100%; }
+  .qreh-phone { min-height: 18rem; }
+}
+@media (max-width: 560px) {
+  .qreh-title { display: none; }
+  .qreh-maths { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qreh-go, .qreh-btn, .qreh-skip { transition: none; }
+}

@@ -635,3 +635,50 @@
 }
 .quiz-scale-btn.is-on:hover { background: var(--accent, #1f6fb2); color: #fff; }
 .quiz-scale-btn:focus-visible { outline: 2px solid var(--accent, #1f6fb2); outline-offset: -2px; }
+
+/* ── the quiz library's slide-over actions ────────────────────────────────
+   Three stacked controls that each carry a line of consequence under their
+   label, because the difference between two of them is the whole point: one
+   opens a room with a code on a wall and one cannot be seen by anybody. A row
+   of bare verbs would have made those look interchangeable. */
+.quiz-rail-actions { display: grid; gap: 0.45rem; }
+.quiz-rail-actions > button,
+.quiz-rail-actions > .ghost-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 0.75rem;
+  border-radius: 9px;
+  line-height: 1.25;
+}
+.quiz-rail-actions small {
+  display: block;
+  font-weight: 500;
+  font-size: 0.7rem;
+  opacity: 0.75;
+  margin-top: 0.1rem;
+}
+/* Restated, not inherited. The global button:hover in index.css is (0,1,1) and
+   fills any button with midnight — which would turn the gold Rehearse button
+   navy and make the ghost Run now button unreadable. See
+   project_global_button_hover. */
+.quiz-rail-actions .quiz-rail-go:hover {
+  background: var(--gold, #b5985a);
+  filter: brightness(1.04);
+}
+.quiz-rail-actions .quiz-rail-run:hover {
+  background: var(--card, #fff);
+  border-color: var(--gold, #b5985a);
+}
+.quiz-rail-none {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #6c7a88;
+  background: var(--soft2, #f7f5f0);
+  border: 1px solid var(--border, #e5e2dc);
+  border-radius: 9px;
+  padding: 0.6rem 0.75rem;
+}
