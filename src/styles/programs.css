@@ -36,6 +36,13 @@
 .program-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
 
 /* ── Bar bits ─────────────────────────────────────────────────────────── */
+/* The cockpit's own order assumes a title holding the left of the bar: tabs
+   are sent to the end and wrap onto a second row beneath it. This page has no
+   title any more, so the tabs take the left and the action the right — the
+   same two lines the library pages use, at (0,4,0) so they also win inside
+   the cockpit's container queries. */
+.programs-page .cockpit-hero .cockpit-hero-row .view-tabs { order: 1; margin: 0; }
+.programs-page .cockpit-hero .cockpit-hero-row .page-hero-actions { order: 2; margin-left: auto; }
 .programs-page .cockpit-hero .page-hero-actions { display: flex; align-items: center; gap: 0.6rem; }
 .programs-page .program-new-btn,
 .programs-page .program-publish-btn { padding: 0.42rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
@@ -155,8 +162,9 @@
 .programs-list-table tbody tr { cursor: pointer; }
 .programs-table tr.is-selected td { background: #fbf7ee; }
 .programs-table .program-swatch { margin-right: 0.45rem; vertical-align: 1px; }
+/* Not a link any more — the row opens the details. The underline on hover
+   went with the anchor; it promised a navigation this no longer does. */
 .program-name-link { font-weight: 600; color: var(--midnight); }
-.program-name-link:hover { text-decoration: underline; }
 .programs-running { color: #2f7a52; font-weight: 600; }
 .program-class-name { font-weight: 600; color: var(--midnight); }
 .program-class-state { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 600; white-space: nowrap; color: #4b5a6a; }
@@ -272,11 +280,10 @@
 .program-choose input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .program-choose:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* ── Rail ─────────────────────────────────────────────────────────────── */
-.program-selected-name { font-weight: 800; font-size: 1rem; color: var(--midnight); line-height: 1.3; }
-.program-selected-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #6c7a88; margin: 0.3rem 0 0.7rem; }
-.program-selected-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.program-selected-actions a { font-size: 0.82rem; padding: 0.35rem 0.7rem; }
+/* ── Rail ───────────────────────────────────────────────────────────────
+   The selected programme used to live here as a card. It is a slide-over now
+   (the .wb-rail-* idiom in dashboard.css, shared with the library), so the
+   rail carries "Needs you" alone and .program-selected-* is gone with it. */
 .cockpit-rail .program-alert-static { cursor: default; }
 .cockpit-rail .program-alert-static:hover { background: transparent; }
 .cockpit-dot.tone-ok { background: #2f8f5f; }

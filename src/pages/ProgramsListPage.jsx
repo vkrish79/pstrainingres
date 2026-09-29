@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { usePrograms } from '../hooks/usePrograms.js';
 import { programColour } from '../lib/programColour.js';
-import { classSummary, isReady, shortDate } from '../lib/programReadiness.js';
+import { classSummary, isReady, shortDate, shortRange } from '../lib/programReadiness.js';
 import { Ring } from '../components/dashboard/SessionCockpit.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
@@ -33,6 +33,12 @@ export default function ProgramsListPage() {
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState(readView);
   const [selectedId, setSelectedId] = useState(null);
+  // MOUNT AND OPEN ARE SEPARATE, one pair of frames apart — the same idiom as
+  // Workbooks and Assessments. A CSS transition needs a previous state to
+  // travel from, so a panel rendered already open simply appears; and clearing
+  // the selection on close would unmount it before it could travel back.
+  // selectedId therefore survives the slide out and is cleared when it lands.
+  const [panelOpen, setPanelOpen] = useState(false);
 
   function pickView(v) {
     setView(v);
@@ -62,14 +68,37 @@ export default function ProgramsListPage() {
   const draftsNotReady = drafts.filter(p => !isReady(p));
   const publishedNotReady = published.filter(p => !isReady(p));
 
+  function openPanel(id) {
+    setSelectedId(id);
+    // Two frames: the first paints the panel off-screen, the second sends it
+    // in. One is enough in most browsers and not in all of them.
+    requestAnimationFrame(() => requestAnimationFrame(() => setPanelOpen(true)));
+  }
+
+  function closePanel() { setPanelOpen(false); }
+
+  // Esc closes it, like every other slide-over here.
+  useEffect(() => {
+    if (!panelOpen) return undefined;
+    const onKey = e => { if (e.key === 'Escape') closePanel(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panelOpen]);
+
+  // A filter that hides the chosen programme must not leave its details open
+  // over a list it is not in.
+  useEffect(() => {
+    if (panelOpen && selectedId && !shown.some(p => p.id === selectedId)) closePanel();
+  }, [panelOpen, selectedId, shown]);
+
   return (
     <>
       <TopBar />
       <main className="page dashboard programs-page">
-        <header className="cockpit-page-title">
-          <h1>Programmes</h1>
-        </header>
-
+        {/* NO PAGE HEADING, and no count above the tiles. The rail says
+            Programmes and so does the app bar; the class count is already the
+            CLASSES gauge a few pixels below. The bar carries controls only,
+            the same as the library. */}
         <section className="page-hero compact cockpit-hero">
           <div className="cockpit-hero-row">
             <div className="view-tabs" role="group" aria-label="Show programmes">
@@ -78,11 +107,6 @@ export default function ProgramsListPage() {
                   {label}
                 </button>
               ))}
-            </div>
-            <div className="page-hero-text">
-              <p className="cockpit-hero-sub">
-                {!loading && <span>{allClasses.length} class{allClasses.length === 1 ? '' : 'es'} made from these</span>}
-              </p>
             </div>
             <div className="page-hero-actions">
               <NewProgramControl
@@ -162,7 +186,7 @@ export default function ProgramsListPage() {
                   <ul className="program-tiles" aria-label="Programmes">
                     {shown.map(p => (
                       <li key={p.id}>
-                        <ProgramTile p={p} selected={p.id === selectedId} onPick={() => setSelectedId(p.id)} onOpen={() => navigate(`/trainer/programs/${p.id}`)} />
+                        <ProgramTile p={p} selected={p.id === selectedId} onPick={() => openPanel(p.id)} />
                       </li>
                     ))}
                   </ul>
@@ -176,10 +200,14 @@ export default function ProgramsListPage() {
                       </thead>
                       <tbody>
                         {shown.map(p => (
-                          <tr key={p.id} className={p.id === selectedId ? 'is-selected' : ''} onClick={() => setSelectedId(p.id)}>
+                          <tr key={p.id} className={p.id === selectedId ? 'is-selected' : ''} onClick={() => openPanel(p.id)}>
                             <td>
                               <span className="program-swatch" style={{ background: p.colour }} aria-hidden="true" />
-                              <Link to={`/trainer/programs/${p.id}`} className="program-name-link" onClick={e => e.stopPropagation()}>{p.title}</Link>
+                              {/* The name no longer swallows the click to
+                                  navigate. The whole row opens the details,
+                                  which carry "Open programme" — one gesture
+                                  here, the same one the tiles have. */}
+                              <span className="program-name-link">{p.title}</span>
                             </td>
                             <td><StatusChip status={p.status} /></td>
                             <td>{p.workbook ? <span className="piece is-yes">Yes</span> : <span className="piece is-no-bad">None</span>}</td>
@@ -195,23 +223,9 @@ export default function ProgramsListPage() {
                 )}
               </section>
 
-              <aside className="cockpit-rail" aria-label="Programme details">
-                {selected && (
-                  <section className="cockpit-card">
-                    <h3 className="cockpit-card-title">Selected</h3>
-                    <div className="program-selected-name">{selected.title}</div>
-                    <div className="program-selected-meta">
-                      <StatusChip status={selected.status} />
-                      <span>{selected.program_type?.name || 'No type'} · created {shortDate(selected.created_at)}</span>
-                    </div>
-                    <div className="program-selected-actions">
-                      <Link to={`/trainer/programs/${selected.id}`} className="primary-link">Open programme</Link>
-                      {selected.status === 'published' && isReady(selected) && (
-                        <Link to={`/trainer?new=1&program=${selected.id}`} className="ghost-link">New class from it</Link>
-                      )}
-                    </div>
-                  </section>
-                )}
+              {/* One card now, and it carries its own heading — a label here
+                  would only say "Needs you" a second time. */}
+              <aside className="cockpit-rail">
                 <section className="cockpit-card">
                   <h3 className="cockpit-card-title">Needs you</h3>
                   {publishedNotReady.length + draftsNotReady.length === 0 ? (
@@ -245,6 +259,92 @@ export default function ProgramsListPage() {
             </div>
           </>
         )}
+
+        {/* THE DETAILS ARRIVE OVER THE PAGE, not beside it — the same slide-over
+            the library uses, down to the class names, so there is one way a
+            panel enters this app and not two. The rail keeps "Needs you",
+            which is there whether or not anything is selected. */}
+        {selectedId && (
+          <>
+            <div
+              className={`wb-rail-backdrop${panelOpen ? ' visible' : ''}`}
+              onClick={closePanel}
+              aria-hidden="true"
+            />
+            <aside
+              className={`wb-rail-panel${panelOpen ? ' open' : ''}`}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Programme details"
+              aria-hidden={panelOpen ? undefined : 'true'}
+              onTransitionEnd={e => {
+                // Only when the slide OUT has landed, and only for the slide
+                // itself — visibility and opacity fire here too.
+                if (e.propertyName === 'transform' && !panelOpen) setSelectedId(null);
+              }}
+            >
+              {selected && (
+                <div className="wb-rail-card">
+                  <div className="wb-rail-head">
+                    <h2>{selected.title}</h2>
+                    <button type="button" className="icon-btn" aria-label="Close details" onClick={closePanel}>×</button>
+                  </div>
+                  <p className="wb-rail-desc">
+                    <StatusChip status={selected.status} />{' '}
+                    {selected.program_type?.name || 'No type'} · created {shortDate(selected.created_at)}
+                  </p>
+
+                  {/* A WORKBOOK IS THE ONLY REQUIRED PIECE — a missing one is
+                      why no class can be made, so it is drawn as a problem and
+                      a missing assessment never is. */}
+                  <dl className="wb-rail-facts">
+                    <div><dt>Workbook</dt><dd>{selected.workbook
+                      ? <Link to={`/trainer/workbooks/${selected.workbook.id}`}>{selected.workbook.title}</Link>
+                      : <span className="wb-unkeyed">none — no class can be made from it</span>}</dd></div>
+                    <div><dt>Assessment</dt><dd>{selected.assessment
+                      ? <Link to={`/trainer/assessments/${selected.assessment.id}`}>{selected.assessment.title}</Link>
+                      : 'none'}</dd></div>
+                    <div><dt>PDFs</dt><dd>{selected.handouts + selected.quickRefs || 'none'}</dd></div>
+                    <div><dt>Classes</dt><dd>
+                      {selected.classes.total === 0 ? 'none yet' : (
+                        <>
+                          {selected.classes.total} · {selected.classes.open.length} open
+                          {selected.classes.running.length > 0 && `, ${selected.classes.running.length} running`}
+                        </>
+                      )}
+                    </dd></div>
+                    <div><dt>Updated</dt><dd>{shortDate(selected.updated_at)}</dd></div>
+                  </dl>
+
+                  {selected.classes.list.length > 0 && (
+                    <div className="wb-rail-classes">
+                      <h3>Classes</h3>
+                      <ul>
+                        {selected.classes.list.slice(0, 6).map(s => (
+                          <li key={s.id}>
+                            <Link to={`/trainer/sessions/${s.id}`}>{s.name}</Link>
+                            <span className={`wb-class-state is-${s.state.key}`}>{s.state.label}</span>
+                            <span className="wb-class-dates">{shortRange(s.starts_at, s.ends_at)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {selected.classes.list.length > 6 && (
+                        <p className="cockpit-empty">+{selected.classes.list.length - 6} more</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="wb-rail-actions">
+                    <Link to={`/trainer/programs/${selected.id}`} className="primary-link">Open programme</Link>
+                    {selected.status === 'published' && isReady(selected) && (
+                      <Link to={`/trainer?new=1&program=${selected.id}`} className="ghost-link">New session</Link>
+                    )}
+                  </div>
+                </div>
+              )}
+            </aside>
+          </>
+        )}
       </main>
     </>
   );
@@ -255,7 +355,11 @@ export function StatusChip({ status }) {
   return <span className={`program-status ${pub ? 'is-published' : 'is-draft'}`}>{pub ? 'Published' : 'Draft'}</span>;
 }
 
-function ProgramTile({ p, selected, onPick, onOpen }) {
+// ONE CLICK, ONE GESTURE. This used to select on a click and open on a
+// double-click; the details now arrive as a slide-over, whose backdrop would
+// swallow the second click before dblclick ever fired. So a click opens the
+// details and the panel carries "Open programme", exactly as in the library.
+function ProgramTile({ p, selected, onPick }) {
   const pdfs = p.handouts + p.quickRefs;
   return (
     <button
@@ -264,8 +368,6 @@ function ProgramTile({ p, selected, onPick, onOpen }) {
       style={{ '--edge': p.colour }}
       aria-pressed={selected}
       onClick={onPick}
-      onDoubleClick={onOpen}
-      title="Click to select, double-click to open"
     >
       <span className="program-tile-name">{p.title}</span>
       <span className="program-tile-meta">
