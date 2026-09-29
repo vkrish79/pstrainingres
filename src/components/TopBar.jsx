@@ -24,6 +24,11 @@ const SECTIONS = [
   ['/trainer/assessments', 'Assessments'],
   ['/trainer/question-bank', 'Question bank'],
   ['/trainer/quizzes', 'Quizzes'],
+  // Missing, so /trainer/polls fell through to the '/trainer' catch-all at the
+  // bottom and the app bar said "Sessions" on the Polls page. Order is what
+  // decides it: the comment above says longest prefix wins, but this is a
+  // .find(), so it is FIRST match — anything below the catch-all is dead.
+  ['/trainer/polls', 'Polls'],
   ['/trainer/programs', 'Programs'],
   ['/trainer/workbooks', 'Workbooks'],
   ['/trainer/sessions', 'Sessions'],

@@ -185,3 +185,100 @@
 @media (prefers-reduced-motion: reduce) {
   .poll-live-dot { animation: none; }
 }
+
+/* ══ THE POLLS COCKPIT ═════════════════════════════════════════════════════
+   Hero + gauges + grid, matching the other five library pages. Everything
+   structural is borrowed (.cockpit-hero, .cockpit-gauges, .view-tabs,
+   .wb-find, .lib-new-btn); only what those did not cover is here. */
+
+/* THE CARD CARRIES A QUESTION AND TWO BUTTONS NOW — the answers came off it,
+   because which shapes are on the wall is a property of the run rather than of
+   the question. So the tile is half the height it was, and the track narrows
+   to match: 22rem of width for one sentence left a grid of mostly padding. */
+.poll-cards { grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.8rem; }
+.poll-card { padding: 0.85rem 0.9rem; gap: 0.6rem; min-height: 0; }
+.poll-card-q { font-size: 0.9rem; line-height: 1.35; color: var(--midnight); }
+.poll-card-tools { padding-top: 0.55rem; border-top: 1px solid var(--border); }
+
+/* THE OPEN EDITOR TAKES THE WHOLE ROW. Six answer inputs and a question box do
+   not belong in a 17rem column — it is the one state where the card stops
+   being a tile and becomes a form. */
+.poll-card.is-editing { grid-column: 1 / -1; }
+.poll-card.is-editing .poll-edit { max-width: 40rem; }
+
+/* The write box, which is only on screen while you are writing one. */
+.poll-add { margin-bottom: 0.9rem; }
+
+/* ── Two doors into asking the room ────────────────────────────────────────
+   The library list is below; this row is the other way in — a poll written
+   here and now, which is never saved and goes with the session. */
+.poll-doors {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.9rem;
+}
+.poll-doors-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1 1 18rem; }
+.poll-doors-text strong { font-size: 0.92rem; color: var(--midnight); }
+.poll-doors-text span { font-size: 0.8rem; }
+
+/* Light button on a light card, so it restates its own background: the global
+   button:hover fills with --midnight and would paint this navy otherwise. */
+.poll-past-reask {
+  margin-left: auto;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 7px;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--midnight);
+}
+.poll-past-reask:hover:where(:not(:disabled)) {
+  background: #f3f0ea;
+  border-color: var(--qasr);
+  color: var(--midnight);
+}
+
+.poll-doors-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+/* The quieter of the two doors. Light, so it restates its own background on
+   hover — the global button:hover fills with --midnight otherwise. */
+.poll-door-btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--midnight);
+  white-space: nowrap;
+}
+.poll-door-btn:hover:where(:not(:disabled)) { background: #f3f0ea; border-color: var(--qasr); color: var(--midnight); }
+.poll-door-btn:disabled { color: var(--muted); }
+
+/* ── Picking one from the library, in the modal ──────────────────────────── */
+.poll-pick-list { display: grid; gap: 0.4rem; max-height: 22rem; overflow-y: auto; }
+.poll-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.poll-pick:hover:not(.is-unfinished) { border-color: var(--qasr); background: #faf8f4; }
+.poll-pick.is-on { border-color: var(--midnight); background: #f4f1ea; }
+/* Present but not choosable, so nobody wonders where it went. */
+.poll-pick.is-unfinished { opacity: 0.65; cursor: default; }
+.poll-pick input { margin-top: 0.2rem; flex: 0 0 auto; }
+.poll-pick-body { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.poll-pick-q { font-size: 0.88rem; font-weight: 600; color: var(--midnight); overflow-wrap: anywhere; }
+.poll-pick-answers { display: flex; flex-wrap: wrap; gap: 0.3rem 0.7rem; font-size: 0.8rem; color: var(--ink2, #4b5a6a); }
+.poll-pick-answer { display: inline-flex; align-items: center; gap: 0.35rem; }

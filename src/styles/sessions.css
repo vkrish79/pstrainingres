@@ -540,20 +540,6 @@
 }
 .cockpit-hero .page-hero-actions .session-filter-select { min-width: 8rem; }
 
-/* The count on a tab is a second-rank number: it says how many, it is not the
-   label. Tabular figures so 1 and 12 do not shift the label beside them. */
-.cockpit-hero .view-tabs .view-tab .view-tab-count {
-  font-style: normal;
-  font-weight: 700;
-  font-size: 0.78rem;
-  color: #9aa4ae;
-  font-variant-numeric: tabular-nums;
-}
-.cockpit-hero .view-tabs .view-tab.active .view-tab-count { color: var(--gold-dark); }
-/* The ONE tab that is allowed to carry a colour of its own, and only while it
-   has something in it. A permanent amber tab is a permanent alarm. */
-.cockpit-hero .view-tabs .view-tab.is-warn .view-tab-count { color: #c98a1c; }
-.cockpit-hero .view-tabs .view-tab.active.is-warn .view-tab-count { color: #a2740f; }
 
 /* Six gauges, not the five the library pages carry, so they fit to content
    rather than to a column count this page would have to keep in step with. */
@@ -561,13 +547,12 @@
 @media (max-width: 900px) { .session-gauges { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .session-gauges { grid-template-columns: 1fr; } }
 
-/* "Tomorrow" and "in 6 weeks" are words where the other gauges have figures,
-   so they take a size that sits on the same line rather than towering over it. */
-.cockpit-gauge-value.gauge-value-sm { font-size: 1.05rem; }
-
-/* Left open is a NUDGE, not a failure: amber like the band it replaced, not
-   the red that .state-expired spends on a lapsed assessment window. */
-.cockpit-gauge-value.state-warn { color: #c98a1c; }
+/* .view-tab-count, .cockpit-gauge-value.gauge-value-sm and
+   .cockpit-gauge-value.state-warn MOVED TO dashboard.css, beside .state-open,
+   .state-expired and .is-muted. They are shared cockpit primitives rather than
+   session-only rules — Polls uses the tab count — and left in this file they
+   would be one scoping pass away from silently vanishing off another page,
+   which is exactly how the .library-page regression happened. */
 
 /* The gauge is filtering right now. A pressed state, because the click does
    not navigate — it narrows the list underneath, and without this the only

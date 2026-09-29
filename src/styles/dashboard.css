@@ -2650,6 +2650,26 @@
 .cockpit-gauge-value.state-open { color: #2f8f5f; }
 .cockpit-gauge-value.state-expired { color: #c2503c; }
 .cockpit-gauge-value.state-locked { color: var(--midnight); }
+/* A nudge rather than a failure — amber, where .state-expired spends red on a
+   lapsed assessment window. */
+.cockpit-gauge-value.state-warn { color: #c98a1c; }
+/* Words where the other gauges have figures ("Tomorrow", "in 6 weeks"), so
+   they sit on the same line instead of towering over it. */
+.cockpit-gauge-value.gauge-value-sm { font-size: 1.05rem; }
+
+/* The count on a hero tab is a second-rank number: it says how many, it is not
+   the label. Tabular figures so 1 and 12 do not shift the label beside them. */
+.cockpit-hero .view-tabs .view-tab .view-tab-count {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #9aa4ae;
+  font-variant-numeric: tabular-nums;
+}
+.cockpit-hero .view-tabs .view-tab.active .view-tab-count { color: var(--gold-dark); }
+/* Only while it has something in it. A permanent amber tab is a permanent alarm. */
+.cockpit-hero .view-tabs .view-tab.is-warn .view-tab-count { color: #c98a1c; }
+.cockpit-hero .view-tabs .view-tab.active.is-warn .view-tab-count { color: #a2740f; }
 
 @media (max-width: 1180px) {
   .cockpit-gauges { grid-template-columns: repeat(3, minmax(0, 1fr)); }
