@@ -51,22 +51,19 @@ export function scoreChoice({ correct, elapsedMs, limitSeconds, stake = 1, allow
 }
 
 // ── drop a pin — quiz_answer_pin ─────────────────────────────────────────
-// The same shape as scoreChoice WITH ONE DIFFERENCE, and it is not one this
-// file invented: quiz_answer_pin's losing branch reads `WHEN q.allow_wager`
-// with no stake test, where quiz_answer reads `WHEN q.allow_wager AND v_wager
-// > 1`. So on a pin question with the wager flag on, a wrong pin at 1× LOSES
-// points — the free play is not free there.
+// SCORED EXACTLY LIKE A CHOICE, which is the point: a pin is right or wrong
+// the way a shape is, so it earns and forfeits the way a shape does.
 //
-// It looks like the guard was added to quiz_answer and missed here. Until the
-// server is changed this matches it deliberately, because the whole value of a
-// rehearsal is that it scores like the room does. If the SQL is fixed, delete
-// the second branch and this comment with it.
-export function scorePin({ correct, elapsedMs, limitSeconds, stake = 1, allowWager = false }) {
-  const wager = clampWager(stake, allowWager);
-  const earned = earnedAtSpeed({ elapsedMs, limitSeconds });
-  if (correct) return { points: earned * wager, wager };
-  if (allowWager) return { points: -earned * wager, wager };
-  return { points: 0, wager };
+// It was not always so. quiz_answer_pin's losing branch used to read `WHEN
+// q.allow_wager` with no stake test, where quiz_answer reads `WHEN
+// q.allow_wager AND v_wager > 1` — so a wrong pin at 1× lost points and the
+// free play was not free. The guard had been added to one function and missed
+// on the other; RUN-THIS-IN-SUPABASE-pin-wager-guard.txt put it back.
+//
+// It delegates rather than repeating the branches, so the two cannot drift
+// apart again on this side the way they did on the server's.
+export function scorePin(args) {
+  return scoreChoice(args);
 }
 
 // ── put in order — quiz_answer_order ─────────────────────────────────────
