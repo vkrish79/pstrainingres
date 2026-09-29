@@ -179,7 +179,10 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   position: relative;
   border-bottom: 1px solid var(--border);
-  /* Room for the date numbers plus however many tracks this week needs. */
+  /* Room for the date numbers plus the deepest stack IN THIS MONTH. --tracks is
+     set once on .session-cal rather than per week, so every week is the same
+     height: a week sized to its own count made an empty week a third the height
+     of a busy one, and the month read as a staircase. */
   min-height: calc(var(--cal-daynum-h) + (var(--tracks, 0) + 0.6) * (var(--cal-bar-h) + 0.2rem));
 }
 .session-cal-week:last-child { border-bottom: none; }
@@ -193,8 +196,21 @@
 .session-cal-day:last-child { border-right: none; }
 .session-cal-day.weekend { background: var(--bg); }
 .session-cal-day.outside .session-cal-daynum { color: var(--border); }
-.session-cal-day.today { box-shadow: inset 0 2px 0 var(--gold); }
-.session-cal-day.today .session-cal-daynum { color: var(--gold-dark); font-weight: 800; }
+/* A GOLD DISC, not a hairline at the top of the cell. The old 2px inset rule
+   was easy to miss on a busy row and impossible to see at all on a row whose
+   bars started at the top. */
+.session-cal-day.today { background: #fdfaf2; }
+.session-cal-day.today .session-cal-daynum {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #fff;
+  font-weight: 800;
+}
+.density-tiny .session-cal-day.today .session-cal-daynum { width: 1.05rem; height: 1.05rem; }
 .session-cal-daynum {
   font-size: 0.72rem;
   font-weight: 600;
@@ -215,14 +231,56 @@
   gap: 0.35rem;
   font-size: 0.7rem;
   font-weight: 600;
-  color: #fff;
   text-decoration: none;
   overflow: hidden;
+  /* A WASH AND A RAIL, not a solid slab. Five sessions painted solid read as
+     five blocks of colour; tinted with dark text they read as five names, and
+     the grid stays the loudest thing on the page.
+
+     Both shades are derived from the one --c the component sets, so the six
+     palette colours need no hand-picked tint or text pair. color-mix is new to
+     this codebase — it is supported in every browser this app targets. */
+  /* SOFT RAISED: light at the top, deeper at the bottom, a white lip along the
+     top edge and a single pixel of shadow beneath, so the bar sits ON the grid
+     rather than being painted onto it. Deliberately restrained — a 22px bar has
+     about fourteen usable pixels of gradient, and anything stronger stops
+     reading as depth and starts reading as texture. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--c) 7%, #fff) 0%,
+    color-mix(in srgb, var(--c) 20%, #fff) 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 1px 2px rgba(30, 60, 90, 0.16);
+  border-left: 3px solid var(--c);
+  color: color-mix(in srgb, var(--c) 78%, #000);
+  border-radius: 3px;
 }
-.session-cal-bar:hover { filter: brightness(1.08); }
+.session-cal-bar:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--c) 14%, #fff) 0%,
+    color-mix(in srgb, var(--c) 30%, #fff) 100%
+  );
+  filter: none;
+}
+/* A continued segment does not START here, so it gets no rail — the rail is
+   what says "this is the first day of it". */
+.session-cal-bar.clip-start { border-left-width: 0; padding-left: 0.55rem; }
 .session-cal-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-cal-bar-count { margin-left: auto; opacity: 0.85; font-weight: 500; }
-.session-cal-bar.is-closed { opacity: 0.45; }
+/* GREY, NOT FADED. opacity:0.45 worked on a solid bar with white text; on a
+   12% wash with dark text it washes out to almost nothing. Nothing loads closed
+   sessions into the calendar today (every caller passes includeClosed='live'),
+   but this stays honest for the day one is pointed at the archive. */
+.session-cal-bar.is-closed {
+  /* Its own gradient, not a flat fill — this rule replaces the background
+     wholesale, so without one a closed bar would be the only flat object in a
+     grid of modelled ones. */
+  background: linear-gradient(180deg, #fbfaf8 0%, #efedea 100%);
+  border-left-color: var(--muted);
+  color: var(--muted);
+}
+.session-cal-bar.is-closed:hover { background: linear-gradient(180deg, #fbfaf8 0%, #efedea 100%); }
 
 /* A session running into or out of this week is squared off at that edge, so
    it reads as continuing rather than starting or stopping there. */
@@ -341,7 +399,22 @@
    non-visible value on one axis makes the other compute to auto — so the
    calendar clips on both and an absolutely-positioned card would be sliced at
    the grid edge. Fixed positions against the viewport and escapes that. */
+/* THE CALLOUT. Wears the program's own colour, so with three bars stacked the
+   card visibly came from one of them. --c is set by the component from the same
+   sessionColour() the bar uses; the tint and the dark text are derived from it,
+   exactly as on the bar. */
+/* IT GROWS OUT OF THE TAIL. The origin is the tail's own corner rather than the
+   card's, so the card looks like it came from the bar — the motion saying the
+   same thing the wedge says. --ax follows the tail, so the origin follows it
+   too; a fixed corner would be wrong the moment the card is clamped sideways.
+
+   800ms is chosen, not a default. It is slow for a tooltip, and deliberately
+   so — see the note on the hover delay in SessionCalendar if it starts firing
+   on pass-through. */
 .session-hovercard {
+  opacity: 0;
+  transform: scale(0.90);
+  transform-origin: var(--ax, 10px) 100%;
   position: fixed;
   z-index: 80;
   /* A read, not a target. If the cursor could land on it, crossing the gap
@@ -350,33 +423,60 @@
   width: 17rem;
   max-width: calc(100vw - 1rem);
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  box-shadow: 0 10px 30px rgba(30, 60, 90, 0.18);
-  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--c);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(30, 60, 90, 0.20);
   font-size: 0.8rem;
   line-height: 1.45;
 }
 
-.session-hovercard-head {
-  display: flex; align-items: center; gap: 0.45rem;
-  margin-bottom: 0.35rem;
+/* Flipped below the bar, so it grows DOWN from the tail at its top edge. */
+.session-hovercard.points-up { transform-origin: var(--ax, 10px) 0; }
+
+.session-hovercard.is-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 800ms ease-out,
+    transform 800ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
-.session-hovercard-swatch {
-  flex: none; width: 3px; height: 1.05em; border-radius: 2px;
+
+/* No entrance for anyone who has asked the OS for less movement — they get the
+   card the way it worked before, which is instantly and in place. */
+@media (prefers-reduced-motion: reduce) {
+  .session-hovercard,
+  .session-hovercard.is-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* The name on a wash of the program colour, so the title band and the bar it
+   came from are the same object at a glance. */
+.session-hovercard-cap {
+  background: color-mix(in srgb, var(--c) 12%, #fff);
+  border-bottom: 1px solid var(--c);
+  border-radius: 9px 9px 0 0;
+  padding: 0.55rem 0.75rem;
 }
 .session-hovercard-name {
-  color: var(--midnight);
-  font-size: 0.9rem;
+  display: block;
+  color: color-mix(in srgb, var(--c) 78%, #000);
+  font-size: 0.88rem;
   /* Long names wrap here rather than ellipsising — the card exists precisely
      to show what the bar had to cut off. */
   overflow-wrap: anywhere;
 }
+.session-hovercard-prog {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--c) 62%, #000);
+}
+.session-hovercard-type { opacity: 0.75; }
 
-.session-hovercard-prog { color: var(--text); margin-bottom: 0.45rem; }
-.session-hovercard-type { color: var(--muted); }
-
-.session-hovercard-rows { margin: 0; display: grid; gap: 0.15rem; }
+.session-hovercard-rows { margin: 0; display: grid; gap: 0.15rem; padding: 0.6rem 0.8rem 0.7rem; }
 .session-hovercard-rows > div {
   display: grid;
   grid-template-columns: 4.2rem 1fr;
@@ -390,6 +490,49 @@
   align-self: center;
 }
 .session-hovercard-rows dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+
+/* ── The tail ──────────────────────────────────────────────────────────────
+   A CORNER WEDGE: a right angle dropping off the leading edge, which is the
+   shape that reads as speech rather than as a notch. Two stacked clip-paths —
+   the border colour underneath, the card's fill on top inset by a hair — since
+   a CSS border-triangle cannot carry an outline, and this one has to continue
+   the card's coloured edge around its point.
+
+   --ax is set by the component from where the BAR starts, so a stack of three
+   bars still points unambiguously. */
+.session-hovercard-tail {
+  position: absolute;
+  left: var(--ax, 10px);
+  width: 26px;
+  height: 20px;
+}
+.session-hovercard-tail > span { position: absolute; }
+.hc-tail-edge { inset: 0; background: var(--c); }
+.hc-tail-fill { background: var(--card); }
+/* Covers the card's own border where the tail joins it, so the outline reads
+   as one continuous shape rather than a triangle stuck onto a box. */
+.hc-tail-mouth { height: 2px; left: 1px; right: 1px; background: var(--card); }
+
+/* Pointing DOWN — the card sits above the bar. The right angle is on the left,
+   so the vertical face lines up with where the bar begins. */
+.points-down .session-hovercard-tail { top: 100%; }
+.points-down .hc-tail-edge { clip-path: polygon(0 0, 0 100%, 100% 0); }
+.points-down .hc-tail-fill {
+  top: -2px; left: 1.5px; right: 2px; bottom: 2.5px;
+  clip-path: polygon(0 0, 0 100%, 100% 0);
+}
+.points-down .hc-tail-mouth { top: -1px; }
+
+/* Pointing UP — the card has been flipped below the bar, so the wedge is
+   mirrored vertically rather than rotated: a right angle only reads as a tail
+   when its upright face is the one nearest where the bar starts. */
+.points-up .session-hovercard-tail { bottom: 100%; }
+.points-up .hc-tail-edge { clip-path: polygon(0 100%, 0 0, 100% 100%); }
+.points-up .hc-tail-fill {
+  bottom: -2px; left: 1.5px; right: 2px; top: 2.5px;
+  clip-path: polygon(0 100%, 0 0, 100% 100%);
+}
+.points-up .hc-tail-mouth { bottom: -1px; }
 
 /* ── Quarter and year views ──────────────────────────────────────────────
    Three months side by side, or twelve in a 4×3 block — the same shape
@@ -458,7 +601,16 @@
   margin-left: 0.08rem;
   margin-right: 0.08rem;
   padding: 0;
+  /* FLAT AT THIS SIZE. A year-view bar is 4px high and carries no text, so a
+     gradient has nothing to grade across and the inset highlight would eat a
+     quarter of it — and this is the one density that draws twelve months at
+     once, so it is the worst place to pay for paint nobody can see. A solid
+     strip of the program colour is what reads at 4px. */
+  background: var(--c);
+  box-shadow: none;
+  border-left: 0;
 }
+.session-cal-block.density-tiny .session-cal-bar:hover { background: var(--c); }
 
 /* The month grid keeps its own min-width at full density so a single month
    never squashes below readability; inside a quarter or year block that floor

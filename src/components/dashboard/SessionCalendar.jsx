@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { sessionColour } from '../../lib/programColour.js';
 import SessionHoverCard from './SessionHoverCard.jsx';
@@ -64,6 +64,16 @@ function MonthBlock({
     return out;
   }, [sessions, monthDate]);
 
+  // The deepest stack any week in this month needs, capped at what the density
+  // will draw. One number for the month, so every week reserves the same room.
+  const monthTracks = useMemo(() => {
+    let deepest = 0;
+    for (const { items } of weeks) {
+      for (const i of items) deepest = Math.max(deepest, i.track + 1);
+    }
+    return Math.min(maxTracks, deepest);
+  }, [weeks, maxTracks]);
+
   const todayISO = dayStart(new Date()).getTime();
   const thisMonth = monthDate.getMonth();
   const monthLabel = monthDate.toLocaleDateString('en-GB', { month: 'long' });
@@ -86,7 +96,16 @@ function MonthBlock({
         )
       )}
 
-      <div className="session-cal">
+      {/* EVERY WEEK THE SAME HEIGHT, set once for the month rather than per
+          week. A week used to size itself to its own track count, so an empty
+          week was a third the height of a busy one and a month read as a
+          staircase rather than a grid.
+
+          The busiest week in THIS month, not the density's cap: reserving all
+          three tracks everywhere would leave a quiet month mostly empty box,
+          which is the opposite problem. Overflow past the cap is already
+          handled by "+N more". */}
+      <div className="session-cal" style={{ '--tracks': monthTracks }}>
         <div className="session-cal-dow">
           {DOW.map(d => <span key={d}>{tiny ? d.charAt(0) : d}</span>)}
         </div>
@@ -102,13 +121,10 @@ function MonthBlock({
               overflowByCol[c] = (overflowByCol[c] || 0) + 1;
             }
           }
-          const trackCount = Math.min(maxTracks, items.reduce((m, i) => Math.max(m, i.track + 1), 0));
-
           return (
             <div
               key={weekStart.toISOString()}
               className="session-cal-week"
-              style={{ '--tracks': trackCount }}
             >
               {days.map((d, dayIdx) => {
                 const isWeekend = [5, 6].includes((d.getDay() + 6) % 7);
@@ -136,7 +152,13 @@ function MonthBlock({
                   to={`/trainer/sessions/${i.session.id}`}
                   className={`session-cal-bar${i.session.closed_at ? ' is-closed' : ''}${i.clippedStart ? ' clip-start' : ''}${i.clippedEnd ? ' clip-end' : ''}`}
                   style={{
-                    background: sessionColour(i.session),
+                    // THE COLOUR, NOT THE FILL. The bar used to be painted
+                    // solid in the program colour with white text; it is now a
+                    // pale wash of it with a rail down the leading edge and
+                    // dark text, so a month of sessions reads as names rather
+                    // than as blocks. The tint and the text shade are derived
+                    // from this one value in CSS — see .session-cal-bar.
+                    '--c': sessionColour(i.session),
                     gridColumn: `${i.col + 1} / span ${i.span}`,
                     '--track': i.track,
                   }}
@@ -144,9 +166,12 @@ function MonthBlock({
                      chrome, and mostly repeated the bar. onFocus/onBlur as well
                      as the mouse handlers, so tabbing through the calendar
                      gets the same information as hovering. */
-                  onMouseEnter={e => onBarEnter?.(i.session, e.currentTarget)}
+                  onMouseEnter={e => onBarEnter?.(i.session, e.currentTarget, e.clientX)}
                   onMouseLeave={onBarLeave}
-                  onFocus={e => onBarEnter?.(i.session, e.currentTarget)}
+                  /* No clientX on a focus event — the card falls back to the
+                     bar's own leading edge, which is where a keyboard user's
+                     attention is. */
+                  onFocus={e => onBarEnter?.(i.session, e.currentTarget, null)}
                   onBlur={onBarLeave}
                 >
                   {/* At tiny density the bar is a 4px strip. Text would be a
@@ -192,8 +217,24 @@ export default function SessionCalendar({
   // stored rather than the element, so the card positions against a snapshot
   // and cannot end up reading a node that has since re-rendered.
   const [card, setCard] = useState(null);
-  function showCard(session, el) {
-    setCard({ session, anchor: el.getBoundingClientRect() });
+  // The calendar's own box, so the card can flip against IT rather than against
+  // the window. A bar in the first week or two used to open a card straight
+  // over the Month / Quarter / Year pills and the stepper, because the only
+  // thing it avoided leaving was the viewport — and the toolbar is nowhere
+  // near the viewport's top edge.
+  const wrapRef = useRef(null);
+  // pointerX is where the mouse actually entered the bar, so the card can open
+  // under the cursor rather than at the bar's leading edge. On a session that
+  // runs Monday to Sunday those are a screen apart, and opening seven days away
+  // from the pointer reads as belonging to something else. Null from a focus
+  // event, where there is no pointer.
+  function showCard(session, el, pointerX) {
+    setCard({
+      session,
+      anchor: el.getBoundingClientRect(),
+      bounds: wrapRef.current?.getBoundingClientRect() ?? null,
+      pointerX: typeof pointerX === 'number' ? pointerX : null,
+    });
   }
   function hideCard() { setCard(null); }
 
@@ -207,7 +248,7 @@ export default function SessionCalendar({
   const periodWord = view === 'year' ? 'this year' : view === 'quarter' ? 'this quarter' : 'this month';
 
   return (
-    <div className="session-cal-wrap">
+    <div className="session-cal-wrap" ref={wrapRef}>
       <div className={`session-cal-months view-${view}`}>
         {months.map(m => (
           <MonthBlock
@@ -250,7 +291,21 @@ export default function SessionCalendar({
 
       {/* Rendered last and positioned against the viewport, so it draws over
           the grid instead of inside it — see the note in SessionHoverCard. */}
-      {card && <SessionHoverCard session={card.session} anchor={card.anchor} />}
+      {/* KEYED ON THE SESSION, so moving from one bar to the next REMOUNTS the
+          card and plays the entrance again. Without it React reuses the same
+          element: the card would keep the opacity and scale it already had and
+          simply jump to the new coordinates — invisible at 160ms, and at 800ms
+          a card that slides across the calendar instead of growing out of the
+          bar you are pointing at. */}
+      {card && (
+        <SessionHoverCard
+          key={card.session.id}
+          session={card.session}
+          anchor={card.anchor}
+          bounds={card.bounds}
+          pointerX={card.pointerX}
+        />
+      )}
     </div>
   );
 }
