@@ -414,10 +414,22 @@ export default function WorkbooksPage() {
 
                   <div className="wb-rail-actions">
                     <Link to={`/trainer/workbooks/${selected.id}`} className="primary-link">Open editor</Link>
+                    {/* THE RAIL GOES WITH IT. The preview is a full-screen
+                        read of the same workbook, so leaving the panel open
+                        behind it left two overlays stacked — and both listen
+                        for Escape, so one press closed the rail underneath
+                        while the book stayed up.
+
+                        The id and title are read BEFORE closing: closeRail
+                        clears selectedId when the slide-out lands, so reading
+                        them after would be a race with the transition. */}
                     <button
                       type="button"
                       className="ghost"
-                      onClick={() => setPreview({ id: selected.id, title: selected.title })}
+                      onClick={() => {
+                        setPreview({ id: selected.id, title: selected.title });
+                        closeRail();
+                      }}
                     >
                       📖 Preview as a book
                     </button>
