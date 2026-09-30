@@ -13,6 +13,8 @@ import { isInactiveBlock } from '../lib/assessmentScoring.js';
 import Block from '../components/blocks/Block.jsx';
 import AssessmentQuestionNav from '../components/participant/AssessmentQuestionNav.jsx';
 import TopBar from '../components/TopBar.jsx';
+import PrepCallout from '../components/PrepCallout.jsx';
+import { calloutItems } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
 import '../styles/workbook-rail.css';
@@ -28,9 +30,12 @@ export default function ParticipantAssessmentPage() {
   // A paper-only re-sit has no workbook, so every "back to the workbook" here
   // would send them to a page that immediately bounces them back.
   const isResit = session?.kind === 'resit';
-  const { prep: sectionPrep, standalone: standalonePrep } = useParticipantAssessmentPrep(
-    session?.id, authSession?.user.id, session?.assessment_id
-  );
+  const {
+    prep: sectionPrep, standalone: standalonePrep, attached: attachedPrep, ownLabels: prepOwnLabels,
+  } = useParticipantAssessmentPrep(session?.id, authSession?.user.id, session?.assessment_id);
+  // General prep shown with a question still belongs in the locked view's list —
+  // that list is all general prep, wherever it is shown once the paper opens.
+  const lockedPrep = [...standalonePrep, ...Object.values(attachedPrep).flat()];
 
   // A question is a section: its prose is narration, its fillable blocks are
   // the lettered parts. See lib/assessmentStructure.js.
@@ -186,10 +191,10 @@ export default function ParticipantAssessmentPage() {
               <p>Your trainer hasn't unlocked the assessment yet. Check back when they're ready.</p>
             </div>
           </section>
-          {(Object.keys(sectionPrep).length > 0 || standalonePrep.length > 0) && (
+          {(Object.keys(sectionPrep).length > 0 || lockedPrep.length > 0) && (
             <section className="assessment-prep-panel">
               <h3 className="materials-list-title">🎯 Your assessment prep</h3>
-              {standalonePrep.map(s => (
+              {lockedPrep.map(s => (
                 <div key={s.id} className="participant-prep-callout">
                   <span className="participant-prep-callout-label">{s.label}</span>
                   {s.content}
@@ -300,7 +305,7 @@ export default function ParticipantAssessmentPage() {
                   {remainingLabel != null && !expired ? ` · ${remainingLabel} left` : ''}.
                   Your answers save as you type — there is nothing to submit.
                 </p>
-                <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} />
+                <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} attachedPrep={attachedPrep} ownLabels={prepOwnLabels} />
                 {paper.start.map(q => <ReadingSection key={q.section.id} q={q} />)}
                 <div className="exam-pager">
                   <span />
@@ -318,7 +323,7 @@ export default function ParticipantAssessmentPage() {
                 {page.chapter && <div className="exam-eyebrow">{page.chapter}</div>}
                 <div className="exam-count">Question {page.index + 1} of {paper.pages.length}</div>
                 {page.index === 0 && paper.start.length === 0 && (
-                  <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} />
+                  <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} attachedPrep={attachedPrep} ownLabels={prepOwnLabels} />
                 )}
                 {page.reading.map(q => <ReadingSection key={q.section.id} q={q} />)}
                 <div className="question-number">
@@ -429,8 +434,9 @@ function ReadingSection({ q }) {
   );
 }
 
-// Trainer pre-work, shown once on the first screen.
-function PrepCallouts({ sections, sectionPrep, standalonePrep }) {
+// Trainer pre-work, shown once on the first screen. A question's box holds its
+// own value and any general prep shown with it (components/PrepCallout.jsx).
+function PrepCallouts({ sections, sectionPrep, standalonePrep, attachedPrep = {}, ownLabels = {} }) {
   return (
     <>
       {standalonePrep.length > 0 && (
@@ -444,11 +450,11 @@ function PrepCallouts({ sections, sectionPrep, standalonePrep }) {
           ))}
         </section>
       )}
-      {sections.map(sec => sectionPrep[sec.id]?.content && (
-        <div key={sec.id} className="participant-prep-callout">
-          <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-          {sectionPrep[sec.id].content}
-        </div>
+      {sections.map(sec => (
+        <PrepCallout
+          key={sec.id}
+          items={calloutItems(sectionPrep[sec.id]?.content, ownLabels[sec.id], attachedPrep[sec.id])}
+        />
       ))}
     </>
   );

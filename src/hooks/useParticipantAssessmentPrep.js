@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { attachedHeadersBySection, splitGeneralPrep } from '../lib/prepAttach.js';
 
 // Resolves the participant's allocated assessment_prep_kits row for the
 // session, joins it against the master assessment's prep_template (header ->
 // section_id), and returns:
 //   prep[section_id] = { content }                — header-linked prep
-//   standalone = [{ id, label, content }]         — headers with no section
+//   standalone = [{ id, label, content }]         — headers with no section,
+//                                                   minus those shown with a question
+//   attached[section_id] = [{ label, content }]   — general prep shown WITH that
+//                                                   question (template show_with)
+//   ownLabels[section_id] = header                — the question's own column
 //
 // Mirrors the shape of useParticipantPrep so the same callout components can
 // render workbook + assessment prep without per-kind branches.
 export function useParticipantAssessmentPrep(sessionId, participantId, assessmentCloneId) {
   const [prep, setPrep] = useState({});
   const [standalone, setStandalone] = useState([]);
+  const [attached, setAttached] = useState({});   // { [cloneSectionId]: [{ label, content }] }
+  const [ownLabels, setOwnLabels] = useState({}); // { [cloneSectionId]: header }
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,6 +53,7 @@ export function useParticipantAssessmentPrep(sessionId, participantId, assessmen
       (cloneSections || []).forEach(s => {
         if (s.template_section_id) tplSecIdToCloneSecId[s.template_section_id] = s.id;
       });
+      const labels = {};
       for (const item of template) {
         const header = item?.header;
         if (!header) continue;
@@ -54,16 +62,24 @@ export function useParticipantAssessmentPrep(sessionId, participantId, assessmen
         const cloneSecId = item.section_id ? tplSecIdToCloneSecId[item.section_id] : null;
         if (cloneSecId) {
           mapByHeader[cloneSecId] = { content };
+          labels[cloneSecId] = header;
         } else {
           stand.push({ id: header, label: header, content });
         }
       }
+      // General prep the template shows WITH a question (show_with) moves onto
+      // that question and out of the general list — lib/prepAttach.js.
+      const { bySection, general } = splitGeneralPrep(
+        stand, attachedHeadersBySection(template, tplSecIdToCloneSecId),
+      );
       setPrep(mapByHeader);
-      setStandalone(stand);
+      setStandalone(general);
+      setAttached(bySection);
+      setOwnLabels(labels);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [sessionId, participantId, assessmentCloneId]);
 
-  return { prep, standalone, loading };
+  return { prep, standalone, attached, ownLabels, loading };
 }
