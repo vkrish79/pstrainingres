@@ -191,6 +191,31 @@ button.primary:hover:where(:not(:disabled)) { background: var(--midnight-hover);
   cursor: pointer;
 }
 .editor-section-head .form-input { flex: 1; }
+
+/* Prep marker on an exercise heading (ContentEditorScaffold.prepChip). A light
+   pill, so it restates its background on hover — the global button:hover would
+   otherwise fill it midnight. */
+.prep-chip,
+.prep-chip:hover:where(:not(:disabled)) {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--gold); border-radius: 999px;
+  background: #f5efe0; color: #6a5528;
+  font-size: 0.72rem; font-weight: 700; line-height: 1.5;
+  white-space: nowrap; flex-shrink: 0;
+}
+.prep-chip:hover:where(:not(:disabled)) { background: #ece1c4; }
+.prep-chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold-dark); }
+
+/* The checklist row the chip jumps to, lit briefly so the eye lands on it. */
+@keyframes prep-row-flash {
+  0%, 60% { box-shadow: inset 0 0 0 2px var(--gold); }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
+}
+.prep-check tr.prep-row-flash td { animation: prep-row-flash 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .prep-check tr.prep-row-flash td { animation: none; background: #ece1c4; }
+}
 /* This row swaps one "Delete question" button for a sentence plus Yes and No, so
    its width roughly triples the moment it is clicked. It used to be
    flex-shrink:0 with no wrapping, which meant the group simply kept growing past

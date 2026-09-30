@@ -1,0 +1,126 @@
+// Pure edits to a parent's prep_template — the list the prep setup checklist
+// reads and writes. No Supabase in here, so every rule below can be run in node.
+//
+// An entry is { header, section_id, label?, source_workbook_id? }:
+//   header     — the column a trainer fills AND the key a kit's payload stores
+//                the value under. It is therefore an identity, not a caption:
+//                once a kit carries it, changing it strands the value (the kit
+//                still holds "EX12", the template now asks for something else,
+//                and claim_prep_kit hands the old one out as a general item).
+//                Nothing here ever rewrites an existing header.
+//   section_id — the exercise it belongs to, or null for a general item.
+//   label      — optional: what the value IS ("PNR", "EMD number"). A caption on
+//                top of the header, free to change at any time.
+//   source_workbook_id — a column drawn from another workbook's pool (composed
+//                workbooks). Managed there; read-only here.
+
+import { IGNORED_HEADERS } from './prepColumns.js';
+
+const norm = s => String(s ?? '').trim().toLowerCase();
+
+export const MAX_HEADER_LENGTH = 40;
+
+export function isLocked(entry) {
+  return !!entry?.source_workbook_id;
+}
+
+// Map of section id -> the column linked to it. First wins, as it does
+// everywhere else a template is read: a section hosts one linked column.
+export function linkedBySection(template) {
+  const map = new Map();
+  for (const e of template || []) {
+    if (e?.section_id && !map.has(e.section_id)) map.set(e.section_id, e);
+  }
+  return map;
+}
+
+// A header no other column is using. Starts from the exercise's own title, so a
+// new column reads "Exercise 12" with no convention to remember, and only grows
+// a suffix if that name is already taken.
+export function uniqueHeader(wanted, template) {
+  const base = String(wanted ?? '').trim().slice(0, MAX_HEADER_LENGTH) || 'Prep item';
+  const taken = new Set((template || []).map(e => norm(e.header)));
+  if (!taken.has(norm(base))) return base;
+  for (let n = 2; ; n++) {
+    const candidate = `${base} (${n})`;
+    if (!taken.has(norm(candidate))) return candidate;
+  }
+}
+
+// Why a name typed for a general item cannot be used, or '' if it can.
+export function generalHeaderProblem(name, template) {
+  const header = String(name ?? '').trim();
+  if (!header) return 'Give the item a name.';
+  if (header.length > MAX_HEADER_LENGTH) return `Keep the name to ${MAX_HEADER_LENGTH} characters or fewer.`;
+  // The pool upload drops these columns unread (they are what people call the
+  // "who is this row for" column), so an item named one could never be stocked.
+  if (IGNORED_HEADERS.has(norm(header))) return `“${header}” is skipped when a prep sheet is uploaded — choose another name.`;
+  if ((template || []).some(e => norm(e.header) === norm(header))) return `There is already a column called “${header}”.`;
+  return '';
+}
+
+// Add the column for one exercise. `orderedSectionIds` is the parent's exercises
+// in document order.
+//
+// The new column goes where the exercise sits among the columns already linked
+// to exercises, and nothing else moves. Column order is what the fill sheet and
+// the paste grid show, and the paste grid fills by POSITION — so re-sorting the
+// whole template on every tick would silently shift what a trainer's existing
+// spreadsheet lines up with.
+export function addLinked(template, entry, orderedSectionIds) {
+  const list = [...(template || [])];
+  if (list.some(e => e.section_id === entry.section_id)) return list;
+  const rank = new Map(orderedSectionIds.map((id, i) => [id, i]));
+  const mine = rank.get(entry.section_id) ?? Infinity;
+  let at = -1;       // index of the last linked column that comes BEFORE this exercise
+  let firstLinked = -1;
+  list.forEach((e, i) => {
+    if (!e.section_id || !rank.has(e.section_id)) return;
+    if (firstLinked === -1) firstLinked = i;
+    if (rank.get(e.section_id) < mine) at = i;
+  });
+  // Nothing linked precedes it: lead the linked columns if there are any,
+  // otherwise it is the first column of all.
+  const index = at !== -1 ? at + 1 : (firstLinked !== -1 ? firstLinked : list.length);
+  list.splice(index, 0, entry);
+  return list;
+}
+
+export function removeEntry(template, header) {
+  return (template || []).filter(e => e.header !== header);
+}
+
+// Set or clear the caption. An empty caption removes the key rather than storing
+// '' — the entry should say only what somebody actually decided.
+export function setLabel(template, header, label) {
+  const value = String(label ?? '').trim();
+  return (template || []).map(e => {
+    if (e.header !== header) return e;
+    const { label: _old, ...rest } = e;
+    return value ? { ...rest, label: value } : rest;
+  });
+}
+
+// { [header]: { available, allocated, used } } — how many kits carry a value for
+// each column, split by where the kit is. Blank values do not count: a kit with
+// an empty cell is not "carrying" that column.
+export function countKitsByHeader(kits) {
+  const out = {};
+  for (const kit of kits || []) {
+    const status = kit?.status;
+    if (status !== 'available' && status !== 'allocated' && status !== 'used') continue;
+    for (const [header, value] of Object.entries(kit.payload || {})) {
+      if (!String(value ?? '').trim()) continue;
+      out[header] ??= { available: 0, allocated: 0, used: 0 };
+      out[header][status] += 1;
+    }
+  }
+  return out;
+}
+
+// Kits that are still live for a column — in the pool or held by a class. Spent
+// kits are history: the class has closed and its prep is already snapshotted.
+export function liveKitCount(counts, header) {
+  const c = counts?.[header];
+  return c ? c.available + c.allocated : 0;
+}

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useWorkbookEditor } from '../hooks/useWorkbookEditor.js';
 import { renumberExercises } from '../lib/exerciseNumbering.js';
+import { linkedBySection } from '../lib/prepTemplateEdit.js';
 import WorkbookPrepPanel from '../components/editor/WorkbookPrepPanel.jsx';
 import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
 import ContentEditor from '../components/editor/ContentEditor.jsx';
@@ -43,6 +44,10 @@ export default function WorkbookEditorPage() {
   const [showAddExercises, setShowAddExercises] = useState(false);
   const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
   const [showAllChanges, setShowAllChanges] = useState(false);
+  // The prep template as the Prep template card last loaded or saved it, so each
+  // ticked exercise can carry a marker on its own heading.
+  const [prepTemplate, setPrepTemplate] = useState(null);
+  const prepBySection = useMemo(() => linkedBySection(prepTemplate), [prepTemplate]);
 
   // Adopting a line writes straight to the blocks table, so the editor's own
   // copy is stale the moment it lands. Reload the content as well as the heat,
@@ -304,7 +309,7 @@ export default function WorkbookEditorPage() {
 
         <PlaceholderRepair sections={sections} blocks={blocks} onSaveBlock={updateBlock} />
 
-        {isTemplate && <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} />}
+        {isTemplate && <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} onTemplate={setPrepTemplate} />}
 
         <ContentEditorScaffold
           sections={sections}
@@ -322,6 +327,7 @@ export default function WorkbookEditorPage() {
           previewTitle={title || 'Untitled workbook'}
           heat={heatEnabled ? { bySection, byBlock } : null}
           onOpenHeat={heatEnabled ? setHeatFocus : null}
+          prepBySection={prepBySection}
           extraAddSectionActions={
             <>
               <button className="ghost" onClick={() => setShowAddExercises(true)}>

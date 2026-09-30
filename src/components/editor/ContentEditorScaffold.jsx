@@ -59,6 +59,10 @@ export default function ContentEditorScaffold({
   // Rendered under a question's heading. A bank puts its topics here; an
   // assessment passes nothing and is unchanged.
   renderQuestionExtra = null,
+  // Map of section id -> its prep_template entry, for the exercises ticked in
+  // the Prep template card. Null where there is no such card (a session copy,
+  // a question bank), and then no heading carries a prep marker.
+  prepBySection = null,
 }) {
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
@@ -227,6 +231,33 @@ export default function ContentEditorScaffold({
     );
   }
 
+  // The prep marker on a heading. It says this exercise depends on prep — which
+  // nothing on the exercise used to — and it is a way back to the one place that
+  // is set: the row ids are ContentPrepPanel's (`prep-row-<section id>`). A
+  // ticked row is listed under either filter there, so it is always findable.
+  function prepChip(sec) {
+    const entry = prepBySection?.get(sec.id);
+    if (!entry) return null;
+    const jump = () => {
+      const row = document.getElementById(`prep-row-${sec.id}`);
+      if (!row) return;
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.add('prep-row-flash');
+      setTimeout(() => row.classList.remove('prep-row-flash'), 1600);
+    };
+    return (
+      <button
+        type="button"
+        className="prep-chip"
+        onClick={jump}
+        data-tip="Set in the Prep template card — click to go to it"
+      >
+        <span className="prep-chip-dot" aria-hidden />
+        {entry.label ? `Prep · ${entry.label}` : 'Needs prep'}
+      </button>
+    );
+  }
+
   // Saving a question from its own form writes to TWO places, because the correct
   // answer cannot live in the block.
   //
@@ -366,6 +397,7 @@ export default function ContentEditorScaffold({
                       () => onOpenHeat({ sectionId: sec.id, sectionTitle: q.heading, blockId: null }),
                       'heat-chip--section',
                     )}
+                    {prepChip(sec)}
                     {renderQuestionWithdraw && (
                       <span className="question-withdraw-slot">
                         {renderQuestionWithdraw(q)}
@@ -505,6 +537,7 @@ export default function ContentEditorScaffold({
                   () => onOpenHeat({ sectionId: sec.id, sectionTitle: sec.title, blockId: null }),
                   'heat-chip--section',
                 )}
+                {!isGroup && prepChip(sec)}
                 <div className="editor-section-actions">
                   {!isEditingTitle && (
                     <button className="ghost" onClick={() => startEditingSection(sec)}>Rename</button>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
@@ -22,6 +22,7 @@ import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import OrganiseQuestionsPanel from '../components/editor/OrganiseQuestionsPanel.jsx';
 import { ASSESSMENT_CONTENT_KIND } from '../lib/exerciseNumbering.js';
 import { buildQuestions } from '../lib/assessmentStructure.js';
+import { linkedBySection } from '../lib/prepTemplateEdit.js';
 import { isWithdrawn, withdrawalOf, setQuestionWithdrawn } from '../lib/questionWithdrawal.js';
 import WithdrawQuestion from '../components/WithdrawQuestion.jsx';
 import TopBar from '../components/TopBar.jsx';
@@ -61,6 +62,10 @@ export default function AssessmentEditorPage() {
   const [withdrawErr, setWithdrawErr] = useState({});
   const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
   const [showAllChanges, setShowAllChanges] = useState(false);
+  // The prep template as the Prep template card last loaded or saved it, so each
+  // ticked question can carry a marker on its own heading.
+  const [prepTemplate, setPrepTemplate] = useState(null);
+  const prepBySection = useMemo(() => linkedBySection(prepTemplate), [prepTemplate]);
 
   // What the field has changed in its own copies of this assessment. Only a
   // super trainer sees it — the RPCs return nothing for anyone else, and firing
@@ -342,7 +347,7 @@ export default function AssessmentEditorPage() {
           </div>
         )}
 
-        <AssessmentPrepPanel assessment={assessment} sections={sections.filter(s => !isDraftId(s.id))} profile={profile} />
+        <AssessmentPrepPanel assessment={assessment} sections={sections.filter(s => !isDraftId(s.id))} allSections={sections} profile={profile} onTemplate={setPrepTemplate} />
 
         <OrganiseQuestionsPanel
           sections={sections}
@@ -412,6 +417,7 @@ export default function AssessmentEditorPage() {
               renderQuestionWithdraw={renderQuestionWithdraw}
               heat={heatEnabled ? { bySection: heatBySection, byBlock: heatByBlock } : null}
               onOpenHeat={heatEnabled ? setHeatFocus : null}
+              prepBySection={prepBySection}
               extraAddSectionActions={
                 <>
                   {/* Two ways in, deliberately separate. The bank is the reusable

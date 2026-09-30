@@ -1,179 +1,411 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { parseSheetFile } from '../../lib/sheetParse.js';
-import { matchSection } from '../../lib/prepColumns.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
+import { WORKBOOK_PREP_KIND, ASSESSMENT_PREP_KIND } from '../../hooks/useContentPrep.js';
+import {
+  addLinked, countKitsByHeader, generalHeaderProblem, isLocked, liveKitCount,
+  removeEntry, setLabel, uniqueHeader,
+} from '../../lib/prepTemplateEdit.js';
 import '../../styles/prep.css';
 
 // Shared prep TEMPLATE SETUP panel — super-tier only, on a master (template)
-// parent (workbook or assessment). Renders the prep_template structure list
-// and handles the sheet-upload that defines it. Kind-specific extras (workbook's
-// composed-prep extract/return flow, referencedBy header) are layered via
-// optional props/slots so the workbook wrapper can add them without
-// re-implementing the shared core.
+// parent (workbook or assessment). A checklist: every exercise is a row, and
+// ticking one says "this exercise needs prep". That is the whole setup.
+//
+// It replaces a header-only sheet upload that linked each column to an exercise
+// by the NUMBER in its header. That guess depended on column order ("Demo 1"
+// took Exercise 1 if it happened to sit before "Ex 1") and could not be seen
+// from the exercise. Here the author picks the exercise, so there is nothing to
+// match. What is stored has not changed — the same prep_template the upload
+// wrote — so the Prep page, the fill sheet, the paste grid and claim_prep_kit
+// read it exactly as before.
+//
+// Every change saves on its own, like the rest of this card always did.
 //
 // Props:
-//   parentTable           — table holding prep_template ('workbooks' | 'assessments')
-//   parentId              — id of the parent row
-//   sections              — sections of the parent (for header→section matching)
-//   profile               — caller profile (super-tier gate)
-//   kindLabel             — UI label ('workbook' | 'assessment')
-//   extraTemplateColumns  — entries to preserve unchanged across uploads
-//                           (workbook passes referenced ones; assessment passes [])
-//   renderStructureItem   — optional fn(item, titleById) -> ReactNode
-//                           override per-item rendering (workbook adds source tag)
-//   extraHeader           — optional ReactNode above the structure list
-//   children              — rendered below structure, above the upload control
-//                           (workbook puts its extract/return panel here)
+//   parentTable     — table holding prep_template ('workbooks' | 'assessments')
+//   parentId        — id of the parent row
+//   sections        — sections of the parent
+//   profile         — caller profile (super-tier gate)
+//   kindLabel       — 'workbook' | 'assessment'
+//   displayTitles   — optional { [sectionId]: title as shown on screen }. An
+//                     assessment's question number is derived from its position,
+//                     so the stored title can be out of date; a workbook's is not.
+//   lockedTag       — optional fn(entry) -> ReactNode, shown on a column that is
+//                     managed elsewhere (a composed workbook's borrowed prep)
+//   extraHeader     — optional ReactNode above the checklist
+//   children        — rendered below the checklist (workbook's extract/return)
+//   onTemplateChanged — called after a change has been saved
+//   onTemplate      — called with the template whenever it is loaded or changes
 export default function ContentPrepPanel({
   parentTable,
   parentId,
   sections,
   profile,
   kindLabel = 'workbook',
-  extraTemplateColumns = [],
-  renderStructureItem,
+  displayTitles = null,
+  lockedTag = null,
   extraHeader = null,
   children = null,
-  // Notify parent so a wrapper can refresh side state on upload.
   onTemplateChanged,
+  onTemplate,
 }) {
-  const [structure, setStructure] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [parsing, setParsing] = useState(false);
+  const kitKind = parentTable === 'assessments' ? ASSESSMENT_PREP_KIND : WORKBOOK_PREP_KIND;
+  const noun = kindLabel === 'assessment' ? 'question' : 'exercise';
+
+  const [template, setTemplate] = useState(null); // null while loading
+  const [counts, setCounts] = useState({});
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [reloadKey, setReloadKey] = useState(0);
+  const [onlyPrep, setOnlyPrep] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(null); // header awaiting a yes
+  const [generalDraft, setGeneralDraft] = useState('');
+  const [generalError, setGeneralError] = useState('');
+  // Columns unticked in this sitting, by exercise. Ticking the exercise again
+  // puts the SAME column back — same name, same caption — instead of minting a
+  // new one and stranding whatever kits still carry the old name.
+  const removedRef = useRef(new Map());
 
   useEffect(() => {
-    if (!parentId) return;
+    if (!parentId) return undefined;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from(parentTable).select('prep_template').eq('id', parentId).single();
       if (cancelled) return;
-      setStructure(Array.isArray(data?.prep_template) ? data.prep_template : []);
-      setLoading(false);
+      const tpl = Array.isArray(data?.prep_template) ? data.prep_template : [];
+      setTemplate(tpl);
+      // A set-up template opens showing what is set; an empty one opens on the
+      // full list, since the only thing to do there is tick.
+      setOnlyPrep(tpl.some(e => e?.section_id));
     })();
     return () => { cancelled = true; };
-  }, [parentTable, parentId, reloadKey]);
+  }, [parentTable, parentId]);
 
-  const titleById = {};
-  for (const s of sections) titleById[s.id] = s.title;
+  // How many kits carry each column — for the counts beside a row and the
+  // question asked before a column is removed. Every partition: a column that a
+  // vendor's pool is still holding is just as much in use as one in the shared
+  // pool. Paged, because PostgREST caps a single read.
+  useEffect(() => {
+    if (!parentId) return undefined;
+    let cancelled = false;
+    (async () => {
+      const kits = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error: kitErr } = await supabase
+          .from(kitKind.kitsTable).select('status, payload')
+          .eq(kitKind.parentFK, parentId).order('id').range(from, from + PAGE - 1);
+        if (kitErr || !data) break;
+        kits.push(...data);
+        if (data.length < PAGE) break;
+      }
+      if (!cancelled) setCounts(countKitsByHeader(kits));
+    })();
+    return () => { cancelled = true; };
+  }, [parentId, kitKind]);
 
-  async function handleFile(e) {
-    setError(''); setNotice('');
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setParsing(true);
-    try {
-      const rows = await parseSheetFile(file);
-      if (!rows.length) { setError('The file has no header row.'); return; }
-      const headers = rows[0];
-      const cols = [];
-      const seenHeaders = new Set();
-      const usedSections = new Set();
-      const preservedSectionIds = new Set(
-        extraTemplateColumns.map(c => c.section_id).filter(Boolean),
-      );
-      for (const h of headers) {
-        const header = String(h ?? '').trim();
-        if (!header) continue;
-        const hkey = header.toLowerCase();
-        if (seenHeaders.has(hkey)) continue;
-        seenHeaders.add(hkey);
-        const sec = matchSection(header, sections.filter(s => s.kind !== 'group'));
-        if (sec && preservedSectionIds.has(sec.id)) continue;
-        if (sec && !usedSections.has(sec.id)) {
-          usedSections.add(sec.id);
-          cols.push({ header, section_id: sec.id });
-        } else {
-          cols.push({ header, section_id: null });
-        }
-      }
-      if (cols.length === 0 && extraTemplateColumns.length === 0) {
-        setError('The file has no usable column headers.');
-        return;
-      }
-      const newTemplate = [...extraTemplateColumns, ...cols];
-      const { error: upErr } = await supabase
-        .from(parentTable).update({ prep_template: newTemplate }).eq('id', parentId);
-      if (upErr) { setError(upErr.message); return; }
-      setStructure(newTemplate);
-      const linked = cols.filter(c => c.section_id).length;
-      const refNote = extraTemplateColumns.length
-        ? `, ${extraTemplateColumns.length} preserved`
-        : '';
-      setNotice(`Prep template set: ${cols.length} own item${cols.length === 1 ? '' : 's'} (${linked} exercise-linked, ${cols.length - linked} standalone)${refNote}.`);
-      setReloadKey(k => k + 1);
-      onTemplateChanged?.();
-    } catch (err) {
-      setError(err.message || 'Could not read the file.');
-    } finally {
-      setParsing(false);
-      e.target.value = '';
+  useEffect(() => {
+    if (template) onTemplate?.(template);
+    // onTemplate is a parent callback; re-running on its identity would fire on
+    // every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template]);
+
+  const ordered = useMemo(
+    () => [...(sections || [])].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+    [sections],
+  );
+  const exercises = useMemo(() => ordered.filter(s => s.kind !== 'group'), [ordered]);
+  const exerciseIds = useMemo(() => exercises.map(s => s.id), [exercises]);
+  const titleOf = s => displayTitles?.[s.id] || s.title || 'Untitled';
+
+  const tpl = template || [];
+  const bySection = new Map();
+  for (const e of tpl) if (e.section_id && !bySection.has(e.section_id)) bySection.set(e.section_id, e);
+  const knownIds = new Set(exerciseIds);
+  const general = tpl.filter(e => !e.section_id);
+  // Linked to an exercise this parent no longer has. Still a column trainers are
+  // asked to fill, so it has to stay visible and removable.
+  const stranded = tpl.filter(e => e.section_id && !knownIds.has(e.section_id));
+  const linkedCount = exercises.filter(s => bySection.has(s.id)).length;
+
+  // update() without reading the row back reports success when RLS refused it,
+  // so ask for the row and treat "nothing came back" as the failure it is.
+  async function persist(next) {
+    const prev = template;
+    setTemplate(next); setSaving(true); setError('');
+    const { data, error: upErr } = await supabase
+      .from(parentTable).update({ prep_template: next }).eq('id', parentId)
+      .select('prep_template').maybeSingle();
+    setSaving(false);
+    if (upErr || !data) {
+      setTemplate(prev);
+      setError(upErr?.message || 'That change was not saved — this template could not be updated.');
+      return false;
     }
+    onTemplateChanged?.(next);
+    return true;
+  }
+
+  function tick(section) {
+    const entry = removedRef.current.get(section.id)
+      || { header: uniqueHeader(titleOf(section), tpl), section_id: section.id };
+    // The remembered column may have had its name taken while it was away.
+    const safe = tpl.some(e => e.header === entry.header)
+      ? { ...entry, header: uniqueHeader(entry.header, tpl) }
+      : entry;
+    persist(addLinked(tpl, safe, exerciseIds));
+  }
+
+  async function remove(entry) {
+    setConfirmRemove(null);
+    const ok = await persist(removeEntry(tpl, entry.header));
+    if (ok && entry.section_id) removedRef.current.set(entry.section_id, entry);
+  }
+
+  // Removing a column kits still carry is the one change here with a
+  // consequence, so it is asked about; anything else just happens.
+  function askRemove(entry) {
+    if (liveKitCount(counts, entry.header) > 0) setConfirmRemove(entry.header);
+    else remove(entry);
+  }
+
+  async function addGeneral(e) {
+    e.preventDefault();
+    const problem = generalHeaderProblem(generalDraft, tpl);
+    if (problem) { setGeneralError(problem); return; }
+    const ok = await persist([...tpl, { header: generalDraft.trim(), section_id: null }]);
+    if (ok) { setGeneralDraft(''); setGeneralError(''); }
   }
 
   if (!isSuperTrainerOrAbove(profile?.role)) return null;
 
+  const kitsCell = header => {
+    const c = counts[header];
+    if (!c) return null;
+    const parts = [];
+    if (c.available) parts.push(`${c.available} in the pool`);
+    if (c.allocated) parts.push(`${c.allocated} in classes`);
+    if (c.used) parts.push(`${c.used} spent`);
+    return <span className={`prep-check-kits${c.available + c.allocated ? ' is-live' : ''}`}>{parts.join(' · ')}</span>;
+  };
+
+  const confirmRow = entry => {
+    const c = counts[entry.header] || { available: 0, allocated: 0 };
+    const where = [
+      c.available ? `${c.available} in the pool` : null,
+      c.allocated ? `${c.allocated} in classes` : null,
+    ].filter(Boolean).join(', ');
+    const n = c.available + c.allocated;
+    return (
+      <div className="prep-check-confirm" role="alert">
+        <span>
+          {n} kit{n === 1 ? '' : 's'} already carr{n === 1 ? 'ies' : 'y'} a value for <code>{entry.header}</code> ({where}).
+          {' '}Those values stay on the kits, but trainers will no longer be asked to stock it.
+        </span>
+        <span className="prep-check-confirm-actions">
+          <button type="button" className="danger compact" onClick={() => remove(entry)} disabled={saving}>Remove it</button>
+          <button type="button" className="ghost compact" onClick={() => setConfirmRemove(null)}>Keep it</button>
+        </span>
+      </div>
+    );
+  };
+
+  // Rows, with each section heading kept only when an exercise follows it.
+  const rows = [];
+  let pendingGroup = null;
+  for (const s of ordered) {
+    if (s.kind === 'group') { pendingGroup = s; continue; }
+    const entry = bySection.get(s.id) || null;
+    if (onlyPrep && !entry) continue;
+    if (pendingGroup) { rows.push({ group: pendingGroup }); pendingGroup = null; }
+    rows.push({ section: s, entry });
+  }
+
   return (
-    <section className="editor-card prep-panel">
-      <div className="prep-panel-head"><h2>Prep template</h2></div>
+    <section className="editor-card prep-panel" id="prep-template">
+      <div className="prep-panel-head">
+        <h2>Prep template</h2>
+        {saving && <span className="muted prep-check-saving">Saving…</span>}
+      </div>
       <p className="muted prep-intro">
-        Define the prep items by uploading a template. A column header that
-        matches an exercise (by title or number) links to that exercise; any
-        other column is a standalone item. Trainers then fill and upload prep
-        against this structure from the <strong>Prep</strong> tab. Setup only
-        — no prep data is stored here.
+        Tick each {noun} that needs prep — a PNR, a ticket number. Trainers then
+        stock those from the <strong>Prep</strong> tab. Setup only — no prep data is
+        stored here.
       </p>
 
       {extraHeader}
 
-      {loading ? (
+      {template === null ? (
         <p className="muted">Loading…</p>
       ) : (
         <>
-          {structure.length === 0 ? (
-            <p className="muted">No prep template set up yet.</p>
+          <div className="prep-check-bar">
+            <span className="prep-check-count">
+              {linkedCount} of {exercises.length} {noun}{exercises.length === 1 ? '' : 's'} need{linkedCount === 1 ? 's' : ''} prep
+            </span>
+            <div className="prep-check-seg" role="group" aria-label="Rows shown">
+              <button type="button" aria-pressed={!onlyPrep} onClick={() => setOnlyPrep(false)}>
+                All {exercises.length}
+              </button>
+              <button type="button" aria-pressed={onlyPrep} onClick={() => setOnlyPrep(true)}>
+                Only with prep
+              </button>
+            </div>
+          </div>
+
+          {exercises.length === 0 ? (
+            <p className="muted">This {kindLabel} has no {noun}s yet.</p>
+          ) : rows.length === 0 ? (
+            <p className="muted prep-check-none">
+              No {noun} needs prep yet. <button type="button" className="ghost compact" onClick={() => setOnlyPrep(false)}>Show all {exercises.length}</button>
+            </p>
           ) : (
-            <>
-              <p className="muted">Prep items ({structure.length}):</p>
-              <ul className="prep-match-list">
-                {structure.map((c, i) => (
-                  <li key={i}>
-                    {renderStructureItem
-                      ? renderStructureItem(c, titleById)
-                      : <DefaultStructureItem item={c} titleById={titleById} />}
+            <div className="prep-check-scroll">
+              <table className="prep-check">
+                <thead>
+                  <tr>
+                    <th className="prep-check-tick">Prep</th>
+                    <th>{noun === 'question' ? 'Question' : 'Exercise'}</th>
+                    <th>What the participant receives</th>
+                    <th>Column</th>
+                    <th>Kits</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(row => {
+                    if (row.group) {
+                      return (
+                        <tr key={`g-${row.group.id}`} className="prep-check-group">
+                          <td colSpan={5}>{row.group.title}</td>
+                        </tr>
+                      );
+                    }
+                    const { section: s, entry } = row;
+                    const locked = entry && isLocked(entry);
+                    const boxId = `prep-tick-${s.id}`;
+                    return (
+                      <Fragment key={s.id}>
+                        <tr id={`prep-row-${s.id}`} className={entry ? 'is-on' : ''}>
+                          <td className="prep-check-tick">
+                            <input
+                              id={boxId}
+                              type="checkbox"
+                              checked={!!entry}
+                              disabled={saving || locked}
+                              onChange={() => (entry ? askRemove(entry) : tick(s))}
+                            />
+                          </td>
+                          <td><label htmlFor={boxId}>{titleOf(s)}</label></td>
+                          <td>
+                            {entry && !locked && (
+                              <LabelInput
+                                entry={entry}
+                                disabled={saving}
+                                ariaLabel={`What the participant receives for ${titleOf(s)}`}
+                                onCommit={value => persist(setLabel(tpl, entry.header, value))}
+                              />
+                            )}
+                            {locked && lockedTag?.(entry)}
+                          </td>
+                          <td>{entry && <code>{entry.header}</code>}</td>
+                          <td>{entry && kitsCell(entry.header)}</td>
+                        </tr>
+                        {entry && confirmRemove === entry.header && (
+                          <tr className="prep-check-confirm-row"><td colSpan={5}>{confirmRow(entry)}</td></tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="prep-check-general">
+            <h3>General items</h3>
+            <p className="muted">
+              Prep every participant needs that belongs to no single {noun} — a demo PNR, a login.
+            </p>
+            {[...general, ...stranded].length > 0 && (
+              <ul className="prep-check-general-list">
+                {[...general, ...stranded].map(entry => (
+                  <li key={entry.header}>
+                    <div className="prep-check-general-row">
+                      <code>{entry.header}</code>
+                      {entry.section_id && <span className="prep-warn prep-check-gone">its {noun} was removed</span>}
+                      {isLocked(entry) ? lockedTag?.(entry) : (
+                        <LabelInput
+                          entry={entry}
+                          disabled={saving}
+                          ariaLabel={`What the participant receives for ${entry.header}`}
+                          onCommit={value => persist(setLabel(tpl, entry.header, value))}
+                        />
+                      )}
+                      {kitsCell(entry.header)}
+                      {!isLocked(entry) && (
+                        <button type="button" className="ghost compact" disabled={saving} onClick={() => askRemove(entry)}>
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {confirmRemove === entry.header && confirmRow(entry)}
                   </li>
                 ))}
               </ul>
-            </>
+            )}
+            <form className="prep-check-add" onSubmit={addGeneral}>
+              <input
+                className="form-input compact"
+                value={generalDraft}
+                onChange={e => { setGeneralDraft(e.target.value); setGeneralError(''); }}
+                placeholder="e.g. Demo PNR"
+                aria-label="Name of a new general item"
+              />
+              <button type="submit" className="ghost compact" disabled={saving || !generalDraft.trim()}>
+                + Add general item
+              </button>
+            </form>
+            {generalError && <p className="error">{generalError}</p>}
+          </div>
+
+          {tpl.length > 0 && (
+            <div className="prep-check-cols">
+              <span className="muted">Columns trainers fill, in order:</span>
+              {tpl.map(e => <code key={e.header}>{e.header}</code>)}
+            </div>
           )}
 
-          {children}
-
-          <div className="prep-actions">
-            <label className="ghost prep-upload-btn">
-              {structure.length ? '↑ Replace template' : '↑ Upload template'}
-              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} disabled={parsing} hidden />
-            </label>
-            {parsing && <span className="muted">Reading file…</span>}
-          </div>
           {error && <p className="error">{error}</p>}
-          {notice && <p className="prep-notice">{notice}</p>}
+
+          {children}
         </>
       )}
     </section>
   );
 }
 
-function DefaultStructureItem({ item, titleById }) {
+// The caption box. Saves when the author leaves it or presses Enter, and only
+// if it actually changed — tabbing through the column must not write ten times.
+function LabelInput({ entry, onCommit, disabled, ariaLabel }) {
+  const saved = entry.label || '';
+  const [draft, setDraft] = useState(saved);
+  useEffect(() => { setDraft(saved); }, [saved]);
+  const commit = () => { if (draft.trim() !== saved) onCommit(draft); };
   return (
-    <>
-      <code>{item.header}</code> → {item.section_id
-        ? (titleById[item.section_id] || '(exercise removed)')
-        : <em>standalone (no exercise)</em>}
-    </>
+    <input
+      className="form-input compact prep-check-label"
+      value={draft}
+      disabled={disabled}
+      placeholder="e.g. PNR"
+      aria-label={ariaLabel}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') e.target.blur();
+        if (e.key === 'Escape') setDraft(saved);
+      }}
+    />
   );
 }

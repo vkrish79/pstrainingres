@@ -5,10 +5,10 @@ import { useWorkbookPrep } from '../../hooks/useWorkbookPrep.js';
 import ContentPrepPanel from './ContentPrepPanel.jsx';
 import '../../styles/prep.css';
 
-// Prep TEMPLATE SETUP for a master workbook. Delegates the shared template
-// upload + structure list to ContentPrepPanel; layers on the composed-workbook
-// extract/return flow + referenced-from tags that are workbook-only.
-export default function WorkbookPrepPanel({ workbook, sections, profile }) {
+// Prep TEMPLATE SETUP for a master workbook. Delegates the shared checklist to
+// ContentPrepPanel; layers on the composed-workbook extract/return flow +
+// referenced-from tags that are workbook-only.
+export default function WorkbookPrepPanel({ workbook, sections, profile, onTemplate }) {
   const { run: runBusy } = useBusyOverlay();
   const [sourceTitles, setSourceTitles] = useState({}); // source_workbook_id -> title
   const [extractSources, setExtractSources] = useState(null);
@@ -125,16 +125,10 @@ export default function WorkbookPrepPanel({ workbook, sections, profile }) {
     </p>
   ) : null;
 
-  function renderStructureItem(c, titleById) {
+  // A column borrowed from another workbook's pool cannot be changed here.
+  function lockedTag(c) {
     return (
-      <>
-        <code>{c.header}</code> → {c.section_id
-          ? (titleById[c.section_id] || '(exercise removed)')
-          : <em>standalone (no exercise)</em>}
-        {c.source_workbook_id && (
-          <span className="prep-ref-tag"> · prep from {sourceTitles[c.source_workbook_id] || 'another workbook'} (managed there)</span>
-        )}
-      </>
+      <span className="prep-ref-tag">prep from {sourceTitles[c.source_workbook_id] || 'another workbook'} (managed there)</span>
     );
   }
 
@@ -203,10 +197,10 @@ export default function WorkbookPrepPanel({ workbook, sections, profile }) {
       sections={sections}
       profile={profile}
       kindLabel="workbook"
-      extraTemplateColumns={referenced}
-      renderStructureItem={renderStructureItem}
+      lockedTag={lockedTag}
       extraHeader={extraHeader}
       onTemplateChanged={() => setReloadKey(k => k + 1)}
+      onTemplate={onTemplate}
     >
       {extractBlock}
     </ContentPrepPanel>

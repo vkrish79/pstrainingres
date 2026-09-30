@@ -332,3 +332,81 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
   font-size: 0.82rem; font-style: italic; color: #94a3b8;
   border: 1px dashed #d7dee7; border-radius: 6px; padding: 6px 9px;
 }
+
+/* ── Prep template checklist (ContentPrepPanel) ──
+   One row per exercise; a tick says it needs prep. Laptop-wide by design (the
+   editor is), with its own scroll box so a narrow window scrolls the table and
+   not the page. */
+.prep-check-saving { font-size: 0.8rem; }
+.prep-check-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 0.6rem; margin: 0.85rem 0 0.5rem;
+}
+.prep-check-count { font-size: 0.9rem; font-weight: 600; color: var(--midnight); }
+
+/* Two-way filter. Every state restates its own background: the global
+   button:hover rule fills midnight, and a light button that does not answer it
+   goes dark navy under the pointer. */
+.prep-check-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.prep-check-seg button,
+.prep-check-seg button:hover:where(:not(:disabled)) {
+  background: var(--card); color: var(--muted);
+  border: none; border-radius: 0;
+  padding: 0.3rem 0.75rem; font-size: 0.8rem; font-weight: 600;
+}
+.prep-check-seg button:hover:where(:not(:disabled)) { background: var(--bg); color: var(--text); }
+.prep-check-seg button[aria-pressed="true"],
+.prep-check-seg button[aria-pressed="true"]:hover:where(:not(:disabled)) {
+  background: var(--midnight); color: #fff;
+}
+
+.prep-check-scroll { overflow-x: auto; }
+.prep-check { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 0.86rem; }
+.prep-check th {
+  text-align: left; padding: 0.35rem 0.6rem; white-space: nowrap;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--border);
+}
+.prep-check td { padding: 0.3rem 0.6rem; border-bottom: 1px solid #f0eee9; vertical-align: middle; }
+.prep-check .prep-check-tick { width: 3rem; }
+.prep-check input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--midnight); cursor: pointer; vertical-align: middle; }
+.prep-check input[type="checkbox"]:disabled { cursor: not-allowed; }
+.prep-check label { cursor: pointer; color: var(--muted); }
+.prep-check tr.is-on label { color: var(--text); font-weight: 600; }
+.prep-check tr.is-on td { background: #fdfaf3; }
+.prep-check tr.prep-check-group td {
+  background: #f5efe0; color: #6a5528; font-weight: 700; font-size: 0.78rem;
+  padding: 0.28rem 0.6rem; border-bottom: none;
+}
+.prep-check code, .prep-check-general code, .prep-check-cols code, .prep-check-confirm code {
+  background: #efece6; padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.8rem; white-space: nowrap;
+}
+.prep-check-label { max-width: 14rem; }
+.prep-check-kits { font-size: 0.78rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.prep-check-kits.is-live { color: #6a5528; font-weight: 600; }
+.prep-check-none { margin: 0.5rem 0; }
+
+/* Asked before removing a column kits still carry. */
+.prep-check tr.prep-check-confirm-row td { background: #fff4e0; border-bottom: 1px solid #f0dcb4; }
+.prep-check-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem;
+  font-size: 0.82rem; color: #7a4a00;
+}
+.prep-check-general li > .prep-check-confirm { background: #fff4e0; border-radius: 6px; padding: 0.45rem 0.6rem; margin-top: 0.3rem; }
+.prep-check-confirm-actions { display: inline-flex; gap: 0.4rem; flex-shrink: 0; }
+.prep-panel button.compact { font-size: 0.78rem; padding: 0.25rem 0.6rem; align-self: auto; }
+
+.prep-check-general { margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border); }
+.prep-check-general h3 { margin: 0; font-size: 0.95rem; color: var(--midnight); }
+.prep-check-general > p.muted { font-size: 0.82rem; margin: 0.15rem 0 0.5rem; }
+.prep-check-general-list { list-style: none; margin: 0 0 0.5rem; padding: 0; display: grid; gap: 0.35rem; }
+.prep-check-general-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.prep-check-general-row .prep-check-label { flex: 0 1 14rem; width: auto; }
+.prep-check-gone { margin: 0; font-size: 0.78rem; }
+.prep-check-add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.prep-check-add .form-input { width: 14rem; max-width: 100%; }
+
+.prep-check-cols {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem;
+  margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px solid var(--border); font-size: 0.82rem;
+}
