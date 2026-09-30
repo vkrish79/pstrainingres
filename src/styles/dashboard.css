@@ -45,6 +45,10 @@
 .back-link:hover { text-decoration: underline; }
 /* The same link look on a button (closed session → report → back). */
 .back-link-btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+/* Restated for hover: the global button:hover fill is (0,1,1) and the class
+   alone is (0,1,0), so a link-shaped button went solid midnight under the
+   pointer. */
+.back-link-btn:hover { background: none; }
 
 /* ===== Sessions list (TrainerHomePage) ===== */
 /* 17rem, not 260px: at 1920 the old floor gave SIX columns of 260px, and a
