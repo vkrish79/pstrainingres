@@ -4,7 +4,7 @@ import { isSuperTrainerOrAbove } from '../../lib/roles.js';
 import { WORKBOOK_PREP_KIND, ASSESSMENT_PREP_KIND } from '../../hooks/useContentPrep.js';
 import {
   addLinked, countKitsByHeader, generalHeaderProblem, isLocked, liveKitCount,
-  removeEntry, setLabel, uniqueHeader,
+  removeEntry, uniqueHeader,
 } from '../../lib/prepTemplateEdit.js';
 import '../../styles/prep.css';
 
@@ -214,8 +214,8 @@ export default function ContentPrepPanel({
     setConfirmRemove(null);
     let removed = entry;
     const ok = await save(fresh => {
-      // Remember the stored entry, not the one on screen: its caption may have
-      // been changed from another tab.
+      // Remember the stored entry, not the one on screen: it may have been
+      // changed from another tab.
       removed = fresh.find(e => e.header === entry.header) || entry;
       return removeEntry(fresh, entry.header);
     });
@@ -329,7 +329,6 @@ export default function ContentPrepPanel({
                   <tr>
                     <th className="prep-check-tick">Prep</th>
                     <th>{noun === 'question' ? 'Question' : 'Exercise'}</th>
-                    <th>What it is</th>
                     <th>Column</th>
                     <th>Kits</th>
                   </tr>
@@ -339,7 +338,7 @@ export default function ContentPrepPanel({
                     if (row.group) {
                       return (
                         <tr key={`g-${row.group.id}`} className="prep-check-group">
-                          <td colSpan={5}>{row.group.title}</td>
+                          <td colSpan={4}>{row.group.title}</td>
                         </tr>
                       );
                     }
@@ -360,21 +359,13 @@ export default function ContentPrepPanel({
                           </td>
                           <td><label htmlFor={boxId}>{titleOf(s)}</label></td>
                           <td>
-                            {entry && !locked && (
-                              <LabelInput
-                                entry={entry}
-                                disabled={saving}
-                                ariaLabel={`What the prep for ${titleOf(s)} is`}
-                                onCommit={value => save(fresh => setLabel(fresh, entry.header, value))}
-                              />
-                            )}
-                            {locked && lockedTag?.(entry)}
+                            {entry && <code>{entry.header}</code>}
+                            {locked && <> {lockedTag?.(entry)}</>}
                           </td>
-                          <td>{entry && <code>{entry.header}</code>}</td>
                           <td>{entry && kitsCell(entry.header)}</td>
                         </tr>
                         {entry && confirmRemove === entry.header && (
-                          <tr className="prep-check-confirm-row"><td colSpan={5}>{confirmRow(entry)}</td></tr>
+                          <tr className="prep-check-confirm-row"><td colSpan={4}>{confirmRow(entry)}</td></tr>
                         )}
                       </Fragment>
                     );
@@ -396,14 +387,7 @@ export default function ContentPrepPanel({
                     <div className="prep-check-general-row">
                       <code>{entry.header}</code>
                       {entry.section_id && <span className="prep-warn prep-check-gone">its {noun} was removed</span>}
-                      {isLocked(entry) ? lockedTag?.(entry) : (
-                        <LabelInput
-                          entry={entry}
-                          disabled={saving}
-                          ariaLabel={`What ${entry.header} is`}
-                          onCommit={value => save(fresh => setLabel(fresh, entry.header, value))}
-                        />
-                      )}
+                      {isLocked(entry) && lockedTag?.(entry)}
                       {kitsCell(entry.header)}
                       {!isLocked(entry) && (
                         <button type="button" className="ghost compact" disabled={saving} onClick={() => askRemove(entry)}>
@@ -444,29 +428,5 @@ export default function ContentPrepPanel({
         </>
       )}
     </section>
-  );
-}
-
-// The caption box. Saves when the author leaves it or presses Enter, and only
-// if it actually changed — tabbing through the column must not write ten times.
-function LabelInput({ entry, onCommit, disabled, ariaLabel }) {
-  const saved = entry.label || '';
-  const [draft, setDraft] = useState(saved);
-  useEffect(() => { setDraft(saved); }, [saved]);
-  const commit = () => { if (draft.trim() !== saved) onCommit(draft); };
-  return (
-    <input
-      className="form-input compact prep-check-label"
-      value={draft}
-      disabled={disabled}
-      placeholder="e.g. PNR"
-      aria-label={ariaLabel}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={e => {
-        if (e.key === 'Enter') e.target.blur();
-        if (e.key === 'Escape') setDraft(saved);
-      }}
-    />
   );
 }

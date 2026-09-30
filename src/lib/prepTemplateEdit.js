@@ -9,8 +9,6 @@
 //                and claim_prep_kit hands the old one out as a general item).
 //                Nothing here ever rewrites an existing header.
 //   section_id — the exercise it belongs to, or null for a general item.
-//   label      — optional: what the value IS ("PNR", "EMD number"). A caption on
-//                top of the header, free to change at any time.
 //   source_workbook_id — a column drawn from another workbook's pool (composed
 //                workbooks). Managed there; read-only here.
 
@@ -88,17 +86,6 @@ export function addLinked(template, entry, orderedSectionIds) {
 
 export function removeEntry(template, header) {
   return (template || []).filter(e => e.header !== header);
-}
-
-// Set or clear the caption. An empty caption removes the key rather than storing
-// '' — the entry should say only what somebody actually decided.
-export function setLabel(template, header, label) {
-  const value = String(label ?? '').trim();
-  return (template || []).map(e => {
-    if (e.header !== header) return e;
-    const { label: _old, ...rest } = e;
-    return value ? { ...rest, label: value } : rest;
-  });
 }
 
 // { [header]: { available, allocated, used } } — how many kits carry a value for

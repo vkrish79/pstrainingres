@@ -253,7 +253,7 @@ export default function ContentEditorScaffold({
         data-tip="Set in the Prep template card — click to go to it"
       >
         <span className="prep-chip-dot" aria-hidden />
-        {entry.label ? `Prep · ${entry.label}` : 'Needs prep'}
+        Needs prep
       </button>
     );
   }

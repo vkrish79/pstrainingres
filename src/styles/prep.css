@@ -381,7 +381,6 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 .prep-check code, .prep-check-general code, .prep-check-cols code, .prep-check-confirm code {
   background: #efece6; padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.8rem; white-space: nowrap;
 }
-.prep-check-label { max-width: 14rem; }
 .prep-check-kits { font-size: 0.78rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .prep-check-kits.is-live { color: #6a5528; font-weight: 600; }
 .prep-check-none { margin: 0.5rem 0; }
@@ -401,7 +400,6 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 .prep-check-general > p.muted { font-size: 0.82rem; margin: 0.15rem 0 0.5rem; }
 .prep-check-general-list { list-style: none; margin: 0 0 0.5rem; padding: 0; display: grid; gap: 0.35rem; }
 .prep-check-general-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
-.prep-check-general-row .prep-check-label { flex: 0 1 14rem; width: auto; }
 .prep-check-gone { margin: 0; font-size: 0.78rem; }
 .prep-check-add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .prep-check-add .form-input { width: 14rem; max-width: 100%; }
