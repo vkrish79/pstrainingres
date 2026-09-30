@@ -126,10 +126,8 @@ export default function WorkbookPrepPanel({ workbook, sections, profile, onTempl
   ) : null;
 
   // A column borrowed from another workbook's pool cannot be changed here.
-  function lockedTag(c) {
-    return (
-      <span className="prep-ref-tag">prep from {sourceTitles[c.source_workbook_id] || 'another workbook'} (managed there)</span>
-    );
+  function lockedNote(c) {
+    return `prep from ${sourceTitles[c.source_workbook_id] || 'another workbook'} (managed there)`;
   }
 
   const extractBlock = showExtract ? (
@@ -197,7 +195,7 @@ export default function WorkbookPrepPanel({ workbook, sections, profile, onTempl
       sections={sections}
       profile={profile}
       kindLabel="workbook"
-      lockedTag={lockedTag}
+      lockedNote={lockedNote}
       extraHeader={extraHeader}
       // Extract and return rewrite the template on the server; this makes the
       // checklist show the result.

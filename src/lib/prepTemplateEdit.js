@@ -18,8 +18,46 @@ const norm = s => String(s ?? '').trim().toLowerCase();
 
 export const MAX_HEADER_LENGTH = 40;
 
+// Fired on window by an exercise heading's prep marker, with { sectionId }. The
+// Prep template card opens (it may be collapsed) and shows that tile.
+export const PREP_REVEAL_EVENT = 'prep-template-reveal';
+
 export function isLocked(entry) {
   return !!entry?.source_workbook_id;
+}
+
+// What a tile says. "Exercise 12" -> "Ex 12", "Question 3" -> "Q3"; a title
+// the author wrote in words is shown as written (the tile truncates it, and its
+// tooltip carries the whole thing).
+export function tileLabel(title) {
+  const t = String(title ?? '').trim();
+  const ex = t.match(/^(?:exercise|ex)\s*(\d+)$/i);
+  if (ex) return `Ex ${ex[1]}`;
+  const q = t.match(/^(?:question|q)\s*(\d+)$/i);
+  if (q) return `Q${q[1]}`;
+  return t || 'Untitled';
+}
+
+// The tile rows: one per topic (a workbook's section heading), each holding the
+// exercises that follow it until the next heading. Exercises before the first
+// heading — or all of them, where there are no headings (an assessment) — form
+// a row with no topic. A heading with no exercise under it gets no row: a Cover
+// or Document Information page has nothing to pick.
+//
+// `ordered` is the sections in document order, groups included.
+export function topicRows(ordered) {
+  const rows = [];
+  let current = { topic: null, items: [] };
+  for (const s of ordered || []) {
+    if (s.kind === 'group') {
+      if (current.items.length) rows.push(current);
+      current = { topic: s, items: [] };
+    } else {
+      current.items.push(s);
+    }
+  }
+  if (current.items.length) rows.push(current);
+  return rows;
 }
 
 // Map of section id -> the column linked to it. First wins, as it does

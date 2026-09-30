@@ -1,16 +1,17 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
 import { WORKBOOK_PREP_KIND, ASSESSMENT_PREP_KIND } from '../../hooks/useContentPrep.js';
 import {
-  addLinked, countKitsByHeader, generalHeaderProblem, isLocked, liveKitCount,
-  removeEntry, uniqueHeader,
+  PREP_REVEAL_EVENT, addLinked, countKitsByHeader, generalHeaderProblem, isLocked, liveKitCount,
+  removeEntry, tileLabel, topicRows, uniqueHeader,
 } from '../../lib/prepTemplateEdit.js';
 import '../../styles/prep.css';
 
 // Shared prep TEMPLATE SETUP panel — super-tier only, on a master (template)
-// parent (workbook or assessment). A checklist: every exercise is a row, and
-// ticking one says "this exercise needs prep". That is the whole setup.
+// parent (workbook or assessment). Every exercise is a tile, laid out one row
+// per topic; clicking a tile says "this exercise needs prep". General prep (not
+// tied to an exercise) sits underneath as chips. That is the whole setup.
 //
 // It replaces a header-only sheet upload that linked each column to an exercise
 // by the NUMBER in its header. That guess depended on column order ("Demo 1"
@@ -27,6 +28,11 @@ import '../../styles/prep.css';
 // rewrites them. The old upload wrote once per file; this writes once per click,
 // so a stale copy would be written back routinely and take those columns with it.
 //
+// The card collapses to its heading and a one-line summary. Open or closed is
+// remembered per browser, for every workbook and assessment alike. A marker on
+// an exercise heading (ContentEditorScaffold) opens it by firing
+// PREP_REVEAL_EVENT with the section id.
+//
 // Props:
 //   parentTable     — table holding prep_template ('workbooks' | 'assessments')
 //   parentId        — id of the parent row
@@ -36,14 +42,23 @@ import '../../styles/prep.css';
 //   displayTitles   — optional { [sectionId]: title as shown on screen }. An
 //                     assessment's question number is derived from its position,
 //                     so the stored title can be out of date; a workbook's is not.
-//   lockedTag       — optional fn(entry) -> ReactNode, shown on a column that is
-//                     managed elsewhere (a composed workbook's borrowed prep)
-//   extraHeader     — optional ReactNode above the checklist
-//   children        — rendered below the checklist (workbook's extract/return)
+//   lockedNote      — optional fn(entry) -> string, for a column that is managed
+//                     elsewhere (a composed workbook's borrowed prep)
+//   extraHeader     — optional ReactNode above the tiles
+//   children        — rendered below general prep (workbook's extract/return)
 //   refreshKey      — bump to make the card re-read the stored template (the
 //                     workbook wrapper does, after an extract or return)
 //   onTemplateChanged — called after a change has been saved
 //   onTemplate      — called with the template whenever it is loaded or changes
+const OPEN_KEY = 'prep-template-open';
+
+function readOpen() {
+  try { return window.localStorage.getItem(OPEN_KEY) === '1'; } catch { return false; }
+}
+function writeOpen(open) {
+  try { window.localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch { /* private window */ }
+}
+
 export default function ContentPrepPanel({
   parentTable,
   parentId,
@@ -51,7 +66,7 @@ export default function ContentPrepPanel({
   profile,
   kindLabel = 'workbook',
   displayTitles = null,
-  lockedTag = null,
+  lockedNote = null,
   extraHeader = null,
   children = null,
   refreshKey = 0,
@@ -65,14 +80,20 @@ export default function ContentPrepPanel({
   const [counts, setCounts] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [onlyPrep, setOnlyPrep] = useState(false);
+  const [open, setOpen] = useState(readOpen);
   const [confirmRemove, setConfirmRemove] = useState(null); // header awaiting a yes
+  const [adding, setAdding] = useState(false);
   const [generalDraft, setGeneralDraft] = useState('');
   const [generalError, setGeneralError] = useState('');
-  // Columns unticked in this sitting, by exercise. Ticking the exercise again
-  // puts the SAME column back — same name, same caption — instead of minting a
-  // new one and stranding whatever kits still carry the old name.
+  const [flashId, setFlashId] = useState(null);
+  // Columns removed in this sitting, by exercise. Picking the exercise again
+  // puts the SAME column back — same name — instead of minting a new one and
+  // stranding whatever kits still carry the old name.
   const removedRef = useRef(new Map());
+
+  function toggleOpen() {
+    setOpen(o => { writeOpen(!o); return !o; });
+  }
 
   // The stored template, or null if it could not be read.
   const readStored = useCallback(async () => {
@@ -87,18 +108,14 @@ export default function ContentPrepPanel({
     let cancelled = false;
     (async () => {
       const tpl = (await readStored()) || [];
-      if (cancelled) return;
-      setTemplate(tpl);
-      // A set-up template opens showing what is set; an empty one opens on the
-      // full list, since the only thing to do there is tick.
-      setOnlyPrep(tpl.some(e => e?.section_id));
+      if (!cancelled) setTemplate(tpl);
     })();
     return () => { cancelled = true; };
   }, [parentId, readStored]);
 
   // Re-read when the exercises themselves change (exercises added from another
   // workbook arrive with their prep columns) or when the wrapper says the
-  // template moved. The filter is left where the author put it.
+  // template moved.
   const sectionKey = (sections || []).map(s => s.id).join(',');
   const firstRead = useRef(true);
   useEffect(() => {
@@ -112,10 +129,10 @@ export default function ContentPrepPanel({
     return () => { cancelled = true; };
   }, [sectionKey, refreshKey, parentId, readStored]);
 
-  // How many kits carry each column — for the counts beside a row and the
-  // question asked before a column is removed. Every partition: a column that a
-  // vendor's pool is still holding is just as much in use as one in the shared
-  // pool. Paged, because PostgREST caps a single read.
+  // How many kits carry each column — for the dot on a tile and the question
+  // asked before a column is removed. Every partition: a column that a vendor's
+  // pool is still holding is just as much in use as one in the shared pool.
+  // Paged, because PostgREST caps a single read.
   useEffect(() => {
     if (!parentId) return undefined;
     let cancelled = false;
@@ -142,10 +159,31 @@ export default function ContentPrepPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template]);
 
+  // A heading's marker asks for its tile: open the card if it is shut, then —
+  // once the tiles exist — bring that one on screen and light it briefly.
+  useEffect(() => {
+    const onReveal = e => {
+      setOpen(true); writeOpen(true);
+      setFlashId(e.detail?.sectionId || null);
+    };
+    window.addEventListener(PREP_REVEAL_EVENT, onReveal);
+    return () => window.removeEventListener(PREP_REVEAL_EVENT, onReveal);
+  }, []);
+  useEffect(() => {
+    if (!flashId || !open) return undefined;
+    const el = document.getElementById(`prep-tile-${flashId}`);
+    if (!el) return undefined;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('prep-tile-flash');
+    const t = setTimeout(() => { el.classList.remove('prep-tile-flash'); setFlashId(null); }, 1600);
+    return () => clearTimeout(t);
+  }, [flashId, open, template]);
+
   const ordered = useMemo(
     () => [...(sections || [])].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
     [sections],
   );
+  const rows = useMemo(() => topicRows(ordered), [ordered]);
   const exercises = useMemo(() => ordered.filter(s => s.kind !== 'group'), [ordered]);
   const exerciseIds = useMemo(() => exercises.map(s => s.id), [exercises]);
   const titleOf = s => displayTitles?.[s.id] || s.title || 'Untitled';
@@ -159,6 +197,7 @@ export default function ContentPrepPanel({
   // asked to fill, so it has to stay visible and removable.
   const stranded = tpl.filter(e => e.section_id && !knownIds.has(e.section_id));
   const linkedCount = exercises.filter(s => bySection.has(s.id)).length;
+  const generalCount = general.length + stranded.length;
 
   // Apply one edit to the template as it is stored NOW. `edit` gets the fresh
   // list and returns the new one; it may throw to refuse (the message is shown).
@@ -175,7 +214,7 @@ export default function ContentPrepPanel({
         .from(parentTable).update({ prep_template: next }).eq('id', parentId)
         .select('prep_template').maybeSingle();
       if (upErr || !data) {
-        // Show what is really there, so the screen does not keep a tick the
+        // Show what is really there, so the screen does not keep a pick the
         // database never took.
         setTemplate(fresh);
         throw new Error(upErr?.message || 'That change was not saved — this template could not be updated.');
@@ -197,7 +236,8 @@ export default function ContentPrepPanel({
     return res.ok;
   }
 
-  function tick(section) {
+  function pick(section) {
+    setConfirmRemove(null);
     save(fresh => {
       if (fresh.some(e => e.section_id === section.id)) return fresh;
       const entry = removedRef.current.get(section.id)
@@ -236,197 +276,199 @@ export default function ContentPrepPanel({
       if (problem) throw new Error(problem);
       return [...fresh, { header: generalDraft.trim(), section_id: null }];
     });
-    if (res.ok) { setGeneralDraft(''); setGeneralError(''); }
+    if (res.ok) { setGeneralDraft(''); setGeneralError(''); setAdding(false); }
     else setGeneralError(res.message);
   }
 
   if (!isSuperTrainerOrAbove(profile?.role)) return null;
 
-  const kitsCell = header => {
+  // "44 in classes · 73 spent" — for tooltips.
+  const kitsText = header => {
     const c = counts[header];
-    if (!c) return null;
-    const parts = [];
-    if (c.available) parts.push(`${c.available} in the pool`);
-    if (c.allocated) parts.push(`${c.allocated} in classes`);
-    if (c.used) parts.push(`${c.used} spent`);
-    return <span className={`prep-check-kits${c.available + c.allocated ? ' is-live' : ''}`}>{parts.join(' · ')}</span>;
+    if (!c) return '';
+    return [
+      c.available ? `${c.available} in the pool` : null,
+      c.allocated ? `${c.allocated} in classes` : null,
+      c.used ? `${c.used} spent` : null,
+    ].filter(Boolean).join(' · ');
   };
 
-  const confirmRow = entry => {
-    const c = counts[entry.header] || { available: 0, allocated: 0 };
+  const confirmEntry = confirmRemove ? tpl.find(e => e.header === confirmRemove) : null;
+  const confirmBar = confirmEntry && (() => {
+    const c = counts[confirmEntry.header] || { available: 0, allocated: 0 };
     const where = [
       c.available ? `${c.available} in the pool` : null,
       c.allocated ? `${c.allocated} in classes` : null,
     ].filter(Boolean).join(', ');
     const n = c.available + c.allocated;
+    const sec = confirmEntry.section_id ? exercises.find(s => s.id === confirmEntry.section_id) : null;
+    const name = sec ? titleOf(sec) : confirmEntry.header;
     return (
-      <div className="prep-check-confirm" role="alert">
+      <div className="prep-tiles-confirm" role="alert">
         <span>
-          {n} kit{n === 1 ? '' : 's'} already carr{n === 1 ? 'ies' : 'y'} a value for <code>{entry.header}</code> ({where}).
+          {n} kit{n === 1 ? '' : 's'} already carr{n === 1 ? 'ies' : 'y'} prep for <strong>{name}</strong> ({where}).
           {' '}Those values stay on the kits, but trainers will no longer be asked to stock it.
         </span>
-        <span className="prep-check-confirm-actions">
-          <button type="button" className="danger compact" onClick={() => remove(entry)} disabled={saving}>Remove it</button>
+        <span className="prep-tiles-confirm-actions">
+          <button type="button" className="danger compact" onClick={() => remove(confirmEntry)} disabled={saving}>Remove it</button>
           <button type="button" className="ghost compact" onClick={() => setConfirmRemove(null)}>Keep it</button>
         </span>
       </div>
     );
-  };
+  })();
 
-  // Rows, with each section heading kept only when an exercise follows it.
-  const rows = [];
-  let pendingGroup = null;
-  for (const s of ordered) {
-    if (s.kind === 'group') { pendingGroup = s; continue; }
-    const entry = bySection.get(s.id) || null;
-    if (onlyPrep && !entry) continue;
-    if (pendingGroup) { rows.push({ group: pendingGroup }); pendingGroup = null; }
-    rows.push({ section: s, entry });
-  }
+  const summary = template === null
+    ? 'Loading…'
+    : linkedCount === 0 && generalCount === 0
+      ? `No ${noun} needs prep yet`
+      : `${linkedCount} of ${exercises.length} ${noun}${exercises.length === 1 ? '' : 's'} need${linkedCount === 1 ? 's' : ''} prep`
+        + (generalCount ? ` · ${generalCount} general` : '');
 
   return (
-    <section className="editor-card prep-panel" id="prep-template">
-      <div className="prep-panel-head">
+    <section className={`editor-card prep-panel prep-tiles-card${open ? ' is-open' : ''}`} id="prep-template">
+      <button
+        type="button"
+        className="prep-tiles-head"
+        aria-expanded={open}
+        aria-controls="prep-template-body"
+        onClick={toggleOpen}
+      >
+        <span className="prep-tiles-chevron" aria-hidden>▸</span>
         <h2>Prep template</h2>
-        {saving && <span className="muted prep-check-saving">Saving…</span>}
-      </div>
-      <p className="muted prep-intro">
-        Tick each {noun} that needs prep — a PNR, a ticket number. Trainers then
-        stock those from the <strong>Prep</strong> tab. Setup only — no prep data is
-        stored here.
-      </p>
+        <span className="prep-tiles-summary">{summary}</span>
+        {saving && <span className="muted prep-tiles-saving">Saving…</span>}
+      </button>
 
-      {extraHeader}
+      <div id="prep-template-body" hidden={!open}>
+        <p className="muted prep-intro">
+          Click each {noun} that needs prep. Trainers then stock those from
+          the <strong>Prep</strong> tab.
+        </p>
 
-      {template === null ? (
-        <p className="muted">Loading…</p>
-      ) : (
-        <>
-          <div className="prep-check-bar">
-            <span className="prep-check-count">
-              {linkedCount} of {exercises.length} {noun}{exercises.length === 1 ? '' : 's'} need{linkedCount === 1 ? 's' : ''} prep
-            </span>
-            <div className="prep-check-seg" role="group" aria-label="Rows shown">
-              <button type="button" aria-pressed={!onlyPrep} onClick={() => setOnlyPrep(false)}>
-                All {exercises.length}
-              </button>
-              <button type="button" aria-pressed={onlyPrep} onClick={() => setOnlyPrep(true)}>
-                Only with prep
-              </button>
-            </div>
-          </div>
+        {extraHeader}
 
-          {exercises.length === 0 ? (
-            <p className="muted">This {kindLabel} has no {noun}s yet.</p>
-          ) : rows.length === 0 ? (
-            <p className="muted prep-check-none">
-              No {noun} needs prep yet. <button type="button" className="ghost compact" onClick={() => setOnlyPrep(false)}>Show all {exercises.length}</button>
-            </p>
-          ) : (
-            <div className="prep-check-scroll">
-              <table className="prep-check">
-                <thead>
-                  <tr>
-                    <th className="prep-check-tick">Prep</th>
-                    <th>{noun === 'question' ? 'Question' : 'Exercise'}</th>
-                    <th>Column</th>
-                    <th>Kits</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(row => {
-                    if (row.group) {
-                      return (
-                        <tr key={`g-${row.group.id}`} className="prep-check-group">
-                          <td colSpan={4}>{row.group.title}</td>
-                        </tr>
-                      );
-                    }
-                    const { section: s, entry } = row;
-                    const locked = entry && isLocked(entry);
-                    const boxId = `prep-tick-${s.id}`;
-                    return (
-                      <Fragment key={s.id}>
-                        <tr id={`prep-row-${s.id}`} className={entry ? 'is-on' : ''}>
-                          <td className="prep-check-tick">
-                            <input
-                              id={boxId}
-                              type="checkbox"
-                              checked={!!entry}
-                              disabled={saving || locked}
-                              onChange={() => (entry ? askRemove(entry) : tick(s))}
-                            />
-                          </td>
-                          <td><label htmlFor={boxId}>{titleOf(s)}</label></td>
-                          <td>
-                            {entry && <code>{entry.header}</code>}
-                            {locked && <> {lockedTag?.(entry)}</>}
-                          </td>
-                          <td>{entry && kitsCell(entry.header)}</td>
-                        </tr>
-                        {entry && confirmRemove === entry.header && (
-                          <tr className="prep-check-confirm-row"><td colSpan={4}>{confirmRow(entry)}</td></tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <div className="prep-check-general">
-            <h3>General items</h3>
-            <p className="muted">
-              Prep every participant needs that belongs to no single {noun} — a demo PNR, a login.
-            </p>
-            {[...general, ...stranded].length > 0 && (
-              <ul className="prep-check-general-list">
-                {[...general, ...stranded].map(entry => (
-                  <li key={entry.header}>
-                    <div className="prep-check-general-row">
-                      <code>{entry.header}</code>
-                      {entry.section_id && <span className="prep-warn prep-check-gone">its {noun} was removed</span>}
-                      {isLocked(entry) && lockedTag?.(entry)}
-                      {kitsCell(entry.header)}
-                      {!isLocked(entry) && (
-                        <button type="button" className="ghost compact" disabled={saving} onClick={() => askRemove(entry)}>
-                          Remove
-                        </button>
+        {template === null ? (
+          <p className="muted">Loading…</p>
+        ) : (
+          <>
+            {exercises.length === 0 ? (
+              <p className="muted">This {kindLabel} has no {noun}s yet.</p>
+            ) : (
+              <>
+                <div className="prep-tiles-legend" aria-hidden>
+                  <span><i />No prep</span>
+                  <span><i className="is-on" />Needs prep</span>
+                  <span><i className="has-kits" />Kits already stocked</span>
+                </div>
+                <div className={`prep-tiles-rows${rows.some(r => r.topic) ? '' : ' no-topics'}`}>
+                  {rows.map(row => (
+                    <div className="prep-tiles-row" key={row.topic?.id || 'untitled'}>
+                      {row.topic && (
+                        <span className="prep-tiles-topic" data-tip={row.topic.title}>{row.topic.title}</span>
                       )}
+                      <span className="prep-tiles-set">
+                        {row.items.map(s => {
+                          const entry = bySection.get(s.id) || null;
+                          const locked = entry && isLocked(entry);
+                          const live = entry ? liveKitCount(counts, entry.header) > 0 : false;
+                          const kits = entry ? kitsText(entry.header) : '';
+                          const tip = [
+                            titleOf(s),
+                            row.topic?.title,
+                            locked ? lockedNote?.(entry) || 'managed in another workbook' : null,
+                            kits || null,
+                          ].filter(Boolean).join(' · ');
+                          return (
+                            <button
+                              key={s.id}
+                              id={`prep-tile-${s.id}`}
+                              type="button"
+                              className={`prep-tile${confirmRemove && entry?.header === confirmRemove ? ' is-asking' : ''}`}
+                              aria-pressed={!!entry}
+                              aria-label={`${titleOf(s)}${entry ? ' — needs prep' : ''}`}
+                              data-tip={tip}
+                              disabled={saving || locked}
+                              onClick={() => (entry ? askRemove(entry) : pick(s))}
+                            >
+                              {tileLabel(titleOf(s))}
+                              {live && <span className="prep-tile-kits" aria-hidden />}
+                            </button>
+                          );
+                        })}
+                      </span>
                     </div>
-                    {confirmRemove === entry.header && confirmRow(entry)}
-                  </li>
-                ))}
-              </ul>
+                  ))}
+                </div>
+              </>
             )}
-            <form className="prep-check-add" onSubmit={addGeneral}>
-              <input
-                className="form-input compact"
-                value={generalDraft}
-                onChange={e => { setGeneralDraft(e.target.value); setGeneralError(''); }}
-                placeholder="e.g. Demo PNR"
-                aria-label="Name of a new general item"
-              />
-              <button type="submit" className="ghost compact" disabled={saving || !generalDraft.trim()}>
-                + Add general item
-              </button>
-            </form>
-            {generalError && <p className="error">{generalError}</p>}
-          </div>
 
-          {tpl.length > 0 && (
-            <div className="prep-check-cols">
-              <span className="muted">Columns trainers fill, in order:</span>
-              {tpl.map(e => <code key={e.header}>{e.header}</code>)}
+            {/* The question sits under whichever list the item is in. */}
+            {confirmEntry && knownIds.has(confirmEntry.section_id) && confirmBar}
+
+            <div className="prep-tiles-general">
+              <h3>General prep</h3>
+              <p className="muted">
+                Prep every participant gets that belongs to no single {noun}, such as a demo PNR or a login.
+              </p>
+              <div className="prep-gen-chips">
+                {[...general, ...stranded].map(entry => {
+                  const gone = !!entry.section_id;
+                  const locked = isLocked(entry);
+                  const tip = [
+                    gone ? `its ${noun} was removed` : null,
+                    locked ? lockedNote?.(entry) || 'managed in another workbook' : null,
+                    kitsText(entry.header) || null,
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <span
+                      key={entry.header}
+                      className={`prep-gen-chip${gone ? ' is-gone' : ''}${confirmRemove === entry.header ? ' is-asking' : ''}`}
+                      data-tip={tip || undefined}
+                    >
+                      {liveKitCount(counts, entry.header) > 0 && <span className="prep-tile-kits" aria-hidden />}
+                      {entry.header}
+                      {!locked && (
+                        <button
+                          type="button"
+                          className="prep-gen-x"
+                          aria-label={`Remove ${entry.header}`}
+                          disabled={saving}
+                          onClick={() => askRemove(entry)}
+                        >×</button>
+                      )}
+                    </span>
+                  );
+                })}
+                {adding ? (
+                  <form className="prep-gen-form" onSubmit={addGeneral}>
+                    <input
+                      className="form-input compact"
+                      autoFocus
+                      value={generalDraft}
+                      onChange={e => { setGeneralDraft(e.target.value); setGeneralError(''); }}
+                      onKeyDown={e => { if (e.key === 'Escape') { setAdding(false); setGeneralDraft(''); setGeneralError(''); } }}
+                      placeholder="e.g. Demo PNR"
+                      aria-label="Name of the general prep"
+                    />
+                    <button type="submit" className="ghost compact" disabled={saving || !generalDraft.trim()}>Add</button>
+                    <button type="button" className="ghost compact" onClick={() => { setAdding(false); setGeneralDraft(''); setGeneralError(''); }}>Cancel</button>
+                  </form>
+                ) : (
+                  <button type="button" className="prep-gen-add" onClick={() => setAdding(true)}>
+                    + Add general prep
+                  </button>
+                )}
+              </div>
+              {generalError && <p className="error">{generalError}</p>}
+              {confirmEntry && !knownIds.has(confirmEntry.section_id) && confirmBar}
             </div>
-          )}
 
-          {error && <p className="error">{error}</p>}
+            {error && <p className="error">{error}</p>}
 
-          {children}
-        </>
-      )}
+            {children}
+          </>
+        )}
+      </div>
     </section>
   );
 }

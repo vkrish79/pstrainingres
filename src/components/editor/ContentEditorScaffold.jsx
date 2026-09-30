@@ -10,6 +10,7 @@ import { isDraftId } from '../../hooks/useAssessmentDraft.js';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
 import { isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { heatLevel } from '../../lib/configDiff.js';
+import { PREP_REVEAL_EVENT } from '../../lib/prepTemplateEdit.js';
 
 // Shared sections-and-blocks editor (editor pane + live participant preview
 // with scroll-sync). Powers both the workbook editor and the assessment
@@ -233,17 +234,13 @@ export default function ContentEditorScaffold({
 
   // The prep marker on a heading. It says this exercise depends on prep — which
   // nothing on the exercise used to — and it is a way back to the one place that
-  // is set: the row ids are ContentPrepPanel's (`prep-row-<section id>`). A
-  // ticked row is listed under either filter there, so it is always findable.
+  // is set. The Prep template card may be collapsed, so rather than look for the
+  // tile here, ask the card to open and show it.
   function prepChip(sec) {
     const entry = prepBySection?.get(sec.id);
     if (!entry) return null;
     const jump = () => {
-      const row = document.getElementById(`prep-row-${sec.id}`);
-      if (!row) return;
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      row.classList.add('prep-row-flash');
-      setTimeout(() => row.classList.remove('prep-row-flash'), 1600);
+      window.dispatchEvent(new CustomEvent(PREP_REVEAL_EVENT, { detail: { sectionId: sec.id } }));
     };
     return (
       <button
