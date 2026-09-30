@@ -291,10 +291,13 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
 
             {shown.length > 0 && (
               <p className="prep-legend" aria-hidden="true">
-                <span><i className="prep-seg is-ready" />ready</span>
-                <span><i className="prep-seg is-held" />in a class</span>
-                {stats.stranded > 0 && <span><i className="prep-seg is-stranded" />held by no class</span>}
-                {stats.withdrawn > 0 && <span><i className="prep-seg is-spent" />withdrawn</span>}
+                {/* The three words the user chose, always all three. Kits
+                    allocated to a class that no longer exists draw striped
+                    in the bar but are not named here: the user found that
+                    label misleading, and deleting a class now returns them. */}
+                <span><i className="prep-seg is-ready" />available</span>
+                <span><i className="prep-seg is-held" />allocated</span>
+                <span><i className="prep-seg is-spent" />withdrawn</span>
               </p>
             )}
 

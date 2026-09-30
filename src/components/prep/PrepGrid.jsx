@@ -54,10 +54,10 @@ export default function PrepGrid({ kits = [], structure = [], kind = 'workbook',
         <span className="pg-seg pg-seg-spent" style={{ width: `${pct(counts.used)}%` }} />
       </div>
       <div className="pg-legend">
-        <span><i className="pg-sw pg-pool" />{counts.available} unused</span>
+        <span><i className="pg-sw pg-pool" />{counts.available} available</span>
         <span><i className="pg-sw pg-alloc" />{counts.allocated} allocated</span>
         {inUseKits > 0 && <span><i className="pg-sw pg-use" />{inUseKits} in use</span>}
-        {counts.used > 0 && <span><i className="pg-sw pg-spent" />{counts.used} withdrawn</span>}
+        <span><i className="pg-sw pg-spent" />{counts.used} withdrawn</span>
         <span className="pg-legend-total">{total} kits total</span>
       </div>
 
