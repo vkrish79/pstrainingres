@@ -46,7 +46,6 @@ export default function PrepPage() {
 
   const vendorParam = sp.get('vendor') || '';
   const parentId = sp.get('parent') || '';
-  const kindParam = sp.get('kind') === 'assessment' ? 'assessment' : 'workbook';
 
   // Super chooses a pool ('' = the shared super pool); vendor tiers are locked
   // to their own. Super can write only to the super pool — a vendor's is
@@ -87,7 +86,9 @@ export default function PrepPage() {
     </label>
   );
 
-  const open = parentId ? pools.find(p => p.id === parentId && p.kind === kindParam) || null : null;
+  // Matched on the id alone: ids are uuids, unique across both tables, and a
+  // link that names the pool but not its kind should still open it.
+  const open = parentId ? pools.find(p => p.id === parentId) || null : null;
 
   return (
     <>
