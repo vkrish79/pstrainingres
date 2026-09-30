@@ -199,6 +199,9 @@ export default function WorkbookPrepPanel({ workbook, sections, profile, onTempl
       kindLabel="workbook"
       lockedTag={lockedTag}
       extraHeader={extraHeader}
+      // Extract and return rewrite the template on the server; this makes the
+      // checklist show the result.
+      refreshKey={reloadKey}
       onTemplateChanged={() => setReloadKey(k => k + 1)}
       onTemplate={onTemplate}
     >

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
 import { WORKBOOK_PREP_KIND, ASSESSMENT_PREP_KIND } from '../../hooks/useContentPrep.js';
@@ -20,7 +20,12 @@ import '../../styles/prep.css';
 // wrote — so the Prep page, the fill sheet, the paste grid and claim_prep_kit
 // read it exactly as before.
 //
-// Every change saves on its own, like the rest of this card always did.
+// Every change saves on its own, like the rest of this card always did — and
+// each one is applied to the template AS STORED AT THAT MOMENT, not to the copy
+// this card loaded. Other things write prep_template behind its back: adding
+// exercises from another workbook appends borrowed columns, and extracting prep
+// rewrites them. The old upload wrote once per file; this writes once per click,
+// so a stale copy would be written back routinely and take those columns with it.
 //
 // Props:
 //   parentTable     — table holding prep_template ('workbooks' | 'assessments')
@@ -35,6 +40,8 @@ import '../../styles/prep.css';
 //                     managed elsewhere (a composed workbook's borrowed prep)
 //   extraHeader     — optional ReactNode above the checklist
 //   children        — rendered below the checklist (workbook's extract/return)
+//   refreshKey      — bump to make the card re-read the stored template (the
+//                     workbook wrapper does, after an extract or return)
 //   onTemplateChanged — called after a change has been saved
 //   onTemplate      — called with the template whenever it is loaded or changes
 export default function ContentPrepPanel({
@@ -47,6 +54,7 @@ export default function ContentPrepPanel({
   lockedTag = null,
   extraHeader = null,
   children = null,
+  refreshKey = 0,
   onTemplateChanged,
   onTemplate,
 }) {
@@ -66,21 +74,43 @@ export default function ContentPrepPanel({
   // new one and stranding whatever kits still carry the old name.
   const removedRef = useRef(new Map());
 
+  // The stored template, or null if it could not be read.
+  const readStored = useCallback(async () => {
+    const { data, error: readErr } = await supabase
+      .from(parentTable).select('prep_template').eq('id', parentId).single();
+    if (readErr || !data) return null;
+    return Array.isArray(data.prep_template) ? data.prep_template : [];
+  }, [parentTable, parentId]);
+
   useEffect(() => {
     if (!parentId) return undefined;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from(parentTable).select('prep_template').eq('id', parentId).single();
+      const tpl = (await readStored()) || [];
       if (cancelled) return;
-      const tpl = Array.isArray(data?.prep_template) ? data.prep_template : [];
       setTemplate(tpl);
       // A set-up template opens showing what is set; an empty one opens on the
       // full list, since the only thing to do there is tick.
       setOnlyPrep(tpl.some(e => e?.section_id));
     })();
     return () => { cancelled = true; };
-  }, [parentTable, parentId]);
+  }, [parentId, readStored]);
+
+  // Re-read when the exercises themselves change (exercises added from another
+  // workbook arrive with their prep columns) or when the wrapper says the
+  // template moved. The filter is left where the author put it.
+  const sectionKey = (sections || []).map(s => s.id).join(',');
+  const firstRead = useRef(true);
+  useEffect(() => {
+    if (firstRead.current) { firstRead.current = false; return undefined; }
+    if (!parentId) return undefined;
+    let cancelled = false;
+    (async () => {
+      const tpl = await readStored();
+      if (!cancelled && tpl) setTemplate(tpl);
+    })();
+    return () => { cancelled = true; };
+  }, [sectionKey, refreshKey, parentId, readStored]);
 
   // How many kits carry each column — for the counts beside a row and the
   // question asked before a column is removed. Every partition: a column that a
@@ -130,38 +160,66 @@ export default function ContentPrepPanel({
   const stranded = tpl.filter(e => e.section_id && !knownIds.has(e.section_id));
   const linkedCount = exercises.filter(s => bySection.has(s.id)).length;
 
+  // Apply one edit to the template as it is stored NOW. `edit` gets the fresh
+  // list and returns the new one; it may throw to refuse (the message is shown).
+  //
   // update() without reading the row back reports success when RLS refused it,
   // so ask for the row and treat "nothing came back" as the failure it is.
-  async function persist(next) {
-    const prev = template;
-    setTemplate(next); setSaving(true); setError('');
-    const { data, error: upErr } = await supabase
-      .from(parentTable).update({ prep_template: next }).eq('id', parentId)
-      .select('prep_template').maybeSingle();
-    setSaving(false);
-    if (upErr || !data) {
-      setTemplate(prev);
-      setError(upErr?.message || 'That change was not saved — this template could not be updated.');
-      return false;
+  async function persist(edit) {
+    setSaving(true); setError('');
+    try {
+      const fresh = await readStored();
+      if (!fresh) throw new Error('That change was not saved — the template could not be read.');
+      const next = edit(fresh);
+      const { data, error: upErr } = await supabase
+        .from(parentTable).update({ prep_template: next }).eq('id', parentId)
+        .select('prep_template').maybeSingle();
+      if (upErr || !data) {
+        // Show what is really there, so the screen does not keep a tick the
+        // database never took.
+        setTemplate(fresh);
+        throw new Error(upErr?.message || 'That change was not saved — this template could not be updated.');
+      }
+      setTemplate(Array.isArray(data.prep_template) ? data.prep_template : []);
+      onTemplateChanged?.(next);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err.message || 'That change was not saved.' };
+    } finally {
+      setSaving(false);
     }
-    onTemplateChanged?.(next);
-    return true;
+  }
+
+  // For the edits that have nowhere of their own to report a failure.
+  async function save(edit) {
+    const res = await persist(edit);
+    if (!res.ok) setError(res.message);
+    return res.ok;
   }
 
   function tick(section) {
-    const entry = removedRef.current.get(section.id)
-      || { header: uniqueHeader(titleOf(section), tpl), section_id: section.id };
-    // The remembered column may have had its name taken while it was away.
-    const safe = tpl.some(e => e.header === entry.header)
-      ? { ...entry, header: uniqueHeader(entry.header, tpl) }
-      : entry;
-    persist(addLinked(tpl, safe, exerciseIds));
+    save(fresh => {
+      if (fresh.some(e => e.section_id === section.id)) return fresh;
+      const entry = removedRef.current.get(section.id)
+        || { header: uniqueHeader(titleOf(section), fresh), section_id: section.id };
+      // The remembered column may have had its name taken while it was away.
+      const safe = fresh.some(e => e.header === entry.header)
+        ? { ...entry, header: uniqueHeader(entry.header, fresh) }
+        : entry;
+      return addLinked(fresh, safe, exerciseIds);
+    });
   }
 
   async function remove(entry) {
     setConfirmRemove(null);
-    const ok = await persist(removeEntry(tpl, entry.header));
-    if (ok && entry.section_id) removedRef.current.set(entry.section_id, entry);
+    let removed = entry;
+    const ok = await save(fresh => {
+      // Remember the stored entry, not the one on screen: its caption may have
+      // been changed from another tab.
+      removed = fresh.find(e => e.header === entry.header) || entry;
+      return removeEntry(fresh, entry.header);
+    });
+    if (ok && removed.section_id) removedRef.current.set(removed.section_id, removed);
   }
 
   // Removing a column kits still carry is the one change here with a
@@ -173,10 +231,13 @@ export default function ContentPrepPanel({
 
   async function addGeneral(e) {
     e.preventDefault();
-    const problem = generalHeaderProblem(generalDraft, tpl);
-    if (problem) { setGeneralError(problem); return; }
-    const ok = await persist([...tpl, { header: generalDraft.trim(), section_id: null }]);
-    if (ok) { setGeneralDraft(''); setGeneralError(''); }
+    const res = await persist(fresh => {
+      const problem = generalHeaderProblem(generalDraft, fresh);
+      if (problem) throw new Error(problem);
+      return [...fresh, { header: generalDraft.trim(), section_id: null }];
+    });
+    if (res.ok) { setGeneralDraft(''); setGeneralError(''); }
+    else setGeneralError(res.message);
   }
 
   if (!isSuperTrainerOrAbove(profile?.role)) return null;
@@ -268,7 +329,7 @@ export default function ContentPrepPanel({
                   <tr>
                     <th className="prep-check-tick">Prep</th>
                     <th>{noun === 'question' ? 'Question' : 'Exercise'}</th>
-                    <th>What the participant receives</th>
+                    <th>What it is</th>
                     <th>Column</th>
                     <th>Kits</th>
                   </tr>
@@ -303,8 +364,8 @@ export default function ContentPrepPanel({
                               <LabelInput
                                 entry={entry}
                                 disabled={saving}
-                                ariaLabel={`What the participant receives for ${titleOf(s)}`}
-                                onCommit={value => persist(setLabel(tpl, entry.header, value))}
+                                ariaLabel={`What the prep for ${titleOf(s)} is`}
+                                onCommit={value => save(fresh => setLabel(fresh, entry.header, value))}
                               />
                             )}
                             {locked && lockedTag?.(entry)}
@@ -339,8 +400,8 @@ export default function ContentPrepPanel({
                         <LabelInput
                           entry={entry}
                           disabled={saving}
-                          ariaLabel={`What the participant receives for ${entry.header}`}
-                          onCommit={value => persist(setLabel(tpl, entry.header, value))}
+                          ariaLabel={`What ${entry.header} is`}
+                          onCommit={value => save(fresh => setLabel(fresh, entry.header, value))}
                         />
                       )}
                       {kitsCell(entry.header)}
