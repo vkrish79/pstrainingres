@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { attachedHeadersBySection } from '../lib/prepAttach.js';
 
 // Participant-side, read-only. Returns:
 //   prep[sectionId] = { content, updated_at }   — exercise-linked prep
 //   standalone = [{ id, label, content }]        — prep not tied to an exercise
-//   expected   = { sectionIds: Set, labels: [] } — what the prep template SAYS
-//                 this workbook has prep for, whether or not a value exists yet
+//   expected   = { sectionIds: Set, labels: [], attached: {}, ownLabels: {} } —
+//                 what the prep template SAYS this workbook has prep for,
+//                 whether or not a value exists yet. `attached` is
+//                 { [cloneSectionId]: [general header] } for general prep shown
+//                 with an exercise; `ownLabels` is each exercise's own column
+//                 header (lib/prepAttach.js).
 // Realtime on the first two so the trainer's edit appears live in an open tab.
 //
 // `expected` exists so the drawer can distinguish "this exercise is still waiting
@@ -16,7 +21,7 @@ import { supabase } from '../lib/supabase.js';
 export function useParticipantPrep(sessionId, participantId) {
   const [prep, setPrep] = useState({});
   const [standalone, setStandalone] = useState([]);
-  const [expected, setExpected] = useState({ sectionIds: new Set(), labels: [] });
+  const [expected, setExpected] = useState({ sectionIds: new Set(), labels: [], attached: {}, ownLabels: {} });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,15 +81,23 @@ export function useParticipantPrep(sessionId, participantId) {
 
       const sectionIds = new Set();
       const labels = [];
+      // The exercise's own column header, by clone section — printed beside its
+      // value only when the exercise shows more than one (PrepCallout).
+      const ownLabels = {};
       for (const col of template) {
         if (col?.section_id) {
           const cloneSectionId = cloneByMaster.get(col.section_id);
-          if (cloneSectionId) sectionIds.add(cloneSectionId);
+          if (cloneSectionId) {
+            sectionIds.add(cloneSectionId);
+            if (col.header && !ownLabels[cloneSectionId]) ownLabels[cloneSectionId] = col.header;
+          }
         } else if (col?.header) {
           labels.push(col.header);
         }
       }
-      if (!cancelled) setExpected({ sectionIds, labels });
+      // General prep the template shows WITH an exercise (show_with).
+      const attached = attachedHeadersBySection(template, cloneByMaster);
+      if (!cancelled) setExpected({ sectionIds, labels, attached, ownLabels });
     })();
     return () => { cancelled = true; };
   }, [sessionId]);

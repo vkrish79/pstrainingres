@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { splitGeneralPrep } from '../../lib/prepAttach.js';
 import '../../styles/prep.css';
 
 // Narrow right slide-in drawer showing all of a participant's prep: exercise-
@@ -13,7 +14,7 @@ import '../../styles/prep.css';
 // the placeholder an exercise still waiting for its PNR is indistinguishable from
 // one that never needed prep. Empty `expected` (or a workbook with no template)
 // falls back to listing only prep that exists.
-const EMPTY_EXPECTED = { sectionIds: new Set(), labels: [] };
+const EMPTY_EXPECTED = { sectionIds: new Set(), labels: [], attached: {}, ownLabels: {} };
 
 // How long the slide takes (must match `transition` in prep.css). Used to hold
 // off hiding the drawer from the keyboard until it has finished sliding out —
@@ -24,29 +25,42 @@ const SLIDE_MS = 300;
 export default function PrepDrawer({ open, onClose, sections, prep, standalone = [], expected = EMPTY_EXPECTED, className = '' }) {
   const expectedSections = expected?.sectionIds || EMPTY_EXPECTED.sectionIds;
   const expectedLabels = expected?.labels || EMPTY_EXPECTED.labels;
+  const attached = expected?.attached || EMPTY_EXPECTED.attached;
+  const ownLabels = expected?.ownLabels || EMPTY_EXPECTED.ownLabels;
 
   const contentFor = s => (prep[s.id]?.content || '').trim();
-  // Anything with a value, plus anything the template expects — in workbook order.
-  const rows = sections.filter(s => contentFor(s) || expectedSections.has(s.id));
 
-  // Standalone: the items that exist, then template labels still unfilled.
+  // Every general item, filled or still expected — then the ones the template
+  // shows WITH an exercise are taken out of the general list and put on it.
   const haveLabels = new Set(standalone.map(s => s.label));
   const missingLabels = expectedLabels.filter(l => !haveLabels.has(l));
-  const standaloneRows = [
+  const allGeneral = [
     ...standalone.map(s => ({ key: s.id ?? s.label, label: s.label, content: s.content })),
     ...missingLabels.map(l => ({ key: `missing-${l}`, label: l, content: '' })),
+  ];
+  const { bySection: withExercise, general: standaloneRows } = splitGeneralPrep(allGeneral, attached);
+
+  // Anything with a value, anything the template expects, and any exercise with
+  // general prep shown on it — in workbook order.
+  const rows = sections.filter(s => contentFor(s) || expectedSections.has(s.id) || withExercise[s.id]?.length);
+  // An exercise's values: its own (if it has one), then the attached ones.
+  const valuesFor = s => [
+    ...(contentFor(s) || expectedSections.has(s.id)
+      ? [{ key: `own-${s.id}`, label: ownLabels[s.id] || null, content: contentFor(s) }]
+      : []),
+    ...(withExercise[s.id] || []),
   ];
 
   const hasAny = rows.length > 0 || standaloneRows.length > 0;
 
-  // "4 of 5 ready" — how much of this participant's prep has actually arrived.
+  // "4 of 5 ready" — how much of this participant's prep has actually arrived,
+  // counted per VALUE: an exercise showing a PNR and an EMD number is two.
   // `total` counts the placeholders too, which is the whole point: an exercise
   // still waiting for its PNR should be visibly outstanding, not absent.
-  // `ready` is counted the same way the 🎯 Prep button counts, so the two never
-  // disagree on a half-stocked session.
-  const total = rows.length + standaloneRows.length;
-  const ready = rows.filter(s => contentFor(s)).length
-    + standaloneRows.filter(s => (s.content || '').trim()).length;
+  const filled = v => !!String(v?.content ?? '').trim();
+  const rowValues = rows.flatMap(valuesFor);
+  const total = rowValues.length + standaloneRows.length;
+  const ready = rowValues.filter(filled).length + standaloneRows.filter(filled).length;
   const pct = total ? Math.round((ready / total) * 100) : 0;
 
   // Keyboard-hide only once the slide-out has finished. Gating this on `open`
@@ -86,15 +100,24 @@ export default function PrepDrawer({ open, onClose, sections, prep, standalone =
         ) : (
           <div className="prep-modal-list">
             {rows.map(s => {
-              const content = contentFor(s);
+              const values = valuesFor(s);
+              // One value: exactly as it always was. Two or more: each named by
+              // its column, so a PNR and an EMD number can be told apart.
+              const labelled = values.length > 1;
+              const anyFilled = values.some(filled);
               return (
-                <div key={s.id} className={`prep-modal-item ${content ? '' : 'prep-modal-item--pending'}`}>
+                <div key={s.id} className={`prep-modal-item ${anyFilled ? '' : 'prep-modal-item--pending'}`}>
                   <h4>{s.title}</h4>
-                  {content ? (
-                    <div className="prep-modal-content">{content}</div>
-                  ) : (
-                    <div className="prep-modal-pending">Not assigned yet</div>
-                  )}
+                  {values.map(v => (
+                    <div key={v.key} className="prep-modal-value">
+                      {labelled && <span className="prep-modal-value-label">{v.label || 'Prep'}</span>}
+                      {filled(v) ? (
+                        <div className="prep-modal-content">{v.content}</div>
+                      ) : (
+                        <div className="prep-modal-pending">Not assigned yet</div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               );
             })}

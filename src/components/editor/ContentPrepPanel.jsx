@@ -4,7 +4,7 @@ import { isSuperTrainerOrAbove } from '../../lib/roles.js';
 import { WORKBOOK_PREP_KIND, ASSESSMENT_PREP_KIND } from '../../hooks/useContentPrep.js';
 import {
   PREP_REVEAL_EVENT, addLinked, countKitsByHeader, generalHeaderProblem, isLocked, liveKitCount,
-  removeEntry, tileLabel, topicRows, uniqueHeader,
+  removeEntry, setShowWith, shownWithBySection, tileLabel, topicRows, uniqueHeader,
 } from '../../lib/prepTemplateEdit.js';
 import { LIVE_KITS_FILTER } from '../../lib/prepPools.js';
 import '../../styles/prep.css';
@@ -198,6 +198,7 @@ export default function ContentPrepPanel({
   // Linked to an exercise this parent no longer has. Still a column trainers are
   // asked to fill, so it has to stay visible and removable.
   const stranded = tpl.filter(e => e.section_id && !knownIds.has(e.section_id));
+  const shownWith = shownWithBySection(tpl, knownIds); // { [sectionId]: [general entry] }
   const linkedCount = exercises.filter(s => bySection.has(s.id)).length;
   const generalCount = general.length + stranded.length;
 
@@ -373,11 +374,15 @@ export default function ContentPrepPanel({
                           const locked = entry && isLocked(entry);
                           const live = entry ? liveKitCount(counts, entry.header) > 0 : false;
                           const kits = entry ? kitsText(entry.header) : '';
+                          // General prep shown with this exercise (show_with).
+                          const extra = shownWith[s.id] || [];
+                          const total = (entry ? 1 : 0) + extra.length;
                           const tip = [
                             titleOf(s),
                             row.topic?.title,
                             locked ? lockedNote?.(entry) || 'managed in another workbook' : null,
                             kits || null,
+                            extra.length ? `also shown: ${extra.map(e => e.header).join(', ')}` : null,
                           ].filter(Boolean).join(' · ');
                           return (
                             <button
@@ -393,6 +398,9 @@ export default function ContentPrepPanel({
                             >
                               {tileLabel(titleOf(s))}
                               {live && <span className="prep-tile-kits" aria-hidden />}
+                              {extra.length > 0 && (
+                                <span className="prep-tile-count" aria-label={`${total} prep items`}>{total}</span>
+                              )}
                             </button>
                           );
                         })}
@@ -428,6 +436,26 @@ export default function ContentPrepPanel({
                     >
                       {liveKitCount(counts, entry.header) > 0 && <span className="prep-tile-kits" aria-hidden />}
                       {entry.header}
+                      {/* Which exercise it is shown with, in the drawer and on
+                          the exercise itself. A select styled as a pill: one
+                          click, and every exercise is a choice. */}
+                      {!gone && !locked && exercises.length > 0 && (
+                        <select
+                          className="prep-gen-with"
+                          value={entry.show_with && knownIds.has(entry.show_with) ? entry.show_with : ''}
+                          disabled={saving}
+                          aria-label={`Show ${entry.header} with an ${noun}`}
+                          onChange={e => {
+                            const to = e.target.value || null;
+                            save(fresh => setShowWith(fresh, entry.header, to));
+                          }}
+                        >
+                          <option value="">no {noun}</option>
+                          {exercises.map(s => (
+                            <option key={s.id} value={s.id}>with {tileLabel(titleOf(s))}</option>
+                          ))}
+                        </select>
+                      )}
                       {!locked && (
                         <button
                           type="button"

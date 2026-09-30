@@ -129,6 +129,12 @@
 .prep-modal-item h4 { margin: 0 0 0.3rem; font-size: 0.95rem; }
 .prep-modal-content { white-space: pre-wrap; font-size: 0.9rem; }
 .prep-modal-empty { color: var(--muted); }
+/* One value of several on an exercise, named by its column. */
+.prep-modal-value + .prep-modal-value { margin-top: 0.4rem; }
+.prep-modal-value-label {
+  display: block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 0.1rem;
+}
 .prep-modal-group-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); margin-top: 0.35rem; }
 
 /* Prep drawer — narrow slide-in on the right that PUSHES the canvas (not an
@@ -411,6 +417,26 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--midnight); border: 2px solid #fff;
 }
+
+/* More than one prep item on this exercise (its own + general prep shown with
+   it): the total, in a navy badge on the other corner from the kits dot. */
+.prep-tile-count {
+  position: absolute; left: -6px; top: -7px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px; border: 2px solid #fff;
+  background: var(--midnight); color: #fff;
+  font-size: 0.64rem; font-weight: 800; line-height: 1;
+}
+
+/* "with Ex 3" on a general-prep chip: a select dressed as a pill. */
+.prep-panel .prep-gen-with {
+  font: inherit; font-size: 0.72rem; font-weight: 600;
+  color: var(--midnight); background: #fff;
+  border: 1px solid rgba(30, 60, 90, 0.2); border-radius: 999px;
+  padding: 0.05rem 0.4rem; cursor: pointer; max-width: 12rem;
+}
+.prep-panel .prep-gen-with:hover:not(:disabled) { border-color: var(--midnight); }
 
 /* The tile a heading's marker asked for, lit briefly so the eye lands on it. */
 @keyframes prep-tile-flash {

@@ -29,6 +29,8 @@ import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
 import PollParticipant from '../components/poll/PollParticipant.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
+import PrepCallout from '../components/PrepCallout.jsx';
+import { calloutItems, splitGeneralPrep } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
 import '../styles/print.css';
@@ -160,6 +162,13 @@ export default function ParticipantWorkbookPage() {
     () => Object.values(sectionPrep).filter(p => (p?.content || '').trim()).length
       + standalonePrep.filter(p => (p?.content || '').trim()).length,
     [sectionPrep, standalonePrep]
+  );
+
+  // General prep the template shows WITH an exercise, by clone section, for the
+  // purple box on that exercise (the drawer does the same split itself).
+  const prepWithExercise = useMemo(
+    () => splitGeneralPrep(standalonePrep, expectedPrep?.attached).bySection,
+    [standalonePrep, expectedPrep]
   );
 
   // Publish the sticky actions-bar height as --page-actions-h so the exercise
@@ -926,12 +935,9 @@ export default function ParticipantWorkbookPage() {
                       )}
                     </h2>
                   )}
-                  {prepText && (
-                    <div className="participant-prep-callout">
-                      <span className="participant-prep-callout-label">Pre-work from your trainer</span>
-                      {prepText}
-                    </div>
-                  )}
+                  <PrepCallout
+                    items={calloutItems(prepText, expectedPrep?.ownLabels?.[sec.id], prepWithExercise[sec.id])}
+                  />
                   {blocks.filter(b => b.section_id === sec.id).map(b => (
                     <Block
                       key={b.id}

@@ -1453,6 +1453,15 @@
   color: #8a5fb8;
   margin-bottom: 0.2rem;
 }
+/* Two or more values on one exercise (components/PrepCallout.jsx): one row
+   each, named by its column. A grid so the values line up down the box. */
+.participant-prep-callout-lines {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 0.9rem; row-gap: 0.15rem; align-items: baseline;
+}
+.participant-prep-callout-line { display: contents; }
+.participant-prep-callout-key { font-size: 0.72rem; font-weight: 700; color: #6b4a92; }
+.participant-prep-callout-value { overflow-wrap: anywhere; }
 
 /* ===== Closed sessions archive ===== */
 

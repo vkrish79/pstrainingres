@@ -11,6 +11,14 @@
 //   section_id — the exercise it belongs to, or null for a general item.
 //   source_workbook_id — a column drawn from another workbook's pool (composed
 //                workbooks). Managed there; read-only here.
+//   show_with  — GENERAL prep only (section_id null): the exercise it belongs
+//                with on screen. An exercise holds one linked value per
+//                participant (participant_prep is unique per section), so an
+//                exercise that needs two — Refresher's Exercise 3, a PNR and an
+//                EMD number — keeps the second as general prep, and this puts it
+//                back beside its exercise in the drawer and the exercise itself.
+//                Display only: storage and hand-out are exactly as for any
+//                general prep. See lib/prepAttach.js.
 
 import { IGNORED_HEADERS } from './prepColumns.js';
 
@@ -124,6 +132,30 @@ export function addLinked(template, entry, orderedSectionIds) {
 
 export function removeEntry(template, header) {
   return (template || []).filter(e => e.header !== header);
+}
+
+// Say which exercise a general item is shown with, or none (null). Only general
+// items take it: a linked column already belongs to its exercise. Clearing
+// removes the key rather than storing null, so the entry says only what was
+// decided.
+export function setShowWith(template, header, sectionId) {
+  return (template || []).map(e => {
+    if (e.header !== header || e.section_id) return e;
+    const { show_with: _old, ...rest } = e;
+    return sectionId ? { ...rest, show_with: sectionId } : rest;
+  });
+}
+
+// { [sectionId]: [entry, ...] } — general items shown with each exercise, in
+// template order. Only sections in `knownIds` count: an item pointing at an
+// exercise that has been deleted is plain general prep again.
+export function shownWithBySection(template, knownIds) {
+  const out = {};
+  for (const e of template || []) {
+    if (e?.section_id || !e?.show_with || !knownIds.has(e.show_with)) continue;
+    (out[e.show_with] ||= []).push(e);
+  }
+  return out;
 }
 
 // { [header]: { available, allocated, used } } — how many kits carry a value for
