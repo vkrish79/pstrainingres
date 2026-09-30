@@ -65,9 +65,10 @@
 .prep-cockpit .prep-bar-stack {
   display: flex; height: 8px; border-radius: 5px; overflow: hidden; background: #eceae5;
 }
-/* The stock block already took the slack above it; the shared facts rule
-   would claim it a second time and split the card's free space in two. */
-.prep-cockpit .prep-card-facts { margin-top: 0; }
+/* The shared card's 9.5rem floor was sized for a description and a line of
+   facts. This one carries neither, so it is as tall as its content; cards in
+   a row still match because the grid stretches them. */
+.prep-cockpit .prep-card { min-height: 0; }
 .prep-cockpit .wb-pill.is-ok { color: #1d7a44; background: #e9f6ee; }
 
 /* ── One pool ── */

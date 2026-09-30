@@ -10,7 +10,6 @@ import { usePrepPool } from '../hooks/usePrepPool.js';
 import { WORKBOOK_PREP_KIND, ASSESSMENT_PREP_KIND } from '../hooks/useContentPrep.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import { LOW_PREP_THRESHOLD, needsStock } from '../lib/prepPools.js';
-import { classState, shortDate } from '../lib/programReadiness.js';
 import '../styles/dashboard.css';
 import '../styles/prep.css';
 import '../styles/prep-page.css';
@@ -116,7 +115,6 @@ export default function PrepPage() {
           <Landing
             loading={loading}
             pools={pools}
-            sessionsById={sessionsById}
             canWrite={canWrite}
             poolName={poolName}
             poolPicker={poolPicker}
@@ -131,7 +129,7 @@ export default function PrepPage() {
 
 function plural(n, word, many = `${word}s`) { return `${n} ${n === 1 ? word : many}`; }
 
-function Landing({ loading, pools, sessionsById, canWrite, poolName, poolPicker, isSuper, onOpen }) {
+function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOpen }) {
   const [filter, setFilter] = useState('all');   // 'all' | 'need' | 'ok' | 'noprep'
   const [find, setFind] = useState('');
 
@@ -300,7 +298,7 @@ function Landing({ loading, pools, sessionsById, canWrite, poolName, poolPicker,
                   <h2 className="prep-group-label">{KIND_LABEL[kind]}s · {list.length}</h2>
                   <div className="wb-grid">
                     {list.map(p => (
-                      <PoolCard key={p.id} pool={p} sessionsById={sessionsById} onOpen={() => onOpen(p)} />
+                      <PoolCard key={p.id} pool={p} onOpen={() => onOpen(p)} />
                     ))}
                   </div>
                 </div>
@@ -321,13 +319,17 @@ const PILL = {
 };
 
 // One control, like a workbook card: it opens the pool and does nothing else.
-function PoolCard({ pool, sessionsById, onOpen }) {
+//
+// THE CARD CARRIES NO NARRATION. It had a line of facts under the bar — which
+// class holds kits, how many closed classes, when it was last drawn from — and
+// that was a paragraph to read on every tile of a page meant to be scanned.
+// What is left is what the tile is for: the name, the state, how many are ready
+// of how many, over how many exercises, and the bar. The rest is one click away
+// in the pool, where the gauges say it properly.
+function PoolCard({ pool, onOpen }) {
   const { summary: s, state } = pool;
   const [pillClass, pillText] = PILL[state];
   const pct = n => (s.total ? `${(n / s.total) * 100}%` : '0%');
-
-  const held = s.heldSessionIds.map(id => sessionsById[id]).filter(Boolean);
-  const leftOpen = held.filter(c => classState(c).key === 'ended');
 
   return (
     <article
@@ -348,43 +350,19 @@ function PoolCard({ pool, sessionsById, onOpen }) {
         </div>
         {pool.program && <p className="prep-card-prog">{pool.program}</p>}
 
-        {state === 'noprep' ? (
-          <p className="wb-card-facts"><span>No prep columns set up</span></p>
-        ) : (
-          <>
-            <div className="prep-stock">
-              <p className="prep-stock-line">
-                <b className={s.fullyPreppable ? '' : 'is-zero'}>{s.fullyPreppable}</b>
-                ready of {s.total} · {plural(pool.structure.length, 'exercise')}
-              </p>
-              <div className="prep-bar-stack" aria-hidden="true">
-                <i className="prep-seg is-ready" style={{ width: pct(s.available) }} />
-                <i className="prep-seg is-held" style={{ width: pct(s.held) }} />
-                <i className="prep-seg is-stranded" style={{ width: pct(s.stranded) }} />
-                <i className="prep-seg is-spent" style={{ width: pct(s.used) }} />
-              </div>
-            </div>
-            <p className="wb-card-facts prep-card-facts">
-              {s.held > 0 && (
-                <span>
-                  <b>{s.held}</b> in {s.heldSessionIds.length === 1
-                    ? (held[0]?.name || 'a class')
-                    : `${s.heldSessionIds.length} classes`}
-                </span>
-              )}
-              {leftOpen.length > 0 && (
-                <span className="wb-stale">
-                  {held.length === 1
-                    ? `ended ${shortDate(leftOpen[0].ends_at)}, still open`
-                    : `${leftOpen.length} ended, still open`}
-                </span>
-              )}
-              {s.stranded > 0 && <span className="wb-stale">{s.stranded} held by no class</span>}
-              {s.closedSessionIds.length > 0 && <span>{plural(s.closedSessionIds.length, 'closed class', 'closed classes')}</span>}
-              {s.withdrawn > 0 && <span>{s.withdrawn} withdrawn by hand</span>}
-              {s.lastDrawn && <span>last drawn <b>{shortDate(s.lastDrawn)}</b></span>}
+        {state !== 'noprep' && (
+          <div className="prep-stock">
+            <p className="prep-stock-line">
+              <b className={s.fullyPreppable ? '' : 'is-zero'}>{s.fullyPreppable}</b>
+              ready of {s.total} · {plural(pool.structure.length, 'exercise')}
             </p>
-          </>
+            <div className="prep-bar-stack" aria-hidden="true">
+              <i className="prep-seg is-ready" style={{ width: pct(s.available) }} />
+              <i className="prep-seg is-held" style={{ width: pct(s.held) }} />
+              <i className="prep-seg is-stranded" style={{ width: pct(s.stranded) }} />
+              <i className="prep-seg is-spent" style={{ width: pct(s.used) }} />
+            </div>
+          </div>
         )}
       </div>
     </article>
