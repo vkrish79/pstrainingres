@@ -35,6 +35,8 @@ import '../styles/prep-page.css';
 // already say Prep.
 const PREP_KIND = { workbook: WORKBOOK_PREP_KIND, assessment: ASSESSMENT_PREP_KIND };
 const KIND_LABEL = { workbook: 'Workbook', assessment: 'Assessment' };
+// The side menu's own glyphs, so a group reads as the same thing it is there.
+const KIND_ICON = { workbook: '▥', assessment: '✎' };
 const EDITOR = { workbook: '/trainer/workbooks/', assessment: '/trainer/assessments/' };
 
 export default function PrepPage() {
@@ -290,18 +292,31 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
               </p>
             )}
 
+            {/* Workbooks and assessments are separate pools stocked for
+                different things, so each kind is its own band — tint, edge and
+                heading — and every card carries its kind's colour, so one seen
+                on its own still says which it is. */}
             {['workbook', 'assessment'].map(kind => {
               const list = shown.filter(p => p.kind === kind);
               if (!list.length) return null;
+              const ready = list.reduce((n, p) => n + (p.state === 'noprep' ? 0 : p.summary.fullyPreppable), 0);
+              const need = list.filter(p => needsStock(p.state)).length;
               return (
-                <div key={kind} className="prep-group">
-                  <h2 className="prep-group-label">{KIND_LABEL[kind]}s · {list.length}</h2>
+                <section key={kind} className={`prep-group prep-group--${kind}`} aria-labelledby={`prep-group-${kind}`}>
+                  <header className="prep-group-head">
+                    <span className="prep-group-icon" aria-hidden="true">{KIND_ICON[kind]}</span>
+                    <h2 className="prep-group-label" id={`prep-group-${kind}`}>{KIND_LABEL[kind]}s</h2>
+                    <span className="prep-group-count">{list.length}</span>
+                    <span className="prep-group-meta">
+                      {plural(ready, 'kit')} ready{need ? ` · ${need} need${need === 1 ? 's' : ''} stock` : ''}
+                    </span>
+                  </header>
                   <div className="wb-grid">
                     {list.map(p => (
                       <PoolCard key={p.id} pool={p} onOpen={() => onOpen(p)} />
                     ))}
                   </div>
-                </div>
+                </section>
               );
             })}
           </section>
@@ -333,7 +348,7 @@ function PoolCard({ pool, onOpen }) {
 
   return (
     <article
-      className="wb-card prep-card"
+      className={`wb-card prep-card prep-card--${pool.kind}`}
       role="button"
       tabIndex={0}
       onClick={onOpen}

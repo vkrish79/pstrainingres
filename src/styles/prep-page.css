@@ -44,12 +44,47 @@
 .prep-cockpit .prep-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
 .prep-cockpit .prep-legend .prep-seg { width: 12px; height: 12px; border-radius: 4px; }
 
-.prep-cockpit .prep-group { margin-bottom: 1rem; }
-.prep-cockpit .prep-group-label {
-  margin: 0 0 0.45rem;
-  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em;
-  text-transform: uppercase; color: #7d8a97;
+/* One band per kind. Workbooks take the navy, assessments the gold — the
+   app's two colours — as a tint, a left edge, the heading and each card's top
+   edge. The kind colour lives in --kind / --kind-tint / --kind-ink so the
+   rules below are written once. */
+.prep-cockpit .prep-group {
+  --kind: var(--midnight); --kind-tint: #eef2f7; --kind-ink: var(--midnight);
+  margin-bottom: 1.1rem; padding: 0.85rem 1rem 1rem;
+  background: var(--kind-tint);
+  border: 1px solid color-mix(in srgb, var(--kind) 18%, transparent);
+  border-left: 5px solid var(--kind);
+  border-radius: 12px;
 }
+.prep-cockpit .prep-group--assessment {
+  --kind: var(--gold); --kind-tint: #f7f1e3; --kind-ink: #6a5528;
+}
+.prep-cockpit .prep-group-head {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.prep-cockpit .prep-group-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.9rem; height: 1.9rem; border-radius: 8px;
+  background: var(--kind); color: #fff; font-size: 1rem; line-height: 1;
+}
+.prep-cockpit .prep-group--assessment .prep-group-icon { color: var(--midnight); }
+.prep-cockpit .prep-group-label {
+  margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0;
+  text-transform: none; color: var(--kind-ink);
+}
+.prep-cockpit .prep-group-count {
+  font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding: 0.05rem 0.5rem; border-radius: 999px;
+  background: #fff; color: var(--kind-ink);
+  border: 1px solid color-mix(in srgb, var(--kind) 35%, transparent);
+}
+.prep-cockpit .prep-group-meta { margin-left: auto; font-size: 0.8rem; font-weight: 600; color: var(--kind-ink); opacity: 0.8; }
+
+/* Each card wears its kind on its top edge. An inset shadow, not a border,
+   so the card's size — and the grid's row heights — do not move. */
+.prep-cockpit .prep-card--workbook { box-shadow: inset 0 3px 0 var(--midnight); }
+.prep-cockpit .prep-card--assessment { box-shadow: inset 0 3px 0 var(--gold); }
 
 /* The card. Wider than a workbook card's 15rem floor: it carries a bar and a
    line of facts, and at 15rem the facts wrapped to four lines. */
