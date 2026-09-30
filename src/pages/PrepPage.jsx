@@ -252,15 +252,19 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
               </div>
             </div>
           </div>
-          <div className={`cockpit-gauge ${stats.stranded > 0 ? 'is-warn' : ''}`}>
-            <div>
-              <div className="cockpit-gauge-label">Held by no class</div>
-              <div className={`cockpit-gauge-value${stats.stranded ? '' : ' is-muted'}`}>{stats.stranded}<small> kits</small></div>
-              <div className="cockpit-gauge-hint">
-                {stats.stranded ? 'no class holds them' : 'none'}
+          {/* Allocated to a class that no longer exists. Deleting a class now
+              hands its kits back (the release_prep_kits_on_session_delete
+              trigger), so this should stay at zero — shown only when it is
+              not, as the fault it is. */}
+          {stats.stranded > 0 && (
+            <div className="cockpit-gauge is-warn">
+              <div>
+                <div className="cockpit-gauge-label">Held by no class</div>
+                <div className="cockpit-gauge-value">{stats.stranded}<small> kits</small></div>
+                <div className="cockpit-gauge-hint">no class holds them</div>
               </div>
             </div>
-          </div>
+          )}
           {/* No Spent gauge: kits spent by closed classes are not loaded at all
               (lib/prepPools.js, LIVE_KITS_FILTER). Kits withdrawn by hand are
               the only used ones left, and get a gauge only when there are some. */}
@@ -289,7 +293,7 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
               <p className="prep-legend" aria-hidden="true">
                 <span><i className="prep-seg is-ready" />ready</span>
                 <span><i className="prep-seg is-held" />in a class</span>
-                <span><i className="prep-seg is-stranded" />held by no class</span>
+                {stats.stranded > 0 && <span><i className="prep-seg is-stranded" />held by no class</span>}
                 {stats.withdrawn > 0 && <span><i className="prep-seg is-spent" />withdrawn</span>}
               </p>
             )}
