@@ -22,14 +22,19 @@ const filled = v => v != null && String(v).trim() !== '';
 //
 // A kit WITHDRAWN BY HAND (used, no class) is different: a trainer pulled it
 // and can put it back, so it is still loaded and still listed.
+//
+// Deleting a closed class blanks the class link on its spent kits (ON DELETE
+// SET NULL), which would make them look withdrawn by hand. The delete trigger
+// (release_prep_kits_on_session_delete) stamps them `class_deleted_at` first,
+// so they are still recognised as spent.
 export function isSpentByClass(k) {
-  return k?.status === 'used' && !!k.consumed_session_id;
+  return k?.status === 'used' && (!!k.consumed_session_id || !!k.class_deleted_at);
 }
 
 // The same rule as a PostgREST filter, for every query that loads kits for
 // display: `q.or(LIVE_KITS_FILTER)` — keeps anything not used, and used kits
-// with no class (withdrawn by hand).
-export const LIVE_KITS_FILTER = 'status.neq.used,consumed_session_id.is.null';
+// with no class and no deleted class behind them (withdrawn by hand).
+export const LIVE_KITS_FILTER = 'status.neq.used,and(consumed_session_id.is.null,class_deleted_at.is.null)';
 
 // kits: [{ status, payload, consumed_session_id?, consumed_at? }]
 //
