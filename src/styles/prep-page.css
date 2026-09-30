@@ -35,7 +35,9 @@
 .prep-cockpit .prep-seg.is-stranded {
   background: repeating-linear-gradient(135deg, #fb923c 0 4px, #fde0c2 4px 8px);
 }
-.prep-cockpit .prep-seg.is-spent { background: #ef6b63; }
+/* Only kits withdrawn by hand reach this segment now (class-spent kits are not
+   loaded), so it is a quiet grey rather than the old spent red. */
+.prep-cockpit .prep-seg.is-spent { background: #c3c9d1; }
 
 .prep-cockpit .prep-legend {
   display: flex; flex-wrap: wrap; gap: 0.2rem 1.1rem;

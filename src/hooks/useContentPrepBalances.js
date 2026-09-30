@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { summariseKits } from '../lib/prepPools.js';
+import { LIVE_KITS_FILTER, summariseKits } from '../lib/prepPools.js';
 
 // Kit counts for EVERY parent (workbook or assessment) in one vendor partition,
 // for the Prep overview. `vendorId` partition selector: a vendor uuid, or `null`
@@ -21,7 +21,9 @@ export function useContentPrepBalances(kindConfig, vendorId) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    let q = supabase.from(kitsTable).select(`${parentFK}, status, payload, consumed_session_id, consumed_at`);
+    // Not kits spent by a closed class — see LIVE_KITS_FILTER.
+    let q = supabase.from(kitsTable).select(`${parentFK}, status, payload, consumed_session_id, consumed_at`)
+      .or(LIVE_KITS_FILTER);
     q = vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
     const { data, error } = await q;
     const groups = {};

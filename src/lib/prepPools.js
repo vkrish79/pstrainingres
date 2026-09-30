@@ -14,6 +14,23 @@ export const LOW_PREP_THRESHOLD = 16;
 
 const filled = v => v != null && String(v).trim() !== '';
 
+// SPENT BY A CLASS — used, by a class that has since closed — is history. Its
+// prep is already snapshotted in the closed session, nothing can be done to it
+// here, and there is one more of it for every participant of every class that
+// ever ran. Listing it would grow the Prep screens forever for no action, so
+// the screens never load it. It stays in the table; it is just not shown.
+//
+// A kit WITHDRAWN BY HAND (used, no class) is different: a trainer pulled it
+// and can put it back, so it is still loaded and still listed.
+export function isSpentByClass(k) {
+  return k?.status === 'used' && !!k.consumed_session_id;
+}
+
+// The same rule as a PostgREST filter, for every query that loads kits for
+// display: `q.or(LIVE_KITS_FILTER)` — keeps anything not used, and used kits
+// with no class (withdrawn by hand).
+export const LIVE_KITS_FILTER = 'status.neq.used,consumed_session_id.is.null';
+
 // kits: [{ status, payload, consumed_session_id?, consumed_at? }]
 //
 //   available — in the pool, never drawn
@@ -23,7 +40,9 @@ const filled = v => v != null && String(v).trim() !== '';
 //               nothing else; a class the caller merely cannot read still has
 //               its id here, so it counts as held.
 //   used      — spent; `withdrawn` is the part of it a trainer pulled by hand
-//               (used with no session) rather than a class closing
+//               (used with no session) rather than a class closing. The screens
+//               load only live kits (LIVE_KITS_FILTER), so there `used` and
+//               `withdrawn` are the same number.
 //   fullyPreppable — the lowest per-column availability among AVAILABLE kits.
 //               A complete kit needs a value in every prep column, so the
 //               emptiest column is the limit. Falls back to the available

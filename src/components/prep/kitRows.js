@@ -8,7 +8,9 @@ export const STATUS_ORDER = ['available', 'allocated', 'used'];
 export const GROUP_LABEL = {
   available: '🟢 In the pool — not yet drawn',
   allocated: '🟠 Allocated — class in progress',
-  used: '🔴 Class closed — spent',
+  // Kits spent by a closed class are never loaded (lib/prepPools.js), so the
+  // only used kits a grid sees are the ones a trainer withdrew by hand.
+  used: '⚪ Withdrawn by hand',
 };
 
 export const STATUS_CLASS = { available: 'pg-pool', allocated: 'pg-alloc', used: 'pg-spent' };

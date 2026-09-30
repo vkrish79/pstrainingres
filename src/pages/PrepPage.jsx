@@ -261,16 +261,18 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
               </div>
             </div>
           </div>
-          <div className="cockpit-gauge">
-            <div>
-              <div className="cockpit-gauge-label">Spent</div>
-              <div className={`cockpit-gauge-value${stats.used ? '' : ' is-muted'}`}>{stats.used}<small> kits</small></div>
-              <div className="cockpit-gauge-hint">
-                {stats.used === 0 ? 'none yet'
-                  : stats.withdrawn ? `${stats.withdrawn} withdrawn by hand` : 'used by closed classes'}
+          {/* No Spent gauge: kits spent by closed classes are not loaded at all
+              (lib/prepPools.js, LIVE_KITS_FILTER). Kits withdrawn by hand are
+              the only used ones left, and get a gauge only when there are some. */}
+          {stats.withdrawn > 0 && (
+            <div className="cockpit-gauge">
+              <div>
+                <div className="cockpit-gauge-label">Withdrawn</div>
+                <div className="cockpit-gauge-value">{stats.withdrawn}<small> kits</small></div>
+                <div className="cockpit-gauge-hint">by hand, can be restored</div>
               </div>
             </div>
-          </div>
+          )}
         </section>
       )}
 
@@ -288,7 +290,7 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
                 <span><i className="prep-seg is-ready" />ready</span>
                 <span><i className="prep-seg is-held" />in a class</span>
                 <span><i className="prep-seg is-stranded" />held by no class</span>
-                <span><i className="prep-seg is-spent" />spent</span>
+                {stats.withdrawn > 0 && <span><i className="prep-seg is-spent" />withdrawn</span>}
               </p>
             )}
 

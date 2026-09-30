@@ -6,6 +6,7 @@ import {
   PREP_REVEAL_EVENT, addLinked, countKitsByHeader, generalHeaderProblem, isLocked, liveKitCount,
   removeEntry, tileLabel, topicRows, uniqueHeader,
 } from '../../lib/prepTemplateEdit.js';
+import { LIVE_KITS_FILTER } from '../../lib/prepPools.js';
 import '../../styles/prep.css';
 
 // Shared prep TEMPLATE SETUP panel — super-tier only, on a master (template)
@@ -142,7 +143,8 @@ export default function ContentPrepPanel({
       for (let from = 0; ; from += PAGE) {
         const { data, error: kitErr } = await supabase
           .from(kitKind.kitsTable).select('status, payload')
-          .eq(kitKind.parentFK, parentId).order('id').range(from, from + PAGE - 1);
+          .eq(kitKind.parentFK, parentId).or(LIVE_KITS_FILTER)
+          .order('id').range(from, from + PAGE - 1);
         if (kitErr || !data) break;
         kits.push(...data);
         if (data.length < PAGE) break;
@@ -282,14 +284,13 @@ export default function ContentPrepPanel({
 
   if (!isSuperTrainerOrAbove(profile?.role)) return null;
 
-  // "44 in classes · 73 spent" — for tooltips.
+  // "6 in the pool · 44 in classes" — for tooltips. Spent kits are not loaded.
   const kitsText = header => {
     const c = counts[header];
     if (!c) return '';
     return [
       c.available ? `${c.available} in the pool` : null,
       c.allocated ? `${c.allocated} in classes` : null,
-      c.used ? `${c.used} spent` : null,
     ].filter(Boolean).join(' · ');
   };
 

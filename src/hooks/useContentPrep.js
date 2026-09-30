@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { mirrorWorkbookKitCells } from '../lib/prepMirror.js';
-import { summariseKits } from '../lib/prepPools.js';
+import { LIVE_KITS_FILTER, summariseKits } from '../lib/prepPools.js';
 
 // Trainer-side hook for a master parent's (workbook or assessment) prep
 // repository, scoped to ONE vendor partition. `vendorId` is the partition
@@ -30,6 +30,8 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
       .from(kitsTable)
       .select('id, vendor_id, kit_index, payload, status, consumed_session_id, consumed_participant_id, consumed_at')
       .eq(parentFK, parentId)
+      // Not kits spent by a closed class — see LIVE_KITS_FILTER.
+      .or(LIVE_KITS_FILTER)
       .order('kit_index');
     q = vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
     const { data, error } = await q;

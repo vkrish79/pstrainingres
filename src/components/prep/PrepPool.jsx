@@ -76,7 +76,7 @@ export function PrepPoolBody({ pool, kind, canWrite, variant = 'modal', sessions
             <strong>{balance.fullyPreppable}</strong> participant{balance.fullyPreppable === 1 ? '' : 's'} can be fully prepped
             <span className="muted"> — the lowest-stocked exercise sets the limit</span>
           </div>
-          <div className="prep-balance-meta muted">{balance.available} kit{balance.available === 1 ? '' : 's'} available · {balance.total} total · {balance.allocated} in use · {balance.used} consumed (closed)</div>
+          <div className="prep-balance-meta muted">{balance.available} kit{balance.available === 1 ? '' : 's'} available · {balance.allocated} in use{balance.withdrawn ? ` · ${balance.withdrawn} withdrawn` : ''}</div>
           {Object.keys(balance.perSection).length > 0 && (
             <ul className="prep-bars">
               {Object.entries(balance.perSection).map(([sid, p]) => {
@@ -228,9 +228,8 @@ function PoolGauges({ balance, kits, structure, sessionsById }) {
     }
   }
 
-  const incomplete = incompleteKits(kits, structure);
-  const incompleteLive = incomplete.filter(k => k.status !== 'used').length;
-  const closed = balance.closedSessionIds.length;
+  // Withdrawn kits are left out: nobody will be handed one.
+  const incompleteLive = incompleteKits(kits, structure).filter(k => k.status !== 'used').length;
 
   return (
     <section className="cockpit-gauges wb-gauges" aria-label="This pool at a glance">
@@ -263,33 +262,34 @@ function PoolGauges({ balance, kits, structure, sessionsById }) {
           </div>
         </div>
       )}
-      <div className="cockpit-gauge">
-        <div>
-          <div className="cockpit-gauge-label">Spent</div>
-          <div className={`cockpit-gauge-value${balance.used ? '' : ' is-muted'}`}>{balance.used}</div>
-          <div className="cockpit-gauge-hint">
-            {balance.used === 0 ? 'none yet'
-              : [closed > 0 && `${closed} closed class${closed === 1 ? '' : 'es'}`,
-                balance.withdrawn > 0 && `${balance.withdrawn} withdrawn by hand`].filter(Boolean).join(' · ')}
+      {/* No Spent gauge: kits spent by closed classes are not loaded
+          (lib/prepPools.js, LIVE_KITS_FILTER). Withdrawn-by-hand kits are the
+          only used ones left; they get a gauge only when there are some. */}
+      {balance.withdrawn > 0 && (
+        <div className="cockpit-gauge">
+          <div>
+            <div className="cockpit-gauge-label">Withdrawn</div>
+            <div className="cockpit-gauge-value">{balance.withdrawn}</div>
+            <div className="cockpit-gauge-hint">by hand, can be restored</div>
           </div>
         </div>
-      </div>
+      )}
       <div className={`cockpit-gauge ${incompleteLive ? 'is-warn' : ''}`}>
         <div>
           <div className="cockpit-gauge-label">Incomplete</div>
-          <div className={`cockpit-gauge-value${incomplete.length ? '' : ' is-muted'}`}>{incomplete.length}<small> kit{incomplete.length === 1 ? '' : 's'}</small></div>
+          <div className={`cockpit-gauge-value${incompleteLive ? '' : ' is-muted'}`}>{incompleteLive}<small> kit{incompleteLive === 1 ? '' : 's'}</small></div>
           <div className="cockpit-gauge-hint">
-            {incomplete.length === 0 ? 'every kit is complete'
-              : incompleteLive === 0 ? 'all already spent'
-                : `${incompleteLive} not yet spent`}
+            {incompleteLive === 0 ? 'every kit is complete' : 'missing a value in a column'}
           </div>
         </div>
       </div>
+      {/* Read off the kits still loaded, i.e. the classes still open: once a
+          class closes, its draws leave this page with its kits. */}
       <div className="cockpit-gauge">
         <div>
           <div className="cockpit-gauge-label">Last drawn</div>
           <div className={`cockpit-gauge-value${balance.lastDrawn ? '' : ' is-muted'}`}>{balance.lastDrawn ? shortDate(balance.lastDrawn) : '—'}</div>
-          <div className="cockpit-gauge-hint">{balance.lastDrawn ? daysAgo(balance.lastDrawn) : 'never drawn from'}</div>
+          <div className="cockpit-gauge-hint">{balance.lastDrawn ? daysAgo(balance.lastDrawn) : 'no open class has drawn'}</div>
         </div>
       </div>
     </section>

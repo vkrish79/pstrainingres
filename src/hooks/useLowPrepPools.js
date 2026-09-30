@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { isTrainerTier, isSuperTrainerOrAbove } from '../lib/roles.js';
-import { LOW_PREP_THRESHOLD, summariseKits } from '../lib/prepPools.js';
+import { LIVE_KITS_FILTER, LOW_PREP_THRESHOLD, summariseKits } from '../lib/prepPools.js';
 
 // A pool is "low" when FEWER THAN LOW_PREP_THRESHOLD more participants can be
 // FULLY prepped (the bottleneck-column count). The threshold and the sum both
@@ -54,7 +54,8 @@ export function useLowPrepPools(profile) {
 }
 
 async function loadKind({ kitsTable, parentsTable, parentFK, kind, vendorId }) {
-  let kq = supabase.from(kitsTable).select(`${parentFK}, status, payload`);
+  // Not kits spent by a closed class — see LIVE_KITS_FILTER.
+  let kq = supabase.from(kitsTable).select(`${parentFK}, status, payload`).or(LIVE_KITS_FILTER);
   kq = vendorId == null ? kq.is('vendor_id', null) : kq.eq('vendor_id', vendorId);
   const [{ data: kits, error: kErr }, { data: parents, error: pErr }] = await Promise.all([
     kq,
