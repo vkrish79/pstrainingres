@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { mirrorWorkbookKitCells } from '../lib/prepMirror.js';
+import { summariseKits } from '../lib/prepPools.js';
 
 // Trainer-side hook for a master parent's (workbook or assessment) prep
 // repository, scoped to ONE vendor partition. `vendorId` is the partition
@@ -53,28 +54,10 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
     return () => { supabase.removeChannel(channel); };
   }, [parentId, vendorId, refresh, kitsTable, parentFK, channelPrefix]);
 
-  const balance = useMemo(() => {
-    let available = 0, allocated = 0, used = 0;
-    const perSection = {}; // payload key (header) -> { total, available }
-    for (const k of kits) {
-      if (k.status === 'available') available++;
-      else if (k.status === 'allocated') allocated++;
-      else if (k.status === 'used') used++;
-      for (const [key, v] of Object.entries(k.payload || {})) {
-        if (v == null || String(v).trim() === '') continue;
-        perSection[key] = perSection[key] || { total: 0, available: 0 };
-        perSection[key].total++;
-        if (k.status === 'available') perSection[key].available++;
-      }
-    }
-    // "Fully preppable" = the lowest per-header availability among AVAILABLE
-    // kits. A complete kit needs a value in every prep column, so the column
-    // with the fewest filled-in available kits is the bottleneck. Falls back
-    // to the kit count when there are no prep columns at all.
-    const headerAvails = Object.values(perSection).map(p => p.available);
-    const fullyPreppable = headerAvails.length ? Math.min(...headerAvails) : available;
-    return { total: kits.length, available, allocated, used, perSection, fullyPreppable };
-  }, [kits]);
+  // { total, available, allocated, held, stranded, used, withdrawn, perSection,
+  //   fullyPreppable, lastDrawn, … } — the same sum the overview and the
+  // low-prep badge use (lib/prepPools.js).
+  const balance = useMemo(() => summariseKits(kits), [kits]);
 
   // Append new kits to this partition. `payloadRows` is an array of objects
   // keyed by canonical prep_template header.

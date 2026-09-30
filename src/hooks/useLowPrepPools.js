@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { isTrainerTier, isSuperTrainerOrAbove } from '../lib/roles.js';
+import { LOW_PREP_THRESHOLD, summariseKits } from '../lib/prepPools.js';
 
-// A pool is "low" when FEWER THAN this many more participants can be FULLY
-// prepped (the bottleneck-column count — see useContentPrep.fullyPreppable).
-// i.e. fullyPreppable < threshold triggers the alert (0 = exhausted/empty).
-// Tune here.
-export const LOW_PREP_THRESHOLD = 16;
+// A pool is "low" when FEWER THAN LOW_PREP_THRESHOLD more participants can be
+// FULLY prepped (the bottleneck-column count). The threshold and the sum both
+// live in lib/prepPools.js, shared with the Prep cockpit, so the badge and the
+// page's "Needs stock" count are the same number by construction.
+export { LOW_PREP_THRESHOLD };
 
 // Detects prep pools running low for the logged-in trainer's partition (super →
 // the shared super pool; vendor tiers → their own vendor) across BOTH workbook
@@ -70,23 +71,12 @@ async function loadKind({ kitsTable, parentsTable, parentFK, kind, vendorId }) {
   });
 
   const m = {};
-  for (const k of kits || []) {
-    const pid = k[parentFK];
-    const e = m[pid] || (m[pid] = { total: 0, perSection: {} });
-    e.total++;
-    for (const [h, v] of Object.entries(k.payload || {})) {
-      if (v == null || String(v).trim() === '') continue;
-      e.perSection[h] = e.perSection[h] || { available: 0 };
-      if (k.status === 'available') e.perSection[h].available++;
-    }
-  }
+  for (const k of kits || []) (m[k[parentFK]] || (m[k[parentFK]] = [])).push(k);
 
   const low = [];
   // Parents that have kits — flag the ones whose bottleneck-column count is low.
   for (const id of Object.keys(m)) {
-    const e = m[id];
-    const avs = Object.values(e.perSection).map(p => p.available);
-    const fullyPreppable = avs.length ? Math.min(...avs) : 0;
+    const { fullyPreppable } = summariseKits(m[id]);
     if (fullyPreppable < LOW_PREP_THRESHOLD) {
       low.push({ id, kind, title: titleById[id] || (kind === 'assessment' ? 'Assessment' : 'Workbook'), fullyPreppable });
     }

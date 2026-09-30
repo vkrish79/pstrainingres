@@ -55,6 +55,15 @@
   box-shadow: inset 0 -1px 0 #e2e8f0;
 }
 
+/* How many available kits carry this exercise — the per-exercise balance,
+   printed on the column it describes (Prep page only). */
+.pg-col-ready {
+  display: block; margin-top: 1px;
+  font-size: 0.66rem; font-weight: 700; text-transform: none; letter-spacing: 0;
+  color: #2f8f5f;
+}
+.pg-col-ready.is-none { color: #c2503c; }
+
 /* sticky first column (row label), lifted with an edge shadow */
 .pg-rowhead {
   position: sticky; left: 0; z-index: 1;

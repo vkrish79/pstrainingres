@@ -45,8 +45,14 @@ export function kitRowLabel(k, participantsById = {}, sessionsById = {}) {
   if (k.status === 'available') return { main: `Kit #${k.kit_index}`, sub: null };
   // used with no session = a manual trainer withdrawal (not a closed class)
   if (k.status === 'used' && !k.consumed_session_id) return { main: `Kit #${k.kit_index}`, sub: 'withdrawn' };
+  // allocated with no session = the class that drew it is gone and nothing
+  // handed the kit back. It would otherwise read as a bare "Kit #3" sitting in
+  // the "class in progress" group with no class to be in.
+  if (k.status === 'allocated' && !k.consumed_session_id) return { main: `Kit #${k.kit_index}`, sub: 'held by no class' };
   const p = k.consumed_participant_id ? participantsById[k.consumed_participant_id] : null;
   const s = k.consumed_session_id ? sessionsById[k.consumed_session_id] : null;
+  // Held by a class but by nobody in it (the participant was removed).
+  if (k.status === 'allocated' && !k.consumed_participant_id && s?.name) return { main: `Kit #${k.kit_index} · no participant`, sub: s.name };
   const main = p?.full_name || s?.name || `Kit #${k.kit_index}`;
   const sub = p?.full_name && s?.name ? s.name : (p?.full_name && s?.join_code ? s.join_code : null);
   return { main, sub };

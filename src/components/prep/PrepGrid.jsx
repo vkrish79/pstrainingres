@@ -19,7 +19,9 @@ import '../../styles/prep-grid.css';
 //   structure — parent.prep_template: [{ header, section_id }] (column order)
 //   onMarkKit(kitId, status) — withdraw / restore; a status change, not a prep edit
 //   onBulkEdit() — opens the bulk edit sheet
-export default function PrepGrid({ kits = [], structure = [], kind = 'workbook', onMarkKit = null, onBulkEdit = null }) {
+//   readyByHeader — { [header]: available kits with a value } to print under
+//               each column heading; omit for plain headings
+export default function PrepGrid({ kits = [], structure = [], kind = 'workbook', onMarkKit = null, onBulkEdit = null, readyByHeader = null }) {
   const { participantsById, sessionsById } = usePrepConsumedRefs(kits);
   const consumed = usePrepConsumption(kits, structure, kind); // { [kitId]: Set<header in use> }
   const inUseKits = Object.keys(consumed).length;
@@ -78,7 +80,16 @@ export default function PrepGrid({ kits = [], structure = [], kind = 'workbook',
           <thead>
             <tr>
               <th className="pg-rowhead">Kit / Participant</th>
-              {columns.map((h, i) => <th key={i}>{h}</th>)}
+              {columns.map((h, i) => (
+                <th key={i}>
+                  {h}
+                  {readyByHeader && (
+                    <small className={`pg-col-ready${readyByHeader[h] ? '' : ' is-none'}`}>
+                      {readyByHeader[h] ?? 0} ready
+                    </small>
+                  )}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>

@@ -1,16 +1,101 @@
-/* Full-page variant of the prep manager (PrepUploadModal variant="page").
-   Same component as the TopBar modal, rendered with room for the wide grid. */
-.prep-page .prep-page-card { padding: 1.1rem 1.4rem; }
-
-/* On the page there's no fixed-height modal body — let content flow. */
-.prep-scroll--page { max-height: none; overflow: visible; }
-
-/* modal header actions (Full page + close sit together) */
+/* The Prep pop-up's header actions (Full page + close sit together). */
 .prep-head-actions { display: flex; align-items: center; gap: 0.4rem; }
 .prep-fullpage-btn { font-size: 0.82rem; white-space: nowrap; }
 
-/* page footer actions (download / upload / clear) flow inline, not pinned */
-.prep-page-foot {
-  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
-  margin-top: 1rem;
+/* ── The Prep cockpit (pages/PrepPage.jsx) ────────────────────────────────
+   The hero, gauges and cards are the shared library classes from
+   dashboard.css. Everything here is what only Prep has, and every rule is
+   scoped to .prep-cockpit: .library-page is on five pages, and this file and
+   dashboard.css load in an order nobody controls, so an equal-specificity
+   override of a shared rule would be roulette. */
+
+/* The pool picker: a label and a select, in the hero's actions. */
+.prep-cockpit .prep-poolpick {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #7d8a97; white-space: nowrap;
 }
+.prep-cockpit .prep-poolpick .form-input {
+  width: auto; min-width: 9.5rem; margin: 0;
+  font-size: 0.85rem; font-weight: 600; letter-spacing: 0; text-transform: none;
+  color: var(--midnight); padding: 0.38rem 0.6rem;
+}
+
+.prep-cockpit .prep-readonly {
+  margin: 0 0 0.75rem; padding: 0.5rem 0.8rem;
+  font-size: 0.82rem; color: #4b5a6a;
+  background: #f1ede5; border-radius: 10px;
+}
+
+/* Kit states. The same four colours as the kit grid (prep-grid.css), flat. */
+.prep-cockpit .prep-seg { display: block; height: 100%; }
+.prep-cockpit .prep-seg.is-ready { background: #4ade80; }
+.prep-cockpit .prep-seg.is-held { background: #fb923c; }
+/* Allocated, to nobody: the held colour, struck through. */
+.prep-cockpit .prep-seg.is-stranded {
+  background: repeating-linear-gradient(135deg, #fb923c 0 4px, #fde0c2 4px 8px);
+}
+.prep-cockpit .prep-seg.is-spent { background: #ef6b63; }
+
+.prep-cockpit .prep-legend {
+  display: flex; flex-wrap: wrap; gap: 0.2rem 1.1rem;
+  margin: 0 0 0.6rem; font-size: 0.78rem; color: #4b5a6a;
+}
+.prep-cockpit .prep-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.prep-cockpit .prep-legend .prep-seg { width: 12px; height: 12px; border-radius: 4px; }
+
+.prep-cockpit .prep-group { margin-bottom: 1rem; }
+.prep-cockpit .prep-group-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #7d8a97;
+}
+
+/* The card. Wider than a workbook card's 15rem floor: it carries a bar and a
+   line of facts, and at 15rem the facts wrapped to four lines. */
+.prep-cockpit .wb-grid { grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+.prep-cockpit .prep-card-prog { margin: 0; font-size: 0.78rem; font-weight: 600; color: var(--midnight); }
+.prep-cockpit .prep-stock { margin-top: auto; display: flex; flex-direction: column; gap: 0.3rem; }
+.prep-cockpit .prep-stock-line { margin: 0; font-size: 0.8rem; color: #6c7a88; }
+.prep-cockpit .prep-stock-line b {
+  font-size: 1.15rem; color: var(--midnight); margin-right: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+.prep-cockpit .prep-stock-line b.is-zero { color: #c2503c; }
+.prep-cockpit .prep-bar-stack {
+  display: flex; height: 8px; border-radius: 5px; overflow: hidden; background: #eceae5;
+}
+/* The stock block already took the slack above it; the shared facts rule
+   would claim it a second time and split the card's free space in two. */
+.prep-cockpit .prep-card-facts { margin-top: 0; }
+.prep-cockpit .wb-pill.is-ok { color: #1d7a44; background: #e9f6ee; }
+
+/* ── One pool ── */
+.prep-cockpit .prep-pool-hero { padding-bottom: 0.85rem; }
+.prep-cockpit .prep-pool-hero .page-hero-text .back-link {
+  display: inline-block; margin: 0 0 0.15rem; font-size: 0.82rem; color: var(--gold-dark);
+}
+.prep-cockpit .prep-pool-hero .page-hero-text h1 { color: var(--midnight); }
+/* (0,4,0) on purpose. The shared rule that stops the actions wrapping is
+   (0,3,0) inside a container query in dashboard.css, and a (0,3,0) rule here
+   would win or lose by bundle order. The title keeps its width and the
+   ACTIONS give way — they wrap among themselves rather than crushing it. */
+/* flex-shrink 0: the title block takes the width its one line needs and no
+   less, capped at the row so a very long title still wraps inside the hero. */
+.prep-cockpit .prep-pool-hero .cockpit-hero-row .page-hero-text { flex: 1 0 auto; min-width: 0; max-width: 100%; }
+.prep-cockpit .prep-pool-hero .cockpit-hero-row .page-hero-actions {
+  flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end;
+}
+
+/* The ghost actions. background is RESTATED on hover: the global
+   button:hover fill is (0,1,1) and would turn these midnight. */
+.prep-cockpit .prep-act {
+  display: inline-flex; align-items: center;
+  font: inherit; font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+  padding: 0.42rem 0.8rem; border-radius: 8px; cursor: pointer;
+  background: #fff; color: var(--midnight); border: 1px solid var(--border);
+}
+.prep-cockpit .prep-act:hover { background: #fff; border-color: var(--gold); }
+.prep-cockpit .prep-act.danger { color: var(--danger); border-color: #f0caca; }
+.prep-cockpit .prep-act.danger:hover { background: #fbecec; border-color: #e3a5a5; }
+.prep-cockpit .prep-foot-clear { margin-left: 0; }
