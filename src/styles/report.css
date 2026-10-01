@@ -63,6 +63,17 @@
 }
 .report-names-head h3 { margin: 0; font-size: 1rem; color: var(--ld-midnight); }
 .report-names-lock { font-size: 0.85rem; font-weight: 600; color: var(--ld-gold-dark); }
+.report-names-trainer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  margin-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border, #e5e2dc);
+}
+.report-names-trainer label { font-weight: 600; font-size: 0.9rem; }
+.report-names-trainer .form-input { width: 12rem; padding: 0.35rem 0.5rem; }
 .report-names-scroll { overflow-x: auto; margin-top: 0.6rem; }
 .report-names-table { width: 100%; border-collapse: collapse; min-width: 40rem; }
 .report-names-table th {

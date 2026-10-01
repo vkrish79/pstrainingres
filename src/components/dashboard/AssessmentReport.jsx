@@ -82,6 +82,9 @@ export function AssessmentReportView({
   // exist only to print. The Report subtab unmounts when the trainer leaves
   // it, which is what clears them.
   const [ids, setIds] = useState({});
+  // The facilitator's staff №, entered once for every sheet. Same rule as
+  // `ids`: on the printout only, never stored.
+  const [trainerStaff, setTrainerStaff] = useState('');
 
   const cohort = useMemo(() => {
     if (recorded) {
@@ -154,7 +157,14 @@ export function AssessmentReportView({
       </div>
 
       {cohort.reports.length > 0 && (
-        <PrintNames reports={cohort.reports} ids={ids} setIds={setIds} />
+        <PrintNames
+          reports={cohort.reports}
+          ids={ids}
+          setIds={setIds}
+          trainerName={session?.trainer?.full_name}
+          trainerStaff={trainerStaff}
+          setTrainerStaff={setTrainerStaff}
+        />
       )}
 
       {/* Kept from the previous report and deliberately not dropped in the
@@ -192,18 +202,18 @@ export function AssessmentReportView({
       )}
 
       {scope === 'cohort' && cohort.reports.length > 0 && (
-        <GroupReport session={session} cohort={cohort} passMark={passMark} ids={ids} />
+        <GroupReport session={session} cohort={cohort} passMark={passMark} ids={ids} trainerStaff={trainerStaff} />
       )}
 
       {scope === 'individual' && chosen && (
-        <IndividualReport session={session} report={chosen} passMark={passMark} ids={ids} />
+        <IndividualReport session={session} report={chosen} passMark={passMark} ids={ids} trainerStaff={trainerStaff} />
       )}
     </div>
   );
 }
 
 // ── L&D Training Report (GRP) ───────────────────────────────────────────────
-function GroupReport({ session, cohort, passMark, ids }) {
+function GroupReport({ session, cohort, passMark, ids, trainerStaff }) {
   // The source document rules 16 rows whether or not they are used, so the
   // sheet looks the same however many people sat the paper.
   const MIN_ROWS = 16;
@@ -229,7 +239,7 @@ function GroupReport({ session, cohort, passMark, ids }) {
           </tr>
           <tr>
             <th>Facilitator &amp; Staff №</th><td>{session?.trainer?.full_name || ''}</td>
-            <th className="narrow">№</th><td className="fill-in" />
+            <th className="narrow">№</th><TypedCell value={trainerStaff} />
           </tr>
         </tbody>
       </table>
@@ -279,7 +289,7 @@ function GroupReport({ session, cohort, passMark, ids }) {
 }
 
 // ── L&D Training Report (IND) ───────────────────────────────────────────────
-function IndividualReport({ session, report, passMark, ids }) {
+function IndividualReport({ session, report, passMark, ids, trainerStaff }) {
   const verdict = resultOf(report.score, passMark, report.unmarked.length);
   const real = ids[report.participant.id] || {};
 
@@ -306,7 +316,7 @@ function IndividualReport({ session, report, passMark, ids }) {
           </tr>
           <tr>
             <th>Facilitator &amp; Staff №</th><td>{session?.trainer?.full_name || ''}</td>
-            <th className="narrow">№:</th><td className="fill-in" />
+            <th className="narrow">№:</th><TypedCell value={trainerStaff} />
           </tr>
           <tr>
             <th>Assessment Score</th>
@@ -410,7 +420,7 @@ function splitRows(text) {
   return text.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map(line => line.split('\t'));
 }
 
-function PrintNames({ reports, ids, setIds }) {
+function PrintNames({ reports, ids, setIds, trainerName, trainerStaff, setTrainerStaff }) {
   const [pasted, setPasted] = useState(null);
 
   function setField(id, key, value) {
@@ -451,6 +461,23 @@ function PrintNames({ reports, ids, setIds }) {
         <span className="report-names-lock">
           Not saved. Shown on this report only, and cleared when you leave the Report tab.
         </span>
+      </div>
+      {/* Once per printout, not per row: it goes on every sheet's
+          "Facilitator & Staff №" line. */}
+      <div className="report-names-trainer">
+        <label htmlFor="print-trainer-staff">
+          Facilitator staff ID{trainerName ? <span className="muted"> — {trainerName}</span> : null}
+        </label>
+        <input
+          type="text"
+          className="form-input"
+          id="print-trainer-staff"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Staff ID"
+          value={trainerStaff}
+          onChange={e => setTrainerStaff(e.target.value)}
+        />
       </div>
       <div className="report-names-scroll">
         <table className="report-names-table">
@@ -496,8 +523,8 @@ function PrintNames({ reports, ids, setIds }) {
         </span>
         <button
           type="button"
-          onClick={() => { setIds({}); setPasted(null); }}
-          disabled={Object.keys(ids).length === 0}
+          onClick={() => { setIds({}); setTrainerStaff(''); setPasted(null); }}
+          disabled={Object.keys(ids).length === 0 && !trainerStaff}
         >
           Clear all
         </button>
