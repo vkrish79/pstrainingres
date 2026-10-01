@@ -21,7 +21,7 @@ export function usePrepPool(prepKind, parent, vendorId) {
     [parent],
   );
 
-  const { kits, balance, loading, appendKits, clearUnconsumed, setKitStatus, editKitCells } =
+  const { kits, balance, loading, lastStocked, appendKits, clearUnconsumed, setKitStatus, editKitCells } =
     useContentPrep(prepKind, parentId, vendorId);
 
   const [parsing, setParsing] = useState(false);
@@ -129,7 +129,7 @@ export function usePrepPool(prepKind, parent, vendorId) {
   }
 
   return {
-    parent, structure, kits, balance, loading,
+    parent, structure, kits, balance, loading, lastStocked,
     parsing, parseError, parsed, submitting, submitError, notice,
     confirmClear, setConfirmClear, pasteMode, setPasteMode, editMode, setEditMode,
     payloadRows, gappyRows, matchedHeaders,

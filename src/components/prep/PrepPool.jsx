@@ -17,7 +17,7 @@ import { classState, shortDate } from '../../lib/programReadiness.js';
 // kindLabel: 'workbook' | 'assessment' (copy); kind: same, for the grids.
 export function PrepPoolBody({ pool, kind, canWrite, variant = 'modal', sessionsById = {}, editorTo = null }) {
   const {
-    structure, kits, balance, loading,
+    structure, kits, balance, loading, lastStocked,
     parsing, parseError, parsed, submitting, submitError, notice,
     pasteMode, setPasteMode, editMode, setEditMode,
     payloadRows, gappyRows, matchedHeaders,
@@ -69,14 +69,17 @@ export function PrepPoolBody({ pool, kind, canWrite, variant = 'modal', sessions
   return (
     <>
       {loading ? <p className="muted">Loading pool…</p> : isPage ? (
-        <PoolGauges balance={balance} kits={kits} structure={structure} sessionsById={sessionsById} />
+        <PoolGauges balance={balance} kits={kits} structure={structure} sessionsById={sessionsById} lastStocked={lastStocked} />
       ) : (
         <div className="prep-balance">
           <div className="prep-balance-headline">
             <strong>{balance.fullyPreppable}</strong> participant{balance.fullyPreppable === 1 ? '' : 's'} can be fully prepped
             <span className="muted"> — the lowest-stocked exercise sets the limit</span>
           </div>
-          <div className="prep-balance-meta muted">{balance.available} kit{balance.available === 1 ? '' : 's'} available · {balance.allocated} in use{balance.withdrawn ? ` · ${balance.withdrawn} withdrawn` : ''}</div>
+          <div className="prep-balance-meta muted">
+            {balance.available} kit{balance.available === 1 ? '' : 's'} available · {balance.allocated} in use{balance.withdrawn ? ` · ${balance.withdrawn} withdrawn` : ''}
+            {lastStocked && <> · last stocked {stockedWhen(lastStocked.at)}{lastStocked.by ? ` by ${lastStocked.by}` : ''}</>}
+          </div>
           {Object.keys(balance.perSection).length > 0 && (
             <ul className="prep-bars">
               {Object.entries(balance.perSection).map(([sid, p]) => {
@@ -197,6 +200,15 @@ function readyByHeader(structure, balance) {
   return m;
 }
 
+// "14:20" in the viewer's own clock.
+function timeOf(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+// "30 Sept, 14:20".
+function stockedWhen(ts) {
+  return `${shortDate(ts)}, ${timeOf(ts)}`;
+}
+
 // Calendar days, not elapsed 24-hour blocks: drawn on the 17th and read on the
 // 30th is 13 days ago whatever the hour.
 function daysAgo(ts) {
@@ -205,7 +217,7 @@ function daysAgo(ts) {
   return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
 }
 
-function PoolGauges({ balance, kits, structure, sessionsById }) {
+function PoolGauges({ balance, kits, structure, sessionsById, lastStocked = null }) {
   const ready = balance.fullyPreppable;
   // The column holding the pool back, named — only when one actually is.
   let limit = null;
@@ -285,6 +297,18 @@ function PoolGauges({ balance, kits, structure, sessionsById }) {
       </div>
       {/* Read off the kits still loaded, i.e. the classes still open: once a
           class closes, its draws leave this page with its kits. */}
+      {/* When kits were last ADDED to this pool, and by whom — the newest kit's
+          created_at and stocked_by_name (filled in by the database on insert). */}
+      <div className="cockpit-gauge">
+        <div>
+          <div className="cockpit-gauge-label">Last stocked</div>
+          <div className={`cockpit-gauge-value${lastStocked ? '' : ' is-muted'}`}>{lastStocked ? shortDate(lastStocked.at) : '—'}</div>
+          <div className="cockpit-gauge-hint" data-tip={lastStocked ? `${stockedWhen(lastStocked.at)}${lastStocked.by ? ` by ${lastStocked.by}` : ''}` : undefined}>
+            {!lastStocked ? 'never stocked'
+              : [timeOf(lastStocked.at), lastStocked.by ? `by ${lastStocked.by}` : null].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      </div>
       <div className="cockpit-gauge">
         <div>
           <div className="cockpit-gauge-label">Last drawn</div>

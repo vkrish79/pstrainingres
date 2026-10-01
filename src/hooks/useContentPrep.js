@@ -22,9 +22,29 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
 
   const [kits, setKits] = useState([]);
   const [loading, setLoading] = useState(true);
+  // { at, by } — the newest kit in this partition: when the pool was last
+  // stocked, and by whom. null when nothing has ever been stocked.
+  const [lastStocked, setLastStocked] = useState(null);
 
   const refresh = useCallback(async () => {
-    if (!parentId) { setKits([]); setLoading(false); return; }
+    if (!parentId) { setKits([]); setLastStocked(null); setLoading(false); return; }
+    // Every kit counts here, spent ones included: stocking is when kits were
+    // ADDED, whatever has happened to them since. One row, newest first.
+    //
+    // stocked_by_name exists only once RUN-THIS-IN-SUPABASE-prep-stocked-by has
+    // been applied; until then, or for kits added before it, there is no name and
+    // the time is shown alone.
+    async function readLastStocked() {
+      const base = cols => {
+        const q = supabase.from(kitsTable).select(cols).eq(parentFK, parentId)
+          .order('created_at', { ascending: false }).limit(1);
+        return vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
+      };
+      let { data, error } = await base('created_at, stocked_by_name');
+      if (error) ({ data, error } = await base('created_at'));
+      const row = !error && data?.[0];
+      return row ? { at: row.created_at, by: row.stocked_by_name || null } : null;
+    }
     setLoading(true);
     let q = supabase
       .from(kitsTable)
@@ -36,6 +56,7 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
     q = vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
     const { data, error } = await q;
     setKits(error ? [] : (data || []));
+    setLastStocked(await readLastStocked());
     setLoading(false);
   }, [parentId, vendorId, kitsTable, parentFK]);
 
@@ -178,7 +199,7 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
   }, [kits, kitsTable, mirrorsParticipantPrep, refresh]);
 
   return {
-    kits, balance, loading, refresh,
+    kits, balance, loading, refresh, lastStocked,
     appendKits, clearUnconsumed, setKitStatus, editKitCells,
   };
 }
