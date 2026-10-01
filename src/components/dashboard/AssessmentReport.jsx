@@ -23,7 +23,8 @@ import '../../styles/report.css';
 // disclosure. Individual reports keep the error detail.
 //
 // FIELDS THE SYSTEM DOES NOT HOLD -- Staff №, Role, Team, Assessment № -- print
-// as blank ruled cells to be completed by hand. That is faithful to the source
+// as blank ruled cells to be completed by hand, unless the trainer types them
+// into the "Names for this printout" card (PrintNames, below). That is faithful to the source
 // documents, which are forms with empty cells, and it beats inventing data or
 // dropping rows the filing expects to see.
 export default function AssessmentReport({ sessionId, assessmentId, participants, session }) {
@@ -75,6 +76,12 @@ export function AssessmentReportView({
 }) {
   const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
   const [selectedId, setSelectedId] = useState('');
+  // Real names, job titles and staff numbers, keyed by participant id. Held
+  // here and NOWHERE else: no table, no browser storage. Participants are
+  // enrolled under pseudonyms (trainee1, trainee2…) on purpose, and these
+  // exist only to print. The Report subtab unmounts when the trainer leaves
+  // it, which is what clears them.
+  const [ids, setIds] = useState({});
 
   const cohort = useMemo(() => {
     if (recorded) {
@@ -86,7 +93,7 @@ export function AssessmentReportView({
           unmarked: Array.from({ length: r.unmarked || 0 }),
           errors: [],
         }))
-        .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
+        .sort((a, b) => byName(a.participant, b.participant));
       return { reports, commonErrors: [], totalUnmarked: reports.reduce((n, r) => n + r.unmarked.length, 0) };
     }
     return buildCohortReport({
@@ -127,11 +134,15 @@ export function AssessmentReportView({
               value={chosen?.participant.id || ''}
               onChange={e => setSelectedId(e.target.value)}
             >
-              {cohort.reports.map(r => (
-                <option key={r.participant.id} value={r.participant.id}>
-                  {r.participant.full_name || '(unnamed)'}
-                </option>
-              ))}
+              {cohort.reports.map(r => {
+                const real = ids[r.participant.id]?.name?.trim();
+                const app = r.participant.full_name || '(unnamed)';
+                return (
+                  <option key={r.participant.id} value={r.participant.id}>
+                    {real ? `${real} (${app})` : app}
+                  </option>
+                );
+              })}
             </select>
           )}
         </div>
@@ -141,6 +152,10 @@ export function AssessmentReportView({
           </button>
         </div>
       </div>
+
+      {cohort.reports.length > 0 && (
+        <PrintNames reports={cohort.reports} ids={ids} setIds={setIds} />
+      )}
 
       {/* Kept from the previous report and deliberately not dropped in the
           redesign: a total that looks final while questions are unmarked is
@@ -177,18 +192,18 @@ export function AssessmentReportView({
       )}
 
       {scope === 'cohort' && cohort.reports.length > 0 && (
-        <GroupReport session={session} cohort={cohort} passMark={passMark} />
+        <GroupReport session={session} cohort={cohort} passMark={passMark} ids={ids} />
       )}
 
       {scope === 'individual' && chosen && (
-        <IndividualReport session={session} report={chosen} passMark={passMark} />
+        <IndividualReport session={session} report={chosen} passMark={passMark} ids={ids} />
       )}
     </div>
   );
 }
 
 // ── L&D Training Report (GRP) ───────────────────────────────────────────────
-function GroupReport({ session, cohort, passMark }) {
+function GroupReport({ session, cohort, passMark, ids }) {
   // The source document rules 16 rows whether or not they are used, so the
   // sheet looks the same however many people sat the paper.
   const MIN_ROWS = 16;
@@ -234,12 +249,13 @@ function GroupReport({ session, cohort, passMark }) {
         <tbody>
           {rows.map((r, i) => {
             const verdict = resultOf(r.score, passMark, r.unmarked.length);
+            const real = ids[r.participant.id] || {};
             return (
               <tr key={r.participant.id}>
                 <td className="col-sr">{i + 1}</td>
-                <td className="col-staff fill-in" />
-                <td>{r.participant.full_name || '(unnamed)'}</td>
-                <td className="col-role fill-in" />
+                <TypedCell className="col-staff" value={real.staff} />
+                <td><PrintedName participant={r.participant} real={real} /></td>
+                <TypedCell className="col-role" value={real.job} />
                 <td className="col-score">{r.score.pct == null ? '' : `${r.score.pct}%`}</td>
                 <td className={`col-result ${verdict ? `result-${verdict.toLowerCase()}` : ''}`}>{verdict || ''}</td>
               </tr>
@@ -263,8 +279,9 @@ function GroupReport({ session, cohort, passMark }) {
 }
 
 // ── L&D Training Report (IND) ───────────────────────────────────────────────
-function IndividualReport({ session, report, passMark }) {
+function IndividualReport({ session, report, passMark, ids }) {
   const verdict = resultOf(report.score, passMark, report.unmarked.length);
+  const real = ids[report.participant.id] || {};
 
   return (
     <section className="report-page ld-report">
@@ -273,8 +290,11 @@ function IndividualReport({ session, report, passMark }) {
       <table className="ld-meta">
         <tbody>
           <tr>
-            <th>Name &amp; Staff №</th><td>{report.participant.full_name || '(unnamed)'}</td>
-            <th className="narrow">№:</th><td className="fill-in" />
+            <th>Name &amp; Staff №</th><td><PrintedName participant={report.participant} real={real} /></td>
+            <th className="narrow">№:</th><TypedCell value={real.staff} />
+          </tr>
+          <tr>
+            <th>Job Title</th><TypedCell colSpan={3} value={real.job} />
           </tr>
           <tr>
             <th>Program Title &amp; Date</th>
@@ -362,6 +382,153 @@ function IndividualReport({ session, report, passMark }) {
   );
 }
 
+// ── Names for this printout ─────────────────────────────────────────────────
+
+// The trainer types each participant's real details beside the pseudonym the
+// app knows them by, and they appear on the sheet below and on paper only.
+// Nothing here is saved; see the `ids` state in AssessmentReportView.
+//
+// PASTE IS THE MAIN ROUTE, NOT A NICETY. Because nothing is kept, the details
+// are re-entered every time a report is reprinted. Pasting a block copied
+// from the trainer's own spreadsheet (name, job title, staff № — one row per
+// person, in trainee order) fills that row and the rows after it, so re-entry
+// takes seconds. The sheet updates as they paste, each name beside its
+// trainee number and score, which is how a row that slipped out of order gets
+// noticed: nothing else can catch it, because the app does not know who
+// anyone is.
+//
+// autoComplete="off" so the browser's own form memory does not quietly keep
+// what the app refuses to.
+const NAME_FIELDS = [
+  { key: 'name', label: 'Actual name', placeholder: 'Full name' },
+  { key: 'job', label: 'Job title', placeholder: 'Job title' },
+  { key: 'staff', label: 'Staff ID', placeholder: 'Staff ID' },
+];
+
+// Spreadsheet copies are tab-separated cells, newline-separated rows.
+function splitRows(text) {
+  return text.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map(line => line.split('\t'));
+}
+
+function PrintNames({ reports, ids, setIds }) {
+  const [pasted, setPasted] = useState(null);
+
+  function setField(id, key, value) {
+    setIds(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
+  }
+
+  // A plain single value (no tab, no newline) is left to the input's normal
+  // paste. A block fills from this cell rightwards and this row downwards.
+  function onPaste(e, startIndex, startKey) {
+    const text = e.clipboardData.getData('text');
+    if (!/[\t\n]/.test(text.replace(/[\r\n]+$/, ''))) return;
+    e.preventDefault();
+    const all = splitRows(text);
+    const rows = all.slice(0, reports.length - startIndex);
+    const firstCol = NAME_FIELDS.findIndex(f => f.key === startKey);
+    setIds(prev => {
+      const next = { ...prev };
+      rows.forEach((cells, k) => {
+        const id = reports[startIndex + k].participant.id;
+        const row = { ...next[id] };
+        cells.forEach((cell, c) => {
+          const field = NAME_FIELDS[firstCol + c];
+          if (field) row[field.key] = cell.trim();
+        });
+        next[id] = row;
+      });
+      return next;
+    });
+    setPasted({ count: rows.length, extra: all.length - rows.length });
+  }
+
+  const filled = reports.filter(r => ids[r.participant.id]?.name?.trim()).length;
+
+  return (
+    <section className="report-names no-print" aria-labelledby="report-names-title">
+      <div className="report-names-head">
+        <h3 id="report-names-title">Names for this printout</h3>
+        <span className="report-names-lock">
+          Not saved. Shown on this report only, and cleared when you leave the Report tab.
+        </span>
+      </div>
+      <div className="report-names-scroll">
+        <table className="report-names-table">
+          <thead>
+            <tr>
+              <th>Name in the app</th>
+              {NAME_FIELDS.map(f => <th key={f.key}>{f.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {reports.map((r, i) => {
+              const id = r.participant.id;
+              return (
+                <tr key={id}>
+                  <td className="report-names-app">{r.participant.full_name || '(unnamed)'}</td>
+                  {NAME_FIELDS.map(f => (
+                    <td key={f.key}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        id={`print-${f.key}-${id}`}
+                        aria-label={`${f.label} for ${r.participant.full_name || 'participant'}`}
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder={f.placeholder}
+                        value={ids[id]?.[f.key] || ''}
+                        onChange={e => setField(id, f.key, e.target.value)}
+                        onPaste={e => onPaste(e, i, f.key)}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="report-names-foot">
+        <span className="muted">
+          Paste from Excel: copy the name, job title and staff ID columns from your own sheet, in
+          trainee order, and paste into the first Actual name box. {filled} of {reports.length} named;
+          anyone left blank prints under their app name.
+        </span>
+        <button
+          type="button"
+          onClick={() => { setIds({}); setPasted(null); }}
+          disabled={Object.keys(ids).length === 0}
+        >
+          Clear all
+        </button>
+      </div>
+      {pasted && (
+        <div className="report-names-pasted" role="status">
+          Filled {pasted.count} row{pasted.count === 1 ? '' : 's'} from the paste.
+          {pasted.extra > 0 && ` ${pasted.extra} more row${pasted.extra === 1 ? ' was' : 's were'} left over, so check your list is in the same order as the app names.`}
+          {' '}Check each name against its trainee number on the sheet below before printing.
+        </div>
+      )}
+    </section>
+  );
+}
+
+// The typed real name, or the app's pseudonym when none was typed, so nobody
+// drops off the sheet just because a row was left blank.
+function PrintedName({ participant, real }) {
+  const name = real?.name?.trim();
+  if (name) return name;
+  return <span className="ld-fallback-name">{participant.full_name || '(unnamed)'}</span>;
+}
+
+// A cell the source form leaves blank to complete by hand: the typed value
+// when there is one, otherwise the ruled fill-in it always was.
+function TypedCell({ value, className = '', ...rest }) {
+  const v = value?.trim();
+  const cls = `${className} ${v ? '' : 'fill-in'}`.trim();
+  return <td className={cls || undefined} {...rest}>{v || null}</td>;
+}
+
 // ── shared furniture ────────────────────────────────────────────────────────
 
 // The masthead both reports share, so the logo sits in exactly one place
@@ -421,6 +588,12 @@ function pad(label) {
   const s = String(label ?? '');
   const m = s.match(/^(\d+)(.*)$/);
   return m ? m[1].padStart(2, '0') + m[2] : s;
+}
+
+// Numeric-aware, so trainee2 sorts before trainee10. Paste fills rows in this
+// order, so it has to be the order a trainer's own list is in.
+function byName(a, b) {
+  return (a.full_name || '').localeCompare(b.full_name || '', undefined, { numeric: true, sensitivity: 'base' });
 }
 
 function formatRange(a, b) {

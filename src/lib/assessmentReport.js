@@ -165,7 +165,10 @@ export function buildCohortReport({
       labelByBlockId,
       guidance,
     }))
-    .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
+    // Numeric-aware so trainee2 comes before trainee10: participants are
+    // enrolled under numbered pseudonyms, and the report's print-names paste
+    // fills rows in this order.
+    .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || '', undefined, { numeric: true, sensitivity: 'base' }));
 
   // Which questions the cohort as a whole struggled with. The trainer's own
   // use for this is deciding what to go over in the debrief, so it is ordered
