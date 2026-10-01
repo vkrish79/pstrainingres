@@ -7,6 +7,8 @@ import { scoreBlocks, earnedFor, pointsFor, manualResultFor } from '../../lib/as
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import Block from '../blocks/Block.jsx';
 import NoteRow from './NoteRow.jsx';
+import PrepCallout from '../PrepCallout.jsx';
+import { itemsForExercise } from '../../lib/prepAttach.js';
 import CriteriaMarkList from './CriteriaMarkList.jsx';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
@@ -25,7 +27,7 @@ export default function ExerciseResponses({
   // the exercise with the class). The assessment view passes none.
   sessionId = null,
   sections, blocks, participants, answers,
-  notes = {}, participantNotes = {}, prepBy = {}, liveBySection = {}, onSaveNote, onDeleteNote,
+  notes = {}, participantNotes = {}, prepBy = {}, standaloneBy = {}, prepLayout = null, liveBySection = {}, onSaveNote, onDeleteNote,
   showNotes = true, emptyLabel = 'No fillable blocks in this workbook.', answerKey = null, answerPoints = null,
   // Optional { [blockId]: questionNumber }. When supplied (assessment view),
   // each answer row is prefixed "Q{n}" so it matches the flat editor/participant
@@ -333,7 +335,7 @@ export default function ExerciseResponses({
               notesForP={notes[s.participant.id] || {}}
               reviewMarks={reviewMarks}
               sectionNote={participantNotes[s.participant.id]?.[selectedSection.id]?.note || ''}
-              prepText={prepBy[s.participant.id]?.[selectedSection.id]?.content || ''}
+              prepItems={itemsForExercise(prepBy[s.participant.id]?.[selectedSection.id]?.content, standaloneBy[s.participant.id], prepLayout, selectedSection.id)}
               expanded={isExpanded(s.participant.id)}
               onToggle={() => toggleTile(s.participant.id)}
               onFocus={() => setFocusId(s.participant.id)}
@@ -373,7 +375,7 @@ export default function ExerciseResponses({
             notesForP={notes[s.participant.id] || {}}
             reviewMarks={reviewMarks}
             sectionNote={participantNotes[s.participant.id]?.[selectedSection.id]?.note || ''}
-            prepText={prepBy[s.participant.id]?.[selectedSection.id]?.content || ''}
+            prepItems={itemsForExercise(prepBy[s.participant.id]?.[selectedSection.id]?.content, standaloneBy[s.participant.id], prepLayout, selectedSection.id)}
             onSaveNote={onSaveNote}
             onDeleteNote={onDeleteNote}
             showNotes={showNotes}
@@ -435,7 +437,7 @@ export default function ExerciseResponses({
 // going back to the grid between each one.
 function ParticipantFocus({
   stat, position, sectionTitle, onPrev, onNext, onClose, blocks, answersForP, notesForP,
-  sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints,
+  sectionNote, prepItems, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints,
   questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, hands = null, reviewMarks = null,
 }) {
   const { participant, answered, total, lastTs } = stat;
@@ -485,7 +487,7 @@ function ParticipantFocus({
             answersForP={answersForP}
             notesForP={notesForP}
             sectionNote={sectionNote}
-            prepText={prepText}
+            prepItems={prepItems}
             onSaveNote={onSaveNote}
             onDeleteNote={onDeleteNote}
             showNotes={showNotes}
@@ -508,7 +510,7 @@ function ParticipantFocus({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepText, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, guidance = null, onBreakdown = null, hands = null, reviewMarks = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepItems, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, guidance = null, onBreakdown = null, hands = null, reviewMarks = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   // Their raised hand, if any. Only the assessment view passes these — on the
   // workbook the hands already show on the Room tiles.
@@ -584,7 +586,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
             answersForP={answersForP}
             notesForP={notesForP}
             sectionNote={sectionNote}
-            prepText={prepText}
+            prepItems={prepItems}
             onSaveNote={onSaveNote}
             onDeleteNote={onDeleteNote}
             showNotes={showNotes}
@@ -609,15 +611,10 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
 // One participant's answers for the selected exercise. Rendered inside the
 // tile, and again in the expanded view — same component, so a mark awarded in
 // either place is the same control with the same rules.
-function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepText, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, reviewMarks = null }) {
+function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepItems, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, reviewMarks = null }) {
   return (
     <>
-          {prepText && (
-            <div className="participant-prep-callout">
-              <span className="participant-prep-callout-label">Prep</span>
-              {prepText}
-            </div>
-          )}
+          <PrepCallout heading="Prep" items={prepItems} />
           {sectionNote && (
             <div className="participant-note-readonly">
               <span className="participant-note-readonly-label">Participant note</span>

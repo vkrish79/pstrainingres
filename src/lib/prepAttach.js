@@ -58,6 +58,17 @@ export function calloutItems(ownContent, ownLabel, attachedItems) {
   return items;
 }
 
+// The purple box for one participant on one exercise, on a trainer's view of a
+// class: their own value there, then any of their general prep the template
+// shows with it.
+//   ownContent — that participant's value for the exercise (participant_prep)
+//   standalone — that participant's general prep ([{ label, content }])
+//   layout     — { attached, ownLabels } from useSessionPrepLayout
+export function itemsForExercise(ownContent, standalone, layout, sectionId) {
+  const withIt = splitGeneralPrep(standalone, layout?.attached).bySection[sectionId];
+  return calloutItems(ownContent, layout?.ownLabels?.[sectionId], withIt);
+}
+
 // Header of the column LINKED to each master section: { [masterSectionId]: header }.
 export function linkedHeaderByMasterSection(template) {
   const out = {};

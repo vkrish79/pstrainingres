@@ -8,6 +8,9 @@ import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
+import { useSessionPrepLayout } from '../hooks/useSessionPrepLayout.js';
+import PrepCallout from '../components/PrepCallout.jsx';
+import { itemsForExercise } from '../lib/prepAttach.js';
 import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
 import { sanitizeNotesHtml } from '../lib/notesRichText.js';
@@ -74,7 +77,9 @@ export default function SessionDashboardPage() {
   const canChangeTrainer = isVendorManagerOrAbove(profile?.role);
   const { notes, saveNote, deleteNote } = useSessionNotes(id, authSession?.user.id);
   const { notes: participantNotes } = useSessionParticipantNotes(id);
-  const { prep: prepBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
+  const { prep: prepBy, standalone: standaloneBy, saveOne: savePrepOne, refresh: refreshPrep } = useSessionPrep(id);
+  // Which general prep the template shows with which exercise (show_with).
+  const prepLayout = useSessionPrepLayout(id);
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(id);
   // Live cursors: where each participant is looking right now. Read-only here.
   const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
@@ -1145,16 +1150,11 @@ export default function SessionDashboardPage() {
                 <div className="answers-pane-body">
                   {sections.map(sec => {
                     const pNote = participantNotes[selected.id]?.[sec.id]?.note;
-                    const prepText = prepBy[selected.id]?.[sec.id]?.content;
+                    const prepItems = itemsForExercise(prepBy[selected.id]?.[sec.id]?.content, standaloneBy[selected.id], prepLayout, sec.id);
                     return (
                       <section key={sec.id} className="wb-section answers-section" data-answers-section={sec.id}>
                         <h3>{sec.title}</h3>
-                        {prepText && (
-                          <div className="participant-prep-callout">
-                            <span className="participant-prep-callout-label">Prep</span>
-                            {prepText}
-                          </div>
-                        )}
+                        <PrepCallout heading="Prep" items={prepItems} />
                         {pNote && (
                           <div className="participant-note-readonly">
                             <span className="participant-note-readonly-label">Participant note</span>
@@ -1216,6 +1216,8 @@ export default function SessionDashboardPage() {
             notes={notes}
             participantNotes={participantNotes}
             prepBy={prepBy}
+            standaloneBy={standaloneBy}
+            prepLayout={prepLayout}
             liveBySection={liveBySection}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}

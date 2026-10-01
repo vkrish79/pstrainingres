@@ -9,6 +9,9 @@ import { useJustCompleted } from '../../hooks/useJustCompleted.js';
 import Block from '../blocks/Block.jsx';
 import { EditableBlock } from '../editor/ContentEditor.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
+import PrepCallout from '../PrepCallout.jsx';
+import { useSessionPrepLayout } from '../../hooks/useSessionPrepLayout.js';
+import { itemsForExercise } from '../../lib/prepAttach.js';
 import NotesDrawer from '../participant/NotesDrawer.jsx';
 import MonitorDrawer from './MonitorDrawer.jsx';
 import AnswerReviewBoard from './AnswerReviewBoard.jsx';
@@ -47,6 +50,13 @@ export default function TrainerPracticeView({
     loading, error, sections, blocks, answers, saveAnswer, updateBlockConfig,
   } = useTrainerPractice(sessionId, trainerId);
   const { prep, standalone, hasPrep, drawPrep } = useTrainerPrep(sessionId);
+  // Which general prep the template shows with which exercise (show_with), so
+  // the trainer's copy lays prep out exactly as a participant's does.
+  const prepLayout = useSessionPrepLayout(sessionId);
+  const drawerExpected = useMemo(
+    () => ({ sectionIds: new Set(), labels: [], attached: prepLayout.attached, ownLabels: prepLayout.ownLabels }),
+    [prepLayout],
+  );
   const { notes: trainerNotes, saveNote } = useTrainerNotes(sessionId, trainerId);
 
   // Badge counts exercises that actually have something written, not words —
@@ -439,12 +449,7 @@ export default function TrainerPracticeView({
                   )}
                 </h2>
               )}
-              {prep[sec.id]?.content && (
-                <div className="participant-prep-callout">
-                  <span className="participant-prep-callout-label">Prep</span>
-                  {prep[sec.id].content}
-                </div>
-              )}
+              <PrepCallout heading="Prep" items={itemsForExercise(prep[sec.id]?.content, standalone, prepLayout, sec.id)} />
               {blocks
                 .filter(b => b.section_id === sec.id)
                 .map(b => (editMode ? (
@@ -482,6 +487,7 @@ export default function TrainerPracticeView({
         sections={sections}
         prep={prep}
         standalone={standalone}
+        expected={drawerExpected}
       />
       <NotesDrawer
         open={notesOpen}

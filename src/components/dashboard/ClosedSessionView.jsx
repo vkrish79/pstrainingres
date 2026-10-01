@@ -5,6 +5,9 @@ import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, fil
 import { sanitizeNotesHtml } from '../../lib/notesRichText.js';
 import { useClosedSessionFigures } from '../../hooks/useClosedSessionFigures.js';
 import ClosedAssessmentReport from './ClosedAssessmentReport.jsx';
+import PrepCallout from '../PrepCallout.jsx';
+import { useSessionPrepLayout } from '../../hooks/useSessionPrepLayout.js';
+import { itemsForExercise, splitGeneralPrep } from '../../lib/prepAttach.js';
 
 // Read-only summary view rendered when sessions.closed_at is set. Driven
 // entirely by sessions.closed_summary (the snapshot saved at close time)
@@ -21,6 +24,10 @@ export default function ClosedSessionView({ snapshot, liveAssessmentId = null, o
   const archivedAt = snapshot.retention?.detail_removed_at || null;
   const namesAnonymisedAt = snapshot.retention?.names_anonymised_at || null;
   const figures = useClosedSessionFigures(session?.id, !!archivedAt);
+  // Which general prep the template shows with which exercise (show_with). Read
+  // live, keyed by the class's copy; if that copy is gone the prep simply lays
+  // out as it always did — general prep as Pre-work, each exercise its own.
+  const prepLayout = useSessionPrepLayout(session?.id);
 
   // Snapshots store block.type, but blockHelpers (isFillableBlock/isAnswered/
   // labelOf) read block.block_type. Alias both so the helpers work — without
@@ -334,6 +341,7 @@ export default function ClosedSessionView({ snapshot, liveAssessmentId = null, o
             <ParticipantRecord
               key={p.id}
               participant={p}
+              prepLayout={prepLayout}
               workbook={workbook}
               fillable={fillable}
               notesForP={notesByParticipant[p.id] || {}}
@@ -349,7 +357,9 @@ export default function ClosedSessionView({ snapshot, liveAssessmentId = null, o
   );
 }
 
-function ParticipantRecord({ participant, workbook, fillable, notesForP, archived, expanded, onToggle }) {
+function ParticipantRecord({ participant, prepLayout = null, workbook, fillable, notesForP, archived, expanded, onToggle }) {
+  // General prep left once the items shown with an exercise have moved onto it.
+  const generalPrep = splitGeneralPrep(participant.standalone_prep || [], prepLayout?.attached).general;
   const answered = fillable.reduce(
     (n, b) => n + filledInputs(b, participant.answers?.[b.id]?.value),
     0,
@@ -409,10 +419,10 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, archive
               </div>
             </section>
           )}
-          {(participant.standalone_prep?.length > 0) && (
+          {generalPrep.length > 0 && (
             <section className="closed-section">
               <h3>Pre-work</h3>
-              {participant.standalone_prep.map((s, i) => (
+              {generalPrep.map((s, i) => (
                 <div key={i} className="participant-prep-callout">
                   <span className="participant-prep-callout-label">{s.label}</span>
                   {s.content}
@@ -423,22 +433,19 @@ function ParticipantRecord({ participant, workbook, fillable, notesForP, archive
           {(workbook?.sections || []).map(sec => {
             const secBlocks = (sec.blocks || []).filter(isFillableBlock);
             const sectionNote = participant.section_notes?.[sec.id]?.note;
-            const sectionPrep = participant.section_prep?.[sec.id]?.content;
+            const prepItems = itemsForExercise(
+              participant.section_prep?.[sec.id]?.content, participant.standalone_prep, prepLayout, sec.id,
+            );
             // Skip rendering a section if there's nothing to show.
             const hasContent = secBlocks.some(b => participant.answers?.[b.id]?.value != null)
               || sectionNote
-              || sectionPrep
+              || prepItems.length > 0
               || secBlocks.some(b => notesForP[b.id]);
             if (!hasContent) return null;
             return (
               <section key={sec.id} className="closed-section">
                 <h3>{sec.title}</h3>
-                {sectionPrep && (
-                  <div className="participant-prep-callout">
-                    <span className="participant-prep-callout-label">Prep</span>
-                    {sectionPrep}
-                  </div>
-                )}
+                <PrepCallout heading="Prep" items={prepItems} />
                 {sectionNote && (
                   <div className="participant-note-readonly">
                     <span className="participant-note-readonly-label">Participant note</span>
