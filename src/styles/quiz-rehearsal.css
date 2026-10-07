@@ -357,3 +357,19 @@
 @media (prefers-reduced-motion: reduce) {
   .qreh-go, .qreh-btn, .qreh-skip { transition: none; }
 }
+
+/* The labelled answering screen (question + worded answers), fitted to the
+   mock phone. The container query in quiz-live.css already gives this box the
+   phone layout; these only scale the type down to a 17rem frame and stop the
+   rows stretching into tall bars beside the wall, as the bare shapes did. */
+.qreh-mini .qlive-aprompt { font-size: 0.85rem; max-height: 7rem; }
+.qreh-mini .qlive-picks-labelled { flex: 0 0 auto; grid-auto-rows: auto; gap: 0.35rem; }
+.qreh-mini .qlive-pick-labelled { font-size: 0.74rem; padding: 0.4rem 0.5rem 0.4rem 0.4rem; gap: 0.45rem; border-radius: 9px; }
+.qreh-mini .qlive-pick-labelled .qlive-badge { width: 1.5rem; height: 1.5rem; border-radius: 6px; }
+.qreh-mini .qlive-afig, .qreh-mini .qlive-afig img { max-height: 5rem; }
+.qreh-mini .qlive-ocap { font-size: 0.6rem; }
+.qreh-mini .qlive-seq-labelled .qlive-seq-slot { min-height: 1.7rem; padding: 0.2rem 0.4rem; }
+.qreh-mini .qlive-seq-labelled .qlive-seq-shape { width: 1.2rem; height: 1.2rem; }
+.qreh-mini .qlive-seq-text { font-size: 0.7rem; }
+.qreh-mini .qlive-ahead .qlive-timer { width: 2.6rem; }
+.qreh-mini .qlive-ahead .qlive-timer .qlive-timer-num { font-size: 0.9rem; }

@@ -3,9 +3,10 @@ import { supabase } from './supabase.js';
 export const QUIZ_IMAGE_BUCKET = 'quiz-images';
 
 // The picture a drop-pin question is answered on. A SECOND bucket rather than
-// a folder in the first, because the two have different readers: quiz-images
-// is shut to participants and a map cannot be — a handset with no map has
-// nothing to tap. The argument is in RUN-THIS-IN-SUPABASE-quiz-maps.txt.
+// a folder in the first, because the two once had different readers: maps were
+// readable by participants and pictures were not (RUN-THIS-IN-SUPABASE-quiz-maps.txt).
+// Since 2026-10-06 participants read both, because their screens now show the
+// question's picture (RUN-THIS-IN-SUPABASE-quiz-images-participants.txt).
 export const QUIZ_MAP_BUCKET = 'quiz-maps';
 
 // The longest edge we keep. A projector is 1920 wide and the picture never

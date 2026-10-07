@@ -3,9 +3,9 @@ import { useQuizPlayback } from '../../hooks/useQuizPlayback.js';
 import {
   scoreChoice, scorePin, scoreOrder, orderIsSubmittable, ORDER_IS_FINAL,
 } from '../../lib/quizRehearsalScore.js';
-import { shapeFor } from '../../lib/quizShapes.js';
 import { scaleClass } from '../../lib/quizScale.js';
 import QuizShape from './QuizShape.jsx';
+import { QuizQuestionHead, QuizPick, QuizSeqSlots } from './QuizAnswerParts.jsx';
 import QuizImage from './QuizImage.jsx';
 import QuizPinField from './QuizPinField.jsx';
 import QuizTimer from './QuizTimer.jsx';
@@ -438,7 +438,13 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
               )}
 
               {phase === 'question' && (
-                <div className="qlive-stage qlive-answer qreh-mini">
+                <div className="qlive-stage qlive-answer qlive-answer-full qreh-mini">
+                  {/* The number is already in the phone's own top bar. The
+                      clock is here because a participant's screen has one. */}
+                  <QuizQuestionHead
+                    prompt={q.prompt}
+                    timer={<QuizTimer total={limit} secondsLeft={secondsLeft} />}
+                  />
                   {wagerShown && (
                     <div className="qlive-stake">
                       <p className="qlive-stake-label">
@@ -470,43 +476,36 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                     />
                   ) : q.kind === 'order' ? (
                     <>
-                      <ol className="qlive-seq">
-                        {(q.quiz_options || []).map((_, slot) => {
-                          const chosenId = seq[slot];
-                          const chosen = (q.quiz_options || []).findIndex(o => o.id === chosenId);
-                          return (
-                            <li key={slot} className={`qlive-seq-slot${chosenId ? ' is-filled' : ''}`}>
-                              <span className="qlive-seq-num">{slot + 1}</span>
-                              {chosenId
-                                ? <span className={`qlive-seq-shape qlive-opt-${chosen}`}><QuizShape index={chosen} /></span>
-                                : <span className="qlive-seq-empty" aria-hidden="true" />}
-                            </li>
-                          );
-                        })}
-                      </ol>
-                      <div className="qlive-picks qlive-picks-bare">
-                        {(q.quiz_options || []).map((o, i) => {
-                          const used = seq.includes(o.id);
-                          return (
-                            <button
-                              key={o.id}
-                              type="button"
-                              className={`qlive-pick qlive-pick-bare qlive-opt-${i}${used ? ' is-dimmed' : ''}`}
-                              disabled={used}
-                              onClick={() => tapItem(o.id)}
-                              aria-label={`${shapeFor(i).label}${used ? `, placed ${seq.indexOf(o.id) + 1}` : ''}`}
-                            >
-                              <QuizShape index={i} />
-                            </button>
-                          );
-                        })}
+                      <div className="qlive-abody qlive-abody-order">
+                        <div className="qlive-ocol">
+                          <p className="qlive-ocap">Your order</p>
+                          <QuizSeqSlots options={q.quiz_options || []} seq={seq} />
+                        </div>
+                        <div className="qlive-ocol">
+                          <p className="qlive-ocap">Pick the steps in order</p>
+                          <div className="qlive-picks qlive-picks-labelled qlive-picks-order">
+                            {(q.quiz_options || []).map((o, i) => {
+                              const used = seq.includes(o.id);
+                              return (
+                                <QuizPick
+                                  key={o.id}
+                                  index={i}
+                                  label={o.label}
+                                  className={used ? 'is-dimmed' : ''}
+                                  disabled={used}
+                                  onClick={() => tapItem(o.id)}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                       <p className="qlive-note qlive-muted">
                         {orderIsSubmittable(seq.length, (q.quiz_options || []).length)
                           ? 'In, and locked. A sequence cannot be changed.'
                           : seq.length > 0
                             ? `${seq.length} of ${(q.quiz_options || []).length} placed — finish it or it scores nothing`
-                            : 'Tap the shapes in order — speed counts.'}
+                            : 'Tap the steps in order — speed counts.'}
                       </p>
                       {/* Gone once the sequence is complete, because by then
                           the server would already have taken it. Before that
@@ -519,18 +518,19 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                     </>
                   ) : (
                     <>
-                      <div className="qlive-picks qlive-picks-bare">
-                        {(q.quiz_options || []).map((o, i) => (
-                          <button
-                            key={o.id}
-                            type="button"
-                            className={`qlive-pick qlive-pick-bare qlive-opt-${i}${picked === o.id ? ' is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
-                            onClick={() => tapOption(o.id)}
-                            aria-label={shapeFor(i).label}
-                          >
-                            <QuizShape index={i} />
-                          </button>
-                        ))}
+                      <div className="qlive-abody">
+                        <QuizImage path={q.image_path} className="qlive-figure qlive-afig" />
+                        <div className="qlive-picks qlive-picks-labelled">
+                          {(q.quiz_options || []).map((o, i) => (
+                            <QuizPick
+                              key={o.id}
+                              index={i}
+                              label={o.label}
+                              className={`${picked === o.id ? 'is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
+                              onClick={() => tapOption(o.id)}
+                            />
+                          ))}
+                        </div>
                       </div>
                       <p className="qlive-note qlive-muted">
                         {picked

@@ -2,24 +2,27 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { ordinal } from '../../lib/ordinal.js';
-import { shapeFor } from '../../lib/quizShapes.js';
-import QuizShape from './QuizShape.jsx';
+import { QuizQuestionHead, QuizPick, QuizSeqSlots } from './QuizAnswerParts.jsx';
+import QuizImage from './QuizImage.jsx';
 import QuizPinField from './QuizPinField.jsx';
 import QuizTimer, { spanSeconds } from './QuizTimer.jsx';
 import { scaleClass } from '../../lib/quizScale.js';
 import '../../styles/quiz-live.css';
 
-// What a participant sees on their own device: FOUR SHAPES. Nothing else.
+// What a participant sees on their own device while a question is open: the
+// question, its picture, and every answer's wording beside its shape.
 //
-// The question and its four answers are on the projector, where the room reads
-// them together. Repeating them on sixteen handsets makes everyone look down at
-// the moment they should be looking up, and turns one shared question into
-// sixteen private ones.
+// This used to be shapes and nothing else, so the room read the question off
+// the projector together. Reversed on instruction (2026-10-06): participants
+// mostly answer on a laptop, and should be able to read what they are
+// answering without twisting round to the wall. The shapes stay on every
+// answer, so "hit the triangle" still works.
 //
-// THE TRADE, stated plainly: a REMOTE participant has no projector, so they
-// would see four shapes and nothing to answer. This is an in-room design, on
-// instruction. If remote cohorts ever run, the labels have to come back for
-// them — which is a branch here, not a rewrite.
+// Two layouts from one markup, chosen by a container query in quiz-live.css:
+// a laptop gets the projector's arrangement (2x2 tiles, picture beside them,
+// number keys 1–4); a phone gets one column of rows.
+//
+// The reveal, leaderboard and podium screens are deliberately unchanged.
 //
 // Nothing here can reveal the answer, because nothing here is ever told it:
 // quiz_current() returns labels only, and quiz_answer() deliberately does not
@@ -96,12 +99,11 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
       setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
       return;
     }
-    setNote('Answer in. Tap another shape to change it.');
+    setNote('Answer in. Pick another to change it until the clock stops.');
   }
 
-  // DROPPING A PIN. The one type where the participant's own screen carries
-  // the question — because the answer is a place on a picture, and a handset
-  // showing shapes would have nothing to tap.
+  // DROPPING A PIN. The answer is a place on a picture, so the picture is the
+  // answer sheet.
   //
   // Submits on the tap rather than behind a Confirm button, and the pin can be
   // moved until the clock stops. That is the same bargain every other type
@@ -216,6 +218,35 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
     setNote('Order in. Start again to change it.');
   }
 
+  // NUMBER KEYS 1–4 on a laptop, the same as clicking that answer. Read
+  // through a ref so the listener, attached once per question, always calls
+  // the current answer()/tapItem() and not the ones from the render that
+  // attached it. Ignored while typing anywhere and with a modifier held, so
+  // it cannot swallow a browser shortcut.
+  const keyPick = useRef(null);
+  keyPick.current = (n) => {
+    const o = (run?.options ?? [])[n];
+    if (!o) return;
+    if (run?.kind === 'order') tapItem(o.id);
+    else if (run?.kind !== 'pin') answer(o.id);
+  };
+  useEffect(() => {
+    if (phase !== 'question') return undefined;
+    const onKey = (e) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (!/^[1-4]$/.test(e.key)) return;
+      e.preventDefault();
+      keyPick.current?.(Number(e.key) - 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [phase, idx]);
+
+  const options = run?.options ?? [];
+  const keyRange = options.length > 1 ? `1–${options.length}` : '1';
+
   // The stake, ABOVE the answer and available before answering. Choosing it
   // first costs nothing; choosing it after deciding what you want is the whole
   // point — the bet is on how sure you are of your OWN answer, not a blind
@@ -276,22 +307,19 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
       )}
 
       {phase === 'question' && (
-        <div className="qlive-stage qlive-answer">
-          {/* The clock, and nothing else above the shapes. No question text and
-              no answer wording: both are on the projector, and a participant
-              should be reading them there rather than looking down. */}
-          <div className="qlive-answer-top">
-            <span className="qlive-qnum">Question {idx + 1}</span>
-            <QuizTimer total={spanSeconds(run?.phase_started_at, run?.phase_ends_at)} secondsLeft={secondsLeft} />
-          </div>
+        <div className="qlive-stage qlive-answer qlive-answer-full">
+          <QuizQuestionHead
+            number={idx + 1}
+            total={run?.total_questions}
+            prompt={run?.prompt}
+            timer={<QuizTimer total={spanSeconds(run?.phase_started_at, run?.phase_ends_at)} secondsLeft={secondsLeft} />}
+          />
           {run?.kind === 'pin' ? (
             <>
               {stakeRow}
-              {/* The exception to "the handset shows shapes and nothing else",
-                  and the only one. The answer IS a place on this picture, so
-                  the picture has to be here — there is nothing else to tap.
-                  The question itself is still on the wall, where the room
-                  reads it together. */}
+              {/* The answer IS a place on this picture, so the map is the
+                  answer sheet. The question sits above it like every other
+                  type. */}
               <QuizPinField
                 path={run?.map_path}
                 onPick={dropPin}
@@ -305,53 +333,55 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
                 label="Where you think it is"
               />
               {note && <p className="qlive-note">{note}</p>}
-              {!note && !myPin && <p className="qlive-note qlive-muted">Press the picture, and drag to aim — speed counts.</p>}
+              {!note && !myPin && (
+                <p className="qlive-note qlive-muted">
+                  <span className="qlive-hint-narrow">Press the picture, and drag to aim — speed counts.</span>
+                  <span className="qlive-hint-wide">Click the picture, and drag to aim — speed counts.</span>
+                </p>
+              )}
             </>
           ) : run?.kind === 'order' ? (
             <>
-              {/* The sequence so far, so a thumb can see what it has chosen
-                  without reading the question — which is on the wall. */}
-              <ol className="qlive-seq">
-                {(run?.options ?? []).map((_, slot) => {
-                  const chosenId = seq[slot];
-                  const chosen = (run?.options ?? []).findIndex(o => o.id === chosenId);
-                  return (
-                    <li key={slot} className={`qlive-seq-slot${chosenId ? ' is-filled' : ''}`}>
-                      <span className="qlive-seq-num">{slot + 1}</span>
-                      {chosenId
-                        ? <span className={`qlive-seq-shape qlive-opt-${chosen}`}><QuizShape index={chosen} /></span>
-                        : <span className="qlive-seq-empty" aria-hidden="true" />}
-                    </li>
-                  );
-                })}
-              </ol>
-              <div className="qlive-picks qlive-picks-bare">
-                {(run?.options ?? []).map((o, i) => {
-                  const used = seq.includes(o.id);
-                  return (
-                    <button
-                      key={o.id}
-                      type="button"
-                      className={`qlive-pick qlive-pick-bare qlive-opt-${i}${used ? ' is-dimmed' : ''}`}
-                      disabled={used || sending}
-                      onClick={() => tapItem(o.id)}
-                      aria-label={`${shapeFor(i).label}${used ? `, placed ${seq.indexOf(o.id) + 1}` : ''}`}
-                    >
-                      <QuizShape index={i} />
-                    </button>
-                  );
-                })}
+              <div className="qlive-abody qlive-abody-order">
+                <div className="qlive-ocol">
+                  <p className="qlive-ocap">Your order</p>
+                  <QuizSeqSlots options={options} seq={seq} />
+                </div>
+                <div className="qlive-ocol">
+                  <p className="qlive-ocap">Pick the steps in order</p>
+                  <div className="qlive-picks qlive-picks-labelled qlive-picks-order">
+                    {options.map((o, i) => {
+                      const used = seq.includes(o.id);
+                      return (
+                        <QuizPick
+                          key={o.id}
+                          index={i}
+                          label={o.label}
+                          keyHint={i + 1}
+                          className={used ? 'is-dimmed' : ''}
+                          disabled={used || sending}
+                          onClick={() => tapItem(o.id)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               {note && <p className="qlive-note">{note}</p>}
               {!note && (
                 <p className="qlive-note qlive-muted">
                   {seq.length > 0
-                    ? `${seq.length} of ${(run?.options ?? []).length} placed`
+                    ? `${seq.length} of ${options.length} placed`
                     : submitted
                       // Said out loud, because an empty row of slots after
                       // "Start again" looks exactly like having no answer.
                       ? 'Your last order still counts until you finish a new one.'
-                      : 'Tap the shapes in order — speed counts.'}
+                      : (
+                        <>
+                          <span className="qlive-hint-narrow">Tap the steps in order — speed counts.</span>
+                          <span className="qlive-hint-wide">Click the steps in order, or press {keyRange} — speed counts.</span>
+                        </>
+                      )}
                 </p>
               )}
               {seq.length > 0 && !sending && (
@@ -367,25 +397,31 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
           ) : (
             <>
               {stakeRow}
-              <div className="qlive-picks qlive-picks-bare">
-                {(run?.options ?? []).map((o, i) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    className={`qlive-pick qlive-pick-bare qlive-opt-${i}${picked === o.id ? ' is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
-                    disabled={sending}
-                    onClick={() => answer(o.id)}
-                    // The shape's name is now the ONLY name this control has, so
-                    // it has to be the accessible one — there is no visible text
-                    // left for a screen reader to fall back on.
-                    aria-label={shapeFor(i).label}
-                  >
-                    <QuizShape index={i} />
-                  </button>
-                ))}
+              <div className="qlive-abody">
+                {/* The wrapper is laid out before the picture arrives, so the
+                    answers do not jump when it lands. */}
+                <QuizImage path={run?.image_path} className="qlive-figure qlive-afig" />
+                <div className="qlive-picks qlive-picks-labelled">
+                  {options.map((o, i) => (
+                    <QuizPick
+                      key={o.id}
+                      index={i}
+                      label={o.label}
+                      keyHint={i + 1}
+                      className={`${picked === o.id ? 'is-picked' : ''}${picked && picked !== o.id ? ' is-dimmed' : ''}`}
+                      disabled={sending}
+                      onClick={() => answer(o.id)}
+                    />
+                  ))}
+                </div>
               </div>
               {note && <p className="qlive-note">{note}</p>}
-              {!note && !picked && <p className="qlive-note qlive-muted">Tap your answer — speed counts.</p>}
+              {!note && !picked && (
+                <p className="qlive-note qlive-muted">
+                  <span className="qlive-hint-narrow">Tap your answer — speed counts.</span>
+                  <span className="qlive-hint-wide">Click your answer or press {keyRange} — speed counts.</span>
+                </p>
+              )}
             </>
           )}
         </div>

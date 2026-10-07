@@ -1138,3 +1138,152 @@
 /* The frame must keep hugging the bitmap at every size — it is the box a
    pin is measured against. */
 .qpin-frame { max-height: none; }
+
+/* ── The answering screen: question + labelled answers ─────────────────────
+   One markup, two layouts. The switch is a CONTAINER query on the stage, not
+   a viewport query: the rehearsal room draws this inside a 17rem mock phone
+   on a wide screen, and must get the phone layout there.
+
+   Default (narrow) = phone: header, stake, picture strip, one column of
+   answer rows, note. Wide (laptop, the usual case in a session) = the
+   projector's arrangement: picture beside a 2x2 grid of tiles, stake and note
+   in the footer, number-key hints on the tiles.
+
+   Children are ordered with `order` so the stake can sit above the answers on
+   a phone and in the footer on a laptop without two copies in the markup. */
+.qlive-answer-full {
+  container: qpad / inline-size;
+  gap: 0.7rem;
+}
+.qlive-ahead { order: 0; display: flex; align-items: flex-start; gap: 0.75rem; flex: 0 0 auto; }
+.qlive-ahead-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 0.25rem; }
+.qlive-ahead .qlive-timer { flex: 0 0 auto; }
+/* A long question scrolls inside its own box on a phone, so the answers are
+   never pushed off the bottom of the screen. */
+.qlive-aprompt {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.3;
+  font-weight: 700;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.qlive-answer-full > .qlive-stake { order: 1; }
+.qlive-answer-full > .qlive-abody,
+.qlive-answer-full > .qlive-pin-answer { order: 2; }
+.qlive-answer-full > .qlive-note { order: 4; }
+.qlive-answer-full > .qlive-restart { order: 5; }
+
+.qlive-abody { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+/* On a phone the picture is a short strip; the answers keep the thumb's reach. */
+.qlive-afig { flex: 0 0 auto; max-height: 7rem; }
+.qlive-afig img { max-height: 7rem; }
+
+.qlive-picks-labelled {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: minmax(3rem, 1fr);
+  gap: 0.5rem;
+}
+.qlive-pick-labelled {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.22;
+  padding: 0.55rem 0.8rem 0.55rem 0.55rem;
+}
+.qlive-pick-labelled .qlive-badge { width: 2.1rem; height: 2.1rem; }
+.qlive-key { display: none; }
+/* The global button:hover fill (0,1,1) outranks .qlive-opt-N (0,1,0), which
+   turned the coloured answers dark navy under a laptop pointer. */
+.qlive-pick.qlive-opt-0:hover { background: #1f6fb2; }
+.qlive-pick.qlive-opt-1:hover { background: #b1512f; }
+.qlive-pick.qlive-opt-2:hover { background: #2f7d52; }
+.qlive-pick.qlive-opt-3:hover { background: #6a4b9c; }
+.qlive-pick-labelled:hover:not(:disabled) { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55); }
+
+.qlive-hint-wide { display: none; }
+
+/* Put in order: what has been placed, then the steps to pick from. */
+.qlive-abody-order { gap: 0.8rem; }
+.qlive-ocol { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.qlive-ocap { margin: 0; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; }
+.qlive-picks-order { flex: 0 0 auto; grid-auto-rows: auto; }
+.qlive-seq-labelled { flex-direction: column; gap: 0.3rem; }
+.qlive-seq-labelled .qlive-seq-slot {
+  flex: 0 0 auto;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  min-height: 2.3rem;
+  border-width: 1.5px;
+}
+.qlive-seq-labelled .qlive-seq-shape { flex: 0 0 auto; width: 1.6rem; height: 1.6rem; border-radius: 6px; }
+.qlive-seq-labelled .qlive-seq-empty { width: 0; height: 1.6rem; }
+.qlive-seq-text { min-width: 0; font-weight: 600; font-size: 0.92rem; overflow-wrap: anywhere; }
+
+/* The map shares the screen with the question now, so each size gives up a
+   little height to it. */
+.qlive-answer-full .qlive-pin-answer.is-s .qpin-img { height: 34vh; }
+.qlive-answer-full .qlive-pin-answer.is-m .qpin-img { height: 50vh; }
+.qlive-answer-full .qlive-pin-answer.is-l .qpin-img { height: 62vh; }
+
+@container qpad (min-width: 600px) {
+  .qlive-aprompt {
+    font-size: clamp(1.4rem, 3cqi, 2.4rem);
+    line-height: 1.2;
+    text-wrap: balance;
+    max-height: none;
+    overflow: visible;
+  }
+  .qlive-ahead-text { gap: 0.4rem; }
+
+  .qlive-abody { flex-direction: row; gap: 1rem; }
+  .qlive-afig { flex: 0 0 38%; max-height: none; align-self: stretch; }
+  .qlive-afig img { max-height: 100%; }
+
+  .qlive-picks-labelled {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    gap: clamp(0.5rem, 1.2cqi, 1rem);
+  }
+  .qlive-pick-labelled {
+    font-size: clamp(1rem, 1.9cqi, 1.6rem);
+    padding: clamp(0.6rem, 1.4cqi, 1.2rem);
+    gap: 0.8rem;
+  }
+  .qlive-pick-labelled .qlive-badge { width: clamp(2.2rem, 4cqi, 3rem); height: clamp(2.2rem, 4cqi, 3rem); }
+  .qlive-key {
+    display: inline-block;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3;
+    padding: 0 0.35rem;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    opacity: 0.75;
+  }
+
+  /* The stake moves to the footer, under the answers. */
+  .qlive-answer-full > .qlive-stake { order: 3; width: min(100%, 26rem); align-self: center; }
+
+  .qlive-hint-narrow { display: none; }
+  .qlive-hint-wide { display: inline; }
+
+  /* Your order on the left, the steps on the right. */
+  .qlive-abody-order {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 1.4rem;
+  }
+  .qlive-picks-order { grid-template-columns: minmax(0, 1fr); }
+  .qlive-seq-labelled .qlive-seq-slot { min-height: 3.2rem; padding: 0.45rem 0.7rem; }
+  .qlive-seq-text { font-size: clamp(0.95rem, 1.6cqi, 1.25rem); }
+}

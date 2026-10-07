@@ -11,7 +11,7 @@ import { signedQuizFileUrl, QUIZ_IMAGE_BUCKET } from '../../lib/quizImages.js';
 // reading.
 //
 // The bucket is a prop because a drop-pin question's map lives in a different
-// one — quiz-maps, the only quiz bucket a participant can read.
+// one — quiz-maps.
 export default function QuizImage({ path, bucket = QUIZ_IMAGE_BUCKET, alt = '', className = '', onClick, title }) {
   const [url, setUrl] = useState(null);
   const [failed, setFailed] = useState(false);
