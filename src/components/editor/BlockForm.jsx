@@ -3,6 +3,7 @@ import '../../styles/interactive.css';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
 import { BOX_MARKER, mixedToText, mixedFromText, mixedWording } from '../../lib/tableCells.js';
 import { PNR_FIELDS, normalisePnr } from '../../lib/pnrQuestion.js';
+import { ImageCell } from '../blocks/WbImage.jsx';
 
 // answerKey / canSetAnswer are only meaningful in an assessment or a question
 // bank, where a question has a correct answer at all. A workbook passes neither,
@@ -245,8 +246,15 @@ function TableForm({ block, onSave, onCancel }) {
                         <option value="static">Text</option>
                         <option value="input">Input</option>
                         <option value="mixed">Text with boxes</option>
+                        {/* Only on an imported picture cell. Choosing Text removes the picture. */}
+                        {cell.kind === 'image' && <option value="image" disabled>Picture</option>}
                       </select>
-                      {cell.kind === 'mixed' ? (
+                      {cell.kind === 'image' ? (
+                        <>
+                          <ImageCell cell={cell} />
+                          <span className="hint">Switch to Text to remove the picture.</span>
+                        </>
+                      ) : cell.kind === 'mixed' ? (
                         <textarea
                           className="form-textarea compact"
                           rows="2"

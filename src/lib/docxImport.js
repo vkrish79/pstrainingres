@@ -31,11 +31,25 @@
 
 import { cellFromPlaceholderText, boxesOf } from './tableCells.js';
 
+// PICTURES. mammoth would inline every image as a base64 data URI, which would
+// put megabytes into a block's config. Instead each image is held back here
+// (`images`: key, bytes, contentType) and the HTML carries only
+// data-wb-pending="imgN". Nothing is uploaded until the trainer confirms the
+// import: uploadImportedImages (workbookImages.js) then stores each picture in
+// the workbook-images bucket and swaps the key for its storage path.
 export async function parseDocxToWorkbook(file) {
   const { default: mammoth } = await import('mammoth/mammoth.browser.js');
   const arrayBuffer = await file.arrayBuffer();
-  const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
-  return parseHtmlToWorkbook(html, file.name);
+  const images = [];
+  const { value: html } = await mammoth.convertToHtml({ arrayBuffer }, {
+    convertImage: mammoth.images.imgElement(async (image) => {
+      const key = `img${images.length + 1}`;
+      const bytes = await image.read();
+      images.push({ key, bytes, contentType: image.contentType || '' });
+      return { 'data-wb-pending': key, alt: image.altText || '' };
+    }),
+  });
+  return { ...parseHtmlToWorkbook(html, file.name), images };
 }
 
 export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
@@ -129,7 +143,20 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
 
     if (tag === 'p') {
       const text = node.textContent.trim();
-      if (!text) continue;
+      const hasImg = !!node.querySelector('img');
+      if (!text && !hasImg) continue;
+
+      // A picture on its own line (how Word holds a screenshot) has no text,
+      // and used to be skipped here as an empty paragraph. It becomes a prose
+      // block holding just the picture.
+      if (!text) {
+        const host = hierarchyMode && !sawFirstHeading ? ensureCoverSection() : ensureSection();
+        // Marked so the stylesheet can frame it as a full-width screenshot;
+        // CSS alone cannot tell it from a picture inside a sentence.
+        node.classList.add('wb-pic');
+        host.blocks.push(prose(node.outerHTML));
+        continue;
+      }
 
       // Skip Word TOC paragraphs (e.g. "<p><a href='#_Toc...'>Exercise 1\t4</a></p>")
       if (isTocParagraph(node)) continue;
@@ -137,13 +164,14 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
       // No h1 in the doc? Use the first bold short paragraph as the title
       // (legacy behavior — hierarchy mode never enters this branch because
       // the title is sourced from the Doc Info table / filename instead).
-      if (!hierarchyMode && !title && !current && isAllBold(node) && text.length < 80) {
+      // Never a paragraph with a picture in it: the picture would be lost.
+      if (!hierarchyMode && !title && !current && !hasImg && isAllBold(node) && text.length < 80) {
         title = text;
         continue;
       }
 
       // Heuristic section header (e.g. "Exercise 1", "Module 3 – Booking")
-      if (looksLikeSectionHeader(node, text)) {
+      if (!hasImg && looksLikeSectionHeader(node, text)) {
         current = { title: text, blocks: [], kind: 'exercise' };
         sections.push(current);
         sawFirstHeading = true;
@@ -158,7 +186,7 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
       }
 
       // Legacy: first plain pre-section paragraph → description.
-      if (!hierarchyMode && !current && !description && title) {
+      if (!hierarchyMode && !current && !description && title && !hasImg) {
         description = text;
         continue;
       }
@@ -663,6 +691,18 @@ function tableBlockFromHtml(tableEl) {
     }
     const row = cells.map(td => {
       const text = td.textContent.trim();
+      // A cell holding a picture (a screenshot in an instruction table) keeps
+      // it, plus any wording beside it. Used to be text-only, so it was lost.
+      const pics = Array.from(td.querySelectorAll('img[data-wb-pending]')).map(i => i.getAttribute('data-wb-pending'));
+      if (pics.length) {
+        const cell = { kind: 'image', images: pics };
+        if (text) cell.text = text;
+        const colSpan = parseSpan(td.getAttribute('colspan'));
+        const rowSpan = parseSpan(td.getAttribute('rowspan'));
+        if (colSpan > 1) cell.colSpan = colSpan;
+        if (rowSpan > 1) cell.rowSpan = rowSpan;
+        return cell;
+      }
       const inputType = detectInputType(text);
       const cell = inputType
         ? { kind: 'input', id: `r${ri}c${++inputCounter}`, input_type: inputType }
@@ -745,15 +785,19 @@ function detectInputType(text) {
 
 // Counts to show in the import preview
 export function countsOf(parsed) {
-  let prose = 0, field = 0, table = 0, groups = 0, boxes = 0, wordedBoxes = 0;
+  let prose = 0, field = 0, table = 0, groups = 0, boxes = 0, wordedBoxes = 0, pictures = 0;
   for (const s of parsed.sections) {
     if (s.kind === 'group') groups += 1;
     for (const b of s.blocks) {
-      if (b.block_type === 'prose') prose += 1;
+      if (b.block_type === 'prose') {
+        prose += 1;
+        pictures += ((b.config?.html || '').match(/data-wb-(pending|image)=/g) || []).length;
+      }
       else if (b.block_type === 'field') field += 1;
       else if (b.block_type === 'table') {
         table += 1;
         for (const row of b.config?.rows || []) for (const cell of row) {
+          if (cell?.kind === 'image') pictures += (cell.images || []).length;
           if (cell?.kind === 'input') boxes += 1;
           const inside = boxesOf(cell).length;
           boxes += inside;
@@ -764,5 +808,5 @@ export function countsOf(parsed) {
   }
   // boxes: every answer box in the tables; wordedBoxes: those sitting inside a
   // cell's wording, which the preview calls out so the trainer can check them.
-  return { sections: parsed.sections.length, groups, prose, field, table, boxes, wordedBoxes };
+  return { sections: parsed.sections.length, groups, prose, field, table, boxes, wordedBoxes, pictures };
 }

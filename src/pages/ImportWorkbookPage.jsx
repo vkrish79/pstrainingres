@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { parseDocxToWorkbook, countsOf } from '../lib/docxImport.js';
+import { uploadImportedImages } from '../lib/workbookImages.js';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
@@ -45,6 +46,8 @@ export default function ImportWorkbookPage() {
     setError('');
     try {
       const newWbId = await runBusy('Importing workbook…', async () => {
+        // Pictures go up first; `ready` is the parse with storage paths in.
+        const { parsed: ready } = await uploadImportedImages(parsed);
         const { data: wb, error: e1 } = await supabase
           .from('workbooks')
           .insert({
@@ -58,8 +61,8 @@ export default function ImportWorkbookPage() {
           .single();
         if (e1) throw e1;
 
-        for (let si = 0; si < parsed.sections.length; si++) {
-          const sec = parsed.sections[si];
+        for (let si = 0; si < ready.sections.length; si++) {
+          const sec = ready.sections[si];
           const { data: secRow, error: e2 } = await supabase
             .from('sections')
             .insert({ workbook_id: wb.id, title: sec.title, order_index: si, kind: sec.kind || 'exercise' })
@@ -134,6 +137,7 @@ export default function ImportWorkbookPage() {
               <span>{counts.prose} prose</span>
               <span>{counts.field} field{counts.field === 1 ? '' : 's'}</span>
               <span>{counts.table} table{counts.table === 1 ? '' : 's'}</span>
+              {counts.pictures > 0 && <span>{counts.pictures} picture{counts.pictures === 1 ? '' : 's'}</span>}
               <span>{counts.boxes} answer box{counts.boxes === 1 ? '' : 'es'} in tables</span>
             </div>
             {counts.wordedBoxes > 0 && (
@@ -196,6 +200,7 @@ export default function ImportWorkbookPage() {
 function previewBlock(b) {
   if (b.block_type === 'prose') {
     const text = (b.config?.html || '').replace(/<[^>]+>/g, '').trim();
+    if (!text && /data-wb-(pending|image)=/.test(b.config?.html || '')) return '(picture)';
     return text.length > 90 ? text.slice(0, 90) + '…' : (text || '(empty)');
   }
   if (b.block_type === 'field') {

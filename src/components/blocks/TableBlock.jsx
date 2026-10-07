@@ -1,5 +1,6 @@
 import { boxLabel } from '../../lib/tableCells.js';
 import ReviewMark from './ReviewMark.jsx';
+import { ImageCell } from './WbImage.jsx';
 
 // `preview` — draw the table as a candidate meets it: empty cells to fill in,
 // inert. Without it, readOnly renders each input cell as the answer that was
@@ -31,7 +32,7 @@ export default function TableBlock({ block, value, onChange, readOnly = false, p
               {row.map((cell, ci) => (
                 <td
                   key={ci}
-                  className={`${cell.kind === 'input' ? 'wb-cell-input' : cell.kind === 'mixed' ? 'wb-cell-static wb-cell-mixed' : 'wb-cell-static'}${
+                  className={`${cell.kind === 'input' ? 'wb-cell-input' : cell.kind === 'mixed' ? 'wb-cell-static wb-cell-mixed' : cell.kind === 'image' ? 'wb-cell-static wb-cell-image' : 'wb-cell-static'}${
                     cell.kind === 'input' && marks?.[cell.id]?.trainer_answer ? (marks[cell.id].right ? ' rv-cell-right' : ' rv-cell-diff') : ''}`}
                   colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
                   rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
@@ -41,6 +42,8 @@ export default function TableBlock({ block, value, onChange, readOnly = false, p
                   )}
                   {cell.kind === 'static' ? (
                     cell.text
+                  ) : cell.kind === 'image' ? (
+                    <ImageCell cell={cell} />
                   ) : cell.kind === 'mixed' ? (
                     <MixedCell cell={cell} ans={ans} setCell={setCell} readOnly={readOnly} preview={preview} marks={marks} marksAudience={marksAudience} />
                   ) : showAnswer ? (

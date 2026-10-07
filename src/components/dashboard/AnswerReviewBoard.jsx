@@ -4,6 +4,7 @@ import {
   buildTabs, cellTone, indexCells, slotKey, slotsOfBlock, topWrongGroup, trainerAnswerOf,
 } from '../../lib/answerReview.js';
 import { boxLabel } from '../../lib/tableCells.js';
+import { ImageCell } from '../blocks/WbImage.jsx';
 import '../../styles/answer-review.css';
 
 const SUMMARY = '__summary__';
@@ -226,10 +227,11 @@ function TableSummary({ block, cells, selected, onSelect }) {
             <tr key={ri}>
               {row.map((cell, ci) => (
                 <td key={ci}
-                  className={cell.kind === 'static' ? 'wb-cell-static' : 'arb-td'}
+                  className={cell.kind === 'static' || cell.kind === 'image' ? 'wb-cell-static' : 'arb-td'}
                   colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
                   rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}>
                   {cell.kind === 'static' && cell.text}
+                  {cell.kind === 'image' && <ImageCell cell={cell} />}
                   {cell.kind === 'input' && (
                     <SlotSummary cell={cells.get(slotKey(block.id, cell.id))} k={slotKey(block.id, cell.id)} selected={selected} onSelect={onSelect} />
                   )}

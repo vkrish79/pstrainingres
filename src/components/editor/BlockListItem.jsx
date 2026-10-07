@@ -177,6 +177,7 @@ function previewOf(block) {
   if (block.block_type === 'prose') {
     const html = block.config?.html || '';
     const text = html.replace(/<[^>]+>/g, '').trim();
+    if (!text && html.includes('data-wb-image')) return '(picture)';
     return text.length > 70 ? text.slice(0, 70) + '…' : (text || '(empty)');
   }
   if (block.block_type === 'field') return block.config?.label || '(no label)';

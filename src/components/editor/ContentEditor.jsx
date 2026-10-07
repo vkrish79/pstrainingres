@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import '../../styles/workbook.css';
 import '../../styles/editor.css';
 import { boxesOf, mixedToText, mixedFromText, newBoxId, BOX_MARKER } from '../../lib/tableCells.js';
+import { useSignedWorkbookHtml } from '../../lib/workbookImages.js';
+import { ImageCell } from '../blocks/WbImage.jsx';
 
 // Inline content-only editor for SESSION-level workbook edits (is_template=false).
 // Renders the workbook like the participant view, but the *authored* text —
@@ -124,6 +126,9 @@ function ProseEdit({ block, onSave }) {
   const html = block.config?.html || '';
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  // Display only: the textarea below edits the raw HTML, so a signed URL is
+  // never saved into the block.
+  const shown = useSignedWorkbookHtml(html);
 
   function start() { setDraft(html); setEditing(true); }
   function commit() {
@@ -155,7 +160,7 @@ function ProseEdit({ block, onSave }) {
       role="button"
       onClick={start}
       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); start(); } }}
-      dangerouslySetInnerHTML={{ __html: html || '<p class="ce-empty">(empty — click to edit)</p>' }}
+      dangerouslySetInnerHTML={{ __html: shown || '<p class="ce-empty">(empty — click to edit)</p>' }}
     />
   );
 }
@@ -246,6 +251,8 @@ function TableEdit({ block, onSave }) {
                 >
                   {cell.kind === 'static' ? (
                     <EditableText value={cell.text || ''} onSave={v => saveCell(ri, ci, v)} placeholder="(empty)" multiline />
+                  ) : cell.kind === 'image' ? (
+                    <ImageCell cell={cell} />
                   ) : cell.kind === 'mixed' ? (
                     <span data-tip={`Each ${BOX_MARKER} is an answer box — keep them where they are`}>
                       <EditableText value={mixedToText(cell)} onSave={v => saveMixed(ri, ci, v)} accept={sameBoxes(ri, ci)} placeholder="(empty)" multiline />

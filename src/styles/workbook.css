@@ -581,3 +581,25 @@ button.pab-chip { cursor: pointer; }
 .presenter-bar .presenter-bar-group .ghost.active,
 .presenter-bar .presenter-bar-group .ghost.active:hover { background: #fff; color: var(--midnight); box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14); }
 .presenter-bar .presenter-bar-group .ghost:disabled { background: transparent; opacity: 0.5; }
+
+/* ── Pictures from a Word import (workbook-images bucket) ─────────────────
+   Stored as a path; the src is signed in on render, so an <img> without a
+   src yet is a loading slot, not a broken picture. */
+/* In a sentence: stays in the line. On its own line (a screenshot, marked
+   p.wb-pic by the importer): a full-width block with a frame. */
+.wb-prose img[data-wb-image] { display: inline-block; max-width: 100%; height: auto; vertical-align: middle; }
+.wb-prose p.wb-pic > img[data-wb-image] {
+  display: block;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.wb-prose p.wb-pic > img[data-wb-image]:not([src]) { width: 100%; min-height: 6rem; background: var(--border); opacity: 0.4; }
+.wb-prose img.wb-img-missing { min-height: 0; width: auto; padding: 0.6rem; font-size: 0.85rem; color: var(--muted, #6b6b6b); }
+.wb-cell-image-stack { display: flex; flex-direction: column; gap: 0.4rem; }
+.wb-img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 4px; }
+.wb-img-loading { display: block; width: 100%; min-height: 4rem; background: var(--border); opacity: 0.4; border-radius: 4px; }
+.wb-img-missing-note { font-size: 0.85rem; color: var(--muted, #6b6b6b); }
+@media print {
+  .wb-prose img[data-wb-image], .wb-img { break-inside: avoid; max-height: 22cm; object-fit: contain; }
+}
