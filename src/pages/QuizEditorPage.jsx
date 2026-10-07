@@ -41,6 +41,16 @@ function whatsMissing(q) {
   // statement: its two answers are the type's own words, written by the
   // database, and one of them is always marked correct.
   if (q.kind === 'boolean') return null;
+  // Pick-all: every ticked answer needs wording, and ticking all four would
+  // give the answer away (everyone ticks everything).
+  if (q.kind === 'multi') {
+    const ticked = q.quiz_options.filter(o => o.is_correct);
+    if (filled.length < 2) return 'needs at least two answers';
+    if (!ticked.length) return 'tick at least one correct answer';
+    if (ticked.some(o => !o.label.trim())) return 'a correct answer is blank';
+    if (ticked.length === filled.length) return 'every answer is ticked — untick at least one';
+    return null;
+  }
   if (filled.length < 2) return 'needs at least two answers';
   const correct = q.quiz_options.find(o => o.is_correct);
   if (!correct || !correct.label.trim()) return 'the correct answer is blank';
@@ -416,6 +426,7 @@ function QuestionCard({ q, index, total, actions, onError }) {
         {q.kind === 'order' && <span className="quiz-kind">Put in order</span>}
         {q.kind === 'boolean' && <span className="quiz-kind">True or false</span>}
         {q.kind === 'pin' && <span className="quiz-kind">Drop a pin</span>}
+        {q.kind === 'multi' && <span className="quiz-kind">Pick all that apply</span>}
         {q.audio_path && <span className="quiz-kind quiz-kind-audio">♪ Clip</span>}
         {q.allow_wager && <span className="quiz-kind quiz-kind-wager">Wager</span>}
         {missing && <span className="quiz-q-flag" title="This question cannot be used yet">{missing}</span>}
@@ -463,8 +474,9 @@ function QuestionCard({ q, index, total, actions, onError }) {
 
         {/* Only where the answer is simply right or wrong. A reorder question is
             scored by partial credit, so "you lost three times a partially-right
-            answer" is not a sentence anyone can say to a room. */}
-        {q.kind !== 'order' && (
+            answer" is not a sentence anyone can say to a room. Pick-all is
+            partial credit too, so the same applies. */}
+        {q.kind !== 'order' && q.kind !== 'multi' && (
           <Tip
             className="tip-wide"
             text={'Everyone picks 1×, 2× or 3× with their answer. At 1× nothing changes — win the '
@@ -550,6 +562,33 @@ function QuestionCard({ q, index, total, actions, onError }) {
                     a different hat — and one typed as "Flase" is live in a
                     room before anybody notices. */}
                 <span className="quiz-opt-fixed">{o.label}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : q.kind === 'multi' ? (
+        <>
+          <p className="muted quiz-q-hint">
+            Tick every correct answer. Participants see only the four labels and are not
+            told how many are right.
+          </p>
+          <div className="quiz-opts">
+            {q.quiz_options.map((o, i) => (
+              <div key={o.id} className={`quiz-opt${o.is_correct ? ' is-correct' : ''}`}>
+                <label className="quiz-opt-pick" title={`${shapeFor(i).label} — ${o.is_correct ? 'a correct answer (untick to make it wrong)' : 'tick if this is a correct answer'}`}>
+                  <input
+                    type="checkbox"
+                    checked={o.is_correct}
+                    onChange={e => call(() => actions.toggleCorrect(q.id, o.id, e.target.checked))}
+                  />
+                  <span className={`quiz-opt-badge s${i}`}><QuizShape index={i} /></span>
+                </label>
+                <BlurInput
+                  value={o.label}
+                  placeholder={`${shapeFor(i).label} answer`}
+                  maxLength={150}
+                  onSave={v => call(() => actions.updateOption(o.id, v))}
+                />
               </div>
             ))}
           </div>
@@ -729,6 +768,13 @@ export default function QuizEditorPage() {
                 onClick={async () => { const { error: e } = await editor.addQuestion('pin'); if (e) setRowError(e.message); }}
               >
                 + Add drop-a-pin
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={async () => { const { error: e } = await editor.addQuestion('multi'); if (e) setRowError(e.message); }}
+              >
+                + Add pick-all
               </button>
             </div>
             {questions.map((q, i) => (

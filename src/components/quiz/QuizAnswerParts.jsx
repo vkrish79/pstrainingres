@@ -12,13 +12,14 @@ import QuizShape from './QuizShape.jsx';
 
 // "Question 3 of 8", the question, and the clock. `number` and `timer` are
 // optional: the rehearsal phone already prints the number in its own frame.
-export function QuizQuestionHead({ number, total, prompt, timer }) {
+export function QuizQuestionHead({ number, total, prompt, timer, pickAll = false }) {
   return (
     <div className="qlive-ahead">
       <div className="qlive-ahead-text">
         {number != null && (
           <span className="qlive-qnum">Question {number}{total ? ` of ${total}` : ''}</span>
         )}
+        {pickAll && <span className="qlive-pickall">Pick all that apply</span>}
         {prompt && <h1 className="qlive-aprompt">{prompt}</h1>}
       </div>
       {timer}
@@ -28,7 +29,7 @@ export function QuizQuestionHead({ number, total, prompt, timer }) {
 
 // One answer: shape, wording, and (on a laptop) the number key that picks it.
 // The shape stays on every answer so "hit the triangle" still works in a room.
-export function QuizPick({ index, label, className = '', keyHint, ...buttonProps }) {
+export function QuizPick({ index, label, className = '', keyHint, ticked, ...buttonProps }) {
   return (
     <button
       type="button"
@@ -39,6 +40,12 @@ export function QuizPick({ index, label, className = '', keyHint, ...buttonProps
       <span className="qlive-badge"><QuizShape index={index} /></span>
       <span className="qlive-label">{label}</span>
       {keyHint != null && <span className="qlive-key" aria-hidden="true">{keyHint}</span>}
+      {/* Pick-all only: a tick box, filled when this answer is ticked. */}
+      {ticked != null && (
+        <span className="qlive-tick" aria-hidden="true">
+          <svg viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5" /></svg>
+        </span>
+      )}
     </button>
   );
 }

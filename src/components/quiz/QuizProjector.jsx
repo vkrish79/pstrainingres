@@ -210,9 +210,12 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
   // show what CHANGED — who climbed, who is on a run — and a list of totals
   // says nothing a photograph of a scoreboard would not.
   useEffect(() => {
-    if (!['leaderboard', 'podium', 'ended'].includes(phase)) { setBoard([]); return; }
+    // Also at a pick-all reveal, for "5 of 14 got all three".
+    const wanted = ['leaderboard', 'podium', 'ended'].includes(phase)
+      || (phase === 'reveal' && run?.kind === 'multi');
+    if (!wanted) { setBoard([]); return; }
     supabase.rpc('quiz_standings', { p_run_id: runId }).then(({ data }) => setBoard(data || []));
-  }, [phase, runId, idx]);
+  }, [phase, runId, idx, run?.kind]);
 
   // Nothing is revealed on arriving at the podium — an empty stage, waiting
   // for the trainer. Leaving it also clears any roll still counting down, or
@@ -229,6 +232,12 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
   const answered = counts?.answered ?? 0;
   const players = counts?.players ?? 0;
   const totalVotes = reveal.reduce((n, o) => n + (o.votes || 0), 0);
+  // Pick-all: one person ticks several answers, so a bar is the share of the
+  // people who answered that ticked it, not a share of all ticks.
+  const multiAnswered = board.filter(b => b.answered).length;
+  const multiExact = board.filter(b => b.answered && b.was_correct).length;
+  const barBase = run?.kind === 'multi' ? multiAnswered : totalVotes;
+  const keyedCount = reveal.filter(o => o.is_correct).length;
   const isLast = idx >= total - 1;
   const top3 = [board[0], board[1], board[2]];
   const pinTarget = pins.find(p => p.is_target) || null;
@@ -531,6 +540,9 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
           {run?.kind === 'order' && (
             <p className="qlive-instruction">Tap the shapes in the right order</p>
           )}
+          {run?.kind === 'multi' && (
+            <p className="qlive-instruction qlive-pickall">Pick all that apply</p>
+          )}
           {run?.kind === 'pin' && (
             <p className="qlive-instruction">Drop your pin on your own screen</p>
           )}
@@ -639,11 +651,16 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
                     at a glance — that is the one worth talking about. */}
                 <span
                   className="qlive-bar-fill"
-                  style={{ width: totalVotes ? `${(o.votes / totalVotes) * 100}%` : '0%' }}
+                  style={{ width: barBase ? `${(o.votes / barBase) * 100}%` : '0%' }}
                 />
               </li>
             ))}
           </ul>
+          )}
+          {run?.kind === 'multi' && multiAnswered > 0 && (
+            <p className="qlive-instruction">
+              {multiExact} of {multiAnswered} got {keyedCount === 1 ? 'it exactly' : keyedCount === 2 ? 'both' : `all ${keyedCount}`}
+            </p>
           )}
           <button type="button" className="qlive-go" disabled={busy} onClick={() => setPhase('leaderboard')}>
             Show the leaderboard

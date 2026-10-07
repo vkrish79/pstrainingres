@@ -1287,3 +1287,71 @@
   .qlive-seq-labelled .qlive-seq-slot { min-height: 3.2rem; padding: 0.45rem 0.7rem; }
   .qlive-seq-text { font-size: clamp(0.95rem, 1.6cqi, 1.25rem); }
 }
+
+/* ── Pick all that apply ──────────────────────────────────────────────────
+   Tiles tick on and off; Submit sends the set. The tick box sits at the end
+   of the tile (after the key hint on a laptop). */
+.qlive-pickall {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f2c14e;
+}
+.qlive-tick {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+}
+.qlive-key + .qlive-tick { margin-left: 0.5rem; }
+.qlive-tick svg {
+  width: 70%;
+  height: 70%;
+  fill: none;
+  stroke: transparent;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.qlive-pick.is-ticked { outline: 3px solid #fff; outline-offset: 2px; }
+.qlive-pick.is-ticked .qlive-tick { background: #fff; border-color: #fff; }
+.qlive-pick.is-ticked .qlive-tick svg { stroke: #16304d; }
+
+.qlive-answer-full > .qlive-submit-row {
+  order: 4;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.qlive-submit {
+  border: none;
+  border-radius: 10px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  background: #f2c14e;
+  color: #1b2a3a;
+  cursor: pointer;
+}
+/* Restated: the global button:hover fill would turn it navy. */
+.qlive-submit:hover:not(:disabled) { background: #f6cf6d; }
+.qlive-submit:disabled { background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.6); cursor: default; }
+
+.qlive-big.is-part { color: #f2c14e; }
+
+@container qpad (min-width: 600px) {
+  .qlive-answer-full > .qlive-submit-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .qlive-submit-row .qlive-note { text-align: left; }
+  .qlive-submit { padding: 0.65rem 2.2rem; }
+  .qlive-tick { width: clamp(1.6rem, 2.6cqi, 2rem); height: clamp(1.6rem, 2.6cqi, 2rem); }
+}

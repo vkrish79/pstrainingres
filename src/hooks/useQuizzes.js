@@ -101,11 +101,12 @@ const KIND_LABELS = {
   boolean: 'true/false',
   order: 'put in order',
   pin: 'drop a pin',
+  multi: 'pick all that apply',
 };
 // The order they are listed in, which is the order the editor offers them —
 // not the order they happen to appear in a given quiz, or the same two quizzes
 // would describe themselves differently.
-const KIND_ORDER = ['choice', 'boolean', 'order', 'pin'];
+const KIND_ORDER = ['choice', 'boolean', 'order', 'pin', 'multi'];
 
 function describeKinds(questions) {
   const counts = new Map();

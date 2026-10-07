@@ -100,3 +100,25 @@ export function orderIsSubmittable(seqLength, total) {
 // quiz_answer_pin both DO UPDATE. So the FIRST complete sequence stands, and
 // a second one is refused — the opposite of every other question type.
 export const ORDER_IS_FINAL = true;
+
+// ── pick all that apply — quiz_answer_multi ──────────────────────────────
+//   1000 × max(0, right − wrong)/keyed × (1 − (elapsed/limit)/2)
+//
+// `keyed` is how many answers are correct, `right` how many of those were
+// ticked, `wrong` how many ticked answers are not correct. Only the exact set
+// is `correct`. NO WAGER, like a reorder. Can be resubmitted until the clock
+// stops (DO UPDATE), like a choice. Rounded once, at the end, as the SQL does.
+// Written alongside RUN-THIS-IN-SUPABASE-quiz-pick-all.txt, 2026-10-07.
+export function scoreMulti({ picked, options, elapsedMs, limitSeconds }) {
+  const keyed = options.filter(o => o.is_correct).length;
+  const chosen = new Set(picked);
+  const right = options.filter(o => o.is_correct && chosen.has(o.id)).length;
+  const wrong = options.filter(o => !o.is_correct && chosen.has(o.id)).length;
+  if (!keyed || !chosen.size) return { points: 0, wager: 1, correct: false, right, wrong, keyed };
+  const limit = Math.max(1, limitSeconds * 1000);
+  const elapsed = Math.min(Math.max(0, elapsedMs), limit);
+  const points = Math.max(0, Math.round(
+    1000 * (Math.max(0, right - wrong) / keyed) * (1 - (elapsed / limit) / 2),
+  ));
+  return { points, wager: 1, correct: right === keyed && wrong === 0, right, wrong, keyed };
+}

@@ -373,3 +373,7 @@
 .qreh-mini .qlive-seq-text { font-size: 0.7rem; }
 .qreh-mini .qlive-ahead .qlive-timer { width: 2.6rem; }
 .qreh-mini .qlive-ahead .qlive-timer .qlive-timer-num { font-size: 0.9rem; }
+.qreh-mini .qlive-pickall { font-size: 0.6rem; }
+.qreh-mini .qlive-tick { width: 1.1rem; height: 1.1rem; border-radius: 4px; }
+.qreh-mini .qlive-submit { font-size: 0.78rem; padding: 0.4rem 0.8rem; }
+.qreh-mini-big.is-part { color: #f2c14e; }

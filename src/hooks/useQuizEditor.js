@@ -387,6 +387,28 @@ export function useQuizEditor(quizId) {
     return { data: true };
   }, []);
 
+  // Ticking or unticking ONE correct answer on a pick-all question, where any
+  // number can be right. Optimistic for the same reason setCorrect is; the
+  // server refuses to untick the last one and the rollback puts it back.
+  const toggleCorrect = useCallback(async (questionId, optionId, on) => {
+    let rollback = null;
+    setQuestions(prev => {
+      rollback = prev;
+      return prev.map(q => (q.id !== questionId ? q : {
+        ...q,
+        quiz_options: q.quiz_options.map(o => (o.id === optionId ? { ...o, is_correct: on } : o)),
+      }));
+    });
+    const { error: e } = await supabase.rpc('quiz_toggle_correct', {
+      p_question_id: questionId, p_option_id: optionId, p_correct: on,
+    });
+    if (e) {
+      if (rollback) setQuestions(rollback);
+      return { error: new Error(e.message) };
+    }
+    return { data: true };
+  }, []);
+
   // Opening or closing the betting on one question.
   //
   // Optimistic for the same reason setCorrect is, and the reason is worth
@@ -451,6 +473,6 @@ export function useQuizEditor(quizId) {
     setQuestionImage, clearQuestionImage,
     setQuestionAudio, clearQuestionAudio,
     setQuestionMap, clearQuestionMap, setPinTarget,
-    updateOption, setCorrect, setAllowWager, moveQuestion, moveItem, refresh,
+    updateOption, setCorrect, toggleCorrect, setAllowWager, moveQuestion, moveItem, refresh,
   };
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuizPlayback } from '../../hooks/useQuizPlayback.js';
 import {
-  scoreChoice, scorePin, scoreOrder, orderIsSubmittable, ORDER_IS_FINAL,
+  scoreChoice, scorePin, scoreOrder, scoreMulti, orderIsSubmittable, ORDER_IS_FINAL,
 } from '../../lib/quizRehearsalScore.js';
 import { scaleClass } from '../../lib/quizScale.js';
 import QuizShape from './QuizShape.jsx';
@@ -49,6 +49,8 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
   const [picked, setPicked] = useState(null);    // option id, for choice/boolean
   const [seq, setSeq] = useState([]);            // option ids, for order
   const [pin, setPin] = useState(null);          // { x, y }, for pin
+  const [ticks, setTicks] = useState([]);        // option ids ticked, for multi
+  const [sent, setSent] = useState(null);        // the set last submitted, for multi
   const [stake, setStake] = useState(1);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState(null);    // { points, exact, correct, … }
@@ -103,6 +105,18 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
       return;
     }
 
+    if (q.kind === 'multi') {
+      // Only a SUBMITTED set counts, as on the server: ticks left unsent when
+      // the clock stops are not an answer.
+      scored = sent
+        ? scoreMulti({ picked: sent, options: q.quiz_options || [], elapsedMs, limitSeconds: limit })
+        : { points: 0, wager: 1, correct: false };
+      setResult({ ...scored, answered: !!sent });
+      setTotal(t => t + scored.points);
+      setPhase('reveal');
+      return;
+    }
+
     if (q.kind === 'pin') {
       // Inside the target ellipse or outside it — binary, exactly as a shape
       // is. QuizParticipant says so where it decides a pin takes a stake:
@@ -131,7 +145,7 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
     setResult({ ...scored, correct, answered: picked != null });
     setTotal(t => t + scored.points);
     setPhase('reveal');
-  }, [q, seq, pin, picked, stake, limit, stopClock]);
+  }, [q, seq, pin, picked, sent, stake, limit, stopClock]);
 
   // The clock. Kept in a ref-driven interval so the countdown can tick without
   // the answer state changing underneath it.
@@ -139,7 +153,7 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
   settleRef.current = settle;
 
   const openQuestion = useCallback(() => {
-    setPicked(null); setSeq([]); setPin(null); setStake(1); setResult(null);
+    setPicked(null); setSeq([]); setPin(null); setTicks([]); setSent(null); setStake(1); setResult(null);
     startedRef.current = Date.now();
     elapsedRef.current = 0;
     setSecondsLeft(limit);
@@ -188,6 +202,17 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
     mark();
   }
 
+  // Pick-all: ticking is free; Submit is the answer, and stamps the clock.
+  function toggleTick(id) {
+    if (phase !== 'question') return;
+    setTicks(t => (t.includes(id) ? t.filter(x => x !== id) : [...t, id]));
+  }
+  function submitTicks() {
+    if (phase !== 'question' || !ticks.length) return;
+    setSent(ticks.slice());
+    mark();
+  }
+
   function dropPin(p) {
     if (phase !== 'question') return;
     setPin(p);
@@ -202,13 +227,13 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
   function restart() {
     stopClock();
     setIdx(0); setPhase('ready'); setTotal(0); setResult(null);
-    setPicked(null); setSeq([]); setPin(null); setStake(1);
+    setPicked(null); setSeq([]); setPin(null); setTicks([]); setSent(null); setStake(1);
   }
 
   function jumpTo(n) {
     stopClock();
     setIdx(n); setPhase('ready'); setResult(null);
-    setPicked(null); setSeq([]); setPin(null); setStake(1);
+    setPicked(null); setSeq([]); setPin(null); setTicks([]); setSent(null); setStake(1);
   }
 
   // Esc leaves, like every other overlay here.
@@ -218,8 +243,10 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onExit]);
 
-  const answered = picked != null || seq.length > 0 || pin != null;
-  const wagerShown = q?.allow_wager && (q.kind !== 'order');
+  const answered = picked != null || seq.length > 0 || pin != null || sent != null;
+  const wagerShown = q?.allow_wager && q.kind !== 'order' && q.kind !== 'multi';
+  const tickKey = [...ticks].sort().join(',');
+  const sentKey = sent ? [...sent].sort().join(',') : null;
 
   const correctOption = useMemo(
     () => (q?.quiz_options || []).find(o => o.is_correct) || null,
@@ -317,7 +344,8 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
               )}
               {q.kind === 'order' && <p className="qlive-instruction">Tap the shapes in the right order</p>}
               {q.kind === 'pin' && <p className="qlive-instruction">Drop your pin on your own screen</p>}
-              {q.allow_wager && (
+              {q.kind === 'multi' && <p className="qlive-instruction qlive-pickall">Pick all that apply</p>}
+              {wagerShown && (
                 <p className="qlive-instruction qlive-instruction-wager">
                   Wager round — raise your stake on your handset. 1× risks nothing.
                 </p>
@@ -373,7 +401,9 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                     // nothing is lit and nothing falls back: every item
                     // carries the rank it belonged at instead.
                     const isRight = q.kind !== 'order' && o.is_correct;
-                    const mine = q.kind === 'order' ? seq.includes(o.id) : picked === o.id;
+                    const mine = q.kind === 'order' ? seq.includes(o.id)
+                      : q.kind === 'multi' ? !!sent?.includes(o.id)
+                        : picked === o.id;
                     const fade = q.kind !== 'order' && !isRight && !mine;
                     return (
                       <li
@@ -385,7 +415,7 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                         {q.kind === 'order' && (
                           <span className="qreh-rank">belongs at {o.correct_rank}</span>
                         )}
-                        {mine && q.kind !== 'order' && <span className="qreh-yours">your tap</span>}
+                        {mine && q.kind !== 'order' && <span className="qreh-yours">{q.kind === 'multi' ? 'you ticked' : 'your tap'}</span>}
                       </li>
                     );
                   })}
@@ -443,6 +473,7 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                       clock is here because a participant's screen has one. */}
                   <QuizQuestionHead
                     prompt={q.prompt}
+                    pickAll={q.kind === 'multi'}
                     timer={<QuizTimer total={limit} secondsLeft={secondsLeft} />}
                   />
                   {wagerShown && (
@@ -466,7 +497,44 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                     </div>
                   )}
 
-                  {q.kind === 'pin' ? (
+                  {q.kind === 'multi' ? (
+                    <>
+                      <div className="qlive-abody">
+                        <QuizImage path={q.image_path} className="qlive-figure qlive-afig" />
+                        <div className="qlive-picks qlive-picks-labelled">
+                          {(q.quiz_options || []).map((o, i) => {
+                            const on = ticks.includes(o.id);
+                            return (
+                              <QuizPick
+                                key={o.id}
+                                index={i}
+                                label={o.label}
+                                ticked={on}
+                                aria-pressed={on}
+                                className={on ? 'is-ticked' : ''}
+                                onClick={() => toggleTick(o.id)}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="qlive-submit-row">
+                        <p className="qlive-note qlive-muted">
+                          {sent && tickKey === sentKey
+                            ? 'In. Change your ticks and submit again until the clock stops.'
+                            : ticks.length ? `${ticks.length} ticked.` : 'Tap every right answer, then Submit.'}
+                        </p>
+                        <button
+                          type="button"
+                          className="qlive-submit"
+                          disabled={!ticks.length || tickKey === sentKey}
+                          onClick={submitTicks}
+                        >
+                          {sent && tickKey === sentKey ? 'Submitted' : sent ? 'Submit again' : 'Submit'}
+                        </button>
+                      </div>
+                    </>
+                  ) : q.kind === 'pin' ? (
                     <QuizPinField
                       path={q.map_path}
                       onPick={dropPin}
@@ -553,8 +621,8 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                     </>
                   ) : (
                     <>
-                      <h2 className={`qreh-mini-big ${result.correct ? 'is-right' : 'is-wrong'}`}>
-                        {result.correct ? 'Correct' : 'Not this time'}
+                      <h2 className={`qreh-mini-big ${result.correct ? 'is-right' : result.points > 0 ? 'is-part' : 'is-wrong'}`}>
+                        {result.correct ? 'Correct' : result.points > 0 ? 'Partly right' : 'Not this time'}
                       </h2>
                       <p className="qreh-pts">
                         {result.points > 0 ? `+${result.points}` : String(result.points).replace('-', '−')}
@@ -562,6 +630,8 @@ export default function QuizRehearsal({ quizId, title, onExit }) {
                       <p className="qlive-sub">
                         {q.kind === 'order' && result.of
                           ? `${result.right} of ${result.of} in the right place`
+                          : q.kind === 'multi' && result.keyed
+                            ? `${result.right} of ${result.keyed} right${result.wrong ? `, ${result.wrong} wrong` : ''}`
                           : result.correct
                             ? `in ${Math.round(Math.min(elapsedRef.current, limit * 1000) / 100) / 10}s of ${limit}s`
                             : correctOption

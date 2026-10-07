@@ -55,12 +55,17 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
   const [submitted, setSubmitted] = useState(false);
   const [note, setNote] = useState('');
   const [result, setResult] = useState(null);
+  // Pick-all: the answers ticked on screen, and the set last accepted by the
+  // server (sorted ids joined), so the button can say "Submitted" until a
+  // tick changes.
+  const [ticks, setTicks] = useState([]);
+  const [sentSet, setSentSet] = useState(null);
 
   const phase = run?.phase;
   const idx = run?.current_index ?? -1;
 
   // A new question clears the last one's answer and verdict.
-  useEffect(() => { setPicked(null); setStake(1); setSeq([]); setMyPin(null); setSubmitted(false); setNote(''); setResult(null); pendingPin.current = null; pinInFlight.current = false; }, [idx]);
+  useEffect(() => { setPicked(null); setStake(1); setSeq([]); setMyPin(null); setSubmitted(false); setNote(''); setResult(null); setTicks([]); setSentSet(null); pendingPin.current = null; pinInFlight.current = false; }, [idx]);
 
   useEffect(() => {
     if (!['reveal', 'leaderboard', 'podium', 'ended'].includes(phase)) return;
@@ -218,16 +223,43 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
     setNote('Order in. Start again to change it.');
   }
 
-  // NUMBER KEYS 1–4 on a laptop, the same as clicking that answer. Read
-  // through a ref so the listener, attached once per question, always calls
-  // the current answer()/tapItem() and not the ones from the render that
-  // attached it. Ignored while typing anywhere and with a modifier held, so
-  // it cannot swallow a browser shortcut.
+  // PICK ALL THAT APPLY. Ticking is local; nothing is sent until Submit. A
+  // submitted set can be changed and submitted again until the clock stops,
+  // and the server re-stamps the clock each time, like a changed choice.
+  function toggleTick(optionId) {
+    setTicks(t => (t.includes(optionId) ? t.filter(x => x !== optionId) : [...t, optionId]));
+    setNote('');
+  }
+  const tickKey = [...ticks].sort().join(',');
+  async function submitTicks() {
+    if (sending || !ticks.length || tickKey === sentSet) return;
+    setSending(true);
+    const { data, error } = await supabase.rpc('quiz_answer_multi', {
+      p_run_id: runId, p_option_ids: ticks,
+    });
+    setSending(false);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error) { setNote(error.message); return; }
+    if (row && row.accepted === false) {
+      setNote(row.reason === 'too late' ? 'Time was up' : row.reason);
+      return;
+    }
+    setSentSet(tickKey);
+    setNote('Answer in. Change your ticks and submit again until the clock stops.');
+  }
+
+  // NUMBER KEYS 1–4 on a laptop, the same as clicking that answer (on a
+  // pick-all question, ticking it; Enter submits). Read through a ref so the
+  // listener, attached once per question, always calls the current handlers
+  // and not the ones from the render that attached it. Ignored while typing
+  // anywhere and with a modifier held, so it cannot swallow a browser shortcut.
   const keyPick = useRef(null);
-  keyPick.current = (n) => {
-    const o = (run?.options ?? [])[n];
+  keyPick.current = (key) => {
+    if (key === 'Enter') { if (run?.kind === 'multi') submitTicks(); return; }
+    const o = (run?.options ?? [])[Number(key) - 1];
     if (!o) return;
     if (run?.kind === 'order') tapItem(o.id);
+    else if (run?.kind === 'multi') toggleTick(o.id);
     else if (run?.kind !== 'pin') answer(o.id);
   };
   useEffect(() => {
@@ -236,13 +268,16 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      if (!/^[1-4]$/.test(e.key)) return;
+      // Enter only means something on pick-all; elsewhere it is left alone.
+      if (e.key === 'Enter' && run?.kind !== 'multi') return;
+      if (!/^[1-4]$/.test(e.key) && e.key !== 'Enter') return;
+      // Also stops Enter from clicking whichever tile last had focus.
       e.preventDefault();
-      keyPick.current?.(Number(e.key) - 1);
+      keyPick.current?.(e.key);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, idx]);
+  }, [phase, idx, run?.kind]);
 
   const options = run?.options ?? [];
   const keyRange = options.length > 1 ? `1–${options.length}` : '1';
@@ -312,9 +347,57 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
             number={idx + 1}
             total={run?.total_questions}
             prompt={run?.prompt}
+            pickAll={run?.kind === 'multi'}
             timer={<QuizTimer total={spanSeconds(run?.phase_started_at, run?.phase_ends_at)} secondsLeft={secondsLeft} />}
           />
-          {run?.kind === 'pin' ? (
+          {run?.kind === 'multi' ? (
+            <>
+              {/* No stake row: pick-all has no wager. */}
+              <div className="qlive-abody">
+                <QuizImage path={run?.image_path} className="qlive-figure qlive-afig" />
+                <div className="qlive-picks qlive-picks-labelled">
+                  {options.map((o, i) => {
+                    const on = ticks.includes(o.id);
+                    return (
+                      <QuizPick
+                        key={o.id}
+                        index={i}
+                        label={o.label}
+                        keyHint={i + 1}
+                        ticked={on}
+                        aria-pressed={on}
+                        className={on ? 'is-ticked' : ''}
+                        disabled={sending}
+                        onClick={() => toggleTick(o.id)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="qlive-submit-row">
+                <p className="qlive-note qlive-muted">
+                  {note || (
+                    <>
+                      <span className="qlive-hint-narrow">
+                        {ticks.length ? `${ticks.length} ticked.` : 'Tap every right answer, then Submit.'}
+                      </span>
+                      <span className="qlive-hint-wide">
+                        {ticks.length ? `${ticks.length} ticked. ` : ''}Click or press {keyRange} to tick, Enter to submit.
+                      </span>
+                    </>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  className={`qlive-submit${tickKey === sentSet ? ' is-sent' : ''}`}
+                  disabled={sending || !ticks.length || tickKey === sentSet}
+                  onClick={submitTicks}
+                >
+                  {tickKey === sentSet && sentSet ? 'Submitted' : sentSet ? 'Submit again' : 'Submit'}
+                </button>
+              </div>
+            </>
+          ) : run?.kind === 'pin' ? (
             <>
               {stakeRow}
               {/* The answer IS a place on this picture, so the map is the
@@ -436,14 +519,17 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
             </>
           ) : (
             <>
-              <h1 className={`qlive-big ${result?.was_correct ? 'is-right' : 'is-wrong'}`}>
-                {result?.was_correct ? 'Correct' : 'Not this time'}
+              {/* "Partly right" for partial credit (put in order, pick all):
+                  not exactly right, but it did score. It used to read "Not
+                  this time · No points for that one" with points on the board. */}
+              <h1 className={`qlive-big ${result?.was_correct ? 'is-right' : result?.points > 0 ? 'is-part' : 'is-wrong'}`}>
+                {result?.was_correct ? 'Correct' : result?.points > 0 ? 'Partly right' : 'Not this time'}
               </h1>
               {/* A wager can make this a LOSS, so the sign is not decoration.
                   points already carries it; the minus is rendered as a real
                   minus sign rather than a hyphen. */}
               <p className="qlive-sub">
-                {result?.was_correct
+                {result?.was_correct || result?.points > 0
                   ? `+${result.points} points`
                   : result?.points < 0
                     ? `${String(result.points).replace('-', '−')} points`
