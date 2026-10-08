@@ -144,7 +144,18 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
     if (tag === 'p') {
       const text = node.textContent.trim();
       const hasImg = !!node.querySelector('img');
-      if (!text && !hasImg) continue;
+      // A heading Word lost its style on: an empty paragraph holding only the
+      // bookmark the table of contents points at ("Exercise 17" in the ARD Web
+      // workbook). Without this its content ran on into the exercise before.
+      if (!text && !hasImg) {
+        const tocText = resolveHeadingText(node, tocLookup);
+        if (tocText && SECTION_HEADER_RE.test(tocText)) {
+          current = { title: tocText, blocks: [], kind: 'exercise' };
+          sections.push(current);
+          sawFirstHeading = true;
+        }
+        continue;
+      }
 
       // A picture on its own line (how Word holds a screenshot) has no text,
       // and used to be skipped here as an empty paragraph. It becomes a prose

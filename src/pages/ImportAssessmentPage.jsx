@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
-import { parseDocxToWorkbook, countsOf } from '../lib/docxImport.js';
+import { parseDocxToWorkbook } from '../lib/docxImport.js';
 import { uploadImportedImages } from '../lib/workbookImages.js';
 import TopBar from '../components/TopBar.jsx';
+import ImportDropZone from '../components/import/ImportDropZone.jsx';
+import ImportReview from '../components/import/ImportReview.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
 
@@ -22,10 +24,8 @@ export default function ImportAssessmentPage() {
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
 
-  async function handleFile(e) {
+  async function handleFile(file) {
     setError('');
-    const file = e.target.files?.[0];
-    if (!file) return;
     if (!file.name.match(/\.docx$/i)) {
       setError('Only .docx files are supported.');
       return;
@@ -42,19 +42,19 @@ export default function ImportAssessmentPage() {
     }
   }
 
-  async function confirmImport() {
-    if (!parsed) return;
+  async function confirmImport(reviewed) {
+    if (!reviewed) return;
     setImporting(true);
     setError('');
     try {
       const newId = await runBusy('Importing assessment…', async () => {
         // Pictures go up first; `ready` is the parse with storage paths in.
-        const { parsed: ready } = await uploadImportedImages(parsed);
+        const { parsed: ready } = await uploadImportedImages(reviewed);
         const { data: ass, error: e1 } = await supabase
           .from('assessments')
           .insert({
-            title: titleDraft.trim() || parsed.title,
-            description: parsed.description || null,
+            title: titleDraft.trim() || reviewed.title,
+            description: reviewed.description || null,
             is_template: true,
             created_by: authSession.user.id,
           })
@@ -90,123 +90,37 @@ export default function ImportAssessmentPage() {
     }
   }
 
-  const counts = parsed ? countsOf(parsed) : null;
-
   return (
     <>
       <TopBar />
-      <main className="page editor">
+      <main className="page editor import-page">
         <section className="page-hero compact">
           <div className="page-hero-text">
             <Link to="/trainer/assessments" className="back-link">&larr; Back to Assessments</Link>
             <h1>Import assessment from Word</h1>
-            <p>Author the assessment in Word using the same conventions as workbooks, then upload the .docx file.</p>
+            <p>{parsed
+              ? 'Check what the document turned into and fix anything before you create it.'
+              : 'Drop the Word file in as it is. You review the result before anything is saved.'}</p>
           </div>
         </section>
 
-        <section className="editor-card">
-          <h2 className="section-title" style={{ marginTop: 0 }}>1. Choose file</h2>
-          <input type="file" accept=".docx" onChange={handleFile} disabled={parsing || importing} />
-          {parsing && <p className="muted">Parsing…</p>}
-          {error && <p className="error">{error}</p>}
-        </section>
-
-        {parsed && (
-          <section className="editor-card">
-            <h2 className="section-title" style={{ marginTop: 0 }}>2. Review</h2>
-            <label className="form-label">Assessment title</label>
-            <input
-              className="form-input large"
-              value={titleDraft}
-              onChange={e => setTitleDraft(e.target.value)}
+        {parsed ? (
+          <>
+            {error && <p className="error">{error}</p>}
+            <ImportReview
+              parsed={parsed}
+              kind="assessment"
+              title={titleDraft}
+              onTitle={setTitleDraft}
+              onCreate={confirmImport}
+              onDiscard={() => { setParsed(null); setTitleDraft(''); setError(''); }}
+              busy={importing}
             />
-            {parsed.description && (
-              <>
-                <label className="form-label">Description</label>
-                <p className="muted" style={{ marginTop: 0 }}>{parsed.description}</p>
-              </>
-            )}
-
-            <div className="import-counts">
-              <span>{counts.sections} section{counts.sections === 1 ? '' : 's'}</span>
-              {counts.groups > 0 && <span>({counts.groups} group{counts.groups === 1 ? '' : 's'})</span>}
-              <span>{counts.prose} prose</span>
-              <span>{counts.field} field{counts.field === 1 ? '' : 's'}</span>
-              <span>{counts.table} table{counts.table === 1 ? '' : 's'}</span>
-              {counts.pictures > 0 && <span>{counts.pictures} picture{counts.pictures === 1 ? '' : 's'}</span>}
-              <span>{counts.boxes} answer box{counts.boxes === 1 ? '' : 'es'} in tables</span>
-            </div>
-            {counts.wordedBoxes > 0 && (
-              <p className="import-note">
-                {counts.wordedBoxes} of those sit inside a cell's wording, where Word had “Click or tap here to enter text.”
-                (for example “City code: ▭”). Participants type straight into them — check a few in the preview after import.
-              </p>
-            )}
-
-            <div className="import-preview">
-              {parsed.sections.map((sec, si) => (
-                <div key={si} className={`import-section-preview ${sec.kind === 'group' ? 'group' : ''}`}>
-                  <h3>{sec.kind === 'group' ? '§ ' : ''}{sec.title}</h3>
-                  <ul>
-                    {sec.blocks.map((b, bi) => (
-                      <li key={bi}>
-                        <span className={`block-type-tag tag-${b.block_type}`}>{b.block_type}</span>
-                        {' '}
-                        <span className="block-preview">{previewBlock(b)}</span>
-                      </li>
-                    ))}
-                    {sec.blocks.length === 0 && <li className="muted">(empty)</li>}
-                  </ul>
-                </div>
-              ))}
-              {parsed.sections.length === 0 && (
-                <p className="muted">No sections detected. Add Heading 2 paragraphs in Word to define sections.</p>
-              )}
-            </div>
-
-            <div className="form-actions">
-              <button onClick={confirmImport} disabled={importing || !titleDraft.trim()}>
-                {importing ? 'Importing…' : 'Create assessment'}
-              </button>
-              <button className="ghost" onClick={() => { setParsed(null); setTitleDraft(''); }} disabled={importing}>
-                Discard
-              </button>
-            </div>
-          </section>
+          </>
+        ) : (
+          <ImportDropZone kind="assessment" onFile={handleFile} busy={parsing || importing} error={error} />
         )}
-
-        <section className="editor-card">
-          <h2 className="section-title" style={{ marginTop: 0 }}>Word formatting cheatsheet</h2>
-          <ul className="cheatsheet">
-            <li><strong>Heading 1</strong> → assessment title <em>(single-H1 docs)</em> · top-level section banner <em>(multi-H1 docs)</em></li>
-            <li><strong>Heading 2</strong> → starts a new exercise/section</li>
-            <li>Plain paragraphs, bullets, sub-headings → become <em>prose</em> blocks</li>
-            <li><code>[SHORT: What is your name?]</code> → short text input</li>
-            <li><code>[LONG: Describe your experience…]</code> → multi-line text input</li>
-            <li><code>[CHOICE: Pick one | Yes | No | Maybe]</code> → single-choice radio</li>
-            <li><code>[CHECK: Pick all | A | B | C | D]</code> → multi-select checkboxes</li>
-            <li>Word tables → table blocks. Cells with text <code>[INPUT:short]</code> or <code>[INPUT:long]</code> become input cells; everything else is static text. A bold first row becomes the header.</li>
-          </ul>
-        </section>
       </main>
     </>
   );
-}
-
-function previewBlock(b) {
-  if (b.block_type === 'prose') {
-    const text = (b.config?.html || '').replace(/<[^>]+>/g, '').trim();
-    if (!text && /data-wb-(pending|image)=/.test(b.config?.html || '')) return '(picture)';
-    return text.length > 90 ? text.slice(0, 90) + '…' : (text || '(empty)');
-  }
-  if (b.block_type === 'field') {
-    const opts = b.config?.options ? ` — ${b.config.options.join(', ')}` : '';
-    return `${b.config?.label || '(no label)'}${opts}`;
-  }
-  if (b.block_type === 'table') {
-    const rows = b.config?.rows?.length || 0;
-    const cols = b.config?.headers?.length || b.config?.rows?.[0]?.length || 0;
-    return `${rows} rows × ${cols} cols`;
-  }
-  return '';
 }
