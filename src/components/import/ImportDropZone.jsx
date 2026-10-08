@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { isSuperTrainerOrAbove } from '../../lib/roles.js';
@@ -12,6 +12,15 @@ export default function ImportDropZone({ kind, onFile, busy = false, error = '' 
   const inputRef = useRef(null);
   const [over, setOver] = useState(false);
   const noun = kind === 'assessment' ? 'assessment' : 'workbook';
+
+  // A file dropped just outside the zone would otherwise be opened or
+  // downloaded by the browser, leaving the page.
+  useEffect(() => {
+    const stop = (e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); };
+    window.addEventListener('dragover', stop);
+    window.addEventListener('drop', stop);
+    return () => { window.removeEventListener('dragover', stop); window.removeEventListener('drop', stop); };
+  }, []);
 
   function take(files) {
     const file = files?.[0];

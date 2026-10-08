@@ -293,6 +293,10 @@ function menuOptions(block, kind) {
     opts.push({ to: 'text', icon: '¶', label: 'Just text', on: true });
     opts.push({ to: 'short_text', icon: '▭', label: 'Short answer' });
     opts.push({ to: 'long_text', icon: '▤', label: 'Long answer' });
+    if (lines >= 3) {
+      opts.push({ to: 'choice', icon: '◉', label: 'Choice – pick one', hint: 'line 1 asks' });
+      opts.push({ to: 'check_group', icon: '☑', label: 'Choice – pick several', hint: 'line 1 asks' });
+    }
     if (lines >= 2) opts.push('-', { to: 'subq', icon: '↳', label: 'Questions, one box per line', hint: `${lines} lines` });
     if (pnr.length) opts.push('-', ...pnr);
     return opts;
@@ -302,6 +306,12 @@ function menuOptions(block, kind) {
     opts.push({ to: 'text', icon: '¶', label: 'Just text' });
     opts.push({ to: 'short_text', icon: '▭', label: 'Short answer', on: t === 'short_text' });
     opts.push({ to: 'long_text', icon: '▤', label: 'Long answer', on: t === 'long_text' });
+    return opts;
+  }
+  if (block.block_type === 'field' && ['choice', 'check_group'].includes(block.config.input_type)) {
+    const t = block.config.input_type;
+    opts.push({ to: 'choice', icon: '◉', label: 'Choice – pick one', on: t === 'choice' });
+    opts.push({ to: 'check_group', icon: '☑', label: 'Choice – pick several', on: t === 'check_group' });
     return opts;
   }
   if (block.block_type === 'table') return pnr;

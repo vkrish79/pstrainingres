@@ -35,6 +35,7 @@ const INVISIBLE_RE = /[\u200B-\u200D\u2060\uFEFF\u00A0]/g;
 const UNDERLINE_RE = /_{3,}/g;
 // "a) …", "(b) …", "c. …", "ii) …" — a lettered sub-question line.
 const LETTERED_RE = /^\s*\(?([a-h]|i{1,3}|iv|v|vi{0,3})[).]\s+\S/i;
+const LETTER_PREFIX_RE = /^\s*\(?([a-h]|i{1,3}|iv|v|vi{0,3})[).]\s+/i;
 
 const cellText = (cell) => (cell?.text || '').replace(INVISIBLE_RE, ' ').trim();
 
@@ -270,7 +271,7 @@ export function resolveSuggestion(draft, item, accept, { as = 'long_text' } = {}
           if (b._subq !== item.runId) return [b];
           const { _subq, ...rest } = b;
           if (!accept) return [rest];
-          return proseLines(b.config.html).map(line => fieldBlock(line, as));
+          return proseLines(b.config.html).map(line => fieldBlock(partLabel(line, draft._kind), as));
         }),
       })),
     };
@@ -330,9 +331,18 @@ function fieldBlock(label, inputType) {
   return { block_type: 'field', _rid: nextRid(), config: { label, input_type: inputType } };
 }
 
+// A sub-question line as a field label. An assessment letters the parts of a
+// question itself — (a), (b), (c) — so the typed letter is dropped there, or it
+// would read "(a) a) Why…". A workbook keeps the line as written.
+function partLabel(line, kind) {
+  return kind === 'assessment' ? line.replace(LETTER_PREFIX_RE, '') : line;
+}
+
 // "What is this?" on a line of prose, a field, or a table.
 //   text | short_text | long_text   the block as plain text or one answer box
 //   subq                            one answer box per line (long answers)
+//   choice | check_group            first line the question, the rest options;
+//                                   on a choice field, pick one ↔ pick several
 //   pnr                             (assessments) a PNR question after it;
 //                                   the scenario text stays where it is
 export function setBlockKind(draft, blockRid, to) {
@@ -350,13 +360,17 @@ export function setBlockKind(draft, blockRid, to) {
     }
     if (b.block_type === 'prose') {
       const lines = proseLines(b.config.html);
-      if (to === 'subq') return lines.map(l => fieldBlock(l, 'long_text'));
+      if (to === 'subq') return lines.map(l => fieldBlock(partLabel(l, draft._kind), 'long_text'));
+      if ((to === 'choice' || to === 'check_group') && lines.length >= 3) {
+        return [{ block_type: 'field', _rid: nextRid(), config: { label: lines[0], input_type: to, options: lines.slice(1) } }];
+      }
       if (to === 'short_text' || to === 'long_text') return [fieldBlock(lines.join(' '), to)];
       return [base];
     }
     if (b.block_type === 'field') {
       if (to === 'text') return [{ block_type: 'prose', _rid: b._rid, config: { html: `<p>${escapeHtml(b.config.label)}</p>` } }];
       if (to === 'short_text' || to === 'long_text') return [{ ...base, config: { ...b.config, input_type: to } }];
+      if ((to === 'choice' || to === 'check_group') && Array.isArray(b.config.options)) return [{ ...base, config: { ...b.config, input_type: to } }];
     }
     return [base];
   });
