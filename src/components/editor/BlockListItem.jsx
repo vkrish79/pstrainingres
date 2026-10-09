@@ -48,18 +48,22 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
       <div className="block-row-head">
         {partLabel != null && <span className="block-qnum block-partlabel">{partLabel}</span>}
         {partLabel == null && questionNumber != null && <span className="block-qnum">Q{questionNumber}</span>}
+        {/* An icon, not the database name. "PROSE" and "TABLE" in capitals on
+            every row were the loudest thing on the page and told the author
+            nothing the row's own wording did not; the name stays in the tip. */}
         <span
           className={`block-type-tag tag-${block.block_type}`}
           onClick={() => onLocate?.(block.id)}
-          title="Scroll preview to this block"
+          data-tip={`${TYPE_NAMES[block.block_type] || block.block_type} — show in preview`}
+          aria-label={TYPE_NAMES[block.block_type] || block.block_type}
           style={{ cursor: 'pointer' }}
         >
-          {block.block_type}
+          {TYPE_GLYPHS[block.block_type] || '·'}
         </span>
         <span
-          className="block-preview"
+          className={`block-preview${isHeadingProse(block) ? ' is-heading' : ''}`}
           onClick={() => onLocate?.(block.id)}
-          title="Scroll preview to this block"
+          data-tip="Show in preview"
           style={{ cursor: 'pointer' }}
         >
           {previewOf(block)}
@@ -173,6 +177,36 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
   );
 }
 
+const TYPE_NAMES = {
+  prose: 'Text',
+  field: 'Answer field',
+  table: 'Table',
+  fill_blank: 'Fill in the blanks',
+  card_sort: 'Card sort',
+  match_pairs: 'Match pairs',
+  reorder: 'Put in order',
+};
+const TYPE_GLYPHS = {
+  prose: 'Aa',
+  field: '▭',
+  table: '▦',
+  fill_blank: '__',
+  card_sort: '⧉',
+  match_pairs: '⇄',
+  reorder: '⇅',
+};
+
+// A prose block that is nothing but one bold line — how the Word import writes
+// a sub-heading ("<p><strong>Pricing</strong></p>"), and what h3/h4 are for.
+// Shown bold in the list so an exercise's outline reads at a glance. Decided
+// from the markup, never from the length of the text.
+function isHeadingProse(block) {
+  if (block.block_type !== 'prose') return false;
+  const html = (block.config?.html || '').trim();
+  return /^<(h[1-6])[^>]*>[^<]*<\/\1>$/i.test(html)
+    || /^<p[^>]*>\s*<(strong|b)>[^<]+<\/\1>\s*<\/p>$/i.test(html);
+}
+
 function previewOf(block) {
   if (block.block_type === 'prose') {
     const html = block.config?.html || '';
@@ -187,8 +221,9 @@ function previewOf(block) {
 
 function tableLabel(block) {
   const cfg = block.config || {};
-  const rowCount = (cfg.rows || []).length;
-  if (cfg.caption?.trim()) return `${cfg.caption.trim()} · ${rowCount} rows`;
+  const n = (cfg.rows || []).length;
+  const rowCount = `${n} row${n === 1 ? '' : 's'}`;
+  if (cfg.caption?.trim()) return `${cfg.caption.trim()} · ${rowCount}`;
 
   // First non-empty static cell anywhere in the table — usually the
   // most identifying piece of text (a question, a row label, a section).
@@ -198,15 +233,15 @@ function tableLabel(block) {
       if (text?.trim()) {
         const t = text.trim().replace(/\s+/g, ' ');
         const truncated = t.length > 60 ? t.slice(0, 60) + '…' : t;
-        return `${truncated} · ${rowCount} rows`;
+        return `${truncated} · ${rowCount}`;
       }
     }
   }
 
   // Else the first non-empty header cell.
   for (const h of cfg.headers || []) {
-    if (h?.trim()) return `${h.trim()} · ${rowCount} rows`;
+    if (h?.trim()) return `${h.trim()} · ${rowCount}`;
   }
 
-  return `Table · ${rowCount} rows`;
+  return `Table · ${rowCount}`;
 }

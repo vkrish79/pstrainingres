@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import BlockListItem from './BlockListItem.jsx';
 import AddBlockMenu from './AddBlockMenu.jsx';
+import KebabMenu from '../KebabMenu.jsx';
 import Block from '../blocks/Block.jsx';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
 import { newPnrConfig } from '../../lib/pnrQuestion.js';
@@ -170,6 +171,55 @@ export default function ContentEditorScaffold({
         />
         <span className="block-insert-line" aria-hidden />
       </div>
+    );
+  }
+
+  // The add control under a group heading: the same insert seam used between
+  // blocks, appending at the end of the group.
+  function groupAddSeam(sectionId) {
+    return (
+      <div className="block-insert block-insert--group">
+        <span className="block-insert-line" aria-hidden />
+        <AddBlockMenu
+          compact
+          allowInteractive={allowInteractive}
+          onAdd={type => handleAdd(sectionId, type)}
+        />
+        <span className="block-insert-line" aria-hidden />
+      </div>
+    );
+  }
+
+  // Rename and Delete used to sit on every section head as two always-visible
+  // buttons — 48 red "Delete section" buttons on one workbook. They move into
+  // ⋯, the same treatment the block rows already had. The title itself is still
+  // the quick way to rename. Delete keeps its confirmation: the menu item only
+  // asks, and the Yes/No appears in the head as before.
+  function sectionActions(sec, kind, displayed, isEditingTitle, blockCount = 0) {
+    const noun = kind === 'question' ? 'question' : kind === 'group' ? 'group heading' : 'section';
+    if (confirmDelSection === sec.id) {
+      return (
+        <>
+          <span className="confirm-text">
+            {kind === 'question' ? 'Delete question & all its parts?'
+              : kind === 'group' ? `Delete this group heading${blockCount ? ` and its ${blockCount} block${blockCount === 1 ? '' : 's'}` : ''}? The exercises after it stay.`
+              : 'Delete section & all blocks?'}
+          </span>
+          <button className="danger" onClick={async () => { await onDeleteSection(sec.id); setConfirmDelSection(null); }}>Yes</button>
+          <button className="ghost" onClick={() => setConfirmDelSection(null)}>No</button>
+        </>
+      );
+    }
+    if (isEditingTitle) return null;
+    return (
+      <KebabMenu
+        label={`More actions for this ${noun}`}
+        items={[
+          { label: 'Rename', glyph: '✎', onClick: () => startEditingSection(sec, displayed) },
+          { separator: true },
+          { label: `Delete ${noun}`, glyph: '✕', danger: true, onClick: () => setConfirmDelSection(sec.id) },
+        ]}
+      />
     );
   }
 
@@ -412,18 +462,7 @@ export default function ContentEditorScaffold({
                           <button className="icon-btn" onClick={() => onMoveSection(sec.id, 'down')} disabled={qi === qList.length - 1} aria-label="Move question down">↓</button>
                         </>
                       )}
-                      {!isEditingTitle && (
-                        <button className="ghost" onClick={() => startEditingSection(sec, q.heading)}>Rename</button>
-                      )}
-                      {confirmDelSection === sec.id ? (
-                        <>
-                          <span className="confirm-text">Delete question &amp; all its parts?</span>
-                          <button className="danger" onClick={async () => { await onDeleteSection(sec.id); setConfirmDelSection(null); }}>Yes</button>
-                          <button className="ghost" onClick={() => setConfirmDelSection(null)}>No</button>
-                        </>
-                      ) : (
-                        <button className="ghost danger" onClick={() => setConfirmDelSection(sec.id)}>Delete question</button>
-                      )}
+                      {sectionActions(sec, 'question', q.heading, isEditingTitle)}
                     </div>
                   </div>
                   {/* Kind-specific extras that belong to the question itself
@@ -525,7 +564,7 @@ export default function ContentEditorScaffold({
                   />
                 ) : (
                   <h2 className="editor-section-title" onClick={() => startEditingSection(sec)} title="Click to rename">
-                    {isGroup && <span className="editor-section-group-badge">§ Section</span>}
+                    {isGroup && <span className="editor-section-group-badge" aria-label="Group heading">§</span>}
                     {sec.title}
                   </h2>
                 )}
@@ -535,22 +574,21 @@ export default function ContentEditorScaffold({
                   'heat-chip--section',
                 )}
                 {!isGroup && prepChip(sec)}
+                {!isGroup && !isEditingTitle && (
+                  <span className="editor-section-count">
+                    {sectionBlocks.length} block{sectionBlocks.length === 1 ? '' : 's'}
+                  </span>
+                )}
                 <div className="editor-section-actions">
-                  {!isEditingTitle && (
-                    <button className="ghost" onClick={() => startEditingSection(sec)}>Rename</button>
-                  )}
-                  {confirmDelSection === sec.id ? (
-                    <>
-                      <span className="confirm-text">Delete section &amp; all blocks?</span>
-                      <button className="danger" onClick={async () => { await onDeleteSection(sec.id); setConfirmDelSection(null); }}>Yes</button>
-                      <button className="ghost" onClick={() => setConfirmDelSection(null)}>No</button>
-                    </>
-                  ) : (
-                    <button className="ghost danger" onClick={() => setConfirmDelSection(sec.id)}>Delete section</button>
-                  )}
+                  {sectionActions(sec, isGroup ? 'group' : 'section', null, isEditingTitle, sectionBlocks.length)}
                 </div>
               </div>
-              {sectionBlocks.length === 0 && (
+              {/* A group heading is a divider in the book, not an exercise, and
+                  16 of the 17 in a real workbook hold nothing — so it gets no
+                  "Nothing in this section yet" card telling the author to fill
+                  it. It can still carry a block (one does), so the add control
+                  stays, as a quiet seam rather than a row of buttons. */}
+              {!isGroup && sectionBlocks.length === 0 && (
                 <div className="block-empty">
                   <div className="block-empty-title">Nothing in this section yet</div>
                   <div className="block-empty-sub">
@@ -605,7 +643,7 @@ export default function ContentEditorScaffold({
                   );
                 })}
               </div>
-              {addBlockRow(sec.id)}
+              {isGroup ? groupAddSeam(sec.id) : addBlockRow(sec.id)}
             </section>
           );
         })}
