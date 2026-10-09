@@ -3,16 +3,15 @@ import BlockListItem from './BlockListItem.jsx';
 import AddBlockMenu from './AddBlockMenu.jsx';
 import KebabMenu from '../KebabMenu.jsx';
 import WorkbookOutline, { ALL } from './WorkbookOutline.jsx';
-import Block from '../blocks/Block.jsx';
-import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
-import { newPnrConfig } from '../../lib/pnrQuestion.js';
 // Only reached when a caller supplies onSaveAnswerKey, i.e. an assessment or a
 // question bank. A workbook never passes it, so this branch is dead there.
 import { isDraftId } from '../../hooks/useAssessmentDraft.js';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
 import { isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { heatLevel } from '../../lib/configDiff.js';
-import { PREP_REVEAL_EVENT } from '../../lib/prepTemplateEdit.js';
+import { newBlock } from '../../lib/newBlock.js';
+import { HeatChip, PrepChip } from './ScaffoldMarkers.jsx';
+import ScaffoldPreview from './ScaffoldPreview.jsx';
 
 // Shared sections-and-blocks editor (editor pane + live participant preview
 // with scroll-sync). Powers both the workbook editor and the assessment
@@ -294,70 +293,14 @@ export default function ContentEditorScaffold({
     setSectionTitleDraft('');
   }
 
-  // A heat marker. Intensity comes from DISTINCT SESSIONS still awaiting a
-  // decision, not the raw edit count — one trainer fiddling with a paragraph is
-  // noise; five cohorts independently rewording the same line is the signal.
-  //
-  // Once everything is resolved the marker goes quiet but does NOT disappear:
-  // it becomes a tick that still opens the history. Removing it entirely would
-  // make the record unreachable the moment you finished reviewing it.
+  // The heat and prep markers (ScaffoldMarkers.jsx). Thin wrappers so each call
+  // site stays one line; heat markers only exist where the page passes onOpenHeat.
   function heatChip(entry, onClick, extraClass = '') {
-    if (!onOpenHeat || !entry) return null;
-    const openCount = entry.openSessions || 0;
-    const total = entry.totalSessions || 0;
-    if (!openCount && !total) return null;
-
-    const cls = extraClass ? ` ${extraClass}` : '';
-    if (!openCount) {
-      return (
-        <button
-          type="button"
-          className={`heat-chip heat-chip--done${cls}`}
-          onClick={onClick}
-          aria-label={`Reviewed — show the ${total} recorded session change${total === 1 ? '' : 's'}`}
-        >
-          ✓
-        </button>
-      );
-    }
-
-    const label =
-      `${openCount} session${openCount === 1 ? '' : 's'} reworded this`
-      + ` (${entry.openTrainers} trainer${entry.openTrainers === 1 ? '' : 's'}) — review the changes`;
-    return (
-      <button
-        type="button"
-        className={`heat-chip heat-l${heatLevel(openCount)}${cls}`}
-        onClick={onClick}
-        aria-label={label}
-      >
-        <span className="heat-dot" aria-hidden />
-        {openCount}
-      </button>
-    );
+    if (!onOpenHeat) return null;
+    return <HeatChip entry={entry} onClick={onClick} extraClass={extraClass} />;
   }
-
-  // The prep marker on a heading. It says this exercise depends on prep — which
-  // nothing on the exercise used to — and it is a way back to the one place that
-  // is set. The Prep template card may be collapsed, so rather than look for the
-  // tile here, ask the card to open and show it.
   function prepChip(sec) {
-    const entry = prepBySection?.get(sec.id);
-    if (!entry) return null;
-    const jump = () => {
-      window.dispatchEvent(new CustomEvent(PREP_REVEAL_EVENT, { detail: { sectionId: sec.id } }));
-    };
-    return (
-      <button
-        type="button"
-        className="prep-chip"
-        onClick={jump}
-        data-tip="Set in the Prep template card — click to go to it"
-      >
-        <span className="prep-chip-dot" aria-hidden />
-        Needs prep
-      </button>
-    );
+    return prepBySection?.get(sec.id) ? <PrepChip sectionId={sec.id} /> : null;
   }
 
   // Saving a question from its own form writes to TWO places, because the correct
@@ -395,69 +338,10 @@ export default function ContentEditorScaffold({
 
   // afterIndex is null to append (the row at the foot of a section) or the
   // index of the block to insert after.
+  // What each add-menu choice starts as lives in lib/newBlock.js.
   async function handleAdd(sectionId, type, afterIndex = null) {
-    let defaultConfig;
-    // 'pnr' is a shorthand from the add menu, not a block_type. It expands into
-    // the manual question the app already has — a long-text field — carrying the
-    // ARDW scenario fields. Expanded here so there is one definition of what a
-    // PNR question is, and so nothing downstream has to know the shorthand
-    // existed: what gets created is an ordinary `field`.
-    if (type === 'pnr') {
-      await onCreateBlock(sectionId, 'field', newPnrConfig(), afterIndex);
-      return;
-    }
-    // The four `field` flavours, expanded here so the add menu can offer them by
-    // the name a marking scheme uses. The choice types arrive WITH options: an
-    // empty options list renders as nothing at all in the preview, and
-    // FieldForm strips blank ones on save, so seeding them is what makes the
-    // question visible and editable straight away rather than after a detour
-    // through the Input type dropdown.
-    const FIELD_SHORTHANDS = {
-      choice: {
-        label: 'New question',
-        input_type: 'choice',
-        options: ['Option A', 'Option B', 'Option C'],
-      },
-      check_group: {
-        label: 'New question — select all that apply',
-        input_type: 'check_group',
-        options: ['Option A', 'Option B', 'Option C'],
-      },
-      short_answer: { label: 'New question', input_type: 'short_text' },
-      written: { label: 'New question', input_type: 'long_text' },
-    };
-    if (FIELD_SHORTHANDS[type]) {
-      await onCreateBlock(sectionId, 'field', FIELD_SHORTHANDS[type], afterIndex);
-      return;
-    }
-    if (type === 'prose') defaultConfig = { html: '<p>New prose block</p>' };
-    else if (type === 'field') defaultConfig = { label: 'New field', input_type: 'short_text' };
-    else if (type === 'table') defaultConfig = {
-      headers: ['Column 1', 'Column 2'],
-      rows: [
-        [{ kind: 'static', text: 'Row label' }, { kind: 'input', id: `c_${Date.now()}_1`, input_type: 'short_text' }],
-      ],
-    };
-    else if (type === 'fill_blank') {
-      const text = 'Type your sentence here with a {{}} to fill in.';
-      const { parts, blanks } = parseFillBlank(text);
-      defaultConfig = { text, parts, blanks };
-    }
-    else if (type === 'card_sort') defaultConfig = {
-      prompt: 'Sort each card into the right category',
-      cards: [{ id: newItemId('card'), text: 'Card 1' }, { id: newItemId('card'), text: 'Card 2' }],
-      buckets: [{ id: newItemId('bkt'), label: 'Category A' }, { id: newItemId('bkt'), label: 'Category B' }],
-    };
-    else if (type === 'match_pairs') defaultConfig = {
-      prompt: 'Match each item on the left to the right',
-      left: [{ id: newItemId('l'), text: 'Term 1' }, { id: newItemId('l'), text: 'Term 2' }],
-      right: [{ id: newItemId('r'), text: 'Match 1' }, { id: newItemId('r'), text: 'Match 2' }],
-    };
-    else if (type === 'reorder') defaultConfig = {
-      prompt: 'Put these in the correct order',
-      items: [{ id: newItemId(), text: 'First' }, { id: newItemId(), text: 'Second' }, { id: newItemId(), text: 'Third' }],
-    };
-    await onCreateBlock(sectionId, type, defaultConfig, afterIndex);
+    const { blockType, config } = newBlock(type);
+    await onCreateBlock(sectionId, blockType, config, afterIndex);
   }
 
   return (
@@ -726,66 +610,22 @@ export default function ContentEditorScaffold({
       </div>
 
       {showPreview && (
-        <aside className="preview-pane" ref={previewPaneRef}>
-          <div className="preview-pane-head">
-            Participant preview
-            <span className="preview-pane-hint">read-only</span>
-          </div>
-          <div className="preview-pane-body">
-            <h1 className="preview-workbook-title">{previewTitle || 'Untitled'}</h1>
-            {questions ? (
-              qList.map(q => (
-                <section
-                  key={q.section.id}
-                  className={`wb-section wb-question ${activeSectionId === q.section.id ? 'active' : ''}`}
-                  ref={el => { previewSectionRefs.current[q.section.id] = el; }}
-                >
-                  <div className="question-number">{q.heading}</div>
-                  {q.blocks.map(b => (
-                    <div
-                      key={b.id}
-                      className={`preview-block-wrap ${selectedBlockId === b.id ? 'selected' : ''} ${pulseBlockId === b.id ? 'pulse' : ''}`}
-                      ref={el => { previewBlockRefs.current[b.id] = el; }}
-                    >
-                      {partLabelByBlockId[b.id] && (
-                        <div className="wb-part-label">{partLabelByBlockId[b.id]}</div>
-                      )}
-                      <Block block={b} value={undefined} onChange={() => {}} />
-                    </div>
-                  ))}
-                </section>
-              ))
-            ) : (
-            <>
-            {sections.length === 0 && <p className="muted">No sections yet.</p>}
-            {visibleSections.map(sec => {
-              const secBlocks = blocks
-                .filter(b => b.section_id === sec.id)
-                .sort((a, b) => a.order_index - b.order_index);
-              const isGroup = sec.kind === 'group';
-              return (
-                <section
-                  key={sec.id}
-                  className={`wb-section ${isGroup ? 'wb-section-group ' : ''}${!focusMode && activeSectionId === sec.id ? 'active' : ''}`}
-                  ref={el => { previewSectionRefs.current[sec.id] = el; }}
-                >
-                  {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}
-                  {secBlocks.map(b => (
-                    <div
-                      key={b.id}
-                      className={`preview-block-wrap ${selectedBlockId === b.id ? 'selected' : ''} ${pulseBlockId === b.id ? 'pulse' : ''}`}
-                      ref={el => { previewBlockRefs.current[b.id] = el; }}
-                    >
-                      <Block block={b} value={undefined} onChange={() => {}} />
-                    </div>
-                  ))}
-                </section>
-              );
-            })}
-            </>
-            )}
-          </div>
-        </aside>
+        <ScaffoldPreview
+          paneRef={previewPaneRef}
+          sectionRefs={previewSectionRefs}
+          blockRefs={previewBlockRefs}
+          title={previewTitle}
+          questions={questions}
+          qList={qList}
+          partLabelByBlockId={partLabelByBlockId}
+          sections={sections}
+          visibleSections={visibleSections}
+          blocks={blocks}
+          activeSectionId={activeSectionId}
+          focusMode={focusMode}
+          selectedBlockId={selectedBlockId}
+          pulseBlockId={pulseBlockId}
+        />
       )}
     </div>
   );
