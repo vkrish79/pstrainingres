@@ -278,3 +278,22 @@ body.has-sidenav .page {
 @media (max-width: 860px) {
   body.has-sidenav .page { margin-left: 0; }
 }
+
+/* ── Folded rail (workbook editor) ─────────────────────────────────────────
+   Sidenav sets body.nav-folded on the workbook editor, whose outline needs the
+   width. Everything that clears the rail reads --nav-w, so shrinking it moves
+   the app bar and the canvas with it. Labels are clipped, not display:none, so
+   each link keeps its accessible name. Not below 860px, where the rail is
+   already a horizontal strip. */
+@media (min-width: 861px) {
+  body.nav-folded { --nav-w: 56px; }
+  body.nav-folded .sidenav-brand { justify-content: center; padding-left: 0; padding-right: 0; }
+  body.nav-folded .sidenav-brand-text,
+  body.nav-folded .sidenav-group-label { display: none; }
+  body.nav-folded .sidenav-group + .sidenav-group { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+  body.nav-folded .sidenav-item { justify-content: center; padding: 0.55rem 0; gap: 0; }
+  body.nav-folded .sidenav-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+}

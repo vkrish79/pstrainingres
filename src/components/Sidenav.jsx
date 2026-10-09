@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 
@@ -80,6 +80,17 @@ export default function Sidenav() {
     return () => document.body.classList.remove('has-sidenav');
   }, []);
 
+  // The workbook editor folds the rail to its icons. It lays out an outline,
+  // the editor and the participant preview side by side, and the 214px the
+  // labels take is what pays for the outline. Every other page keeps the full
+  // rail. A labelled tip stands in for the hidden label.
+  const { pathname } = useLocation();
+  const folded = /^\/trainer\/workbooks\/(?!import$)[^/]+$/.test(pathname);
+  useEffect(() => {
+    document.body.classList.toggle('nav-folded', folded);
+    return () => document.body.classList.remove('nav-folded');
+  }, [folded]);
+
   return (
     <aside className="sidenav">
       <Link to="/trainer" className="sidenav-brand">
@@ -103,6 +114,7 @@ export default function Sidenav() {
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) => `sidenav-item${isActive ? ' active' : ''}`}
+                  data-tip={folded ? item.label : undefined}
                 >
                   <span className="sidenav-icon" aria-hidden>{item.icon}</span>
                   <span className="sidenav-label">{item.label}</span>

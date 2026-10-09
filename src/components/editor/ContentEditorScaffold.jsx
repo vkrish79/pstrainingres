@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import BlockListItem from './BlockListItem.jsx';
 import AddBlockMenu from './AddBlockMenu.jsx';
 import KebabMenu from '../KebabMenu.jsx';
+import WorkbookOutline, { ALL } from './WorkbookOutline.jsx';
 import Block from '../blocks/Block.jsx';
 import { parseFillBlank, newItemId } from '../../lib/interactiveBlocks.js';
 import { newPnrConfig } from '../../lib/pnrQuestion.js';
@@ -65,6 +66,14 @@ export default function ContentEditorScaffold({
   // the Prep template card. Null where there is no such card (a session copy,
   // a question bank), and then no heading carries a prep marker.
   prepBySection = null,
+  // Workbook outline (WorkbookOutline.jsx): a list of every group and exercise
+  // beside the editor. With it, focusSectionId picks the ONE section shown in
+  // the editor and the preview, or ALL for the long scroll. The page owns the
+  // value (it lives in the URL) so a jump from elsewhere on the page can set it.
+  // Off for assessments, which have their own question list.
+  outline = false,
+  focusSectionId = ALL,
+  onFocusSection = null,
 }) {
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [sectionTitleDraft, setSectionTitleDraft] = useState('');
@@ -122,7 +131,7 @@ export default function ContentEditorScaffold({
     );
     Object.values(editorBlockRefs.current).forEach(el => el && observer.observe(el));
     return () => observer.disconnect();
-  }, [blocks, showPreview]);
+  }, [blocks, showPreview, focusSectionId]);
 
   // When natural-scroll changes the active block, mirror in the preview pane.
   // 'auto' (instant) keeps tracking glued to scroll; deliberate clicks use
@@ -132,6 +141,52 @@ export default function ContentEditorScaffold({
     if (Date.now() < suppressSyncUntilRef.current) return;
     scrollPreviewTo(activeBlockId, { smooth: false });
   }, [activeBlockId]);
+
+  const focusMode = outline && focusSectionId && focusSectionId !== ALL;
+  const visibleSections = focusMode ? sections.filter(s => s.id === focusSectionId) : sections;
+
+  // Outline click. One-at-a-time: show that section and go to the top of it.
+  // Long scroll: scroll to it, as the assessment question list does.
+  function pickSection(id) {
+    if (id === ALL || focusMode) {
+      onFocusSection?.(id);
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    const el = editorSectionRefs.current[id];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  // Prev / Next walk the exercises, plus any group heading that carries blocks
+  // of its own. An empty group heading is a divider, not a page worth landing on.
+  const steppable = outline
+    ? sections.filter(s => s.kind !== 'group' || blocks.some(b => b.section_id === s.id))
+    : [];
+  function stepSection(delta) {
+    const i = steppable.findIndex(s => s.id === focusSectionId);
+    const next = steppable[i + delta];
+    if (next) pickSection(next.id);
+  }
+  function pagerFor() {
+    if (!focusMode) return null;
+    const i = sections.findIndex(s => s.id === focusSectionId);
+    if (i < 0) return null;
+    const cur = sections[i];
+    let g = i - 1; while (g >= 0 && sections[g].kind !== 'group') g--;
+    const group = cur.kind === 'group' ? '' : (g >= 0 ? sections[g].title : '');
+    const exercises = sections.filter(s => s.kind !== 'group');
+    const exIdx = exercises.findIndex(s => s.id === cur.id);
+    const si = steppable.findIndex(s => s.id === cur.id);
+    return (
+      <div className="editor-pager">
+        {group && <span className="editor-pager-group">§ {group}</span>}
+        <span className="editor-pager-pos">
+          {exIdx >= 0 ? <><b>{exIdx + 1}</b> of {exercises.length} exercises</> : 'Group heading'}
+        </span>
+        <button type="button" className="ghost" onClick={() => stepSection(-1)} disabled={si <= 0}>← Prev</button>
+        <button type="button" className="ghost" onClick={() => stepSection(1)} disabled={si < 0 || si === steppable.length - 1}>Next →</button>
+      </div>
+    );
+  }
 
   const activeSectionId = activeBlockId
     ? blocks.find(b => b.id === activeBlockId)?.section_id || null
@@ -406,7 +461,18 @@ export default function ContentEditorScaffold({
   }
 
   return (
-    <div className={`editor-layout ${showPreview ? 'with-preview' : ''}`}>
+    <div className={`editor-layout ${showPreview ? 'with-preview' : ''}${outline && !questions ? ' with-outline' : ''}`}>
+      {outline && !questions && (
+        <WorkbookOutline
+          sections={sections}
+          blocks={blocks}
+          focusId={focusSectionId}
+          activeSectionId={activeSectionId}
+          onPick={pickSection}
+          prepBySection={prepBySection}
+          heatBySection={heat?.bySection || null}
+        />
+      )}
       <div className="editor-pane">
         {questions ? (
           <>
@@ -539,7 +605,8 @@ export default function ContentEditorScaffold({
           </>
         ) : (
         <>
-        {sections.map(sec => {
+        {pagerFor()}
+        {visibleSections.map(sec => {
           const sectionBlocks = blocks
             .filter(b => b.section_id === sec.id)
             .sort((a, b) => a.order_index - b.order_index);
@@ -691,7 +758,7 @@ export default function ContentEditorScaffold({
             ) : (
             <>
             {sections.length === 0 && <p className="muted">No sections yet.</p>}
-            {sections.map(sec => {
+            {visibleSections.map(sec => {
               const secBlocks = blocks
                 .filter(b => b.section_id === sec.id)
                 .sort((a, b) => a.order_index - b.order_index);
@@ -699,7 +766,7 @@ export default function ContentEditorScaffold({
               return (
                 <section
                   key={sec.id}
-                  className={`wb-section ${isGroup ? 'wb-section-group ' : ''}${activeSectionId === sec.id ? 'active' : ''}`}
+                  className={`wb-section ${isGroup ? 'wb-section-group ' : ''}${!focusMode && activeSectionId === sec.id ? 'active' : ''}`}
                   ref={el => { previewSectionRefs.current[sec.id] = el; }}
                 >
                   {isGroup ? <h1 className="wb-section-group-title">{sec.title}</h1> : <h2>{sec.title}</h2>}

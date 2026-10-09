@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { useWorkbookEditor } from '../hooks/useWorkbookEditor.js';
 import { renumberExercises } from '../lib/exerciseNumbering.js';
-import { linkedBySection } from '../lib/prepTemplateEdit.js';
+import { linkedBySection, PREP_REVEAL_EVENT } from '../lib/prepTemplateEdit.js';
+import { ALL } from '../components/editor/WorkbookOutline.jsx';
+import KebabMenu from '../components/KebabMenu.jsx';
 import WorkbookPrepPanel from '../components/editor/WorkbookPrepPanel.jsx';
 import AddExercisesModal from '../components/editor/AddExercisesModal.jsx';
 import ContentEditor from '../components/editor/ContentEditor.jsx';
@@ -22,6 +24,7 @@ import '../styles/editor.css';
 import '../styles/workbook.css';
 import '../styles/dashboard.css';
 import '../styles/edit-heat.css';
+import '../styles/workbook-editor-head.css';
 
 export default function WorkbookEditorPage() {
   const { id } = useParams();
@@ -48,6 +51,24 @@ export default function WorkbookEditorPage() {
   // ticked exercise can carry a marker on its own heading.
   const [prepTemplate, setPrepTemplate] = useState(null);
   const prepBySection = useMemo(() => linkedBySection(prepTemplate), [prepTemplate]);
+  // The Prep template card is out of the way until asked for: the header's
+  // Prep chip shows it, and so does a "Needs prep" marker on any exercise
+  // (they announce PREP_REVEAL_EVENT, which the card itself also answers).
+  const [prepShown, setPrepShown] = useState(false);
+  useEffect(() => {
+    const show = () => setPrepShown(true);
+    window.addEventListener(PREP_REVEAL_EVENT, show);
+    return () => window.removeEventListener(PREP_REVEAL_EVENT, show);
+  }, []);
+
+  // Which exercise the editor shows, kept in the URL (?s=<section id>, or
+  // ?s=all for the long scroll) so a reload or a shared link lands on the same
+  // exercise. Unset or stale, it falls back to the first exercise.
+  const [params, setParams] = useSearchParams();
+  const sParam = params.get('s');
+  function setFocus(sectionId) {
+    setParams(prev => { const n = new URLSearchParams(prev); n.set('s', sectionId); return n; }, { replace: true });
+  }
 
   // Adopting a line writes straight to the blocks table, so the editor's own
   // copy is stale the moment it lands. Reload the content as well as the heat,
@@ -61,15 +82,17 @@ export default function WorkbookEditorPage() {
   // already stamps data-section-id on every section for the preview
   // scroll-sync, so there is nothing new to thread through.
   function scrollToSection(sectionId) {
-    // One frame, so the modal has unmounted and the layout has settled before
-    // we measure where to scroll to.
-    requestAnimationFrame(() => {
+    // In the one-exercise view the target may not be on the page at all, so
+    // show it first. Then wait for the modal to unmount and the layout to
+    // settle before measuring where to scroll to.
+    if (sParam !== ALL) setFocus(sectionId);
+    setTimeout(() => {
       const el = document.querySelector(`[data-section-id="${sectionId}"]`);
       if (!el) return;
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       el.classList.add('section-flash');
       setTimeout(() => el.classList.remove('section-flash'), 1600);
-    });
+    }, 60);
   }
 
   // Only a master workbook has session clones to compare against, and only
@@ -228,88 +251,137 @@ export default function WorkbookEditorPage() {
     );
   }
 
+  const exercises = sections.filter(s => s.kind !== 'group');
+  const focusId = sParam === ALL
+    ? ALL
+    : (sections.some(s => s.id === sParam) ? sParam : (exercises[0] || sections[0])?.id || ALL);
+  const prepCount = prepTemplate ? exercises.filter(s => prepBySection.get(s.id)).length : null;
+
+  async function askDeleteWorkbook() {
+    setConfirmDelWorkbook(true);
+    const { data: allWbs } = await supabase
+      .from('workbooks').select('id, title, prep_template').eq('is_template', true);
+    setRefByOnDelete((allWbs || [])
+      .filter(w => w.id !== id && Array.isArray(w.prep_template)
+        && w.prep_template.some(e => e?.source_workbook_id === id))
+      .map(w => w.title));
+  }
+
+  function togglePrep() {
+    if (prepShown) { setPrepShown(false); return; }
+    // Opens the card if it was left shut, then brings it on screen.
+    window.dispatchEvent(new CustomEvent(PREP_REVEAL_EVENT, { detail: {} }));
+    setTimeout(() => document.querySelector('.wbe-prep-slot')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
+
+  // A new section opens straight away in the one-exercise view; a deleted one
+  // hands over to its neighbour rather than jumping back to Exercise 1.
+  async function createSectionAndShow(sectionTitle) {
+    const res = await createSection(sectionTitle);
+    if (res?.data?.id && focusId !== ALL) setFocus(res.data.id);
+    return res;
+  }
+  async function deleteSectionAndMove(sectionId) {
+    const i = sections.findIndex(s => s.id === sectionId);
+    const neighbour = sections[i + 1] || sections[i - 1];
+    const res = await deleteSection(sectionId);
+    if (!res?.error && focusId === sectionId && neighbour) setFocus(neighbour.id);
+    return res;
+  }
+
   return (
     <>
       <TopBar />
-      <main className={`page editor ${showPreview ? 'with-preview' : ''}`}>
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to={backTo} className="back-link">{backLabel}</Link>
-            <h1>Workbook editor</h1>
-            <p>Edits broadcast live to enrolled participants. Their answers stay attached to stable block IDs, so renames and reorders don't lose data.</p>
-            {/* The way in that needs no scrolling. Shown whenever this workbook
-                has ANY recorded change, not just open ones — otherwise the
-                entry point vanishes the moment you finish reviewing, which is
-                the trap the grey tick on each marker exists to avoid. */}
-            {heatEnabled && totalSections > 0 && (
-              <button
-                type="button"
-                className="wb-heat-note wb-heat-btn"
-                onClick={() => setShowAllChanges(true)}
-              >
-                <span className={`heat-dot heat-l${openSections > 0 ? 3 : 0}`} aria-hidden />
-                {openSections > 0
-                  ? `${openSections} exercise${openSections === 1 ? '' : 's'} reworded in sessions and not yet reviewed — review them all`
-                  : `Reworded in ${totalSections} exercise${totalSections === 1 ? '' : 's'}, all reviewed — see the history`}
-              </button>
-            )}
-          </div>
-          <div className="page-hero-actions">
-            <button className="ghost" onClick={() => setShowPreview(p => !p)}>
-              {showPreview ? '◧ Hide preview' : '◨ Show preview'}
-            </button>
-            {isTemplate && (
-              confirmDelWorkbook ? (
-                <>
-                  <span className="confirm-text">
-                    Delete workbook &amp; all sections/blocks?
-                    {refByOnDelete.length > 0 && (
-                      <> ⚠ Prep for <strong>{refByOnDelete.join(', ')}</strong> draws from this workbook — they’ll lose it.</>
-                    )}
-                  </span>
-                  <button className="danger" onClick={handleDeleteWorkbook}>Yes</button>
-                  <button className="ghost" onClick={() => { setConfirmDelWorkbook(false); setDelErr(''); }}>No</button>
-                </>
-              ) : (
-                <button
-                  className="ghost danger"
-                  onClick={async () => {
-                    setConfirmDelWorkbook(true);
-                    const { data: allWbs } = await supabase
-                      .from('workbooks').select('id, title, prep_template').eq('is_template', true);
-                    setRefByOnDelete((allWbs || [])
-                      .filter(w => w.id !== id && Array.isArray(w.prep_template)
-                        && w.prep_template.some(e => e?.source_workbook_id === id))
-                      .map(w => w.title));
-                  }}
-                >Delete workbook</button>
-              )
-            )}
-          </div>
-        </section>
-        {delErr && <p className="error">{delErr}</p>}
-
-        <section className="editor-card">
-          <label className="form-label">Workbook title</label>
+      <main className={`page editor wbe-page ${showPreview ? 'with-preview' : ''}`}>
+        {/* ONE header row. It replaces a hero card, a separate title card and
+            the Prep card, which together put the first exercise 527px down a
+            900px screen. The title is edited where it is shown; the rarely
+            used actions are behind ⋯. */}
+        <section className="wbe-head">
+          <Link to={backTo} className="wbe-back">{backLabel}</Link>
           <input
-            className="form-input large"
+            className="wbe-title"
             value={title}
             onChange={e => setTitleDraft(e.target.value)}
             onBlur={commitTitle}
+            onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+            aria-label="Workbook title"
+            data-tip="Click to rename the workbook"
           />
-          <label className="checkbox-row" style={{ marginTop: '0.75rem' }}>
-            <input
-              type="checkbox"
-              checked={workbook?.vendor_visible ?? false}
-              onChange={e => updateVendorVisible(e.target.checked)}
+          <span className="wbe-sub" data-tip="Changes here reach classes created from now on. Each class already running has its own copy.">Master copy</span>
+          <div className="wbe-actions">
+            {/* Shown whenever this workbook has ANY recorded change, not just
+                open ones — otherwise the way in vanishes the moment you finish
+                reviewing, the trap the grey tick on each marker avoids. */}
+            {heatEnabled && totalSections > 0 && (
+              <button
+                type="button"
+                className="wbe-chip wbe-heat"
+                onClick={() => setShowAllChanges(true)}
+                data-tip={openSections > 0
+                  ? `${openSections} exercise${openSections === 1 ? '' : 's'} reworded in sessions and not yet reviewed`
+                  : `Reworded in ${totalSections} exercise${totalSections === 1 ? '' : 's'}, all reviewed — see the history`}
+              >
+                <span className={`heat-dot heat-l${openSections > 0 ? 3 : 0}`} aria-hidden />
+                {openSections > 0 ? `${openSections} to review` : 'Change history'}
+              </button>
+            )}
+            <label className="wbe-switch" data-tip="Vendor trainers can find this workbook and run sessions from it">
+              <input
+                type="checkbox"
+                checked={workbook?.vendor_visible ?? false}
+                onChange={e => updateVendorVisible(e.target.checked)}
+              />
+              <span className="wbe-switch-track" aria-hidden />
+              Vendors can use it
+            </label>
+            <button
+              type="button"
+              className={`wbe-chip wbe-prep${prepShown ? ' is-open' : ''}`}
+              onClick={togglePrep}
+              aria-expanded={prepShown}
+            >
+              <span className="wbe-prep-dot" aria-hidden />
+              {prepCount == null ? 'Prep' : `Prep · ${prepCount} of ${exercises.length}`}
+            </button>
+            <button type="button" className="wbe-chip" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>
+              {showPreview ? '◧ Hide preview' : '◨ Show preview'}
+            </button>
+            <KebabMenu
+              label="More workbook actions"
+              items={[
+                { label: 'Add exercises from another workbook', glyph: '⊕', onClick: () => setShowAddExercises(true) },
+                { label: 'Renumber exercises', glyph: '№', onClick: async () => { await renumberExercises(id); await reload(); } },
+                { separator: true },
+                { label: 'Delete workbook', glyph: '✕', danger: true, onClick: askDeleteWorkbook },
+              ]}
             />
-            <span>Visible to vendors <span className="muted">— vendor trainers can find this workbook and run sessions from it</span></span>
-          </label>
+          </div>
         </section>
+        {confirmDelWorkbook && (
+          <div className="wbe-confirm">
+            <span className="confirm-text">
+              Delete workbook &amp; all sections/blocks?
+              {refByOnDelete.length > 0 && (
+                <> ⚠ Prep for <strong>{refByOnDelete.join(', ')}</strong> draws from this workbook — they’ll lose it.</>
+              )}
+            </span>
+            <button className="danger" onClick={handleDeleteWorkbook}>Yes, delete</button>
+            <button className="ghost" onClick={() => { setConfirmDelWorkbook(false); setDelErr(''); }}>No</button>
+          </div>
+        )}
+        {delErr && <p className="error">{delErr}</p>}
 
         <PlaceholderRepair sections={sections} blocks={blocks} onSaveBlock={updateBlock} />
 
-        {isTemplate && <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} onTemplate={setPrepTemplate} />}
+        {/* Always mounted, so the header chip has its count from the start;
+            shown only when asked for. A wrapper with display:none rather than
+            the hidden attribute, which the card's own display rule would win. */}
+        {isTemplate && (
+          <div className="wbe-prep-slot" style={prepShown ? undefined : { display: 'none' }}>
+            <WorkbookPrepPanel workbook={workbook} sections={sections} profile={profile} onTemplate={setPrepTemplate} />
+          </div>
+        )}
 
         <ContentEditorScaffold
           sections={sections}
@@ -320,24 +392,17 @@ export default function WorkbookEditorPage() {
           onDeleteBlock={deleteBlock}
           onMoveBlock={moveBlock}
           onDuplicateBlock={duplicateBlock}
-          onCreateSection={createSection}
+          onCreateSection={createSectionAndShow}
           onUpdateSectionTitle={updateSectionTitle}
-          onDeleteSection={deleteSection}
+          onDeleteSection={deleteSectionAndMove}
           showPreview={showPreview}
           previewTitle={title || 'Untitled workbook'}
           heat={heatEnabled ? { bySection, byBlock } : null}
           onOpenHeat={heatEnabled ? setHeatFocus : null}
           prepBySection={prepBySection}
-          extraAddSectionActions={
-            <>
-              <button className="ghost" onClick={() => setShowAddExercises(true)}>
-                <span className="btn-glyph" aria-hidden>⊕</span> Add exercises from another workbook
-              </button>
-              <button className="ghost" onClick={async () => { await renumberExercises(id); await reload(); }}>
-                <span className="btn-glyph" aria-hidden>№</span> Renumber exercises
-              </button>
-            </>
-          }
+          outline
+          focusSectionId={focusId}
+          onFocusSection={setFocus}
         />
       </main>
       {showAllChanges && (

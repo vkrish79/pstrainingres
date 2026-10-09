@@ -1,0 +1,115 @@
+/* Workbook editor outline (WorkbookOutline.jsx) and the three-column layout it
+   sits in. Every button here restates background AND colour on hover: the
+   global button:hover in index.css fills buttons midnight otherwise. */
+
+.editor-layout.with-outline {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.editor-layout.with-outline.with-preview {
+  grid-template-columns: 15rem minmax(0, 1.25fr) minmax(0, 1fr);
+}
+@media (max-width: 1100px) {
+  .editor-layout.with-outline.with-preview { grid-template-columns: 13rem minmax(0, 1fr); }
+  .editor-layout.with-outline.with-preview .preview-pane { display: none; }
+}
+@media (max-width: 760px) {
+  .editor-layout.with-outline,
+  .editor-layout.with-outline.with-preview { grid-template-columns: 1fr; }
+  .editor-layout.with-outline .wo { position: static; max-height: 18rem; }
+}
+
+.wo {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - var(--topbar-h, 61px) - 2rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-height: 0;
+}
+.wo-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.wo-find {
+  width: 100%;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+.wo-find:focus { outline: none; border-color: var(--gold); background: var(--card); }
+
+.wo-list { overflow-y: auto; padding: 0.25rem 0 0.6rem; overscroll-behavior: contain; }
+.wo-empty { padding: 0.75rem; font-size: 0.8rem; color: var(--muted); margin: 0; }
+
+.wo-all,
+.wo-all:hover:where(:not(:disabled)) {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; text-align: left;
+  font-size: 0.82rem; font-weight: 600;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--card); color: var(--midnight);
+}
+.wo-all:hover:where(:not(:disabled)) { background: var(--bg); border-color: var(--gold); }
+.wo-all.is-current,
+.wo-all.is-current:hover:where(:not(:disabled)) { background: #f5efe0; border-color: var(--gold); }
+
+.wo-group,
+.wo-group:hover:where(:not(:disabled)) {
+  display: block; width: 100%; text-align: left;
+  background: none; border: 0; border-radius: 0;
+  padding: 0.75rem 0.75rem 0.2rem;
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--gold-dark); line-height: 1.35;
+}
+.wo-group:hover:where(:not(:disabled)) { color: var(--midnight); }
+
+.wo-item,
+.wo-item:hover:where(:not(:disabled)) {
+  display: flex; align-items: center; gap: 0.45rem;
+  width: 100%; text-align: left;
+  background: none; border: 0; border-radius: 0;
+  border-left: 3px solid transparent;
+  padding: 0.32rem 0.75rem 0.32rem 0.85rem;
+  font-size: 0.82rem; font-weight: 500; color: var(--text);
+}
+.wo-item:hover:where(:not(:disabled)) { background: var(--bg); }
+.wo-item.is-current,
+.wo-item.is-current:hover:where(:not(:disabled)) {
+  background: #f5efe0; border-left-color: var(--gold); font-weight: 700; color: var(--midnight);
+}
+.wo-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wo-n { font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500; }
+.wo-prep { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.wo-prep.on { background: var(--gold-dark); }
+.wo-heat { flex: none; }
+.wo-foot {
+  border-top: 1px solid var(--border);
+  padding: 0.45rem 0.75rem;
+  font-size: 0.72rem; color: var(--muted);
+  display: flex; align-items: center; gap: 0.4rem;
+}
+
+/* One-exercise view: where you are, and Prev / Next. */
+.editor-pager {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem; color: var(--muted);
+}
+.editor-pager-group { font-weight: 700; color: var(--gold-dark); letter-spacing: 0.04em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-pager-pos { margin-left: auto; font-variant-numeric: tabular-nums; }
+.editor-pager-pos b { color: var(--text); }
+.editor-pager button { font-size: 0.78rem; padding: 0.25rem 0.65rem; }

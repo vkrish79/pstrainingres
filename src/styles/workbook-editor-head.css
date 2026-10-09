@@ -1,0 +1,96 @@
+/* Workbook editor header (WorkbookEditorPage, master copy). One row in place
+   of the hero card, the title card and the Prep card. Light buttons here
+   restate background AND colour on hover: the global button:hover in
+   index.css fills buttons midnight otherwise. */
+
+.editor.wbe-page { max-width: none; }
+
+.wbe-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.wbe-back { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.wbe-back:hover { color: var(--gold-dark); }
+
+.wbe-title {
+  flex: 0 1 26rem;
+  min-width: 12rem;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--midnight);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  padding: 0.25rem 0.45rem;
+  text-overflow: ellipsis;
+}
+.wbe-title:hover { border-color: var(--border); }
+.wbe-title:focus { outline: none; border-color: var(--gold); background: var(--card); }
+.wbe-sub { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+
+.wbe-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.wbe-chip,
+.wbe-chip:hover:where(:not(:disabled)) {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card); color: var(--text);
+  line-height: 1.35;
+}
+.wbe-chip:hover:where(:not(:disabled)) { background: var(--bg); border-color: var(--gold); }
+.wbe-prep,
+.wbe-prep:hover:where(:not(:disabled)) { background: #f5efe0; border-color: #e5d7b6; color: #6a5528; }
+.wbe-prep:hover:where(:not(:disabled)),
+.wbe-prep.is-open { background: #ece1c4; border-color: var(--gold); }
+.wbe-prep-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold-dark); }
+.wbe-heat .heat-dot { flex: none; }
+
+/* A switch rather than a bare checkbox; the checkbox is still the control. */
+.wbe-switch {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font-size: 0.8rem; color: var(--text); white-space: nowrap; cursor: pointer;
+  padding: 0.3rem 0.7rem; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card);
+}
+.wbe-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.wbe-switch-track {
+  position: relative; width: 26px; height: 15px; border-radius: 999px;
+  background: #d6d2ca; transition: background 0.15s ease; flex: none;
+}
+.wbe-switch-track::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 11px; height: 11px; border-radius: 50%; background: #fff;
+  transition: transform 0.15s ease;
+}
+.wbe-switch input:checked + .wbe-switch-track { background: var(--gold); }
+.wbe-switch input:checked + .wbe-switch-track::after { transform: translateX(11px); }
+.wbe-switch:focus-within { border-color: var(--gold); }
+
+.wbe-confirm {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+  margin: -0.4rem 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #f0caca; border-radius: 8px; background: #fdf3f3;
+}
+.wbe-confirm button { font-size: 0.8rem; padding: 0.3rem 0.7rem; }
+.wbe-prep-slot { scroll-margin-top: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wbe-switch-track, .wbe-switch-track::after { transition: none; }
+}
