@@ -109,9 +109,16 @@ export function cleanProseHtml(html) {
 // Equal once both are parsed by the browser and whitespace between tags is
 // ignored, with <b>/<i> read as <strong>/<em> (the same thing, as stored by
 // the import and as written by the editor).
+//
+// An EMPTY anchor (<a id="_Toc…"></a>) is ignored too: Word puts one on every
+// heading it lists in a table of contents, it shows nothing, and nothing in the
+// app links to it. Counting it would send every imported "Ticket 1" heading to
+// the HTML tab. The serializer drops it, which loses nothing anyone sees.
+const EMPTY_ANCHOR = /<a\b[^>]*>\s*<\/a>/gi;
 function canonical(html) {
   const d = document.createElement('div');
   d.innerHTML = String(html || '')
+    .replace(EMPTY_ANCHOR, '')
     .replace(/<(\/?)b>/gi, '<$1strong>')
     .replace(/<(\/?)i>/gi, '<$1em>');
   return d.innerHTML.replace(/>\s+</g, '><').trim();
