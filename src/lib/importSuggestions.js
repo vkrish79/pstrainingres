@@ -18,13 +18,16 @@
 //   section._rid, block._rid   stable ids while blocks are added and replaced
 //   cell._sug                  empty cell suggested as an answer box
 //   cell._sugLine              cell wording with a typed underline to box
-//   cell._sugWiden = n         last cell of a row that stops n columns short
-//                              of the table's right edge
+//   block._widthsOk            the trainer has answered "rows don't fit"
+//                              for this table (Fit all rows, or Leave as is)
 //   block._subq                prose run that reads as questions with no answer
 //                              box; blocks in one run share the run id
 
 import { newBoxId } from './tableCells.js';
 import { emptyPnrScenario } from './pnrQuestion.js';
+import { tableGrid, rowMisfits, fitAllRows, lineUpLoneRows, tableEdge, withHeaderRow, applyHeaderRow } from './tableWidths.js';
+
+export { tableGrid };
 
 let ridSeq = 0;
 const nextRid = () => `r${++ridSeq}`;
@@ -62,31 +65,6 @@ function copyConfig(b) {
   return { ...b.config, rows: (b.config?.rows || []).map(row => row.map(c => ({ ...c }))) };
 }
 
-// Where each cell really sits once colSpan / rowSpan are laid out, and which
-// cell covers each grid slot. Word layouts lean on merged cells heavily (the
-// ARD Web workbook's grids are 12–18 columns wide), so "the first cell in the
-// row" is not the same as "the first column".
-export function tableGrid(rows) {
-  const occ = [];
-  const pos = rows.map(() => []);
-  rows.forEach((row, ri) => {
-    occ[ri] = occ[ri] || [];
-    let col = 0;
-    row.forEach((cell, ci) => {
-      while (occ[ri][col]) col += 1;
-      pos[ri][ci] = col;
-      const cs = cell?.colSpan > 1 ? cell.colSpan : 1;
-      const rs = cell?.rowSpan > 1 ? cell.rowSpan : 1;
-      for (let dr = 0; dr < rs; dr++) {
-        occ[ri + dr] = occ[ri + dr] || [];
-        for (let dc = 0; dc < cs; dc++) occ[ri + dr][col + dc] = { ri, ci };
-      }
-      col += cs;
-    });
-  });
-  return { pos, occ };
-}
-
 const hasWording = cell => !!cell && ((cell.kind === 'static' && cellText(cell)) || cell.kind === 'image');
 
 // An empty cell is a suggested answer box when its row says something (a row
@@ -95,7 +73,10 @@ const hasWording = cell => !!cell && ((cell.kind === 'static' && cellText(cell))
 // on). A row covered by a merged cell from the row above takes that cell's
 // wording — question D in a lettered table often spans two rows.
 function flagTable(cfg) {
-  const rows = cfg.rows || [];
+  // A row with one cell is a full-width line; Word's odd span on it is never
+  // worth asking about.
+  cfg.rows = lineUpLoneRows(cfg.rows || [], tableEdge(withHeaderRow(cfg).all));
+  const rows = cfg.rows;
   const { pos, occ } = tableGrid(rows);
   rows.forEach((row, ri) => {
     const rowSays = (occ[ri] || []).some(slot => slot && hasWording(rows[slot.ri][slot.ci]));
@@ -109,32 +90,6 @@ function flagTable(cfg) {
       }
       UNDERLINE_RE.lastIndex = 0;
     });
-  });
-  flagRaggedRows(rows, occ);
-}
-
-// Word lets a row end before the table does — it pads the gap with invisible
-// grid space that the import drops — so "Write your PNR | box" sits short of
-// the right edge under a full-width row. Offered: line the row's last cell up
-// with the edge. The edge is the width MOST rows share, not the widest row: in
-// the ARD Web workbook one row often pokes a column past thirty others, and
-// that one should come in, not the thirty go out. Only when this row owns its
-// last cell; a cell merged down from the row above is left alone, since
-// changing it would move that row too. _sugWiden is negative for a trim.
-function flagRaggedRows(rows, occ) {
-  const widths = rows.map((row, ri) => (row.length ? (occ[ri] || []).length : 0)).filter(Boolean);
-  if (widths.length < 2) return;
-  const tally = {};
-  for (const w of widths) tally[w] = (tally[w] || 0) + 1;
-  const edge = Number(Object.keys(tally).sort((a, b) => tally[b] - tally[a] || b - a)[0]);
-  rows.forEach((row, ri) => {
-    const used = (occ[ri] || []).length;
-    if (!row.length || used === edge) return;
-    const owner = occ[ri][used - 1];
-    if (!owner || owner.ri !== ri) return;
-    const cell = rows[ri][owner.ci];
-    const span = cell.colSpan > 1 ? cell.colSpan : 1;
-    if (span + (edge - used) >= 1) cell._sugWiden = edge - used;
   });
 }
 
@@ -196,7 +151,7 @@ export function suggestionsOf(draft) {
           if (cell._sugLine) lines.push(cellText(cell));
         }));
         if (empty.length) out.push({ key: `${b._rid}:cells`, type: 'cells', secRid: sec._rid, blockRid: b._rid, section: sec.title, count: empty.length, samples: uniq(empty).slice(0, 3) });
-        const ragged = rows.filter(row => row.some(c => c._sugWiden)).length;
+        const ragged = b._widthsOk ? 0 : rowMisfits(withHeaderRow(b.config).all).filter(Boolean).length;
         if (ragged) out.push({ key: `${b._rid}:widen`, type: 'widen', secRid: sec._rid, blockRid: b._rid, section: sec.title, count: ragged, samples: [] });
         if (lines.length) out.push({ key: `${b._rid}:lines`, type: 'lines', secRid: sec._rid, blockRid: b._rid, section: sec.title, count: lines.length, samples: lines.slice(0, 1) });
       }
@@ -252,16 +207,15 @@ function mapCells(b, fn) {
 }
 
 function withoutFlags(cell) {
-  const { _sug, _sugLine, _sugWiden, ...rest } = cell;
+  const { _sug, _sugLine, ...rest } = cell;
   return rest;
 }
 
-// A replacement cell keeps the old one's place in the grid — its spans, and a
-// pending "line up this row" — so the order the trainer works in never matters.
+// A replacement cell keeps the old one's place in the grid — its spans — so
+// the order the trainer works in never matters.
 function keepShape(from, to) {
   if (from.colSpan > 1) to.colSpan = from.colSpan;
   if (from.rowSpan > 1) to.rowSpan = from.rowSpan;
-  if (from._sugWiden) to._sugWiden = from._sugWiden;
   return to;
 }
 
@@ -290,11 +244,11 @@ function underlinedCell(cell) {
 // for a sub-question run.
 export function resolveSuggestion(draft, item, accept, { as = 'long_text' } = {}) {
   if (item.type === 'widen') {
-    return mapBlock(draft, item.blockRid, b => [mapCells(b, (cell) => {
-      if (!cell._sugWiden) return cell;
-      const { _sugWiden: gap, ...rest } = cell;
-      return accept ? { ...rest, colSpan: (cell.colSpan > 1 ? cell.colSpan : 1) + gap } : rest;
-    })]);
+    return mapBlock(draft, item.blockRid, b => [{
+      ...b,
+      _widthsOk: true,
+      config: accept ? applyHeaderRow(b.config, fitAllRows(withHeaderRow(b.config).all)) : b.config,
+    }]);
   }
   if (item.type === 'cells' || item.type === 'lines') {
     const flag = item.type === 'cells' ? '_sug' : '_sugLine';
@@ -325,6 +279,13 @@ export function resolveSuggestion(draft, item, accept, { as = 'long_text' } = {}
 
 export function resolveAll(draft, accept) {
   return suggestionsOf(draft).reduce((d, item) => resolveSuggestion(d, item, accept), draft);
+}
+
+// Cell widths changed by hand (◀ ▶, Fit, Even widths on one row). `all` is the
+// header row (if any) plus the body, as withHeaderRow gives it. The table is
+// drawn on its grid from now on, so the widths set are the widths seen.
+export function setTableRows(draft, blockRid, all) {
+  return mapBlock(draft, blockRid, b => [{ ...b, config: { ...applyHeaderRow(b.config, all), grid: true } }]);
 }
 
 // Clicking a cell in the review: empty text → short answer → long answer →
@@ -436,7 +397,7 @@ export function finishReview(draft) {
     ...parsed,
     sections: draft.sections.map(({ _rid, ...sec }) => ({
       ...sec,
-      blocks: sec.blocks.map(({ _rid: _r, _subq, ...b }) => (
+      blocks: sec.blocks.map(({ _rid: _r, _subq, _widthsOk, ...b }) => (
         b.block_type === 'table' ? { ...b, config: { ...b.config, rows: b.config.rows.map(row => row.map(withoutFlags)) } } : b
       )),
     })),

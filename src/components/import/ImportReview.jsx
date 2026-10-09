@@ -3,8 +3,10 @@ import Block from '../blocks/Block.jsx';
 import { countsOf } from '../../lib/docxImport.js';
 import {
   prepareReview, suggestionsOf, resolveSuggestion, resolveAll, cycleCell, canCycle,
-  toggleColumn, setBlockKind, answerBoxCount, finishReview, tableGrid, proseLines,
+  toggleColumn, setBlockKind, answerBoxCount, finishReview, tableGrid, proseLines, setTableRows,
 } from '../../lib/importSuggestions.js';
+import { tableEdge, rowMisfits, gridWidth, hasSpans, spanOf, withHeaderRow } from '../../lib/tableWidths.js';
+import { GridCols, GridRuler, RowFit, FloatingWidth, cellAnchor, widthKeys } from '../blocks/TableWidthTools.jsx';
 import { isPnrQuestion } from '../../lib/pnrQuestion.js';
 import '../../styles/workbook.css';
 import '../../styles/import-review.css';
@@ -18,6 +20,8 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
   const [draft, setDraft] = useState(() => prepareReview(parsed, { kind }));
   const [selected, setSelected] = useState(() => firstExercise(draft));
   const [menuFor, setMenuFor] = useState(null);
+  // The cell whose width is being changed: { blockRid, ri, ci }.
+  const [widthSel, setWidthSel] = useState(null);
   const docRef = useRef(null);
   const pictures = usePictureUrls(parsed.images);
   const noun = kind === 'assessment' ? 'assessment' : 'workbook';
@@ -54,6 +58,7 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
 
   function pick(secRid, blockRid) {
     setSelected(secRid);
+    setWidthSel(null);
     setMenuFor(null);
     // The window is scrolled by hand: scrollIntoView also scrolls overflow:hidden
     // ancestors, which slid the whole app shell down under its own top bar.
@@ -139,6 +144,9 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
                   onKind={(to) => { setDraft(d => setBlockKind(d, b._rid, to)); setMenuFor(null); }}
                   onCell={(ri, ci) => setDraft(d => cycleCell(d, b._rid, ri, ci))}
                   onColumn={col => setDraft(d => toggleColumn(d, b._rid, col))}
+                  widthSel={widthSel?.blockRid === b._rid ? widthSel : null}
+                  onWidthSel={s => setWidthSel(s ? { blockRid: b._rid, ...s } : null)}
+                  onRows={rows => setDraft(d => setTableRows(d, b._rid, rows))}
                   pending={sectionItems.filter(it => it.blockRid === b._rid)}
                   onResolve={resolve}
                 />
@@ -175,6 +183,7 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
             <div className="ir-lg"><span className="ir-box" /><span>Answer box. Click to cycle: short → long → text.</span></div>
             <div className="ir-lg"><span className="ir-box sug" /><span>Suggested. Accept here or in the list, or click it.</span></div>
             <div className="ir-lg"><span className="ir-box empty" /><span>Empty cell. Click to make it an answer box.</span></div>
+            <div className="ir-lg"><span className="ir-lg-pick">⇔</span><span>On any table cell: make it wider or narrower, one column at a time.</span></div>
           </div>
         </aside>
       </div>
@@ -219,10 +228,10 @@ function Issue({ item, onResolve, onGo }) {
       </>
     );
   } else if (item.type === 'widen') {
-    q = `${item.count} row${item.count === 1 ? '' : 's'} in this table stop${item.count === 1 ? 's' : ''} short of its right edge. Line ${item.count === 1 ? 'it' : 'them'} up?`;
+    q = `${item.count} row${item.count === 1 ? '' : 's'} in this table ${item.count === 1 ? 'doesn’t' : 'don’t'} fit its width (too wide, or short of the right edge). Fit ${item.count === 1 ? 'it' : 'them'}?`;
     actions = (
       <>
-        <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(item, true)}>Line up rows</button>
+        <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(item, true)}>Fit all rows</button>
         <button type="button" className="ir-btn-ghost sm" onClick={() => onResolve(item, false)}>Leave as is</button>
       </>
     );
@@ -256,7 +265,7 @@ function Issue({ item, onResolve, onGo }) {
 
 const KIND_ICON = { prose: '¶', field: '▭', table: '▦' };
 
-function ReviewBlock({ block, kind, pictures, menuOpen, onMenu, onKind, onCell, onColumn, pending, onResolve }) {
+function ReviewBlock({ block, kind, pictures, menuOpen, onMenu, onKind, onCell, onColumn, pending, onResolve, widthSel, onWidthSel, onRows }) {
   const options = menuOptions(block, kind);
   const hasSug = block._subq || pending.length > 0;
   return (
@@ -274,7 +283,7 @@ function ReviewBlock({ block, kind, pictures, menuOpen, onMenu, onKind, onCell, 
       {block.block_type === 'prose' ? (
         <div className="wb-prose" dangerouslySetInnerHTML={{ __html: withPictures(block.config.html, pictures) }} />
       ) : block.block_type === 'table' ? (
-        <ReviewTable block={block} pictures={pictures} onCell={onCell} onColumn={onColumn} pending={pending} onResolve={onResolve} />
+        <ReviewTable block={block} pictures={pictures} onCell={onCell} onColumn={onColumn} pending={pending} onResolve={onResolve} sel={widthSel} onSel={onWidthSel} onRows={onRows} />
       ) : (
         <div className="ir-field">
           {isPnrQuestion(block) && <div className="ir-pnr-tag">PNR question · marked by hand with the ARDW scheme</div>}
@@ -332,10 +341,24 @@ function menuOptions(block, kind) {
   return [];
 }
 
-function ReviewTable({ block, pictures, onCell, onColumn, pending, onResolve }) {
+function ReviewTable({ block, pictures, onCell, onColumn, pending, onResolve, sel, onSel, onRows }) {
   const cfg = block.config;
   const rows = useMemo(() => cfg.rows || [], [cfg.rows]);
   const { pos } = useMemo(() => tableGrid(rows), [rows]);
+  // Widths work on the header row (if any) and the body as one grid: `all`,
+  // with body row r at all[r + off]. The selection indexes into `all`.
+  const { all, off } = useMemo(() => withHeaderRow(cfg), [cfg]);
+  const gpos = useMemo(() => tableGrid(all).pos, [all]);
+  const edge = useMemo(() => tableEdge(all), [all]);
+  const misfits = useMemo(() => rowMisfits(all, edge), [all, edge]);
+  // Drawn on its grid once resized (or while a cell is being resized), as
+  // participants will see it; otherwise the browser's own sizing, as before.
+  const cols = cfg.grid || sel ? gridWidth(all) : 0;
+  const status = hasSpans(all) && misfits.some(Boolean);
+  const isSel = (gi, ci) => !!sel && sel.ri === gi && sel.ci === ci;
+  const pastEdge = (gi, ci) => status && gpos[gi]?.[ci] + spanOf(all[gi][ci]) > edge;
+  const choose = (ri, ci) => onSel(sel && sel.ri === ri && sel.ci === ci ? null : { ri, ci });
+  const tableRef = useRef(null);
   // Column buttons only where the heading row lines up with the grid — a
   // plain table like the practice log, not a merged-cell form.
   const width = rows.reduce((w, row) => Math.max(w, row.reduce((n, c) => n + (c.colSpan > 1 ? c.colSpan : 1), 0)), 0);
@@ -350,24 +373,34 @@ function ReviewTable({ block, pictures, onCell, onColumn, pending, onResolve }) 
           <span>
             {cellsItem && `${cellsItem.count} suggested answer box${cellsItem.count === 1 ? '' : 'es'}`}
             {cellsItem && widenItem && ' · '}
-            {widenItem && `${widenItem.count} short row${widenItem.count === 1 ? '' : 's'}`}
+            {widenItem && `${widenItem.count} row${widenItem.count === 1 ? ' doesn’t' : 's don’t'} fit`}
           </span>
           {cellsItem && <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(cellsItem, true)}>Make answer box{cellsItem.count === 1 ? '' : 'es'}</button>}
           {cellsItem && <button type="button" className="ir-btn-ghost sm" onClick={() => onResolve(cellsItem, false)}>Leave as text</button>}
           {widenItem && (
-            <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(widenItem, true)} data-tip="Widen the last cell of each short row to the table's right edge">
-              Line up rows
+            <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(widenItem, true)} data-tip="Trim rows that are too wide, stretch rows that are short">
+              Fit all rows
             </button>
           )}
         </div>
       )}
-      <table className="wb-table ir-table">
-        {cfg.headers && (
+      <FloatingWidth tableRef={tableRef} rows={all} edge={edge} sel={sel} onRows={onRows} onClear={() => onSel(null)} />
+      <table ref={tableRef} className={`wb-table ir-table${cols ? ' wb-table-grid' : ''}`} onKeyDown={e => widthKeys(e, all, sel, onRows)}>
+        <GridCols cols={cols} status={status} />
+        {off > 0 && (
           <thead>
+            <GridRuler rows={all} cols={cols} edge={edge} sel={sel} status={status} />
             <tr>
-              {cfg.headers.map((h, i) => (
-                <th key={i}>
-                  {h}
+              {all[0].map((hc, i) => (
+                <th
+                  key={i}
+                  colSpan={hc.colSpan > 1 ? hc.colSpan : undefined}
+                  className={`${isSel(0, i) ? 'tw-sel' : ''}${pastEdge(0, i) ? ' tw-past' : ''}`}
+                  {...cellAnchor(0, i)}
+                  onClick={() => choose(0, i)}
+                >
+                  <button type="button" className="tw-pick" onClick={(e) => { e.stopPropagation(); choose(0, i); }} data-tip="Change this heading's width" aria-label="Change this heading's width">⇔</button>
+                  {hc.text}
                   {columnar && i > 0 && (
                     <button type="button" className="ir-colhint" onClick={() => onColumn(i)} data-tip="Make every empty cell in this column an answer box (click again to undo)">
                       Column answer boxes
@@ -375,23 +408,42 @@ function ReviewTable({ block, pictures, onCell, onColumn, pending, onResolve }) 
                   )}
                 </th>
               ))}
+              {status && (
+                <th className="tw-status">
+                  <RowFit rows={all} ri={0} edge={edge} misfit={misfits[0]} onRows={onRows} />
+                </th>
+              )}
             </tr>
           </thead>
         )}
         <tbody>
+          {off === 0 && <GridRuler rows={all} cols={cols} edge={edge} sel={sel} status={status} />}
           {rows.map((row, ri) => (
             <tr key={ri}>
-              {row.map((cell, ci) => (
-                <td
-                  key={ci}
-                  colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
-                  rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
-                  className={`${canCycle(cell) ? 'ir-td-click' : ''}${cell._sugWiden ? ' ir-td-short' : ''}`}
-                  data-col={pos[ri]?.[ci]}
-                >
-                  <ReviewCell cell={cell} pictures={pictures} onClick={canCycle(cell) ? () => onCell(ri, ci) : null} />
+              {row.map((cell, ci) => {
+                const gi = ri + off;
+                const on = isSel(gi, ci);
+                const past = pastEdge(gi, ci);
+                return (
+                  <td
+                    key={ci}
+                    colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
+                    rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
+                    className={`${canCycle(cell) ? 'ir-td-click' : ''}${on ? ' tw-sel' : ''}${past ? ' tw-past' : ''}`}
+                    data-col={pos[ri]?.[ci]}
+                    {...cellAnchor(gi, ci)}
+                    onClick={canCycle(cell) ? undefined : () => choose(gi, ci)}
+                  >
+                    <button type="button" className="tw-pick" onClick={(e) => { e.stopPropagation(); choose(gi, ci); }} data-tip="Change this cell's width" aria-label="Change this cell's width">⇔</button>
+                    <ReviewCell cell={cell} pictures={pictures} onClick={canCycle(cell) ? () => onCell(ri, ci) : null} />
+                  </td>
+                );
+              })}
+              {status && (
+                <td className="tw-status">
+                  <RowFit rows={all} ri={ri + off} edge={edge} misfit={misfits[ri + off]} onRows={onRows} />
                 </td>
-              ))}
+              )}
             </tr>
           ))}
         </tbody>

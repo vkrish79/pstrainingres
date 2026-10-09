@@ -1,0 +1,83 @@
+/* Resizing table cells one grid column at a time — import review and table
+   editor. The participant side only needs .wb-table-grid (workbook.css). */
+
+.tw-bar {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  font-size: 0.8rem; color: var(--muted); min-height: 32px; padding: 0.3rem 0;
+}
+.tw-bar strong { color: var(--text); }
+.tw-bar.quiet { font-size: 0.75rem; }
+.tw-stepper {
+  display: inline-flex; align-items: center; border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; background: #fff;
+}
+.tw-stepper button {
+  border: 0; border-radius: 0; background: #fff; color: var(--midnight);
+  padding: 0.28rem 0.65rem; font-size: 0.78rem; font-weight: 700;
+}
+/* index.css fills every hovered button with midnight — restate it here. */
+.tw-stepper button:hover:not(:disabled) { background: #f6efe0; color: var(--midnight); }
+.tw-stepper button:disabled { opacity: 0.35; cursor: default; }
+.tw-n {
+  padding: 0 0.65rem; font-weight: 800; color: var(--text); line-height: 28px;
+  font-variant-numeric: tabular-nums; border-inline: 1px solid var(--border);
+}
+.tw-mini {
+  border: 1px solid var(--border); background: #fff; color: var(--midnight);
+  border-radius: 6px; padding: 0.12rem 0.45rem; font-size: 0.7rem; font-weight: 700; white-space: nowrap;
+}
+.tw-mini:hover { background: #f3f1ec; color: var(--midnight); }
+
+.tw-rowfit { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+.tw-chip { border-radius: 999px; padding: 1px 7px; font-size: 0.68rem; font-weight: 800; white-space: nowrap; }
+.tw-chip.wide { background: #f9e7e3; color: #c2503c; }
+.tw-chip.short { background: #fdf3e1; color: #b7791f; }
+
+/* the row-fit column: no grid lines, just the chip */
+.tw-status-col, table td.tw-status, table th.tw-status { width: 10.5rem; }
+table td.tw-status, table th.tw-status {
+  border: 0 !important; background: transparent !important; padding: 0.2rem 0 0.2rem 0.5rem;
+  vertical-align: middle;
+}
+
+.tw-ruler td {
+  border: 0 !important; background: transparent !important; padding: 0 0 0.2rem !important;
+  text-align: center; font-size: 0.66rem; color: var(--muted); font-variant-numeric: tabular-nums;
+  border-bottom: 2px solid transparent !important;
+}
+.tw-ruler td.hit { color: var(--gold-dark); font-weight: 800; border-bottom-color: var(--gold) !important; }
+.tw-ruler td.out { color: #c2503c; }
+.tw-ruler td.edge { box-shadow: inset -2px 0 0 rgba(30, 60, 90, 0.45); }
+
+/* the floating control beside the selected cell */
+.tw-float {
+  position: fixed; z-index: 60; display: flex; align-items: center; gap: 0.45rem;
+  background: #fff; border: 1px solid #d8d2c4; border-radius: 10px; padding: 0.3rem 0.4rem 0.3rem 0.35rem;
+  box-shadow: 0 8px 22px rgba(30, 60, 90, 0.18); font-size: 0.76rem; color: var(--muted); white-space: nowrap;
+}
+.tw-float::after {
+  content: ""; position: absolute; left: 14px; bottom: -6px; width: 10px; height: 10px; background: #fff;
+  border-right: 1px solid #d8d2c4; border-bottom: 1px solid #d8d2c4; transform: rotate(45deg);
+}
+.tw-float.below::after { bottom: auto; top: -6px; transform: rotate(225deg); }
+.tw-float .tw-stepper button { padding: 0.2rem 0.6rem; }
+.tw-float .tw-n { line-height: 24px; }
+.tw-float-of { font-weight: 600; }
+.tw-float-x {
+  border: 0; background: transparent; color: var(--muted); padding: 0 0.3rem; font-size: 0.85rem; line-height: 1;
+}
+.tw-float-x:hover { background: #f3f1ec; color: var(--text); border-radius: 5px; }
+
+/* cells */
+table td.tw-sel, table th.tw-sel { outline: 2px solid var(--gold); outline-offset: -2px; }
+table td.tw-past, table th.tw-past { background: #f9e7e3 !important; }
+.tw-pick {
+  position: absolute; top: 2px; right: 2px; z-index: 1;
+  border: 1px solid var(--border); background: #fff; color: var(--midnight);
+  border-radius: 5px; padding: 0 4px; font-size: 0.64rem; font-weight: 800; line-height: 16px;
+  opacity: 0; transition: opacity 0.1s;
+}
+.tw-pick:hover { background: #f6efe0; color: var(--midnight); }
+td:hover > .tw-pick, th:hover > .tw-pick, td.tw-sel > .tw-pick, th.tw-sel > .tw-pick, .tw-pick:focus-visible { opacity: 1; }
+td.tw-sel > .tw-pick, th.tw-sel > .tw-pick { background: var(--gold); border-color: var(--gold); color: #fff; }
+@media (prefers-reduced-motion: reduce) { .tw-pick { transition: none; } }

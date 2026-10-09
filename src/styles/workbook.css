@@ -142,6 +142,10 @@ body:has(.page.workbook) .topbar:not(.topbar--shell) .topbar-inner { max-width: 
   vertical-align: middle;
 }
 .wb-table th { background: #f0f3f7; font-weight: 600; }
+/* Laid out on Word's grid: each column asks for an equal share (the <col>
+   widths), so a cell's width follows its column count; a column still grows
+   to its longest word. Wrapping only between words keeps labels whole. */
+.wb-table.wb-table-grid td, .wb-table.wb-table-grid th { overflow-wrap: break-word; }
 .wb-cell-static { color: var(--text); }
 .wb-cell-input { padding: 0.25rem; background: #fafbff; }
 .wb-cell-input input, .wb-cell-input textarea {

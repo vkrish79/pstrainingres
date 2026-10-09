@@ -1,4 +1,6 @@
 import { boxLabel } from '../../lib/tableCells.js';
+import { displayLayout, withHeaderRow } from '../../lib/tableWidths.js';
+import { GridCols } from './TableWidthTools.jsx';
 import ReviewMark from './ReviewMark.jsx';
 import { ImageCell } from './WbImage.jsx';
 
@@ -12,6 +14,13 @@ export default function TableBlock({ block, value, onChange, readOnly = false, p
   const ans = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const showAnswer = readOnly && !preview;
   const noop = () => {};
+  // A table the trainer has resized gives each grid column an equal share, so a
+  // cell covering 4 columns is about twice as wide as one covering 2.
+  // The header row is row 0 of the same grid (it has widths too).
+  const { all, off } = withHeaderRow(cfg);
+  const { rows: lined, cols } = displayLayout(all, { grid: !!cfg.grid });
+  const header = off ? lined[0] : null;
+  const rows = lined.slice(off);
 
   function setCell(cellId, v) {
     onChange({ ...ans, [cellId]: v });
@@ -20,14 +29,15 @@ export default function TableBlock({ block, value, onChange, readOnly = false, p
   return (
     <div className="wb-table-wrap">
       {cfg.caption && <div className="wb-table-caption">{cfg.caption}</div>}
-      <table className="wb-table">
+      <table className={`wb-table${cols ? ' wb-table-grid' : ''}`}>
+        <GridCols cols={cols} />
         {cfg.headers && (
           <thead>
-            <tr>{cfg.headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
+            <tr>{(header || []).map((h, i) => <th key={i} colSpan={h.colSpan > 1 ? h.colSpan : undefined}>{h.text}</th>)}</tr>
           </thead>
         )}
         <tbody>
-          {(cfg.rows || []).map((row, ri) => (
+          {rows.map((row, ri) => (
             <tr key={ri}>
               {row.map((cell, ci) => (
                 <td

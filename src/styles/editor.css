@@ -291,6 +291,18 @@ button.primary:hover:where(:not(:disabled)) { background: var(--midnight-hover);
   border-collapse: collapse;
   width: 100%;
 }
+/* Laid out on Word's grid: equal columns, so a cell's width is its column
+   count, the same as participants see it. */
+.table-form-grid.is-grid { table-layout: fixed; }
+.table-form-grid td { position: relative; }
+.table-form-grid td.row-trash { width: 10.5rem; }
+.row-trash-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+.tw-grip {
+  align-self: flex-start; border: 1px solid var(--border); background: #faf8f4; color: var(--midnight);
+  border-radius: 5px; padding: 0 6px; font-size: 0.68rem; font-weight: 700; line-height: 18px;
+}
+.tw-grip:hover { background: #f6efe0; color: var(--midnight); }
+.tw-grip.on, .tw-grip.on:hover { background: var(--gold); border-color: var(--gold); color: #fff; }
 .table-form-grid th, .table-form-grid td {
   border: 1px solid var(--border);
   padding: 0.4rem;

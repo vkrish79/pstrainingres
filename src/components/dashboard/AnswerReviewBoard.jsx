@@ -221,7 +221,7 @@ function TableSummary({ block, cells, selected, onSelect }) {
     <div className="arb-table-wrap">
       {cfg.caption && <div className="wb-table-caption">{cfg.caption}</div>}
       <table className="wb-table arb-table">
-        {cfg.headers && <thead><tr>{cfg.headers.map((h, i) => <th key={i}>{h}</th>)}</tr></thead>}
+        {cfg.headers && <thead><tr>{cfg.headers.map((h, i) => <th key={i} colSpan={cfg.headerSpans?.[i] > 1 ? cfg.headerSpans[i] : undefined}>{h}</th>)}</tr></thead>}
         <tbody>
           {(cfg.rows || []).map((row, ri) => (
             <tr key={ri}>

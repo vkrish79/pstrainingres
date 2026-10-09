@@ -694,6 +694,7 @@ function parseSpan(attr) {
 function tableBlockFromHtml(tableEl) {
   const rows = [];
   let headers = null;
+  let headerSpans = null;
   const allRows = Array.from(tableEl.querySelectorAll('tr'));
   let inputCounter = 0;
 
@@ -715,6 +716,10 @@ function tableBlockFromHtml(tableEl) {
     const cells = Array.from(tr.children);
     if (ri === headerRowIndex) {
       headers = cells.map(c => c.textContent.trim());
+      // Merged heading cells keep their widths, like body cells, so the header
+      // row reaches the table's edge instead of stopping a few columns short.
+      const spans = cells.map(c => parseSpan(c.getAttribute('colspan')));
+      if (spans.some(s => s > 1)) headerSpans = spans;
       return;
     }
     const row = cells.map(td => {
@@ -746,6 +751,7 @@ function tableBlockFromHtml(tableEl) {
 
   const cfg = { rows };
   if (headers) cfg.headers = headers;
+  if (headers && headerSpans) cfg.headerSpans = headerSpans;
   return { block_type: 'table', config: cfg };
 }
 
