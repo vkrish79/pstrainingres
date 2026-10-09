@@ -77,6 +77,22 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
   }
   const hierarchyMode = h1Count >= 2;
 
+  // An H1 is a group because H2 exercises sit under it. An H1 that reads like
+  // an exercise ("Exercise 3", "Module 2 – Fares") and has no H2 before the
+  // next H1 is an exercise itself — some workbooks put every exercise in
+  // Heading 1, and treating those as groups left one real exercise in the file.
+  const exerciseH1s = new Set();
+  elements.forEach((n, i) => {
+    if (n.tagName.toLowerCase() !== 'h1') return;
+    if (!SECTION_HEADER_RE.test(resolveHeadingText(n, tocLookup))) return;
+    for (let j = i + 1; j < elements.length; j++) {
+      const tg = elements[j].tagName.toLowerCase();
+      if (tg === 'h2') return;
+      if (tg === 'h1') break;
+    }
+    exerciseH1s.add(n);
+  });
+
   let title = null;
   let description = null;
   const sections = [];
@@ -112,12 +128,13 @@ export function parseHtmlToWorkbook(html, fallbackName = 'Imported workbook') {
       const headText = resolveHeadingText(node, tocLookup);
 
       if (hierarchyMode) {
-        // In hierarchy mode every H1 is a group section, every H2 is an
-        // exercise. The workbook title comes from the pre-pass (Doc Info)
-        // or falls back to the filename; H1 is never consumed as the title.
+        // In hierarchy mode an H1 is a group section and every H2 is an
+        // exercise — except an exercise-like H1 with no H2 under it (above).
+        // The workbook title comes from the pre-pass (Doc Info) or falls back
+        // to the filename; H1 is never consumed as the title.
         sawFirstHeading = true;
         if (headText) {
-          const kind = tag === 'h1' ? 'group' : 'exercise';
+          const kind = tag === 'h1' && !exerciseH1s.has(node) ? 'group' : 'exercise';
           current = { title: headText, blocks: [], kind };
           sections.push(current);
         }

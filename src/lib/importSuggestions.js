@@ -18,6 +18,8 @@
 //   section._rid, block._rid   stable ids while blocks are added and replaced
 //   cell._sug                  empty cell suggested as an answer box
 //   cell._sugLine              cell wording with a typed underline to box
+//   cell._sugWiden = n         last cell of a row that stops n columns short
+//                              of the table's right edge
 //   block._subq                prose run that reads as questions with no answer
 //                              box; blocks in one run share the run id
 
@@ -108,6 +110,32 @@ function flagTable(cfg) {
       UNDERLINE_RE.lastIndex = 0;
     });
   });
+  flagRaggedRows(rows, occ);
+}
+
+// Word lets a row end before the table does — it pads the gap with invisible
+// grid space that the import drops — so "Write your PNR | box" sits short of
+// the right edge under a full-width row. Offered: line the row's last cell up
+// with the edge. The edge is the width MOST rows share, not the widest row: in
+// the ARD Web workbook one row often pokes a column past thirty others, and
+// that one should come in, not the thirty go out. Only when this row owns its
+// last cell; a cell merged down from the row above is left alone, since
+// changing it would move that row too. _sugWiden is negative for a trim.
+function flagRaggedRows(rows, occ) {
+  const widths = rows.map((row, ri) => (row.length ? (occ[ri] || []).length : 0)).filter(Boolean);
+  if (widths.length < 2) return;
+  const tally = {};
+  for (const w of widths) tally[w] = (tally[w] || 0) + 1;
+  const edge = Number(Object.keys(tally).sort((a, b) => tally[b] - tally[a] || b - a)[0]);
+  rows.forEach((row, ri) => {
+    const used = (occ[ri] || []).length;
+    if (!row.length || used === edge) return;
+    const owner = occ[ri][used - 1];
+    if (!owner || owner.ri !== ri) return;
+    const cell = rows[ri][owner.ci];
+    const span = cell.colSpan > 1 ? cell.colSpan : 1;
+    if (span + (edge - used) >= 1) cell._sugWiden = edge - used;
+  });
 }
 
 // The visible lines of a prose block: list items, else paragraphs.
@@ -168,6 +196,8 @@ export function suggestionsOf(draft) {
           if (cell._sugLine) lines.push(cellText(cell));
         }));
         if (empty.length) out.push({ key: `${b._rid}:cells`, type: 'cells', secRid: sec._rid, blockRid: b._rid, section: sec.title, count: empty.length, samples: uniq(empty).slice(0, 3) });
+        const ragged = rows.filter(row => row.some(c => c._sugWiden)).length;
+        if (ragged) out.push({ key: `${b._rid}:widen`, type: 'widen', secRid: sec._rid, blockRid: b._rid, section: sec.title, count: ragged, samples: [] });
         if (lines.length) out.push({ key: `${b._rid}:lines`, type: 'lines', secRid: sec._rid, blockRid: b._rid, section: sec.title, count: lines.length, samples: lines.slice(0, 1) });
       }
       if (b._subq && !seenRuns.has(b._subq)) {
@@ -222,16 +252,24 @@ function mapCells(b, fn) {
 }
 
 function withoutFlags(cell) {
-  const { _sug, _sugLine, ...rest } = cell;
+  const { _sug, _sugLine, _sugWiden, ...rest } = cell;
   return rest;
 }
 
-function inputCell(from, inputType = 'short_text') {
-  const c = { kind: 'input', id: newBoxId(), input_type: inputType };
-  if (from.colSpan > 1) c.colSpan = from.colSpan;
-  if (from.rowSpan > 1) c.rowSpan = from.rowSpan;
-  return c;
+// A replacement cell keeps the old one's place in the grid — its spans, and a
+// pending "line up this row" — so the order the trainer works in never matters.
+function keepShape(from, to) {
+  if (from.colSpan > 1) to.colSpan = from.colSpan;
+  if (from.rowSpan > 1) to.rowSpan = from.rowSpan;
+  if (from._sugWiden) to._sugWiden = from._sugWiden;
+  return to;
 }
+
+function inputCell(from, inputType = 'short_text') {
+  return keepShape(from, { kind: 'input', id: newBoxId(), input_type: inputType });
+}
+
+const emptyCell = from => keepShape(from, { kind: 'static', text: '' });
 
 // The underline in a cell's wording becomes a box inside that wording.
 function underlinedCell(cell) {
@@ -245,21 +283,27 @@ function underlinedCell(cell) {
     last = UNDERLINE_RE.lastIndex;
   }
   if (last < text.length) parts.push({ kind: 'text', text: text.slice(last) });
-  const c = { kind: 'mixed', parts: parts.filter(p => p.kind === 'box' || p.text.trim()) };
-  if (cell.colSpan > 1) c.colSpan = cell.colSpan;
-  if (cell.rowSpan > 1) c.rowSpan = cell.rowSpan;
-  return c;
+  return keepShape(cell, { kind: 'mixed', parts: parts.filter(p => p.kind === 'box' || p.text.trim()) });
 }
 
 // Yes / no on one entry from suggestionsOf. `as` picks long or short answers
 // for a sub-question run.
 export function resolveSuggestion(draft, item, accept, { as = 'long_text' } = {}) {
+  if (item.type === 'widen') {
+    return mapBlock(draft, item.blockRid, b => [mapCells(b, (cell) => {
+      if (!cell._sugWiden) return cell;
+      const { _sugWiden: gap, ...rest } = cell;
+      return accept ? { ...rest, colSpan: (cell.colSpan > 1 ? cell.colSpan : 1) + gap } : rest;
+    })]);
+  }
   if (item.type === 'cells' || item.type === 'lines') {
     const flag = item.type === 'cells' ? '_sug' : '_sugLine';
     return mapBlock(draft, item.blockRid, b => [mapCells(b, (cell) => {
       if (!cell[flag]) return cell;
       if (!accept) { const { [flag]: _drop, ...rest } = cell; return rest; }
-      return item.type === 'cells' ? inputCell(cell) : underlinedCell(withoutFlags(cell));
+      if (item.type === 'cells') return inputCell(cell);
+      const { _sugLine: _l, ...rest } = cell;
+      return underlinedCell(rest);
     })]);
   }
   if (item.type === 'subq') {
@@ -291,12 +335,7 @@ export function cycleCell(draft, blockRid, ri, ci) {
     if (r !== ri || c !== ci) return cell;
     if (cell.kind === 'static' && !cellText(cell)) return inputCell(cell, 'short_text');
     if (cell.kind === 'input' && cell.input_type !== 'long_text') return { ...cell, input_type: 'long_text' };
-    if (cell.kind === 'input') {
-      const s = { kind: 'static', text: '' };
-      if (cell.colSpan > 1) s.colSpan = cell.colSpan;
-      if (cell.rowSpan > 1) s.rowSpan = cell.rowSpan;
-      return s;
-    }
+    if (cell.kind === 'input') return emptyCell(cell);
     return cell;
   })]);
 }
@@ -317,10 +356,7 @@ export function toggleColumn(draft, blockRid, col) {
     return [mapCells(b, (cell, ri, ci) => {
       if (pos[ri][ci] !== col || !canCycle(cell)) return cell;
       if (makeBoxes) return cell.kind === 'static' ? inputCell(cell) : cell;
-      const s = { kind: 'static', text: '' };
-      if (cell.colSpan > 1) s.colSpan = cell.colSpan;
-      if (cell.rowSpan > 1) s.rowSpan = cell.rowSpan;
-      return s;
+      return emptyCell(cell);
     })];
   });
 }

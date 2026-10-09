@@ -24,9 +24,15 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
 
   const items = useMemo(() => suggestionsOf(draft), [draft]);
   const wordBoxes = useMemo(() => countsOf(parsed).boxes, [parsed]);
+  // Per section: answer boxes waiting (the rail's "+n") and whether anything at
+  // all is waiting — a short row is not a box, but it still wants a look.
   const pendingBySection = useMemo(() => {
     const m = {};
-    for (const it of items) m[it.secRid] = (m[it.secRid] || 0) + it.count;
+    for (const it of items) {
+      const e = m[it.secRid] || (m[it.secRid] = { boxes: 0, any: false });
+      e.any = true;
+      if (it.type !== 'widen') e.boxes += it.count;
+    }
     return m;
   }, [items]);
   const totals = useMemo(() => ({
@@ -95,7 +101,7 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
           <div className="ir-rail-h">Sections</div>
           {draft.sections.map((s) => {
             const n = answerBoxCount(s);
-            const p = pendingBySection[s._rid] || 0;
+            const { boxes: p = 0, any = false } = pendingBySection[s._rid] || {};
             return (
               <button
                 type="button"
@@ -103,7 +109,7 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
                 className={`ir-rail-item ${s.kind === 'group' ? 'group' : ''} ${s._rid === section?._rid ? 'on' : ''}`}
                 onClick={() => pick(s._rid)}
               >
-                <span className={`ir-dot ${p ? 'w' : n ? '' : 'z'}`} aria-hidden="true" />
+                <span className={`ir-dot ${any ? 'w' : n ? '' : 'z'}`} aria-hidden="true" />
                 <span className="ir-rail-t">{s.title}</span>
                 <span className="ir-rail-n">{n}{p > 0 && <em> +{p}</em>}</span>
               </button>
@@ -210,6 +216,14 @@ function Issue({ item, onResolve, onGo }) {
       <>
         <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(item, true)}>Make answer box{item.count === 1 ? '' : 'es'}</button>
         <button type="button" className="ir-btn-ghost sm" onClick={() => onResolve(item, false)}>Leave as text</button>
+      </>
+    );
+  } else if (item.type === 'widen') {
+    q = `${item.count} row${item.count === 1 ? '' : 's'} in this table stop${item.count === 1 ? 's' : ''} short of its right edge. Line ${item.count === 1 ? 'it' : 'them'} up?`;
+    actions = (
+      <>
+        <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(item, true)}>Line up rows</button>
+        <button type="button" className="ir-btn-ghost sm" onClick={() => onResolve(item, false)}>Leave as is</button>
       </>
     );
   } else if (item.type === 'lines') {
@@ -327,14 +341,24 @@ function ReviewTable({ block, pictures, onCell, onColumn, pending, onResolve }) 
   const width = rows.reduce((w, row) => Math.max(w, row.reduce((n, c) => n + (c.colSpan > 1 ? c.colSpan : 1), 0)), 0);
   const columnar = cfg.headers && cfg.headers.length === width && width > 1;
   const cellsItem = pending.find(p => p.type === 'cells');
+  const widenItem = pending.find(p => p.type === 'widen');
 
   return (
     <div className="wb-table-wrap ir-table-wrap">
-      {cellsItem && (
+      {(cellsItem || widenItem) && (
         <div className="ir-table-bar">
-          <span>{cellsItem.count} suggested answer box{cellsItem.count === 1 ? '' : 'es'}</span>
-          <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(cellsItem, true)}>Make answer box{cellsItem.count === 1 ? '' : 'es'}</button>
-          <button type="button" className="ir-btn-ghost sm" onClick={() => onResolve(cellsItem, false)}>Leave as text</button>
+          <span>
+            {cellsItem && `${cellsItem.count} suggested answer box${cellsItem.count === 1 ? '' : 'es'}`}
+            {cellsItem && widenItem && ' · '}
+            {widenItem && `${widenItem.count} short row${widenItem.count === 1 ? '' : 's'}`}
+          </span>
+          {cellsItem && <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(cellsItem, true)}>Make answer box{cellsItem.count === 1 ? '' : 'es'}</button>}
+          {cellsItem && <button type="button" className="ir-btn-ghost sm" onClick={() => onResolve(cellsItem, false)}>Leave as text</button>}
+          {widenItem && (
+            <button type="button" className="ir-btn-gold sm" onClick={() => onResolve(widenItem, true)} data-tip="Widen the last cell of each short row to the table's right edge">
+              Line up rows
+            </button>
+          )}
         </div>
       )}
       <table className="wb-table ir-table">
@@ -362,7 +386,7 @@ function ReviewTable({ block, pictures, onCell, onColumn, pending, onResolve }) 
                   key={ci}
                   colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
                   rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
-                  className={canCycle(cell) ? 'ir-td-click' : ''}
+                  className={`${canCycle(cell) ? 'ir-td-click' : ''}${cell._sugWiden ? ' ir-td-short' : ''}`}
                   data-col={pos[ri]?.[ci]}
                 >
                   <ReviewCell cell={cell} pictures={pictures} onClick={canCycle(cell) ? () => onCell(ri, ci) : null} />

@@ -147,6 +147,8 @@
 .ir-table td { vertical-align: middle; }
 .ir-table th { position: relative; }
 .ir-td-click { padding: 0.3rem 0.4rem; }
+/* The last cell of a row that stops short of the right edge — "Line up rows". */
+.ir-table td.ir-td-short { box-shadow: inset -3px 0 0 #d69e2e; }
 .ir-box {
   display: block; width: 100%; box-sizing: border-box; min-height: 26px; padding: 0;
   border-radius: 5px; border: 1.5px solid #9fb3c8; background: #f4f8fc; cursor: pointer;
