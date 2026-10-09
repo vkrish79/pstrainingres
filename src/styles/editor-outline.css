@@ -11,9 +11,18 @@
 .editor-layout.with-outline.with-preview {
   grid-template-columns: 15rem minmax(0, 1.25fr) minmax(0, 1fr);
 }
+/* The preview pane also sticks at 1rem, under the app bar; here it clears it. */
+.editor-layout.with-outline .preview-pane {
+  top: calc(var(--topbar-h, 61px) + 1rem);
+  max-height: calc(100vh - var(--topbar-h, 61px) - 2rem);
+}
+
+/* Below 1100px three columns do not fit: the preview goes, and so does the
+   header button that would claim to hide or show it (wbe-preview-toggle). */
 @media (max-width: 1100px) {
   .editor-layout.with-outline.with-preview { grid-template-columns: 13rem minmax(0, 1fr); }
   .editor-layout.with-outline.with-preview .preview-pane { display: none; }
+  .wbe-actions .wbe-preview-toggle { display: none; }
 }
 @media (max-width: 760px) {
   .editor-layout.with-outline,
@@ -23,7 +32,8 @@
 
 .wo {
   position: sticky;
-  top: 1rem;
+  /* Clear of the sticky app bar, or the find box slides under it on scroll. */
+  top: calc(var(--topbar-h, 61px) + 1rem);
   max-height: calc(100vh - var(--topbar-h, 61px) - 2rem);
   display: flex;
   flex-direction: column;
@@ -105,11 +115,12 @@
 
 /* One-exercise view: where you are, and Prev / Next. */
 .editor-pager {
-  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap;
   margin: 0 0 0.75rem;
   font-size: 0.8rem; color: var(--muted);
 }
-.editor-pager-group { font-weight: 700; color: var(--gold-dark); letter-spacing: 0.04em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.editor-pager-pos { margin-left: auto; font-variant-numeric: tabular-nums; }
+.editor-pager-group { flex: 1 1 auto; font-weight: 700; color: var(--gold-dark); letter-spacing: 0.04em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-pager-pos { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.editor-pager button { flex: none; }
 .editor-pager-pos b { color: var(--text); }
 .editor-pager button { font-size: 0.78rem; padding: 0.25rem 0.65rem; }

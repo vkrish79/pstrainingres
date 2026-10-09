@@ -344,7 +344,7 @@ export default function WorkbookEditorPage() {
               <span className="wbe-prep-dot" aria-hidden />
               {prepCount == null ? 'Prep' : `Prep · ${prepCount} of ${exercises.length}`}
             </button>
-            <button type="button" className="wbe-chip" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>
+            <button type="button" className="wbe-chip wbe-preview-toggle" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>
               {showPreview ? '◧ Hide preview' : '◨ Show preview'}
             </button>
             <KebabMenu
