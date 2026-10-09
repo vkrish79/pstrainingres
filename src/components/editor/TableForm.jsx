@@ -196,7 +196,9 @@ export default function TableForm({ block, onSave, onCancel }) {
                     key={ci}
                     colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
                     rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
-                    className={`${isSel(ri + off, ci) ? 'tw-sel' : ''}${pastEdge(ri + off, ci) ? ' tw-past' : ''}`}
+                    // Tinted by kind so the grid reads like the participant's
+                    // table: plain cells are wording, green ones take an answer.
+                    className={`tf-kind-${cell.kind}${isSel(ri + off, ci) ? ' tw-sel' : ''}${pastEdge(ri + off, ci) ? ' tw-past' : ''}`}
                     {...cellAnchor(ri + off, ci)}
                   >
                     <div className="cell-stack">

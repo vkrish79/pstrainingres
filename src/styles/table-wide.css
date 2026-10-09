@@ -1,0 +1,62 @@
+/* Table editor opened wide (TableWidePanel.jsx) and the cell-kind tints in
+   TableForm. The tints are background only, so the width tools' outline
+   (tw-sel) and their !important past-the-edge red (tw-past) still show. */
+
+.tblw-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(16, 32, 50, 0.42);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3vh 1.25rem;
+  overflow-y: auto;
+}
+.tblw {
+  width: min(1200px, 100%);
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(16, 32, 50, 0.28);
+  display: flex;
+  flex-direction: column;
+  max-height: 94vh;
+}
+.tblw-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.tblw-kind {
+  width: 1.6rem; height: 1.5rem; border-radius: 5px;
+  display: inline-grid; place-items: center;
+  background: #efe9f8; color: #6b4fa0; font-size: 0.95rem;
+}
+.tblw-title { font-weight: 700; color: var(--midnight); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 32rem; }
+.tblw-legend { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+.tblw-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.tblw-sw { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1px solid var(--border); }
+.tblw-sw--text { background: #fff; }
+.tblw-sw--input { background: #e7f3e9; border-color: #b9dcbf; }
+.tblw-sw--mixed { background: #f1f7ec; border-color: #cfe3c4; }
+.tblw-close,
+.tblw-close:hover:where(:not(:disabled)) {
+  width: 2rem; height: 2rem; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--card); color: var(--text);
+  font-size: 1.2rem; line-height: 1; padding: 0;
+}
+.tblw-close:hover:where(:not(:disabled)) { background: var(--bg); border-color: var(--gold); }
+.tblw-body { overflow-y: auto; padding: 0.25rem 1rem 1rem; }
+.tblw-body .block-form { border: 0; padding: 0; margin: 0; background: none; }
+
+/* Cell kinds, in the panel and anywhere TableForm appears. */
+.table-form-grid td.tf-kind-input { background: #e7f3e9; }
+.table-form-grid td.tf-kind-mixed { background: #f1f7ec; }
+.table-form-grid td.tf-kind-image { background: #f6f3fb; }
+
+/* The width tool (TableWidthTools FloatingWidth) is portalled to <body> at
+   z-index 60; inside the panel it has to sit above the backdrop. */
+body.tblw-open .tw-float { z-index: 210; }

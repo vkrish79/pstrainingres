@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import TableForm from './TableForm.jsx';
+import RichProseEditor from './RichProseEditor.jsx';
 import FieldForm from './FieldForm.jsx';
 import { FillBlankForm, ReorderForm, CardSortForm, MatchPairsForm } from './InteractiveForms.jsx';
 
@@ -33,28 +33,13 @@ export default function BlockForm({ block, onSave, onCancel, answerKey = undefin
   return null;
 }
 
+// Typed as text, with the raw HTML one click away (RichProseEditor).
 function ProseForm({ block, onSave, onCancel }) {
-  const [html, setHtml] = useState(block.config?.html || '');
-  const [busy, setBusy] = useState(false);
-  async function save() {
-    setBusy(true);
-    await onSave({ config: { ...block.config, html } });
-    setBusy(false);
-  }
   return (
-    <div className="block-form">
-      <label className="form-label">HTML content</label>
-      <textarea
-        className="form-textarea"
-        rows="6"
-        value={html}
-        onChange={e => setHtml(e.target.value)}
-      />
-      <p className="hint">Supports basic HTML — <code>&lt;p&gt;</code>, <code>&lt;h3&gt;</code>, <code>&lt;h4&gt;</code>, <code>&lt;ul&gt;</code>/<code>&lt;li&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;em&gt;</code>.</p>
-      <div className="form-actions">
-        <button onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
-        <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
-      </div>
-    </div>
+    <RichProseEditor
+      html={block.config?.html || ''}
+      onSave={html => onSave({ config: { ...block.config, html } })}
+      onCancel={onCancel}
+    />
   );
 }

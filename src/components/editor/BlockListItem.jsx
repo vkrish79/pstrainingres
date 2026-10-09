@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import BlockForm from './BlockForm.jsx';
+import TableWidePanel from './TableWidePanel.jsx';
 import { labelOf } from '../../lib/blockHelpers.js';
 import { mixedWording } from '../../lib/tableCells.js';
 
@@ -62,8 +63,10 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
         </span>
         <span
           className={`block-preview${isHeadingProse(block) ? ' is-heading' : ''}`}
-          onClick={() => onLocate?.(block.id)}
-          data-tip="Show in preview"
+          // Clicking the wording opens the block, the way clicking text in a
+          // document puts you in it — and still finds it in the preview.
+          onClick={() => { onLocate?.(block.id); if (canEdit) setEditing(true); }}
+          data-tip={canEdit ? 'Edit' : 'Show in preview'}
           style={{ cursor: 'pointer' }}
         >
           {previewOf(block)}
@@ -164,7 +167,21 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
           </div>
         )}
       </div>
-      {canEdit && editing && (
+      {/* A table opens wide, over the page: its grid of cells, kinds and
+          widths does not fit the editor column, where the fifth column of a
+          real itinerary table fell off the edge. */}
+      {canEdit && editing && block.block_type === 'table' && (
+        <TableWidePanel title={previewOf(block)} onClose={() => setEditing(false)}>
+          <BlockForm
+            block={block}
+            onSave={handleSave}
+            onCancel={() => setEditing(false)}
+            answerKey={answerKey}
+            canSetAnswer={canSetAnswer}
+          />
+        </TableWidePanel>
+      )}
+      {canEdit && editing && block.block_type !== 'table' && (
         <BlockForm
           block={block}
           onSave={handleSave}

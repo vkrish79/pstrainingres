@@ -1,0 +1,75 @@
+/* Rich-text prose editor (RichProseEditor.jsx). Toolbar buttons restate
+   background AND colour on hover: the global button:hover in index.css fills
+   buttons midnight otherwise. */
+
+.rte .rte-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--bg);
+}
+.rte-btn,
+.rte-btn:hover:where(:not(:disabled)) {
+  min-width: 1.9rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1;
+}
+.rte-btn:hover:where(:not(:disabled)) { background: var(--card); border-color: var(--border); }
+.rte-btn.on,
+.rte-btn.on:hover:where(:not(:disabled)) { background: #f5efe0; border-color: var(--gold); color: var(--midnight); }
+.rte-sep { width: 1px; align-self: stretch; margin: 4px 3px; background: var(--border); }
+.rte-spacer { flex: 1; }
+.rte-mode { font-family: ui-monospace, Consolas, monospace; font-size: 0.74rem; }
+
+.rte .rte-area {
+  min-height: 5.5rem;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+  background: var(--card);
+  outline: none;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  cursor: text;
+}
+.rte .rte-area:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.15); }
+.rte .rte-area > :first-child { margin-top: 0; }
+.rte .rte-area > :last-child { margin-bottom: 0; }
+.rte .rte-area p { margin: 0 0 0.55rem; }
+.rte .rte-area h3 { font-size: 1.05rem; margin: 0.4rem 0 0.4rem; color: var(--midnight); }
+.rte .rte-area h4 { font-size: 0.95rem; margin: 0.4rem 0 0.35rem; color: var(--midnight); }
+.rte .rte-area ul, .rte .rte-area ol { margin: 0 0 0.55rem 1.3rem; padding: 0; }
+.rte .rte-area img { max-width: 100%; height: auto; border-radius: 4px; }
+
+.rte .rte-source {
+  border-radius: 0 0 6px 6px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.82rem;
+}
+.rte-note {
+  margin: 0.5rem 0 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  background: #f5efe0;
+  color: #6a5528;
+  font-size: 0.8rem;
+}
+.rte-foot { align-items: center; flex-wrap: wrap; }
+.rte-hint { font-size: 0.75rem; color: var(--muted); margin-left: 0.25rem; }
+.rte-bar-note { font-size: 0.75rem; color: var(--muted); padding: 0 0.4rem; line-height: 1.75rem; }
+.rte-foot .rte-mode { margin-left: auto; order: 3; }
+.rte-foot .rte-mode { border-color: var(--border); }
