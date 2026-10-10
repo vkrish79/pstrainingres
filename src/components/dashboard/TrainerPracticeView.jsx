@@ -8,6 +8,7 @@ import { progressOf } from '../../lib/blockHelpers.js';
 import { useJustCompleted } from '../../hooks/useJustCompleted.js';
 import Block from '../blocks/Block.jsx';
 import { EditableBlock } from '../editor/ContentEditor.jsx';
+import { EditToastProvider } from '../editor/DirectEdit.jsx';
 import PrepDrawer from '../participant/PrepDrawer.jsx';
 import PrepCallout from '../PrepCallout.jsx';
 import { useSessionPrepLayout } from '../../hooks/useSessionPrepLayout.js';
@@ -437,8 +438,9 @@ export default function TrainerPracticeView({
 
         <div className="exresp-main">
           {editMode && (
-            <p className="ce-hint">✎ Editing content — click any text to change its wording. Answer boxes and the layout are locked, and edits show to enrolled participants live. Press <strong>Done editing</strong> when finished.</p>
+            <p className="ce-hint">✎ Editing content — click any wording and type. It saves when you click away and participants see it straight away; Undo appears for a few seconds, Esc throws an edit away. Answer boxes and the layout are fixed. Press <strong>Done editing</strong> when finished.</p>
           )}
+          <EditToastProvider>
           {visibleSections.map(sec => (
             <section key={sec.id} className={`wb-section${sec.kind === 'group' ? ' wb-section-group' : ''}${justCompleted.has(sec.id) ? ' wb-section--just-complete' : ''}`}>
               {sec.kind === 'group' ? <h1 className="wb-section-group-title">{sec.title}</h1> : (
@@ -466,6 +468,7 @@ export default function TrainerPracticeView({
                 )))}
             </section>
           ))}
+          </EditToastProvider>
         </div>
       </div>
 

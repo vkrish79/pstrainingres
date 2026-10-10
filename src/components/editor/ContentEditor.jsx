@@ -1,19 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import '../../styles/workbook.css';
 import '../../styles/editor.css';
-import { boxesOf, mixedToText, mixedFromText, newBoxId, BOX_MARKER } from '../../lib/tableCells.js';
 import { useSignedWorkbookHtml } from '../../lib/workbookImages.js';
 import { ImageCell } from '../blocks/WbImage.jsx';
+import RichProseEditor from './RichProseEditor.jsx';
+import { EditToastProvider, InlineProse, InlineText } from './DirectEdit.jsx';
+import { canEditAsText } from '../../lib/proseHtml.js';
 
-// Inline content-only editor for SESSION-level workbook edits (is_template=false).
-// Renders the workbook like the participant view, but the *authored* text —
-// prose, field labels, option wording, table captions/headers/static cells — is
-// click-to-edit in place. Answer fields and all structure (rows, columns,
-// blocks, sections) are locked. Saves go through onSaveBlock(blockId, { config }).
+// Content-only editor for SESSION-level workbook edits (is_template=false).
+// Renders the workbook like the participant view, and the *authored* text —
+// prose, field labels, option wording, table captions/headers/text cells — is
+// typed into where it stands (DirectEdit.jsx). Answer fields and all structure
+// (rows, columns, blocks, sections) are locked. Saves go through
+// onSaveBlock(blockId, { config }), and each one is live for the class.
 export default function ContentEditor({ sections, blocks, onSaveBlock }) {
   return (
+    <EditToastProvider>
     <div className="ce-doc">
-      <p className="ce-hint">✎ Click any text to edit its wording. Answer boxes and the layout are locked — to change structure, edit the template.</p>
+      <p className="ce-hint">✎ Click any wording and type. It saves when you click away and the class sees it straight away; Undo appears for a few seconds, Esc throws an edit away. Answer boxes and the layout are fixed here — change those on the master.</p>
       {sections.map(sec => {
         const secBlocks = blocks
           .filter(b => b.section_id === sec.id)
@@ -32,6 +36,7 @@ export default function ContentEditor({ sections, blocks, onSaveBlock }) {
         );
       })}
     </div>
+    </EditToastProvider>
   );
 }
 
@@ -45,121 +50,47 @@ export function EditableBlock({ block, onSave }) {
   return null;
 }
 
-// Click-to-edit text. Single-line by default; multiline renders a textarea.
-// Save is derived from the parent's current config (onSave receives the new
-// string only), so there's no local-copy divergence. An optimistic display
-// avoids the brief stale flash while the save round-trips and props refresh.
-function EditableText({ value, onSave, multiline = false, placeholder = '(empty)', className = '', accept }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [optimistic, setOptimistic] = useState(null);
-  const ref = useRef(null);
-
-  const current = value ?? '';
-  const shown = optimistic !== null ? optimistic : current;
-
-  useEffect(() => {
-    if (optimistic !== null && current === optimistic) setOptimistic(null);
-  }, [current, optimistic]);
-
-  useEffect(() => {
-    if (editing && ref.current) {
-      const el = ref.current;
-      el.focus();
-      const len = el.value.length;
-      el.setSelectionRange(len, len);
-    }
-  }, [editing]);
-
-  function start() { setDraft(current); setEditing(true); }
-  function commit() {
-    setEditing(false);
-    // accept() can turn an edit away; the text then simply reverts.
-    if (draft !== current && (!accept || accept(draft))) { setOptimistic(draft); onSave(draft); }
-  }
-  function cancel() { setEditing(false); }
-
-  if (editing) {
-    const common = {
-      ref,
-      className: `ce-input ${className}`,
-      value: draft,
-      onChange: e => setDraft(e.target.value),
-      onBlur: commit,
-    };
-    return multiline ? (
-      <textarea
-        {...common}
-        rows={Math.max(2, draft.split('\n').length)}
-        onKeyDown={e => { if (e.key === 'Escape') cancel(); }}
-      />
-    ) : (
-      <input
-        {...common}
-        type="text"
-        onKeyDown={e => {
-          if (e.key === 'Enter') { e.preventDefault(); commit(); }
-          if (e.key === 'Escape') cancel();
-        }}
-      />
-    );
-  }
-
-  return (
-    <span
-      className={`ce-editable ${shown === '' ? 'ce-empty' : ''} ${className}`}
-      tabIndex={0}
-      role="button"
-      title="Click to edit"
-      onClick={start}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(); } }}
-    >
-      {shown === '' ? placeholder : shown}
-    </span>
-  );
-}
-
-// Prose stores HTML, so "inline on the document" gives way to a click-to-reveal
-// raw-HTML textarea (contentEditable round-trips mangle the markup). The same
-// tags the editor hint documents apply.
+// Prose stores HTML and is typed into where it stands (InlineProse), saved
+// from the same allowlist as the master editor's text editor. A block that
+// would not come back unchanged — a link, a styled paragraph — is the one
+// exception: clicking it opens the editing panel on its HTML tab, so editing
+// one sentence can never strip formatting nobody saw.
 function ProseEdit({ block, onSave }) {
   const html = block.config?.html || '';
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  // Display only: the textarea below edits the raw HTML, so a signed URL is
-  // never saved into the block.
-  const shown = useSignedWorkbookHtml(html);
-
-  function start() { setDraft(html); setEditing(true); }
-  function commit() {
-    setEditing(false);
-    if (draft !== html) onSave({ ...block.config, html: draft });
+  if (canEditAsText(html)) {
+    return <InlineProse html={html} onSave={next => onSave({ ...block.config, html: next })} />;
   }
+  return <ProsePanelEdit block={block} onSave={onSave} />;
+}
+
+function ProsePanelEdit({ block, onSave }) {
+  const html = block.config?.html || '';
+  const [editing, setEditing] = useState(false);
+  // Display only: the signed URLs never reach the saved block.
+  const shown = useSignedWorkbookHtml(html);
 
   if (editing) {
     return (
       <div className="ce-prose-edit">
-        <textarea
-          className="ce-input"
-          autoFocus
-          rows={Math.max(4, draft.split('\n').length + 1)}
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={e => { if (e.key === 'Escape') setEditing(false); }}
+        <RichProseEditor
+          html={html}
+          onSave={async (next) => {
+            if (next !== html) await onSave({ ...block.config, html: next });
+            setEditing(false);
+          }}
+          onCancel={() => setEditing(false)}
         />
-        <p className="hint">Editing raw HTML — <code>&lt;p&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;ul&gt;</code>/<code>&lt;li&gt;</code>. Esc to cancel.</p>
       </div>
     );
   }
   return (
     <div
       className="wb-prose ce-editable ce-prose"
-      title="Click to edit"
+      data-tip="This text has formatting that is edited as HTML — click to open it"
       tabIndex={0}
       role="button"
-      onClick={start}
-      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); start(); } }}
+      onClick={() => setEditing(true)}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }}
       dangerouslySetInnerHTML={{ __html: shown || '<p class="ce-empty">(empty — click to edit)</p>' }}
     />
   );
@@ -175,8 +106,8 @@ function FieldEdit({ block, onSave }) {
   if (input_type === 'short_text' || input_type === 'long_text') {
     return (
       <div className="wb-field">
-        <div className="wb-label"><EditableText value={label} onSave={saveLabel} placeholder="(label)" /></div>
-        <div className="wb-readonly empty ce-locked" title="Answer field — filled by participants">—</div>
+        <div className="wb-label"><InlineText value={label} onSave={saveLabel} placeholder="(label)" label="Question" /></div>
+        <div className="wb-readonly empty ce-locked" data-tip={LOCKED_TIP}>—</div>
       </div>
     );
   }
@@ -185,11 +116,11 @@ function FieldEdit({ block, onSave }) {
   return (
     <div className="wb-field">
       <fieldset className="wb-fieldset">
-        <legend className="wb-label"><EditableText value={label} onSave={saveLabel} placeholder="(label)" /></legend>
+        <legend className="wb-label"><InlineText value={label} onSave={saveLabel} placeholder="(label)" label="Question" /></legend>
         {(options || []).map((opt, i) => (
           <div key={i} className="wb-choice ce-choice">
             <input type={input_type === 'choice' ? 'radio' : 'checkbox'} disabled className="ce-locked-control" />
-            <span><EditableText value={opt} onSave={v => saveOpt(i, v)} placeholder="(option)" /></span>
+            <span><InlineText value={opt} onSave={v => saveOpt(i, v)} placeholder="(option)" label="Option" /></span>
           </div>
         ))}
       </fieldset>
@@ -212,21 +143,21 @@ function TableEdit({ block, onSave }) {
     ...cfg,
     rows: rows.map((row, r) => (r === ri ? row.map((cell, c) => (c === ci ? { ...cell, text: v } : cell)) : row)),
   });
-  // Wording around answer boxes. The boxes themselves are locked like every
-  // other answer field: an edit that adds or drops a {{}} is not saved, so no
-  // participant's answer is ever orphaned from its box.
-  const sameBoxes = (ri, ci) => v => boxesOf(mixedFromText(v, rows[ri][ci], newBoxId)).length === boxesOf(rows[ri][ci]).length;
-  const saveMixed = (ri, ci, v) => {
-    const cell = rows[ri][ci];
-    const next = mixedFromText(v, cell, newBoxId);
-    onSave({ ...cfg, rows: rows.map((row, r) => (r === ri ? row.map((c, k) => (k === ci ? next : c)) : row)) });
-  };
+  // Wording around answer boxes. Each run of text between boxes is edited on
+  // its own and the boxes are drawn as boxes, fixed, so an edit can never add
+  // or drop one and orphan a participant's answer from it.
+  const saveMixedPart = (ri, ci, k, v) => onSave({
+    ...cfg,
+    rows: rows.map((row, r) => (r === ri ? row.map((c, j) => (j === ci
+      ? { ...c, parts: (c.parts || []).map((p, i) => (i === k ? { ...p, text: v } : p)) }
+      : c)) : row)),
+  });
 
   return (
     <div className="wb-table-wrap">
       {cfg.caption ? (
         <div className="wb-table-caption">
-          <EditableText value={cfg.caption} onSave={saveCaption} placeholder="(caption)" />
+          <InlineText value={cfg.caption} onSave={saveCaption} placeholder="(caption)" label="Caption" />
         </div>
       ) : null}
       <table className="wb-table">
@@ -234,7 +165,7 @@ function TableEdit({ block, onSave }) {
           <thead>
             <tr>
               {headers.map((h, i) => (
-                <th key={i}><EditableText value={h} onSave={v => saveHeader(i, v)} placeholder="(header)" /></th>
+                <th key={i}><InlineText value={h} onSave={v => saveHeader(i, v)} placeholder="(header)" label="Column heading" /></th>
               ))}
             </tr>
           </thead>
@@ -245,20 +176,24 @@ function TableEdit({ block, onSave }) {
               {row.map((cell, ci) => (
                 <td
                   key={ci}
-                  className={cell.kind === 'input' ? 'wb-cell-input' : 'wb-cell-static'}
+                  className={cell.kind === 'input' ? 'wb-cell-input' : cell.kind === 'mixed' ? 'wb-cell-static wb-cell-mixed' : 'wb-cell-static'}
                   colSpan={cell.colSpan > 1 ? cell.colSpan : undefined}
                   rowSpan={cell.rowSpan > 1 ? cell.rowSpan : undefined}
                 >
                   {cell.kind === 'static' ? (
-                    <EditableText value={cell.text || ''} onSave={v => saveCell(ri, ci, v)} placeholder="(empty)" multiline />
+                    <InlineText value={cell.text || ''} onSave={v => saveCell(ri, ci, v)} placeholder="(empty)" multiline label="Table text" />
                   ) : cell.kind === 'image' ? (
                     <ImageCell cell={cell} />
                   ) : cell.kind === 'mixed' ? (
-                    <span data-tip={`Each ${BOX_MARKER} is an answer box — keep them where they are`}>
-                      <EditableText value={mixedToText(cell)} onSave={v => saveMixed(ri, ci, v)} accept={sameBoxes(ri, ci)} placeholder="(empty)" multiline />
+                    <span className="de-mixed">
+                      {(cell.parts || []).map((part, k) => (part.kind === 'box' ? (
+                        <span key={k} className="de-box" data-tip={LOCKED_TIP} />
+                      ) : (
+                        <InlineText key={k} value={part.text || ''} onSave={v => saveMixedPart(ri, ci, k, v)} label="Table text" />
+                      )))}
                     </span>
                   ) : (
-                    <span className="wb-readonly inline empty ce-locked" title="Answer field — filled by participants">—</span>
+                    <span className="de-box de-box--wide" data-tip={LOCKED_TIP} />
                   )}
                 </td>
               ))}
@@ -269,3 +204,5 @@ function TableEdit({ block, onSave }) {
     </div>
   );
 }
+
+const LOCKED_TIP = 'Answer box — fixed in a class copy. Change it on the master.';

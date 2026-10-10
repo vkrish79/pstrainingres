@@ -1,0 +1,100 @@
+/* Direct editing in a class's workbook copy (DirectEdit.jsx). The page should
+   read like the participant's: nothing is underlined at rest, a soft outline on
+   hover says what can be typed into, and a gold one says where you are typing.
+   Buttons restate background AND colour on hover: the global button:hover in
+   index.css fills buttons midnight otherwise. */
+
+.de-text,
+.de-rich {
+  border-radius: 4px;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  cursor: text;
+  transition: outline-color 0.12s ease, background-color 0.12s ease;
+}
+/* Kept as typed: trailing spaces before an answer box, line breaks in a cell. */
+.de-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.de-text:hover,
+.de-rich:hover { outline-color: #d9cfb5; background: #fdfaf2; }
+.de-text:focus,
+.de-rich:focus { outline: 2px solid var(--gold); background: #fff; }
+.de-text:empty::before,
+.de-rich:empty::before { content: attr(data-placeholder); color: var(--muted); font-style: italic; }
+.de-rich { display: block; padding: 0.15rem 0.3rem; margin: 0 -0.3rem; min-height: 1.5em; }
+
+/* Saved in this visit: a short gold mark at the left edge. These lines will
+   turn up for review on the master. */
+.de-edited { box-shadow: inset 3px 0 0 var(--gold); padding-left: 0.35rem; }
+.de-text.de-edited { padding-left: 0.3rem; }
+
+/* Answer boxes: drawn as boxes, fixed. */
+.de-mixed { display: inline; }
+.de-box {
+  display: inline-block;
+  min-width: 6rem;
+  height: 1.7rem;
+  vertical-align: middle;
+  margin: 0 0.15rem;
+  border: 1px solid #d9d6cf;
+  border-radius: 4px;
+  background: #fff;
+  cursor: not-allowed;
+}
+.de-box--wide { display: block; width: 100%; margin: 0; }
+
+/* The bar over a selection in prose. */
+.de-selbar {
+  position: fixed;
+  z-index: 300;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 7px;
+  background: var(--midnight);
+  box-shadow: 0 6px 18px rgba(20, 40, 60, 0.25);
+}
+.de-selbar button,
+.de-selbar button:hover:where(:not(:disabled)) {
+  min-width: 1.75rem;
+  height: 1.6rem;
+  padding: 0 0.45rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+.de-selbar button:hover:where(:not(:disabled)) { background: rgba(255, 255, 255, 0.16); }
+
+/* "Saved · live for the class  Undo" */
+.de-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.6rem 0.75rem 0.6rem 1rem;
+  border-radius: 10px;
+  background: #1f2b38;
+  color: #fff;
+  font-size: 0.85rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
+}
+.de-toast button,
+.de-toast button:hover:where(:not(:disabled)) {
+  border: 0;
+  background: none;
+  color: #f0d48f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.15rem 0.35rem;
+}
+.de-toast button:hover:where(:not(:disabled)) { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .de-text, .de-rich { transition: none; }
+}
