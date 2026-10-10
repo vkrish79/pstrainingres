@@ -523,7 +523,7 @@
   .qlive-plinth { transition: none; }
 }
 
-/* ── Music style picker ─────────────────────────────────────────────────── */
+/* ── Music track picker ─────────────────────────────────────────────────── */
 
 .qlive-music-pick { display: inline-flex; align-items: center; }
 .qlive-music-pick select {
@@ -543,13 +543,12 @@
 /* The list itself is drawn by the OS, so its options need a readable ground of
    their own — inheriting the transparent background gives white-on-white. */
 .qlive-music-pick option { background: #16304d; color: #fff; }
-.qlive-music-pick optgroup { background: #16304d; color: #c9bea6; font-style: normal; }
-/* A recorded track downloading, or the fallback when it could not. */
+/* A track downloading, or the note when it could not load. */
 .qlive-music-note { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
 .qlive-music-note.is-failed { color: #f0b37a; }
 
 /* Visible to a screen reader, not to the room. The picker sits in a bar of
-   two-word buttons and a visible "Music style" label would crowd it. */
+   two-word buttons and a visible "Music track" label would crowd it. */
 .qlive-vis-hidden {
   position: absolute;
   width: 1px; height: 1px;

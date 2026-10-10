@@ -1,8 +1,9 @@
 // Live Quiz — the sound of the clock.
 //
-// SYNTHESISED, not files. Four styles would be four downloads and four
-// licensing questions, for something that has to loop under an arbitrary timer
-// anyway. Web Audio gives beds that follow the clock exactly and weigh nothing.
+// RECORDED TRACKS. The music under a question is one of three licensed
+// recordings (RECORDED, below). Until 2026-10 there were four synthesised
+// styles instead — beds built note by note that sped up with the clock; they
+// were retired in favour of the recordings, and only their short cues remain.
 //
 // PROJECTOR ONLY. Sixteen handsets playing the same loop a few hundred
 // milliseconds apart is not sixteen times better, it is a mess — the room has
@@ -17,13 +18,10 @@
 // between. Correct and unhearable is the same as broken, which is why the
 // harness now measures the SIGNAL rather than counting calls.
 
-// THE ONE EXCEPTION TO 'SYNTHESISED, NOT FILES', and worth stating why.
+// THE DRUM ROLL is a recording too, but a separate one, and for a different
+// reason: it is the podium's build, not music under a question.
 //
-// That rule was written about the four looping BEDS: four downloads, four
-// licensing questions, for music that has to stretch to fit an arbitrary
-// timer. All of that still holds.
-//
-// A drum roll is none of those things. It is one fixed-length one-shot, and
+// A drum roll is a sound synthesis is genuinely bad at. It is one fixed-length one-shot, and
 // it is the one sound here that synthesis is genuinely bad at: a roll is
 // forty snare strokes a second whose character comes from the room around a
 // real drum, and every attempt at it came out as a rattle, a hiss, or a
@@ -41,33 +39,22 @@ const THEME_KEY = 'quiz.music.theme';
 const MASTER = 0.55;
 const ROOT = 196.0; // G3
 
-// Each style keeps its own intervals below. They are all drawn from a minor
-// pentatonic or its relatives — five notes that cannot form a bad interval
-// against each other, so a repeating line stays listenable for a whole quiz
-// without anyone having composed anything.
+// The cues' notes are drawn from a minor pentatonic or its relatives: five
+// notes that cannot form a bad interval against each other.
 const hz = (semi, oct = 0) => ROOT * Math.pow(2, semi / 12) * Math.pow(2, oct);
 
-// FOUR STYLES, ALL REPLACED. The first set were chiptune and game-show — a
-// handheld console and a 1980s studio audience — which is charming for about
-// nine seconds and then tells a room of adults that this is not for them.
-// These are built from the vocabulary of music people actually hear now:
-// four-on-the-floor, sidechained pads, filtered stabs, sub and risers.
+// The trainer's choices on the projector. Keys of retired styles ('drive',
+// 'deep', …) still sit in some trainers' localStorage; the check in
+// createQuizMusic drops them on the default rather than into silence.
 export const QUIZ_MUSIC_THEMES = [
-  { key: 'drive', label: 'Neon drive', group: 'builtin' },
-  { key: 'stadium', label: 'Stadium', group: 'builtin' },
-  { key: 'cinematic', label: 'Cinematic', group: 'builtin' },
-  { key: 'deep', label: 'Deep focus', group: 'builtin' },
   { key: 'rec-countdown', label: 'Countdown', group: 'recorded', note: 'ends on zero' },
   { key: 'rec-news', label: 'News desk', group: 'recorded', note: 'loops' },
   { key: 'rec-thinking', label: 'Thinking time', group: 'recorded', note: 'loops' },
 ];
 
-// RECORDED TRACKS — the second exception to 'synthesised, not files'.
-//
-// The objection to files was that a bed has to stretch to fit an arbitrary
-// timer and get tenser as it runs out. A recording can do neither, so these
-// are offered BESIDE the four built-in styles, not instead of them, and each
-// is fitted to the clock in the one way its shape allows:
+// RECORDED TRACKS. A recording cannot stretch to an arbitrary timer or get
+// tenser as it runs out, so each is fitted to the clock in the one way its
+// shape allows:
 //
 //   'end'  — Countdown is ~88s of music that swells and fades. It is started
 //            late, so its ending lands as the clock reaches zero. A question
@@ -77,29 +64,29 @@ export const QUIZ_MUSIC_THEMES = [
 //            room does not hear the same opening ten times a quiz) and wrap
 //            round with a crossfade, because neither file joins end to start.
 //
-// What a recording cannot do itself is borrowed from COMPANION: the count-in,
-// the reveal cue, the time's-up landing, the podium fanfare, and a soft tick
-// over the last five seconds so the end of a question still feels like one.
+// What a recording cannot do itself comes from CUES (below): the count-in, the
+// reveal cue, the time's-up landing, the podium fanfare, and a soft tick over
+// the last five seconds so the end of a question still feels like one.
 //
 // Files live in public/sounds/quiz/ (see the README there). Each downloads only
-// when picked. Until it has, or if it cannot, the companion style plays: a
-// missing file is a quieter quiz, never a broken one.
+// when picked — normally at "Start the quiz", during the count-in. A question
+// that opens before its track has arrived, or whose track cannot load, runs
+// with the tick alone: a quieter quiz, never a broken one.
 const RECORDED = {
-  // level: against MASTER, set by measurement (.verify/quiz-tracks.mjs) so each
-  // sits between Deep focus and Neon drive. Countdown is mastered hotter than
-  // the two loops, so it is turned down further.
+  // level: against MASTER, set by measurement (.verify/quiz-tracks.mjs) so the
+  // three sit at a similar loudness through a room's speakers. Countdown is
+  // mastered hotter than the two loops, so it is turned down further.
   'rec-countdown': { url: '/sounds/quiz/countdown.mp3', mode: 'end', end: 88, middle: [10, 80], preview: 60, level: 0.5 },
   'rec-news': { url: '/sounds/quiz/news-desk.mp3', mode: 'loop', preview: 4, level: 0.75 },
   'rec-thinking': { url: '/sounds/quiz/thinking-time.mp3', mode: 'loop', preview: 4, level: 0.75 },
 };
-const COMPANION = 'deep';
 const XFADE = 1.5;        // seconds, every join between two parts of a track
 
 export function isRecordedTheme(key) {
   return !!RECORDED[key];
 }
 
-const DEFAULT_THEME = 'drive';
+const DEFAULT_THEME = 'rec-countdown';
 
 function readStore(key, fallback) {
   // Storage throws outright in some contexts (private windows, blocked site
@@ -110,9 +97,8 @@ function writeStore(key, v) {
   try { localStorage.setItem(key, v); } catch { /* nothing to do */ }
 }
 
-// onTrackStatus(key, 'loading' | 'ready' | 'failed') reports a recorded
-// track's download, so the projector can say "Loading…" or that it has fallen
-// back to the built-in style.
+// onTrackStatus(key, 'loading' | 'ready' | 'failed') reports a track's
+// download, so the projector can say "Loading…" or that it could not load.
 export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
   let ctx = null;
   let master = null;
@@ -124,9 +110,7 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
   let rollLoading = null;
   // Where the roll peaks, in seconds. Measured once, off the recording.
   let rollEnd = 0;
-  let drone = null;          // { oscs, gain } while a question is open
   let timer = null;
-  let step = 0;
   // When the clock last ran out, on the audio clock. Used to keep the reveal
   // cue from landing on top of the time-up hit.
   let lastTimeUp = -99;
@@ -253,7 +237,7 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
         return buf;
       } catch (e) {
         trackBuf[key] = false;
-        console.warn(`[quiz] track ${key} could not be loaded (${e?.message || e}); playing ${COMPANION} instead`);
+        console.warn(`[quiz] track ${key} could not be loaded (${e?.message || e}); the quiz runs without music`);
         onTrackStatus(key, 'failed');
         return null;
       } finally {
@@ -327,8 +311,8 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
     }
   }
 
-  // Detached first, like the drone: a time-up is followed by a phase change
-  // that calls stop(), which must not cut a fade that is already running.
+  // Detached first: a time-up is followed by a phase change that calls stop(),
+  // which must not cut a fade that is already running.
   function stopBed(fade = 0.25) {
     if (!bed || !ctx) return;
     const b = bed;
@@ -417,94 +401,9 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
     s.start(when); s.stop(when + dur + 0.02);
   }
 
-  // A held pad. Something must always be sounding, or the gaps between beats
-  // read as silence — which is what made the first version impossible to hear.
-  function startDrone({ freq = ROOT / 2, cutoff = 700, level = 0.16, type = 'sawtooth' } = {}) {
-    stopDrone();
-    const g = ctx.createGain();
-    const f = ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.value = cutoff;
-    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(level, ctx.currentTime + 0.4);
-    f.connect(g); g.connect(master);
-    const oscs = [0, -8].map(detune => {
-      const o = ctx.createOscillator();
-      o.type = type;
-      o.frequency.value = freq;
-      o.detune.value = detune;
-      o.connect(f); o.start();
-      return o;
-    });
-    // level is kept because duck() has to know what to swell BACK to — read
-    // off the gain node it would read whatever the last duck left behind.
-    drone = { oscs, gain: g, filter: f, level };
-  }
-
-  // THE CLOCK RUNNING OUT IS AN ENDING, NOT A STOP.
-  //
-  // stopDrone below is the right thing when the bed is genuinely being
-  // abandoned — the trainer closes the question early, or leaves the screen —
-  // and its quarter-second fade is meant to be quick enough not to drag.
-  // Used at time-up it is what makes the music appear to be yanked off the
-  // air mid-phrase.
-  //
-  // This lets it down instead: over a second, and CLOSING as it goes. A pad
-  // that only loses volume sounds switched off; one that also loses its top
-  // end sounds like it is walking away.
-  function releaseDrone(seconds) {
-    if (!drone || !ctx) return;
-    const { oscs, gain, filter } = drone;
-    // Detached FIRST. The phase change that follows a time-up calls stop(),
-    // and without this that stop would find the drone still attached and cut
-    // the tail off a quarter of a second in — the exact bug this replaces.
-    drone = null;
-    const t = ctx.currentTime;
-    gain.gain.cancelScheduledValues(t);
-    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), t);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + seconds);
-    filter.frequency.cancelScheduledValues(t);
-    filter.frequency.setValueAtTime(Math.max(filter.frequency.value, 60), t);
-    filter.frequency.exponentialRampToValueAtTime(110, t + seconds * 0.9);
-    oscs.forEach(o => { try { o.stop(t + seconds + 0.12); } catch { /* already stopped */ } });
-  }
-
-  function stopDrone() {
-    if (!drone || !ctx) return;
-    const { oscs, gain } = drone;
-    drone = null;
-    const t = ctx.currentTime;
-    gain.gain.cancelScheduledValues(t);
-    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), t);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
-    oscs.forEach(o => { try { o.stop(t + 0.3); } catch { /* already stopped */ } });
-  }
-
-  // ── the modern kit ─────────────────────────────────────────────────────
-  // What separated this from sounding like a handheld console was never the
-  // notes, it was the voices and the space around them: square waves, one
-  // sound at a time, and a bed that sat still. Below: filtered saw stabs, real
-  // claps and hats, a sub that moves air, and the sidechain pump that is the
-  // single most recognisable thing about modern dance music.
-
-  // SIDECHAIN. Every kick shoves the pad out of the way and lets it swell back
-  // in. It is the reason a club record breathes, it costs one gain ramp, and
-  // without it a kick and a pad played together are just two sounds at once.
-  function duck(when, depth = 0.45, release = 0.3) {
-    if (!drone) return;
-    const g = drone.gain.gain;
-    const base = Math.max(drone.level, 0.0001);
-    g.cancelScheduledValues(when);
-    g.setValueAtTime(Math.max(base * (1 - depth), 0.0001), when);
-    g.exponentialRampToValueAtTime(base, when + release);
-  }
-
-  // Two bursts a hair apart, because one is a hiss and two is a clap — the
-  // early reflection is what the ear hears as hands rather than noise.
-  function clap(when, level = 0.5) {
-    noise(when, 0.013, 1500, level * 0.55, 'bandpass');
-    noise(when + 0.014, 0.12, 1900, level, 'bandpass');
-  }
+  // ── the kit the cues are made of ───────────────────────────────────────
+  // Hats, filtered saw stabs, a sub and a crash — what is left of the kit the
+  // retired styles were built from, kept for the cues and the podium.
 
   function hat(when, level = 0.22, dur = 0.03) {
     noise(when, dur, 8200, level, 'highpass');
@@ -548,27 +447,6 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
     g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
     o.connect(g); g.connect(master);
     o.start(when); o.stop(when + dur + 0.03);
-  }
-
-  // Noise climbing through a bandpass. Saved for the last seconds of a
-  // question, where it does the job a countdown number cannot: it tells the
-  // room something is about to happen without anyone reading anything.
-  function riser(when, dur = 1.4, level = 0.26) {
-    if (!noiseBuf) noise(when, 0.001, 1000, 0.0001);   // builds the buffer
-    const s = ctx.createBufferSource();
-    const f = ctx.createBiquadFilter();
-    const g = ctx.createGain();
-    s.buffer = noiseBuf;
-    s.loop = true;
-    f.type = 'bandpass';
-    f.Q.value = 3.5;
-    f.frequency.setValueAtTime(400, when);
-    f.frequency.exponentialRampToValueAtTime(7000, when + dur);
-    g.gain.setValueAtTime(0.0001, when);
-    g.gain.exponentialRampToValueAtTime(level, when + dur * 0.85);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    s.connect(f); f.connect(g); g.connect(master);
-    s.start(when); s.stop(when + dur + 0.05);
   }
 
   // A CRASH CYMBAL. What the end of the clock actually wanted: not a soft
@@ -675,174 +553,19 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
     }
   }
 
-  // A braam: low detuned saws that swell. The cinematic one lives on these.
-  function braam(when, freq, dur = 1.1, level = 0.5) {
-    const g = ctx.createGain();
-    const f = ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.setValueAtTime(300, when);
-    f.frequency.linearRampToValueAtTime(1400, when + dur * 0.35);
-    f.frequency.linearRampToValueAtTime(400, when + dur);
-    g.gain.setValueAtTime(0.0001, when);
-    g.gain.exponentialRampToValueAtTime(level, when + dur * 0.3);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    f.connect(g); g.connect(master);
-    [-14, 0, 11].forEach(cents => {
-      const o = ctx.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.value = freq;
-      o.detune.value = cents;
-      o.connect(f); o.start(when); o.stop(when + dur + 0.05);
-    });
-  }
-
-  // ── the four styles ────────────────────────────────────────────────────
-  // Each one owns its beat, its pre-roll tick, its tempo curve and its stings.
-  // They share the primitives above so a change to the envelope shape or the
-  // limiter reaches all of them at once.
-  //
-  // `ms` is the length of the current beat in seconds, handed in by
-  // startQuestion. Themes need it to place anything BETWEEN beats — an offbeat
-  // hat, a bass on the and — and the beat length moves with the clock, so it
-  // cannot be a constant.
-
-  const THEMES = {
-    // Four on the floor, an offbeat bass, and a pad that ducks on every kick.
-    // The default: it is the one that makes a room sit up without anybody
-    // deciding it is silly.
-    drive: {
-      drone: { freq: ROOT / 2, cutoff: 480, level: 0.14, type: 'sawtooth' },
-      onStart() { step = 0; },
-      beat(t, { urgency, secondsLeft, ms }) {
-        kick(t, 0.95, 150, 46, 0.24);
-        duck(t, 0.5, ms * 0.85);
-
-        // The bass plays the AND, never the beat — it is the kick's echo, and
-        // the gap where the downbeat would be is what makes it drive.
-        const bass = [0, 0, 10, 7, 0, 0, 5, 3];
-        note(hz(bass[step % bass.length], -1), t + ms * 0.5, ms * 0.42, 'sawtooth', 0.55);
-
-        hat(t + ms * 0.5, 0.2 + urgency * 0.16);
-        if (step % 2 === 1) hat(t + ms * 0.25, 0.1);
-
-        // A chord every other bar, so the loop has somewhere to arrive.
-        if (step % 8 === 0) stab(t, [hz(0), hz(3), hz(7)], ms * 0.7, 0.4, 2400 + urgency * 1800);
-        if (step % 8 === 4) stab(t, [hz(-2), hz(3), hz(5)], ms * 0.7, 0.36, 2200 + urgency * 1800);
-
-        // The pad opens as the clock closes. Filter sweeps are how this music
-        // says "nearly there" — it does not need to get faster to get tenser.
-        if (drone) drone.filter.frequency.setTargetAtTime(480 + urgency * 2600, ctx.currentTime, 0.3);
-        if (secondsLeft <= 4 && step % 4 === 0) riser(t, Math.min(1.5, secondsLeft), 0.2);
-      },
-      interval: (left, total) => (left <= 5 ? 300 : 470 - (1 - left / total) * 110),
-      preroll: (t, n) => {
-        kick(t, 0.9, 150, 46, 0.24);
-        stab(t, [hz(0, 1), hz(3, 1), hz(7, 1)], 0.3, 0.3 + n * 0.06, 2000 + n * 700);
-      },
-      sting: {
-        reveal: t => { stab(t, [hz(0, 1), hz(7, 1), hz(12, 1)], 0.5, 0.55, 4200); sub(t, 55, 0.45, 0.6); },
-        timeup: t => { crash(t, 0.85, 2.1); sub(t, 41, 0.9, 0.85); stab(t + 0.02, [hz(-1), hz(2), hz(6)], 0.7, 0.4, 1400); },
-        podium: t => [[0, 7, 12], [3, 10, 15], [5, 12, 17], [7, 14, 19]].forEach((ch, i) =>
-          stab(t + i * 0.19, ch.map(s => hz(s, 1)), 0.5, 0.5, 3600)),
-      },
-    },
-
-    // Broadcast sport: a clap the size of a stand, brass-ish stabs, hats
-    // rolling underneath. The celebratory one.
-    stadium: {
-      drone: { freq: ROOT / 2, cutoff: 700, level: 0.12, type: 'sawtooth' },
-      onStart() { step = 0; },
-      beat(t, { urgency, secondsLeft, ms }) {
-        kick(t, 0.9, 160, 50, 0.22);
-        duck(t, 0.35, ms * 0.8);
-        // Backbeat. A clap on two and four is the oldest trick there is and
-        // the one a room claps along to without being asked.
-        if (step % 2 === 1) clap(t, 0.5 + urgency * 0.2);
-        hat(t + ms * 0.5, 0.18);
-        hat(t + ms * 0.75, 0.1 + urgency * 0.12);
-
-        const horn = [0, 0, 7, 5, 3, 5, 7, 10];
-        if (step % 2 === 0) {
-          stab(t, [hz(horn[step % horn.length]), hz(horn[step % horn.length] + 7)],
-            ms * 0.55, 0.4 + urgency * 0.15, 2600);
-        }
-        if (drone) drone.filter.frequency.setTargetAtTime(700 + urgency * 2200, ctx.currentTime, 0.3);
-        if (secondsLeft <= 4 && step % 4 === 0) riser(t, Math.min(1.5, secondsLeft), 0.22);
-      },
-      interval: (left, total) => (left <= 5 ? 320 : 500 - (1 - left / total) * 130),
-      preroll: (t, n) => { kick(t, 0.9, 160, 50, 0.22); clap(t, 0.3 + n * 0.12); },
-      sting: {
-        reveal: t => { clap(t, 0.7); stab(t, [hz(0, 1), hz(4, 1), hz(7, 1)], 0.45, 0.55, 4000); },
-        timeup: t => { crash(t, 0.9, 2.3); sub(t, 44, 0.8, 0.8); },
-        podium: t => {
-          [0, 4, 7, 12].forEach((s, i) => stab(t + i * 0.17, [hz(s, 1), hz(s + 7, 1)], 0.55, 0.5, 3800));
-          [0, 1, 2, 3, 4, 5].forEach(i => clap(t + 0.7 + i * 0.13, 0.45));
-        },
-      },
-    },
-
-    // Cinematic. Sub booms, a rising bed and a braam at the turn — the sound
-    // a trailer uses to make a countdown feel like consequences.
-    cinematic: {
-      drone: { freq: ROOT / 4, cutoff: 240, level: 0.18, type: 'sawtooth' },
-      onStart() { step = 0; },
-      beat(t, { urgency, secondsLeft, ms }) {
-        sub(t, 41, Math.min(0.7, ms * 1.4), 0.75 + urgency * 0.2);
-        // A dry tick between the booms. It is a clock without being a clock
-        // noise — the thing that keeps this tense rather than merely big.
-        noise(t + ms * 0.5, 0.035, 3000, 0.22 + urgency * 0.25, 'highpass');
-        if (step % 8 === 0) braam(t, hz(0, -1), Math.min(1.6, ms * 3), 0.4 + urgency * 0.2);
-        if (step % 8 === 4) braam(t, hz(3, -1), Math.min(1.4, ms * 2.6), 0.32 + urgency * 0.2);
-        if (drone) {
-          drone.filter.frequency.setTargetAtTime(240 + urgency * 900, ctx.currentTime, 0.5);
-          drone.oscs.forEach(o => o.detune.setTargetAtTime(urgency * 450, ctx.currentTime, 0.5));
-        }
-        if (secondsLeft <= 5 && step % 3 === 0) riser(t, Math.min(2, secondsLeft), 0.3);
-      },
-      // The widest tempo range of the four: it starts almost still and ends
-      // hammering, which is the whole idea.
-      interval: (left, total) => (left <= 5 ? 280 : 860 - (1 - left / total) * 480),
-      preroll: (t, n) => { sub(t, 41, 0.5, 0.7); if (n === 0) braam(t, hz(0, -1), 1.6, 0.35); },
-      sting: {
-        reveal: t => { sub(t, 55, 0.5, 0.7); braam(t, hz(7, -1), 0.9, 0.45); },
-        timeup: t => { crash(t, 0.8, 2.6); sub(t, 33, 1.2, 0.9); braam(t, hz(-1, -1), 1.3, 0.5); },
-        podium: t => [0, 5, 7, 12].forEach((s, i) => braam(t + i * 0.28, hz(s, -1), 1.4, 0.45)),
-      },
-    },
-
-    // Minimal and rolling. The one to pick when the trainer wants to talk over
-    // it — modern rather than quiet, so it does not sound like the sound has
-    // failed.
-    deep: {
-      drone: { freq: ROOT / 2, cutoff: 360, level: 0.1, type: 'triangle' },
-      onStart() { step = 0; },
-      beat(t, { urgency, ms }) {
-        kick(t, 0.7, 130, 44, 0.2);
-        duck(t, 0.3, ms * 0.8);
-        hat(t + ms * 0.5, 0.13);
-        // A rolling offbeat figure, low and soft. Movement without anything to
-        // listen to, which is exactly the brief.
-        const fig = [0, 3, 0, 7, 0, 5, 0, 3];
-        note(hz(fig[step % fig.length], -1), t + ms * 0.5, ms * 0.45, 'triangle', 0.4);
-        if (step % 8 === 0) stab(t, [hz(0), hz(3), hz(10)], ms * 0.8, 0.16, 1200);
-        if (drone) drone.filter.frequency.setTargetAtTime(360 + urgency * 700, ctx.currentTime, 0.5);
-      },
-      // Barely moves. Rushing this one would make it sound broken rather than
-      // urgent, and its whole job is to stay out of the way.
-      interval: (left, total) => (left <= 5 ? 400 : 500 - (1 - left / total) * 90),
-      preroll: t => { kick(t, 0.6, 130, 44, 0.2); hat(t + 0.24, 0.12); },
-      sting: {
-        reveal: t => stab(t, [hz(0), hz(3), hz(7), hz(10)], 0.8, 0.28, 1800),
-        // Still the restrained one — a smaller crash, not no crash.
-        timeup: t => { crash(t, 0.6, 1.7); sub(t, 44, 0.9, 0.6); stab(t, [hz(0), hz(3), hz(7)], 1.1, 0.2, 900); },
-        podium: t => [0, 3, 7, 10, 12].forEach((s, i) => stab(t + i * 0.16, [hz(s), hz(s + 7)], 0.7, 0.3, 2200)),
-      },
+  // ── the cues ────────────────────────────────────────────────────────────
+  // The short sounds around the music, the same for every track. Kept from the
+  // retired style that suited a recording playing underneath (it was called
+  // Deep focus): restrained, so they punctuate rather than compete.
+  const CUES = {
+    // The "get ready" count-in, one per tick of the pre-roll.
+    preroll: t => { kick(t, 0.6, 130, 44, 0.2); hat(t + 0.24, 0.12); },
+    sting: {
+      reveal: t => stab(t, [hz(0), hz(3), hz(7), hz(10)], 0.8, 0.28, 1800),
+      timeup: t => { crash(t, 0.6, 1.7); sub(t, 44, 0.9, 0.6); stab(t, [hz(0), hz(3), hz(7)], 1.1, 0.2, 900); },
+      podium: t => [0, 3, 7, 10, 12].forEach((s, i) => stab(t + i * 0.16, [hz(s), hz(s + 7)], 0.7, 0.3, 2200)),
     },
   };
-
-  // A recorded track has no count-in, cues or fanfare of its own; it borrows
-  // the companion style's.
-  const theme = () => THEMES[RECORDED[themeKey] ? COMPANION : themeKey] ?? THEMES[DEFAULT_THEME];
 
   return {
     get muted() { return muted; },
@@ -859,24 +582,24 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
       }
     },
 
-    // Changing style mid-question restarts the loop so the trainer hears the
-    // choice immediately — auditioning by ear is the only way to pick one.
+    // Changing track mid-question restarts the music so the trainer hears the
+    // choice immediately — choosing by ear is the only way to pick one.
     setTheme(key, restart) {
-      if (!THEMES[key] && !RECORDED[key]) return;
+      if (!RECORDED[key]) return;
       themeKey = key;
       writeStore(THEME_KEY, key);
       stopPreview();
-      if (RECORDED[key]) loadTrack(key);
+      loadTrack(key);
       if ((timer || bed) && typeof restart === 'function') restart();
     },
 
-    // What picking a style in the lobby plays, so choosing is not guesswork: a
-    // built-in style's reveal cue, or six seconds of a recorded track.
+    // What picking a track in the lobby plays, so choosing is not guesswork:
+    // six seconds of it (or the reveal cue, if it cannot be loaded).
     async audition() {
       if (!ensure()) return;
       const key = themeKey;
       const spec = RECORDED[key];
-      if (!spec) { this.sting('reveal'); return; }
+      if (!spec) return;
       const buf = await loadTrack(key);
       // Picked something else meanwhile, or a question opened: say nothing.
       if (!buf || themeKey !== key || timer || bed) { if (!buf) this.sting('reveal'); return; }
@@ -891,7 +614,7 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
       const c = ensure();
       if (c && c.state === 'suspended') { try { await c.resume(); } catch { /* denied */ } }
       loadRoll();   // not awaited: the quiz must not wait on a sound file
-      if (RECORDED[themeKey]) loadTrack(themeKey);
+      loadTrack(themeKey);
     },
 
     // The "get ready" countdown. Silence here was half the reason the music
@@ -903,63 +626,40 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
       const tick = () => {
         const left = secondsLeftFn();
         if (left === null || left <= 0) { this.stop(); return; }
-        theme().preroll(ctx.currentTime + 0.02, n);
+        CUES.preroll(ctx.currentTime + 0.02, n);
         n += 1;
         timer = setTimeout(tick, 700);
       };
       tick();
     },
 
-    // Runs the bed for a question. secondsLeftFn is read each beat rather than
-    // captured, so the tempo follows the real clock — including the server skew
-    // correction — instead of a countdown started here.
+    // Runs the music for a question: the chosen track, fitted to the clock
+    // (startBed), and a soft tick over the last five seconds. secondsLeftFn is
+    // read on every check rather than captured, so the tick follows the real
+    // clock — including the server skew correction.
+    //
+    // A track that has not arrived yet starts downloading here and this
+    // question has the tick alone; the next one will have the music.
     startQuestion(total, secondsLeftFn) {
       this.stop();
       if (!ensure()) return;
-      // A recorded track, once it is here. Until then (or if it never comes)
-      // this question gets the companion style's built-in bed, below.
-      if (RECORDED[themeKey]) {
-        const key = themeKey;
-        if (!trackBuf[key]) loadTrack(key);
-        else {
-          lastTimeUp = -99;
-          const startLeft = secondsLeftFn();
-          startBed(key, Math.max(1, startLeft ?? total));
-          let lastTick = null;
-          const watch = () => {
-            const left = secondsLeftFn();
-            if (left === null || left <= 0) { timer = null; return; }
-            const whole = Math.ceil(left);
-            if (whole <= 5 && whole !== lastTick) { lastTick = whole; tick(ctx.currentTime + 0.02); }
-            timer = setTimeout(watch, 120);
-          };
-          watch();
-          return;
-        }
-      }
-      const th = theme();
-      step = 0;
       lastTimeUp = -99;
-      th.onStart();
-      if (th.drone) startDrone(th.drone);
-      const beat = () => {
+      const key = themeKey;
+      if (trackBuf[key]) startBed(key, Math.max(1, secondsLeftFn() ?? total));
+      else loadTrack(key);
+      let lastTick = null;
+      const watch = () => {
         const left = secondsLeftFn();
-        if (left === null || left <= 0) { this.stop(); return; }
-        const urgency = total > 0 ? 1 - Math.max(0, Math.min(1, left / total)) : 0;
-        // Worked out BEFORE the beat, not after, because a theme placing an
-        // offbeat hat or a bass on the and needs to know how long this beat
-        // is — and the beat length moves with the clock.
-        const ms = Math.max(140, th.interval(left, total));
-        th.beat(ctx.currentTime + 0.02, { urgency, secondsLeft: left, total, ms: ms / 1000 });
-        step += 1;
-        timer = setTimeout(beat, ms);
+        if (left === null || left <= 0) { timer = null; return; }
+        const whole = Math.ceil(left);
+        if (whole <= 5 && whole !== lastTick) { lastTick = whole; tick(ctx.currentTime + 0.02); }
+        timer = setTimeout(watch, 120);
       };
-      beat();
+      watch();
     },
 
     stop() {
       if (timer) { clearTimeout(timer); timer = null; }
-      stopDrone();
       stopBed();
       stopPreview();
     },
@@ -974,14 +674,12 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
       lastTimeUp = ctx.currentTime;
       if (bed) {
         // Countdown's own fade IS the landing, so it is let ring and no hit is
-        // added. A loop is let down over a second under the companion's hit.
+        // added. A loop is let down over a second under the landing.
         const ending = bed.mode === 'end';
         stopBed(ending ? 2.5 : 1.1);
         if (ending) return;
-      } else {
-        releaseDrone(1.15);
       }
-      const fn = theme().sting.timeup;
+      const fn = CUES.sting.timeup;
       if (fn) fn(ctx.currentTime + 0.02);
     },
 
@@ -1003,7 +701,7 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
         // The winner gets the cymbal AND the theme's fanfare over it. This is
         // the last sound of the whole quiz; it is allowed to be the biggest.
         crash(t, 0.95, 2.8);
-        const fn = theme().sting.podium;
+        const fn = CUES.sting.podium;
         if (fn) fn(t + 0.06);
       } else {
         // Second louder than third, so the three arrivals build.
@@ -1023,7 +721,7 @@ export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
       // stands down here, and still sounds when the trainer closed the
       // question early, which is the case that has no landing of its own.
       if (kind === 'reveal' && ctx.currentTime - lastTimeUp < 1.7) return;
-      const fn = theme().sting[kind];
+      const fn = CUES.sting[kind];
       if (fn) fn(ctx.currentTime + 0.02);
     },
 

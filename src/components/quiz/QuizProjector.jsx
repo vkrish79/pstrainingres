@@ -55,8 +55,8 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
   // Everyone's pins, and the target, once the window has closed.
   const [pins, setPins] = useState([]);
 
-  // A recorded track's download, so the bar can say "Loading…" or that it has
-  // fallen back to the built-in style. { key, status } or null.
+  // A track's download, so the bar can say "Loading…" or that it could not
+  // load. { key, status } or null.
   const [trackStatus, setTrackStatus] = useState(null);
   const music = useMemo(() => createQuizMusic({
     onTrackStatus: (key, status) => setTrackStatus({ key, status }),
@@ -329,31 +329,24 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
         <div className="qlive-bar-tools">
           {err && <span className="qlive-err">{err}</span>}
           <label className="qlive-music-pick">
-            <span className="qlive-vis-hidden">Music style</span>
+            <span className="qlive-vis-hidden">Music track</span>
             <select
               className="ghost"
               value={themeKey}
               disabled={muted}
               onChange={e => pickTheme(e.target.value)}
-              title={muted ? 'Turn the music on to change the style' : 'Change the music style'}
+              title={muted ? 'Turn the music on to change the track' : 'Change the music track'}
             >
-              <optgroup label="Built-in · speeds up with the clock">
-                {QUIZ_MUSIC_THEMES.filter(t => t.group === 'builtin').map(t => (
-                  <option key={t.key} value={t.key}>{t.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="Recorded">
-                {QUIZ_MUSIC_THEMES.filter(t => t.group === 'recorded').map(t => (
-                  <option key={t.key} value={t.key}>{t.label} — {t.note}</option>
-                ))}
-              </optgroup>
+              {QUIZ_MUSIC_THEMES.map(t => (
+                <option key={t.key} value={t.key}>{t.label} — {t.note}</option>
+              ))}
             </select>
           </label>
           {!muted && trackStatus?.key === themeKey && trackStatus.status !== 'ready' && (
             <span className={`qlive-music-note${trackStatus.status === 'failed' ? ' is-failed' : ''}`} role="status">
               {trackStatus.status === 'loading'
                 ? 'Loading…'
-                : 'Couldn’t load this track — playing Deep focus'}
+                : 'Couldn’t load this track — the quiz runs without music'}
             </span>
           )}
           <button

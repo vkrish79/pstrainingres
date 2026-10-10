@@ -1,5 +1,5 @@
-Recorded music for the Live Quiz, offered beside the four built-in styles
-(src/lib/quizMusic.js, RECORDED). Licensed for use in this app.
+The music for the Live Quiz: the three tracks a trainer chooses between on the
+projector (src/lib/quizMusic.js, RECORDED). Licensed for use in this app.
 Re-encoded from the 256 kbps originals to 128 kbps stereo (lamejs) to halve
 the download; the loudness curve matches the originals within 0.6 dB.
 
@@ -12,7 +12,8 @@ the download; the loudness curve matches the originals within 0.6 dB.
                      wrap round with a short crossfade.
 
 Only the projector downloads a track, and only once it has been picked. If a
-file is missing or unreadable, the quiz plays Deep focus instead and says so.
+file is missing or unreadable, the quiz runs without music and says so; the
+short cues (count-in, reveal, time up, podium) and the last-seconds tick still play.
 
 Replacing a file: keep the name. The ending of countdown.mp3 is set in code
 (RECORDED.countdown.end, in seconds); change it if the new file ends elsewhere.
