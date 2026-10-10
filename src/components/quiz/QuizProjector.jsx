@@ -55,7 +55,12 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
   // Everyone's pins, and the target, once the window has closed.
   const [pins, setPins] = useState([]);
 
-  const music = useMemo(() => createQuizMusic(), []);
+  // A recorded track's download, so the bar can say "Loading…" or that it has
+  // fallen back to the built-in style. { key, status } or null.
+  const [trackStatus, setTrackStatus] = useState(null);
+  const music = useMemo(() => createQuizMusic({
+    onTrackStatus: (key, status) => setTrackStatus({ key, status }),
+  }), []);
   const [muted, setMuted] = useState(() => music.muted);
   const [themeKey, setThemeKey] = useState(() => music.theme);
   // Read by the music loop on every beat, so the tempo follows the corrected
@@ -309,9 +314,10 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
     setThemeKey(key);
     music.unlock();
     music.setTheme(key, restartCurrent);
-    // Off the clock there is no loop to restart, so play the reveal cue as a
-    // sample — otherwise choosing a style in the lobby is silent guesswork.
-    if (phase !== 'question' && phase !== 'ready') music.sting('reveal');
+    // Off the clock there is no loop to restart, so play a sample — the reveal
+    // cue, or six seconds of a recorded track — otherwise choosing a style in
+    // the lobby is silent guesswork.
+    if (phase !== 'question' && phase !== 'ready') music.audition();
   }
 
   return (
@@ -331,11 +337,25 @@ export default function QuizProjector({ runId, joinCode, onExit, guestRun = fals
               onChange={e => pickTheme(e.target.value)}
               title={muted ? 'Turn the music on to change the style' : 'Change the music style'}
             >
-              {QUIZ_MUSIC_THEMES.map(t => (
-                <option key={t.key} value={t.key}>{t.label}</option>
-              ))}
+              <optgroup label="Built-in · speeds up with the clock">
+                {QUIZ_MUSIC_THEMES.filter(t => t.group === 'builtin').map(t => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Recorded">
+                {QUIZ_MUSIC_THEMES.filter(t => t.group === 'recorded').map(t => (
+                  <option key={t.key} value={t.key}>{t.label} — {t.note}</option>
+                ))}
+              </optgroup>
             </select>
           </label>
+          {!muted && trackStatus?.key === themeKey && trackStatus.status !== 'ready' && (
+            <span className={`qlive-music-note${trackStatus.status === 'failed' ? ' is-failed' : ''}`} role="status">
+              {trackStatus.status === 'loading'
+                ? 'Loading…'
+                : 'Couldn’t load this track — playing Deep focus'}
+            </span>
+          )}
           <button
             type="button"
             className="ghost"

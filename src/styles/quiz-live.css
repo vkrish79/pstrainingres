@@ -543,6 +543,10 @@
 /* The list itself is drawn by the OS, so its options need a readable ground of
    their own — inheriting the transparent background gives white-on-white. */
 .qlive-music-pick option { background: #16304d; color: #fff; }
+.qlive-music-pick optgroup { background: #16304d; color: #c9bea6; font-style: normal; }
+/* A recorded track downloading, or the fallback when it could not. */
+.qlive-music-note { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
+.qlive-music-note.is-failed { color: #f0b37a; }
 
 /* Visible to a screen reader, not to the room. The picker sits in a bar of
    two-word buttons and a visible "Music style" label would crowd it. */

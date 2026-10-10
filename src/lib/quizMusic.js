@@ -53,11 +53,51 @@ const hz = (semi, oct = 0) => ROOT * Math.pow(2, semi / 12) * Math.pow(2, oct);
 // These are built from the vocabulary of music people actually hear now:
 // four-on-the-floor, sidechained pads, filtered stabs, sub and risers.
 export const QUIZ_MUSIC_THEMES = [
-  { key: 'drive', label: 'Neon drive' },
-  { key: 'stadium', label: 'Stadium' },
-  { key: 'cinematic', label: 'Cinematic' },
-  { key: 'deep', label: 'Deep focus' },
+  { key: 'drive', label: 'Neon drive', group: 'builtin' },
+  { key: 'stadium', label: 'Stadium', group: 'builtin' },
+  { key: 'cinematic', label: 'Cinematic', group: 'builtin' },
+  { key: 'deep', label: 'Deep focus', group: 'builtin' },
+  { key: 'rec-countdown', label: 'Countdown', group: 'recorded', note: 'ends on zero' },
+  { key: 'rec-news', label: 'News desk', group: 'recorded', note: 'loops' },
+  { key: 'rec-thinking', label: 'Thinking time', group: 'recorded', note: 'loops' },
 ];
+
+// RECORDED TRACKS — the second exception to 'synthesised, not files'.
+//
+// The objection to files was that a bed has to stretch to fit an arbitrary
+// timer and get tenser as it runs out. A recording can do neither, so these
+// are offered BESIDE the four built-in styles, not instead of them, and each
+// is fitted to the clock in the one way its shape allows:
+//
+//   'end'  — Countdown is ~88s of music that swells and fades. It is started
+//            late, so its ending lands as the clock reaches zero. A question
+//            longer than that repeats the steady middle once, crossfaded, and
+//            the ending still lands on zero.
+//   'loop' — the two beds pick up where the last question left them (so the
+//            room does not hear the same opening ten times a quiz) and wrap
+//            round with a crossfade, because neither file joins end to start.
+//
+// What a recording cannot do itself is borrowed from COMPANION: the count-in,
+// the reveal cue, the time's-up landing, the podium fanfare, and a soft tick
+// over the last five seconds so the end of a question still feels like one.
+//
+// Files live in public/sounds/quiz/ (see the README there). Each downloads only
+// when picked. Until it has, or if it cannot, the companion style plays: a
+// missing file is a quieter quiz, never a broken one.
+const RECORDED = {
+  // level: against MASTER, set by measurement (.verify/quiz-tracks.mjs) so each
+  // sits between Deep focus and Neon drive. Countdown is mastered hotter than
+  // the two loops, so it is turned down further.
+  'rec-countdown': { url: '/sounds/quiz/countdown.mp3', mode: 'end', end: 88, middle: [10, 80], preview: 60, level: 0.5 },
+  'rec-news': { url: '/sounds/quiz/news-desk.mp3', mode: 'loop', preview: 4, level: 0.75 },
+  'rec-thinking': { url: '/sounds/quiz/thinking-time.mp3', mode: 'loop', preview: 4, level: 0.75 },
+};
+const COMPANION = 'deep';
+const XFADE = 1.5;        // seconds, every join between two parts of a track
+
+export function isRecordedTheme(key) {
+  return !!RECORDED[key];
+}
 
 const DEFAULT_THEME = 'drive';
 
@@ -70,7 +110,10 @@ function writeStore(key, v) {
   try { localStorage.setItem(key, v); } catch { /* nothing to do */ }
 }
 
-export function createQuizMusic() {
+// onTrackStatus(key, 'loading' | 'ready' | 'failed') reports a recorded
+// track's download, so the projector can say "Loading…" or that it has fallen
+// back to the built-in style.
+export function createQuizMusic({ onTrackStatus = () => {} } = {}) {
   let ctx = null;
   let master = null;
   let noiseBuf = null;
@@ -93,6 +136,13 @@ export function createQuizMusic() {
   // default rather than into silence.
   let themeKey = QUIZ_MUSIC_THEMES.some(t => t.key === readStore(THEME_KEY, ''))
     ? readStore(THEME_KEY, '') : DEFAULT_THEME;
+  // Recorded tracks: decoded buffers (false = tried and failed), downloads in
+  // flight, where each loop stopped, and the bed now playing.
+  const trackBuf = {};
+  const trackLoad = {};
+  const trackPos = {};
+  let bed = null;      // { key, mode, voices: [{ src, gain }], segs: [{ when, offset }], timers: [] }
+  let preview = null;  // the lobby audition, one voice
 
   function ensure() {
     if (ctx) return ctx;
@@ -182,6 +232,137 @@ export function createQuizMusic() {
     // did not resolve.
     src.stop(when + seconds + 0.03);
     return true;
+  }
+
+  // ── recorded tracks ────────────────────────────────────────────────────
+
+  function loadTrack(key) {
+    const spec = RECORDED[key];
+    if (!spec || !ensure()) return Promise.resolve(null);
+    if (trackBuf[key] !== undefined) return Promise.resolve(trackBuf[key] || null);
+    if (trackLoad[key]) return trackLoad[key];
+    onTrackStatus(key, 'loading');
+    trackLoad[key] = (async () => {
+      try {
+        const res = await fetch(spec.url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+        trackBuf[key] = buf;
+        console.info(`[quiz] track ${key}: ${buf.duration.toFixed(1)}s`);
+        onTrackStatus(key, 'ready');
+        return buf;
+      } catch (e) {
+        trackBuf[key] = false;
+        console.warn(`[quiz] track ${key} could not be loaded (${e?.message || e}); playing ${COMPANION} instead`);
+        onTrackStatus(key, 'failed');
+        return null;
+      } finally {
+        trackLoad[key] = null;
+      }
+    })();
+    return trackLoad[key];
+  }
+
+  // One stretch of a recording: starts at `when`, `offset` seconds into the
+  // file, for `playFor` seconds (null = to the end), with a fade at each end so
+  // no join clicks.
+  function voice(buf, when, offset, playFor, fadeIn = 0.05, fadeOut = 0, level = 0.75) {
+    const src = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    src.buffer = buf;
+    src.connect(gain); gain.connect(master);
+    const len = playFor ?? (buf.duration - offset);
+    const end = when + len;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.linearRampToValueAtTime(level, when + Math.max(0.02, fadeIn));
+    if (fadeOut > 0) {
+      gain.gain.setValueAtTime(level, Math.max(when + fadeIn, end - fadeOut));
+      gain.gain.linearRampToValueAtTime(0.0001, end);
+    }
+    src.start(when, Math.max(0, offset));
+    src.stop(end + 0.05);
+    return { src, gain };
+  }
+
+  // A loop from `offset` to the end of the file, with the next pass queued to
+  // fade in over the last XFADE seconds of this one.
+  function loopFrom(b, buf, when, offset, fadeIn) {
+    const left = buf.duration - offset;
+    b.voices.push(voice(buf, when, offset, left, fadeIn, XFADE, b.level));
+    b.segs.push({ when, offset });
+    const nextAt = when + left - XFADE;
+    // Queued half a second ahead, on the audio clock, so a busy tab cannot make
+    // the join late.
+    const wait = Math.max(0, (nextAt - 0.5 - ctx.currentTime) * 1000);
+    b.timers.push(setTimeout(() => { if (bed === b) loopFrom(b, buf, nextAt, 0, XFADE); }, wait));
+  }
+
+  function startBed(key, secondsLeft) {
+    const buf = trackBuf[key];
+    const spec = RECORDED[key];
+    const t0 = ctx.currentTime + 0.05;
+    const b = { key, mode: spec.mode, level: spec.level, voices: [], segs: [], timers: [] };
+    bed = b;
+    if (spec.mode === 'end') {
+      const end = Math.min(spec.end, buf.duration);
+      if (secondsLeft <= end) {
+        const off = end - secondsLeft;
+        // Plays on past zero into the track's own fade; timeUp lets it ring.
+        b.voices.push(voice(buf, t0, off, null, off > 0 ? 0.4 : 0.05, 0, b.level));
+      } else {
+        // Longer than the music: jump back inside the steady middle once, so
+        // the remaining run still reaches `end` exactly at zero.
+        // One repeat covers up to hi - lo (70s) extra; questions stop at 120s,
+        // so at most 32s is ever needed.
+        const [lo, hi] = spec.middle;
+        const extra = secondsLeft - end;
+        const jumpTo = Math.max(lo, hi - extra);
+        b.voices.push(voice(buf, t0, 0, hi, 0.05, XFADE, b.level));
+        b.voices.push(voice(buf, t0 + hi - XFADE, jumpTo - XFADE, null, XFADE, 0, b.level));
+      }
+    } else {
+      const pos = (trackPos[key] || 0) % buf.duration;
+      // A clean start from the top; a soft one when resuming mid-phrase.
+      loopFrom(b, buf, t0, pos, pos > 0.5 ? 0.6 : 0.05);
+    }
+  }
+
+  // Detached first, like the drone: a time-up is followed by a phase change
+  // that calls stop(), which must not cut a fade that is already running.
+  function stopBed(fade = 0.25) {
+    if (!bed || !ctx) return;
+    const b = bed;
+    bed = null;
+    b.timers.forEach(t => t && clearTimeout(t));
+    const now = ctx.currentTime;
+    if (b.mode === 'loop' && trackBuf[b.key]) {
+      const seg = [...b.segs].reverse().find(sg => sg.when <= now) || b.segs[0];
+      if (seg) trackPos[b.key] = (seg.offset + Math.max(0, now - seg.when)) % trackBuf[b.key].duration;
+    }
+    b.voices.forEach(({ src, gain }) => {
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + fade);
+      try { src.stop(now + fade + 0.05); } catch { /* not started or already stopped */ }
+    });
+  }
+
+  function stopPreview() {
+    if (!preview || !ctx) return;
+    const { src, gain } = preview;
+    preview = null;
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    try { src.stop(now + 0.25); } catch { /* already stopped */ }
+  }
+
+  // The last five seconds of a recorded bed: one soft tick a second, read off
+  // the real clock like every built-in beat.
+  function tick(when) {
+    noise(when, 0.03, 3400, 0.32, 'highpass');
+    note(hz(12, 1), when, 0.05, 'sine', 0.12);
   }
 
   // ── primitives every theme is built from ───────────────────────────────
@@ -659,7 +840,9 @@ export function createQuizMusic() {
     },
   };
 
-  const theme = () => THEMES[themeKey] ?? THEMES[DEFAULT_THEME];
+  // A recorded track has no count-in, cues or fanfare of its own; it borrows
+  // the companion style's.
+  const theme = () => THEMES[RECORDED[themeKey] ? COMPANION : themeKey] ?? THEMES[DEFAULT_THEME];
 
   return {
     get muted() { return muted; },
@@ -679,10 +862,27 @@ export function createQuizMusic() {
     // Changing style mid-question restarts the loop so the trainer hears the
     // choice immediately — auditioning by ear is the only way to pick one.
     setTheme(key, restart) {
-      if (!THEMES[key]) return;
+      if (!THEMES[key] && !RECORDED[key]) return;
       themeKey = key;
       writeStore(THEME_KEY, key);
-      if (timer && typeof restart === 'function') restart();
+      stopPreview();
+      if (RECORDED[key]) loadTrack(key);
+      if ((timer || bed) && typeof restart === 'function') restart();
+    },
+
+    // What picking a style in the lobby plays, so choosing is not guesswork: a
+    // built-in style's reveal cue, or six seconds of a recorded track.
+    async audition() {
+      if (!ensure()) return;
+      const key = themeKey;
+      const spec = RECORDED[key];
+      if (!spec) { this.sting('reveal'); return; }
+      const buf = await loadTrack(key);
+      // Picked something else meanwhile, or a question opened: say nothing.
+      if (!buf || themeKey !== key || timer || bed) { if (!buf) this.sting('reveal'); return; }
+      stopPreview();
+      const off = Math.max(0, Math.min(spec.preview, buf.duration - 7));
+      preview = voice(buf, ctx.currentTime + 0.05, off, 6, 0.3, 1.2, spec.level);
     },
 
     // Called on the trainer's click, which is the gesture that lets audio play
@@ -691,6 +891,7 @@ export function createQuizMusic() {
       const c = ensure();
       if (c && c.state === 'suspended') { try { await c.resume(); } catch { /* denied */ } }
       loadRoll();   // not awaited: the quiz must not wait on a sound file
+      if (RECORDED[themeKey]) loadTrack(themeKey);
     },
 
     // The "get ready" countdown. Silence here was half the reason the music
@@ -715,6 +916,27 @@ export function createQuizMusic() {
     startQuestion(total, secondsLeftFn) {
       this.stop();
       if (!ensure()) return;
+      // A recorded track, once it is here. Until then (or if it never comes)
+      // this question gets the companion style's built-in bed, below.
+      if (RECORDED[themeKey]) {
+        const key = themeKey;
+        if (!trackBuf[key]) loadTrack(key);
+        else {
+          lastTimeUp = -99;
+          const startLeft = secondsLeftFn();
+          startBed(key, Math.max(1, startLeft ?? total));
+          let lastTick = null;
+          const watch = () => {
+            const left = secondsLeftFn();
+            if (left === null || left <= 0) { timer = null; return; }
+            const whole = Math.ceil(left);
+            if (whole <= 5 && whole !== lastTick) { lastTick = whole; tick(ctx.currentTime + 0.02); }
+            timer = setTimeout(watch, 120);
+          };
+          watch();
+          return;
+        }
+      }
       const th = theme();
       step = 0;
       lastTimeUp = -99;
@@ -738,6 +960,8 @@ export function createQuizMusic() {
     stop() {
       if (timer) { clearTimeout(timer); timer = null; }
       stopDrone();
+      stopBed();
+      stopPreview();
     },
 
     // Time's up. Not stop() plus a sting: the beat stops, the bed is let down
@@ -748,7 +972,15 @@ export function createQuizMusic() {
       if (timer) { clearTimeout(timer); timer = null; }
       if (!ensure()) return;
       lastTimeUp = ctx.currentTime;
-      releaseDrone(1.15);
+      if (bed) {
+        // Countdown's own fade IS the landing, so it is let ring and no hit is
+        // added. A loop is let down over a second under the companion's hit.
+        const ending = bed.mode === 'end';
+        stopBed(ending ? 2.5 : 1.1);
+        if (ending) return;
+      } else {
+        releaseDrone(1.15);
+      }
       const fn = theme().sting.timeup;
       if (fn) fn(ctx.currentTime + 0.02);
     },
