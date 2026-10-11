@@ -31,7 +31,7 @@ export default function QuestionEditorHead({
       />
       <span className="wbe-sub">{kindLabel}</span>
       <div className="wbe-actions">
-        {draft.dirty ? (
+        {draft.dirty && (
           <span className="qe-draft" data-tip={savedHint}>
             <span className="qe-draft-text">● Unsaved question changes</span>
             <button type="button" className="qe-draft-save" disabled={draft.saving} onClick={onSaveDraft}>
@@ -41,7 +41,13 @@ export default function QuestionEditorHead({
               Discard
             </button>
           </span>
-        ) : (
+        )}
+        {/* Wording, title and pass mark still save on their own while the
+            draft is dirty, so their chip must stay up whenever it has
+            something to say: always when clean, and when a save is in flight
+            or has FAILED even with staged changes. Only a "✓ Saved" is held
+            back beside "Unsaved", where the two would read as a contradiction. */}
+        {(!draft.dirty || saves.pending > 0 || saves.failures.length > 0) && (
           <SaveStatus tracker={saves} onReload={onReload} />
         )}
         {children}
