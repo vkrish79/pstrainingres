@@ -197,3 +197,14 @@
 }
 .notes-card-editor ul, .notes-card-editor ol { margin: 0.25rem 0; padding-left: 1.25rem; }
 .notes-card-editor p { margin: 0.3rem 0; }
+
+/* The shared save chip, between the heading and ×. */
+.notes-drawer-head .notes-drawer-save { margin-left: auto; margin-right: 0.5rem; }
+
+/* A note that failed to save as the drawer closed. Shown outside the drawer,
+   bottom-left so it clears the Ask for help button, until a Retry lands. */
+.notes-save-failed {
+  position: fixed; left: 1.25rem; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  z-index: 48; max-width: min(420px, calc(100vw - 2.5rem));
+  box-shadow: 0 6px 18px rgba(30, 60, 90, 0.18); border-radius: 999px;
+}

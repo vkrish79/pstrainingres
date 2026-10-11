@@ -13,6 +13,8 @@ import { StatusChip } from './ProgramsListPage.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
 import '../styles/programs.css';
+import SaveStatus from '../components/SaveStatus.jsx';
+import { useSaveTracker } from '../hooks/useSaveTracker.js';
 
 // One program, in the session cockpit's clothes: the title above one bar
 // (facts, tabs, actions), gauges that say whether it is ready and how it is
@@ -630,22 +632,27 @@ function MaterialRow({ m, first, last, prog, openClasses, runBusy }) {
 function DetailsCard({ program, programTypes, updateFields }) {
   const [title, setTitle] = useState(program.title);
   const [description, setDescription] = useState(program.description || '');
-  const [state, setState] = useState({ kind: 'idle', text: '' });
+  // The shared save chip (SaveStatus), as on every other editor. `invalid`
+  // is the one message that is not about a save: a blank title is refused
+  // here, before anything is written.
+  const saves = useSaveTracker();
+  const [invalid, setInvalid] = useState('');
 
   useEffect(() => {
     setTitle(program.title);
     setDescription(program.description || '');
   }, [program.id, program.title, program.description]);
 
-  async function save(patch) {
-    setState({ kind: 'saving', text: 'Saving…' });
-    const { error: e } = await updateFields(patch);
-    setState(e ? { kind: 'error', text: e.message } : { kind: 'saved', text: '✓ Saved' });
+  const FIELD = { title: 'the title', description: 'the description', program_type_id: 'the type' };
+  function save(patch) {
+    setInvalid('');
+    const key = Object.keys(patch)[0];
+    return saves.track(key, FIELD[key] || 'that change', () => updateFields(patch));
   }
 
   function saveTitle() {
     const t = title.trim();
-    if (!t) { setTitle(program.title); setState({ kind: 'error', text: 'A program needs a title.' }); return; }
+    if (!t) { setTitle(program.title); setInvalid('A program needs a title.'); return; }
     if (t !== program.title) save({ title: t });
   }
   function saveDescription() {
@@ -657,7 +664,7 @@ function DetailsCard({ program, programTypes, updateFields }) {
     <section className="cockpit-card program-details">
       <div className="program-details-head">
         <h3 className="cockpit-card-title">Details</h3>
-        {state.text && <span className={`program-save-state is-${state.kind}`}>{state.text}</span>}
+        {invalid ? <span className="program-save-state is-error">{invalid}</span> : <SaveStatus tracker={saves} />}
       </div>
       <label className="program-field" htmlFor="program-title">Title</label>
       <input id="program-title" className="form-input" value={title} maxLength={120} onChange={e => setTitle(e.target.value)} onBlur={saveTitle} />

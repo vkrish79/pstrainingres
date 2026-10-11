@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import { classSummary } from '../lib/programReadiness.js';
@@ -27,10 +27,18 @@ import { classSummary } from '../lib/programReadiness.js';
 export function useTrainerWorkbooks(trainerId, role) {
   const [loading, setLoading] = useState(true);
   const [workbooks, setWorkbooks] = useState([]);
+  // A failed read is reported, never turned into an empty library: "No
+  // workbooks yet." on a dropped connection is a false statement about the
+  // trainer's work. `reload` bumps the nonce to run the effect again.
+  const [error, setError] = useState(null);
+  const [nonce, setNonce] = useState(0);
+  const reload = useCallback(() => setNonce(n => n + 1), []);
 
   useEffect(() => {
     if (!trainerId) return undefined;
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     (async () => {
       let q = supabase
         .from('workbooks')
@@ -38,8 +46,9 @@ export function useTrainerWorkbooks(trainerId, role) {
         .eq('is_template', true)
         .order('updated_at', { ascending: false });
       if (!isSuperTrainerOrAbove(role)) q = q.eq('vendor_visible', true);
-      const { data: wbs } = await q;
+      const { data: wbs, error: e1 } = await q;
       if (cancelled) return;
+      if (e1) { setError(e1); setLoading(false); return; }
 
       const rows = wbs || [];
       const programIds = [...new Set(rows.map(w => w.program_id).filter(Boolean))];
@@ -56,6 +65,10 @@ export function useTrainerWorkbooks(trainerId, role) {
         ])
         : [{ data: [] }, { data: [] }];
       if (cancelled) return;
+      // Without these every card would read "unused" — the same false empty,
+      // one level down.
+      const e2 = progs.error || sess.error;
+      if (e2) { setError(e2); setLoading(false); return; }
 
       const progById = new Map((progs.data || []).map(p => [p.id, p]));
       const sessByProgram = new Map();
@@ -74,7 +87,7 @@ export function useTrainerWorkbooks(trainerId, role) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [trainerId, role]);
+  }, [trainerId, role, nonce]);
 
-  return { loading, workbooks };
+  return { loading, error, workbooks, reload };
 }

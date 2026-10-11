@@ -63,7 +63,9 @@ function compactBlocks(blocks) {
   return out;
 }
 
-export function useAssessmentDraft({ sections, blocks, reload }) {
+// `saves`: the editor's useSaveTracker, so content written straight through
+// (updateBlock below) shows on the same save chip as the title. Optional.
+export function useAssessmentDraft({ sections, blocks, reload, saves = null }) {
   const [draft, setDraft] = useState(() => seed(sections, blocks));
   // The rows the draft was seeded from — what Save diffs against.
   const [base, setBase] = useState(() => ({ sections, blocks }));
@@ -275,12 +277,22 @@ export function useAssessmentDraft({ sections, blocks, reload }) {
 
   // A block's CONTENT. Existing blocks write straight through — content is not
   // staged. A draft block has no row yet, so it stays local until Save.
+  const track = saves?.track;
   const updateBlock = useCallback(async (blockId, patch) => {
     setDraft(d => ({ ...d, blocks: d.blocks.map(b => b.id === blockId ? { ...b, ...patch } : b) }));
     if (isDraftId(blockId)) return {};
-    const { error } = await supabase.from('assessment_blocks').update(patch).eq('id', blockId);
-    return error ? { error } : {};
-  }, []);
+    // Read back: a refused update is a 200 with zero rows, which would
+    // otherwise show as saved.
+    const write = async () => {
+      const { data, error } = await supabase.from('assessment_blocks').update(patch).eq('id', blockId).select('id');
+      if (error) return { error };
+      if (!data || data.length === 0) {
+        return { error: new Error('That change was not saved — you may not have permission to edit this.') };
+      }
+      return {};
+    };
+    return track ? track(`block:${blockId}`, 'a question block', write) : write();
+  }, [track]);
 
   // ── Is there anything to save? ───────────────────────────────────────────
 

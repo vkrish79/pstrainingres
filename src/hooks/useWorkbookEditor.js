@@ -43,5 +43,6 @@ export function useWorkbookEditor(workbookId) {
     deleteSection: ce.deleteSection,
     deleteWorkbook: ce.deleteParent,
     reload: ce.reload,
+    saves: ce.saves,
   };
 }

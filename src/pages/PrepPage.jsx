@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import TopBar from '../components/TopBar.jsx';
 import { SkeletonCards } from '../components/Skeleton.jsx';
+import LoadFailed from '../components/LoadFailed.jsx';
 import { PrepPoolBody, PrepPoolActions } from '../components/prep/PrepPool.jsx';
 import { useVendors } from '../hooks/useVendors.js';
 import { usePrepPools } from '../hooks/usePrepPools.js';
@@ -57,7 +58,7 @@ export default function PrepPage() {
     ? (vendors.find(v => v.id === partitionVendorId)?.name || 'Vendor')
     : 'Super (shared)';
 
-  const { loading, pools, sessionsById } = usePrepPools(partitionVendorId);
+  const { loading, error, reload, pools, sessionsById } = usePrepPools(partitionVendorId);
 
   function openPool(p) {
     const next = new URLSearchParams();
@@ -97,6 +98,12 @@ export default function PrepPage() {
       <main className="page dashboard library-page prep-cockpit">
         {parentId ? (
           loading ? <SkeletonCards count={3} label="Loading pool…" />
+            : error ? (
+              <>
+                <button type="button" className="back-link back-link-btn" onClick={backToList}>&larr; All pools</button>
+                <LoadFailed what="this pool" error={error} onRetry={reload} />
+              </>
+            )
             : open ? (
               <PoolView
                 pool={open}
@@ -116,7 +123,9 @@ export default function PrepPage() {
         ) : (
           <Landing
             loading={loading}
-            pools={pools}
+            error={error}
+            onRetry={reload}
+            pools={error ? [] : pools}
             canWrite={canWrite}
             poolName={poolName}
             poolPicker={poolPicker}
@@ -131,7 +140,7 @@ export default function PrepPage() {
 
 function plural(n, word, many = `${word}s`) { return `${n} ${n === 1 ? word : many}`; }
 
-function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOpen }) {
+function Landing({ loading, error, onRetry, pools, canWrite, poolName, poolPicker, isSuper, onOpen }) {
   const [filter, setFilter] = useState('all');   // 'all' | 'need' | 'ok' | 'noprep'
   const [find, setFind] = useState('');
 
@@ -183,7 +192,7 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
                 aria-pressed={filter === k}
                 onClick={() => setFilter(k)}
               >
-                {label} · <span className="view-tab-count">{n}</span>
+                {label} · <span className="view-tab-count">{error ? '–' : n}</span>
               </button>
             ))}
           </div>
@@ -208,6 +217,7 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
       )}
 
       {loading && <SkeletonCards count={6} label="Loading prep pools…" />}
+      {!loading && error && <LoadFailed what="the prep pools" error={error} onRetry={onRetry} />}
 
       {!loading && pools.length > 0 && (
         <section className="cockpit-gauges wb-gauges" aria-label="Prep at a glance">
@@ -280,7 +290,7 @@ function Landing({ loading, pools, canWrite, poolName, poolPicker, isSuper, onOp
         </section>
       )}
 
-      {!loading && pools.length === 0 && (
+      {!loading && !error && pools.length === 0 && (
         <p className="cockpit-empty">No workbooks or assessments yet.</p>
       )}
 

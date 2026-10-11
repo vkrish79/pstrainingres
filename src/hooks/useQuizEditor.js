@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { prepareQuizImage, forgetQuizImageUrl, QUIZ_IMAGE_BUCKET, QUIZ_MAP_BUCKET } from '../lib/quizImages.js';
 import { prepareQuizAudio, QUIZ_AUDIO_BUCKET } from '../lib/quizAudio.js';
+import { useSaveTracker } from './useSaveTracker.js';
 
 // One quiz, with its questions and their four options, for the editor.
 //
@@ -467,12 +468,55 @@ export function useQuizEditor(quizId) {
     return { data: true };
   }, [questions, quizId, refresh]);
 
+  // ── Save tracking ─────────────────────────────────────────────────────
+  // Every write goes through the editor's one save chip (SaveStatus). The
+  // functions above are unchanged; each wrapper adds a key, a label naming the
+  // question by its number, and whether a failure may simply be replayed.
+  // Adds, deletes and moves may not: they were computed from an order that
+  // could have changed since, so those offer a reload instead.
+  const saves = useSaveTracker();
+  const { track } = saves;
+  const questionsRef = useRef(questions);
+  questionsRef.current = questions;
+  const qName = useCallback(id => {
+    const i = questionsRef.current.findIndex(q => q.id === id);
+    return i === -1 ? 'a question' : `question ${i + 1}`;
+  }, []);
+  const optName = useCallback(optionId => {
+    const i = questionsRef.current.findIndex(q => (q.quiz_options || []).some(o => o.id === optionId));
+    return i === -1 ? 'an answer' : `an answer in question ${i + 1}`;
+  }, []);
+
+  const tracked = useMemo(() => {
+    const t = (key, label, fn, opts) => track(key, label, fn, opts);
+    const noRetry = { retry: false };
+    return {
+      renameQuiz: title => t('title', 'the title', () => renameQuiz(title)),
+      addQuestion: kind => t('add', 'a new question', () => addQuestion(kind), noRetry),
+      updateQuestion: (id, patch) => t(`q:${id}:${Object.keys(patch).sort().join(',')}`, qName(id), () => updateQuestion(id, patch)),
+      deleteQuestion: id => t(`del:${id}`, `the deletion of ${qName(id)}`, () => deleteQuestion(id), noRetry),
+      setQuestionImage: (id, file) => t(`img:${id}`, `the picture on ${qName(id)}`, () => setQuestionImage(id, file)),
+      clearQuestionImage: id => t(`img:${id}`, `the picture on ${qName(id)}`, () => clearQuestionImage(id)),
+      setQuestionAudio: (id, file) => t(`aud:${id}`, `the clip on ${qName(id)}`, () => setQuestionAudio(id, file)),
+      clearQuestionAudio: id => t(`aud:${id}`, `the clip on ${qName(id)}`, () => clearQuestionAudio(id)),
+      setQuestionMap: (id, file) => t(`map:${id}`, `the map on ${qName(id)}`, () => setQuestionMap(id, file)),
+      clearQuestionMap: id => t(`map:${id}`, `the map on ${qName(id)}`, () => clearQuestionMap(id)),
+      setPinTarget: (id, target) => t(`pin:${id}`, `the pin on ${qName(id)}`, () => setPinTarget(id, target)),
+      updateOption: (optionId, label) => t(`opt:${optionId}`, optName(optionId), () => updateOption(optionId, label)),
+      setCorrect: (id, optionId) => t(`correct:${id}`, `the right answer to ${qName(id)}`, () => setCorrect(id, optionId)),
+      toggleCorrect: (id, optionId, on) => t(`correct:${id}:${optionId}`, `the right answers to ${qName(id)}`, () => toggleCorrect(id, optionId, on)),
+      setAllowWager: (id, on) => t(`wager:${id}`, `betting on ${qName(id)}`, () => setAllowWager(id, on)),
+      moveQuestion: (id, dir) => t('order', 'the question order', () => moveQuestion(id, dir), noRetry),
+      moveItem: (id, optionId, dir) => t(`items:${id}`, `the order in ${qName(id)}`, () => moveItem(id, optionId, dir), noRetry),
+    };
+  }, [track, qName, optName, renameQuiz, addQuestion, updateQuestion, deleteQuestion,
+    setQuestionImage, clearQuestionImage, setQuestionAudio, clearQuestionAudio,
+    setQuestionMap, clearQuestionMap, setPinTarget, updateOption, setCorrect,
+    toggleCorrect, setAllowWager, moveQuestion, moveItem]);
+
   return {
     loading, error, quiz, questions,
-    renameQuiz, addQuestion, updateQuestion, deleteQuestion,
-    setQuestionImage, clearQuestionImage,
-    setQuestionAudio, clearQuestionAudio,
-    setQuestionMap, clearQuestionMap, setPinTarget,
-    updateOption, setCorrect, toggleCorrect, setAllowWager, moveQuestion, moveItem, refresh,
+    ...tracked,
+    refresh, saves,
   };
 }

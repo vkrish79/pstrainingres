@@ -7,6 +7,7 @@ import { useAssessmentAnswerKeys } from '../hooks/useAssessmentAnswerKeys.js';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
 import QuestionTopics from '../components/editor/QuestionTopics.jsx';
 import TopBar from '../components/TopBar.jsx';
+import SaveStatus from '../components/SaveStatus.jsx';
 import '../styles/editor.css';
 import '../styles/workbook.css';
 import '../styles/dashboard.css';
@@ -30,10 +31,10 @@ export default function QuestionBankEditorPage() {
     loading, error, assessment: bank,
     sections: savedSections, blocks: savedBlocks,
     updateAssessmentTitle, updateAssessmentDescription,
-    deleteAssessment, reload,
+    deleteAssessment, reload, saves,
   } = useAssessmentEditor(id);
 
-  const draft = useAssessmentDraft({ sections: savedSections, blocks: savedBlocks, reload });
+  const draft = useAssessmentDraft({ sections: savedSections, blocks: savedBlocks, reload, saves });
   const { sections, blocks } = draft;
 
   // A bank holds the correct ANSWER and nothing else — no marks, no marking
@@ -128,6 +129,7 @@ export default function QuestionBankEditorPage() {
             </p>
           </div>
           <div className="page-hero-actions">
+            <SaveStatus tracker={saves} onReload={reload} />
             <button className="ghost" onClick={() => setShowPreview(p => !p)}>
               {showPreview ? '◧ Hide preview' : '◨ Show preview'}
             </button>

@@ -44,9 +44,12 @@ export function useParticipantNotes(sessionId, participantId) {
       )
       .select()
       .single();
-    if (!error && data) {
-      setNotes(prev => ({ ...prev, [sectionId]: data }));
-    }
+    // Returned, not swallowed: the optimistic copy above already shows the
+    // note, so a failed write would otherwise look exactly like a saved one.
+    // NotesDrawer puts it on its save chip with a Retry.
+    if (error || !data) return { error: error || new Error('Your note was not saved.') };
+    setNotes(prev => ({ ...prev, [sectionId]: data }));
+    return { data };
   }, [sessionId, participantId]);
 
   return { notes, loading, saveNote };

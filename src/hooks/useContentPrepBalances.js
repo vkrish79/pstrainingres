@@ -18,6 +18,10 @@ export function useContentPrepBalances(kindConfig, vendorId) {
   // every realtime refresh; `ready` only goes false when the partition itself
   // changes, so a caller can keep its screen up through a refresh.
   const [loadedFor, setLoadedFor] = useState(null);
+  // A failed read keeps the counts already on screen and says so. It used to
+  // fall through as zero kits, so one dropped realtime refresh turned every
+  // pool to "nothing stocked" until the next change happened to arrive.
+  const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -25,12 +29,19 @@ export function useContentPrepBalances(kindConfig, vendorId) {
     let q = supabase.from(kitsTable).select(`${parentFK}, status, payload, consumed_session_id, consumed_at`)
       .or(LIVE_KITS_FILTER);
     q = vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
-    const { data, error } = await q;
-    const groups = {};
-    for (const k of (error ? [] : data || [])) (groups[k[parentFK]] || (groups[k[parentFK]] = [])).push(k);
-    const m = {};
-    for (const id of Object.keys(groups)) m[id] = summariseKits(groups[id]);
-    setByParent(m);
+    const { data, error: e } = await q;
+    if (e) {
+      setError(e);
+    } else {
+      const groups = {};
+      for (const k of data || []) (groups[k[parentFK]] || (groups[k[parentFK]] = [])).push(k);
+      const m = {};
+      for (const id of Object.keys(groups)) m[id] = summariseKits(groups[id]);
+      setByParent(m);
+      setError(null);
+    }
+    // Ready either way: the caller decides what a failure looks like, and a
+    // partition that never becomes ready is a skeleton that never ends.
     setLoadedFor(vendorId || 'super');
     setLoading(false);
   }, [vendorId, kitsTable, parentFK]);
@@ -47,5 +58,5 @@ export function useContentPrepBalances(kindConfig, vendorId) {
     return () => { supabase.removeChannel(channel); };
   }, [vendorId, refresh, kitsTable, channelPrefix]);
 
-  return { byParent, loading, ready: loadedFor === (vendorId || 'super'), refresh };
+  return { byParent, loading, error, ready: loadedFor === (vendorId || 'super'), refresh };
 }

@@ -25,6 +25,9 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
   // { at, by } — the newest kit in this partition: when the pool was last
   // stocked, and by whom. null when nothing has ever been stocked.
   const [lastStocked, setLastStocked] = useState(null);
+  // A failed read keeps the kits already shown and reports it, rather than
+  // drawing an empty grid that says the pool holds nothing.
+  const [loadError, setLoadError] = useState(null);
 
   const refresh = useCallback(async () => {
     if (!parentId) { setKits([]); setLastStocked(null); setLoading(false); return; }
@@ -55,7 +58,8 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
       .order('kit_index');
     q = vendorId == null ? q.is('vendor_id', null) : q.eq('vendor_id', vendorId);
     const { data, error } = await q;
-    setKits(error ? [] : (data || []));
+    setLoadError(error || null);
+    if (!error) setKits(data || []);
     setLastStocked(await readLastStocked());
     setLoading(false);
   }, [parentId, vendorId, kitsTable, parentFK]);
@@ -199,7 +203,7 @@ export function useContentPrep(kindConfig, parentId, vendorId) {
   }, [kits, kitsTable, mirrorsParticipantPrep, refresh]);
 
   return {
-    kits, balance, loading, refresh, lastStocked,
+    kits, balance, loading, loadError, refresh, lastStocked,
     appendKits, clearUnconsumed, setKitStatus, editKitCells,
   };
 }

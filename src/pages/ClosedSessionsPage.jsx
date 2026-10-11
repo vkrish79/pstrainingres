@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import TopBar from '../components/TopBar.jsx';
+import { SkeletonTable } from '../components/Skeleton.jsx';
+import LoadFailed from '../components/LoadFailed.jsx';
 import '../styles/dashboard.css';
 
 function formatDateRange(start, end) {
@@ -26,7 +28,7 @@ export default function ClosedSessionsPage() {
   const navigate = useNavigate();
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   // scope='all' relies on RLS for each role.
-  const { loading, error, sessions } = useTrainerSessions(
+  const { loading, error, reload, sessions } = useTrainerSessions(
     authSession?.user.id, 'all', null, 'closed',
   );
 
@@ -119,8 +121,9 @@ export default function ClosedSessionsPage() {
           )}
         </div>
 
-        {error && <p className="error">{error}</p>}
-        {!loading && sessions.length === 0 && (
+        {loading && <SkeletonTable rows={8} cols={5} label="Loading closed sessions…" />}
+        {!loading && error && <LoadFailed what="the closed sessions" error={error} onRetry={reload} />}
+        {!loading && !error && sessions.length === 0 && (
           <p className="muted">No closed sessions yet. When a trainer closes a session, it'll show up here.</p>
         )}
         {!loading && sessions.length > 0 && filtered.length === 0 && (

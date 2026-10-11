@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 const SUPER_ROLES = new Set(['super_admin', 'super_trainer']);
@@ -33,10 +33,16 @@ export function useSessionRollup({ sinceDays = null } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sessions, setSessions] = useState([]);
+  // Bumped by `reload` (a "Couldn't load" card's Retry) to run the read again.
+  const [nonce, setNonce] = useState(0);
+  const reload = useCallback(() => setNonce(n => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    // Cleared on every read: without this, one failure stayed on screen after
+    // a later range loaded fine.
+    setError(null);
     (async () => {
       try {
         let q = supabase.from('sessions').select(`
@@ -135,7 +141,7 @@ export function useSessionRollup({ sinceDays = null } = {}) {
       }
     })();
     return () => { cancelled = true; };
-  }, [sinceDays]);
+  }, [sinceDays, nonce]);
 
-  return { loading, error, sessions };
+  return { loading, error, reload, sessions };
 }

@@ -14,11 +14,14 @@ export function useSessionPrep(sessionId) {
   const [prep, setPrep] = useState({});
   const [standalone, setStandalone] = useState({}); // [participantId] = [{label, content}]
   const [loading, setLoading] = useState(true);
+  // Reported, not read as "nobody has prep": the grid would otherwise draw
+  // every participant's cell empty and invite the trainer to re-enter it.
+  const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
     if (!sessionId) return;
     setLoading(true);
-    const [{ data: secData }, { data: stdData }] = await Promise.all([
+    const [{ data: secData, error: e1 }, { data: stdData, error: e2 }] = await Promise.all([
       supabase.from('participant_prep')
         .select('id, participant_id, section_id, content, updated_at')
         .eq('session_id', sessionId),
@@ -26,6 +29,8 @@ export function useSessionPrep(sessionId) {
         .select('id, participant_id, label, content, updated_at')
         .eq('session_id', sessionId).order('label'),
     ]);
+    if (e1 || e2) { setError(e1 || e2); setLoading(false); return; }
+    setError(null);
     const map = {};
     (secData || []).forEach(r => {
       map[r.participant_id] = map[r.participant_id] || {};
@@ -113,5 +118,5 @@ export function useSessionPrep(sessionId) {
     return { count: rows.length };
   }, [sessionId, refresh]);
 
-  return { prep, standalone, loading, refresh, saveOne, saveMany };
+  return { prep, standalone, loading, error, refresh, saveOne, saveMany };
 }

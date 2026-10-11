@@ -26,6 +26,7 @@ import { linkedBySection } from '../lib/prepTemplateEdit.js';
 import { isWithdrawn, withdrawalOf, setQuestionWithdrawn } from '../lib/questionWithdrawal.js';
 import WithdrawQuestion from '../components/WithdrawQuestion.jsx';
 import TopBar from '../components/TopBar.jsx';
+import SaveStatus from '../components/SaveStatus.jsx';
 import '../styles/editor.css';
 import '../styles/workbook.css';
 import '../styles/dashboard.css';
@@ -41,13 +42,13 @@ export default function AssessmentEditorPage() {
     loading, error, assessment,
     sections: savedSections, blocks: savedBlocks,
     updateAssessmentTitle, updateAssessmentDescription, updateAssessmentPassMark,
-    deleteAssessment, reload,
+    deleteAssessment, reload, saves,
   } = useAssessmentEditor(id);
 
   // Structural edits stage here until Save. Content, title/description and
   // answer keys still write immediately — see hooks/useAssessmentDraft.js for
   // why that line is drawn where it is.
-  const draft = useAssessmentDraft({ sections: savedSections, blocks: savedBlocks, reload });
+  const draft = useAssessmentDraft({ sections: savedSections, blocks: savedBlocks, reload, saves });
   const { sections, blocks, createSection } = draft;
 
   const [titleDraft, setTitleDraft] = useState('');
@@ -231,6 +232,7 @@ export default function AssessmentEditorPage() {
             <p>Same block model as a workbook. Attach to a program from its editor page when ready.</p>
           </div>
           <div className="page-hero-actions">
+            <SaveStatus tracker={saves} onReload={reload} />
             {/* Uses TOTAL, not open: once everything is reviewed the marker
                 goes quiet but must stay reachable, or finishing a review would
                 make the record disappear. */}

@@ -51,5 +51,6 @@ export function useAssessmentEditor(assessmentId) {
     deleteSection: ce.deleteSection,
     deleteAssessment: ce.deleteParent,
     reload: ce.reload,
+    saves: ce.saves,
   };
 }

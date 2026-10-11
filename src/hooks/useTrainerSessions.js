@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 // Loads sessions for the trainer home, vendor drill-in, or archive.
@@ -18,11 +18,16 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null, inclu
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [error, setError] = useState(null);
+  // Bumped by `reload` (a "Couldn't load" card's Retry) to run the read again.
+  const [nonce, setNonce] = useState(0);
+  const reload = useCallback(() => setNonce(n => n + 1), []);
 
   useEffect(() => {
     if (!userId) return;
     if (scope === 'vendor' && !vendorId) return;
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         let q = supabase
@@ -51,7 +56,7 @@ export function useTrainerSessions(userId, scope = 'own', vendorId = null, inclu
       }
     })();
     return () => { cancelled = true; };
-  }, [userId, scope, vendorId, includeClosed]);
+  }, [userId, scope, vendorId, includeClosed, nonce]);
 
-  return { loading, error, sessions, setSessions };
+  return { loading, error, reload, sessions, setSessions };
 }

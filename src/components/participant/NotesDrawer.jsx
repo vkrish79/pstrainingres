@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sanitizeNotesHtml, wordCountHtml } from '../../lib/notesRichText.js';
+import { useSaveTracker } from '../../hooks/useSaveTracker.js';
+import SaveStatus from '../SaveStatus.jsx';
 
 // Rotating placeholders so participants who don't know what to write get a
 // nudge. Deterministically picked per section so it doesn't shuffle.
@@ -33,6 +35,15 @@ export default function NotesDrawer({
   // Per-section expand/collapse. `currentSectionId` is opened by default
   // when the drawer opens; toggleSet tracks user overrides.
   const [toggleSet, setToggleSet] = useState(() => new Set());
+
+  // Every flush goes through the shared save chip. Most flushes happen as the
+  // drawer CLOSES, so a failure is also shown outside it (below) — otherwise
+  // the only place it could say so would be sliding off the screen.
+  const saves = useSaveTracker();
+  const { track } = saves;
+  const flushNote = useCallback((sec, html) => track(
+    `note:${sec.id}`, `your note on "${sec.title}"`, () => saveNote(sec.id, html),
+  ), [track, saveNote]);
 
   // Each expanded editor registers a flush fn; on drawer close we save them all
   // (covers ×, backdrop, Esc, and the N shortcut — all just flip `open`).
@@ -75,6 +86,7 @@ export default function NotesDrawer({
       >
         <header className="notes-drawer-head">
           <h2>📝 My notes</h2>
+          <SaveStatus tracker={saves} className="notes-drawer-save" />
           <button
             type="button"
             className="icon-btn"
@@ -85,7 +97,7 @@ export default function NotesDrawer({
           </button>
         </header>
         <p className="notes-drawer-hint">
-          One note per exercise. Select text and use <strong>B</strong> / <em>I</em> / • to format. Saved when you close.
+          One note per exercise. Select text and use <strong>B</strong> / <em>I</em> / • to format. Saved when you click away from a note or close the drawer.
         </p>
         <div className="notes-drawer-body">
           {sections.filter(sec => sec.kind !== 'group').map(sec => (
@@ -95,7 +107,7 @@ export default function NotesDrawer({
               note={notes[sec.id]}
               expanded={isExpanded(sec.id)}
               onToggle={() => toggle(sec.id)}
-              onFlush={html => saveNote(sec.id, html)}
+              onFlush={html => flushNote(sec, html)}
               isCurrent={sec.id === currentSectionId}
               register={register}
               unregister={unregister}
@@ -104,6 +116,11 @@ export default function NotesDrawer({
           ))}
         </div>
       </aside>
+      {!open && saves.failures.length > 0 && (
+        <div className="notes-save-failed">
+          <SaveStatus tracker={saves} />
+        </div>
+      )}
     </>
   );
 }

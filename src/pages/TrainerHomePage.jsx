@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
+import LoadFailed from '../components/LoadFailed.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove } from '../lib/roles.js';
@@ -74,12 +75,12 @@ function SuperHome({ userId }) {
   // system through RLS, so it is the branch most likely to be refused. Without
   // this the refusal renders as a hero reading "0 sessions" and nothing else —
   // the same silent shape as an update() with no .select().
-  const { loading: msl, error, sessions } = useTrainerSessions(userId, 'all');
+  const { loading: msl, error, reload, sessions } = useTrainerSessions(userId, 'all');
 
   return (
     <>
       {msl && <SkeletonCards count={6} label="Loading sessions…" />}
-      {error && <div className="error">{error}</div>}
+      {error && <LoadFailed what="your sessions" error={error} onRetry={reload} />}
       {/* With no sessions there is no filter row, so the action has to be
           drawn here or there is no way to make the first one. */}
       {!msl && !error && sessions.length === 0 && (
@@ -112,12 +113,12 @@ function SuperHome({ userId }) {
 
 function VendorManagerHome({ userId }) {
   // scope='all' relies on RLS: vendor_manager naturally sees only their vendor.
-  const { loading: sl, error, sessions } = useTrainerSessions(userId, 'all');
+  const { loading: sl, error, reload, sessions } = useTrainerSessions(userId, 'all');
 
   return (
     <>
       {sl && <SkeletonCards count={6} label="Loading sessions…" />}
-      {error && <div className="error">{error}</div>}
+      {error && <LoadFailed what="your sessions" error={error} onRetry={reload} />}
       {!sl && !error && sessions.length === 0 && (
         <EmptySessions>No sessions in this vendor yet.</EmptySessions>
       )}
@@ -138,12 +139,12 @@ function VendorManagerHome({ userId }) {
 // ----- vendor_trainer (and pre-migration "trainer") ------------------------
 
 function VendorTrainerHome({ userId }) {
-  const { loading: sl, error, sessions } = useTrainerSessions(userId, 'own');
+  const { loading: sl, error, reload, sessions } = useTrainerSessions(userId, 'own');
 
   return (
     <>
       {sl && <SkeletonCards count={6} label="Loading sessions…" />}
-      {error && <div className="error">{error}</div>}
+      {error && <LoadFailed what="your sessions" error={error} onRetry={reload} />}
       {!sl && !error && sessions.length === 0 && (
         <EmptySessions>You have no sessions yet.</EmptySessions>
       )}

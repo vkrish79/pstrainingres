@@ -18,6 +18,7 @@ import WorkbookChangesModal from '../components/editor/WorkbookChangesModal.jsx'
 import { useWorkbookEditHeat } from '../hooks/useWorkbookEditHeat.js';
 import Block from '../components/blocks/Block.jsx';
 import TopBar from '../components/TopBar.jsx';
+import SaveStatus from '../components/SaveStatus.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import '../styles/editor.css';
@@ -35,7 +36,7 @@ export default function WorkbookEditorPage() {
     loading, error, workbook, sections, blocks,
     updateWorkbookTitle, updateVendorVisible, createBlock, updateBlock, deleteBlock, moveBlock, moveBlockTo,
     duplicateBlock, createSection, updateSectionTitle, deleteSection,
-    deleteWorkbook, reload,
+    deleteWorkbook, reload, saves,
   } = useWorkbookEditor(id);
 
   const [titleDraft, setTitleDraft] = useState('');
@@ -159,7 +160,10 @@ export default function WorkbookEditorPage() {
         <main className="page workbook">
           <section className="page-hero compact">
             <div className="page-hero-text">
-              <Link to={backTo} className="back-link">{backLabel}</Link>
+              <div className="wbe-copy-top">
+                <Link to={backTo} className="back-link">{backLabel}</Link>
+                <SaveStatus tracker={saves} onReload={reload} />
+              </div>
               <h1>{title || 'Untitled workbook'}</h1>
             </div>
           </section>
@@ -310,6 +314,7 @@ export default function WorkbookEditorPage() {
           />
           <span className="wbe-sub" data-tip="Changes here reach classes created from now on. Each class already running has its own copy.">Master copy</span>
           <div className="wbe-actions">
+            <SaveStatus tracker={saves} onReload={reload} />
             {/* Shown whenever this workbook has ANY recorded change, not just
                 open ones — otherwise the way in vanishes the moment you finish
                 reviewing, the trap the grey tick on each marker avoids. */}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { SkeletonCards } from '../components/Skeleton.jsx';
+import LoadFailed from '../components/LoadFailed.jsx';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTrainerSessions } from '../hooks/useTrainerSessions.js';
@@ -14,7 +15,7 @@ import '../styles/dashboard.css';
 export default function VendorSessionsPage() {
   const { vendorId } = useParams();
   const { session: authSession } = useAuth();
-  const { loading: sl, error, sessions } = useTrainerSessions(
+  const { loading: sl, error, reload, sessions } = useTrainerSessions(
     authSession?.user.id, 'vendor', vendorId,
   );
   const [vendor, setVendor] = useState(null);
@@ -62,7 +63,7 @@ export default function VendorSessionsPage() {
         </section>
 
         {sl && <SkeletonCards count={6} label="Loading sessions…" />}
-        {error && <div className="error">{error}</div>}
+        {error && <LoadFailed what="your sessions" error={error} onRetry={reload} />}
         {!sl && !error && (
           <SessionViews
             sessions={sessions}

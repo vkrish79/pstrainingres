@@ -5,6 +5,8 @@ import PrepEditGrid from './PrepEditGrid.jsx';
 import { downloadEmptyPrepTemplate } from '../../lib/prepTemplate.js';
 import { LOW_PREP_THRESHOLD, incompleteKits } from '../../lib/prepPools.js';
 import { classState, shortDate } from '../../lib/programReadiness.js';
+import { SkeletonLines } from '../Skeleton.jsx';
+import LoadFailed from '../LoadFailed.jsx';
 
 // One prep pool, drawn from usePrepPool's state. Two pieces, because the two
 // surfaces put them in different places: the pop-up pins the actions in its
@@ -17,7 +19,7 @@ import { classState, shortDate } from '../../lib/programReadiness.js';
 // kindLabel: 'workbook' | 'assessment' (copy); kind: same, for the grids.
 export function PrepPoolBody({ pool, kind, canWrite, variant = 'modal', sessionsById = {}, editorTo = null }) {
   const {
-    structure, kits, balance, loading, lastStocked,
+    structure, kits, balance, loading, loadError, refresh, lastStocked,
     parsing, parseError, parsed, submitting, submitError, notice,
     pasteMode, setPasteMode, editMode, setEditMode,
     payloadRows, gappyRows, matchedHeaders,
@@ -64,11 +66,19 @@ export function PrepPoolBody({ pool, kind, canWrite, variant = 'modal', sessions
     );
   }
 
+  // Nothing has ever been read, so there is nothing true to draw: the card
+  // alone. Once kits are on screen a failed refresh leaves them up (they were
+  // right a moment ago) with the card above them.
+  if (loadError && kits.length === 0) {
+    return <LoadFailed what="this pool's kits" error={loadError} onRetry={refresh} />;
+  }
+
   const maxPerSection = Math.max(1, ...Object.values(balance.perSection).map(p => p.total));
 
   return (
     <>
-      {loading ? <p className="muted">Loading pool…</p> : isPage ? (
+      {loadError && <LoadFailed what="the latest kit counts" error={loadError} onRetry={refresh} />}
+      {loading && kits.length === 0 ? <SkeletonLines rows={4} label="Loading pool…" /> : isPage ? (
         <PoolGauges balance={balance} kits={kits} structure={structure} sessionsById={sessionsById} lastStocked={lastStocked} />
       ) : (
         <div className="prep-balance">

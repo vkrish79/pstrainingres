@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
+import LoadFailed from '../components/LoadFailed.jsx';
 import WorkbookPreviewModal from '../components/workbook/WorkbookPreviewModal.jsx';
 import CreateDialog from '../components/library/CreateDialog.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -45,7 +46,7 @@ export default function WorkbooksPage() {
   const { profile, session: authSession } = useAuth();
   const { run: runBusy } = useBusyOverlay();
   const isSuper = isSuperTrainerOrAbove(profile?.role);
-  const { loading, workbooks } = useTrainerWorkbooks(authSession?.user.id, profile?.role);
+  const { loading, error, workbooks, reload } = useTrainerWorkbooks(authSession?.user.id, profile?.role);
   const [creating, setCreating] = useState(false);
   const heatTotals = useEditHeatTotals(isSuper);
   const [preview, setPreview] = useState(null);   // { id, title } | null
@@ -81,6 +82,8 @@ export default function WorkbooksPage() {
   }, [workbooks, heatTotals]);
 
   const unused = workbooks.length - stats.used;
+  // A count read off a failed load is a zero we do not actually know.
+  const count = n => (error ? '–' : n);
 
   const shown = useMemo(() => {
     const q = find.trim().toLowerCase();
@@ -132,10 +135,10 @@ export default function WorkbooksPage() {
           <div className="cockpit-hero-row">
             <div className="view-tabs" role="group" aria-label="Show workbooks">
               {[
-                ['all', `All · ${workbooks.length}`],
-                ['used', `In use · ${stats.used}`],
-                ['unused', `Unused · ${unused}`],
-                ['review', `To review · ${stats.reviewBooks}`],
+                ['all', `All · ${count(workbooks.length)}`],
+                ['used', `In use · ${count(stats.used)}`],
+                ['unused', `Unused · ${count(unused)}`],
+                ['review', `To review · ${count(stats.reviewBooks)}`],
               ].map(([k, label]) => (
                 <button
                   key={k}
@@ -169,6 +172,7 @@ export default function WorkbooksPage() {
         </section>
 
         {loading && <SkeletonCards count={6} label="Loading workbooks…" />}
+        {!loading && error && <LoadFailed what="your workbooks" error={error} onRetry={reload} />}
 
         {!loading && workbooks.length > 0 && (
           <section className="cockpit-gauges wb-gauges" aria-label="Workbooks at a glance">
@@ -226,7 +230,7 @@ export default function WorkbooksPage() {
           </section>
         )}
 
-        {!loading && workbooks.length === 0 && (
+        {!loading && !error && workbooks.length === 0 && (
           <p className="cockpit-empty">
             No workbooks yet.
             {isSuper && <> Create one, or import a .docx.</>}

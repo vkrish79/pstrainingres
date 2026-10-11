@@ -7,6 +7,8 @@ import {
 } from '../hooks/useWorkbookEditHeat.js';
 import ChangeEntry, { keyOf } from '../components/editor/ChangeEntry.jsx';
 import TopBar from '../components/TopBar.jsx';
+import { SkeletonLines } from '../components/Skeleton.jsx';
+import LoadFailed from '../components/LoadFailed.jsx';
 import '../styles/dashboard.css';
 import '../styles/edit-heat.css';
 
@@ -191,7 +193,7 @@ export default function ChangeLogPage() {
             adopting a line goes LIVE TO ENROLLED PARTICIPANTS. That is a
             consequence, not a definition — see the note in the handover. */}
 
-        {error && <p className="error">{error}</p>}
+        {!loading && error && <LoadFailed what="the session changes" error={error} onRetry={refresh} />}
         {actionError && <p className="error">{actionError}</p>}
 
         {/* Content type first, review status second. Switching type resets the
@@ -246,7 +248,7 @@ export default function ChangeLogPage() {
           </div>
         </div>
 
-        {loading && <p className="muted">Loading changes…</p>}
+        {loading && <SkeletonLines rows={6} label="Loading changes…" />}
 
         {!loading && !error && rows.length === 0 && (
           <p className="muted">
@@ -255,7 +257,7 @@ export default function ChangeLogPage() {
           </p>
         )}
 
-        {!loading && rows.length > 0 && filtered.length === 0 && (
+        {!loading && !error && rows.length > 0 && filtered.length === 0 && (
           <p className="muted">Nothing matches these filters.</p>
         )}
 

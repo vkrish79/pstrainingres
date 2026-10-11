@@ -93,6 +93,40 @@ input, select, textarea { font-family: inherit; }
 
 .skel-lines { padding: 0.35rem 0; }
 
+/* LoadFailed.jsx — reading the page's data failed. A card with the danger
+   colour on its edge only: it is a problem to fix, not an alarm. */
+.load-failed {
+  background: var(--card); border: 1px solid #f5c2bf; border-radius: var(--radius-lg);
+  padding: 1rem 1.15rem; display: grid; gap: 0.35rem; justify-items: start;
+  max-width: 560px;
+}
+.load-failed p { margin: 0; }
+.load-failed-title { font-weight: 700; color: #c62828; }
+.load-failed-body { color: var(--text); font-size: 0.9rem; }
+.load-failed-detail { color: var(--muted); font-size: 0.78rem; word-break: break-word; }
+.load-failed-retry { margin-top: 0.45rem; padding: 0.45rem 1rem; font-size: 0.85rem; }
+
+/* SaveStatus.jsx — the one save chip on every editor. Empty until the first
+   save, so it takes no room on a page nobody has touched. */
+.save-status {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font-size: 0.78rem; font-weight: 600; line-height: 1.2;
+  padding: 0.25rem 0.65rem; border-radius: 999px; border: 1px solid transparent;
+  white-space: nowrap;
+}
+.save-status.is-idle { padding: 0; border: 0; }
+.save-status.is-saving { color: var(--muted); background: #f1efea; border-color: var(--border); }
+.save-status.is-saved { color: #2e7d32; background: #e8f5e9; border-color: #b9dfbb; }
+.save-status.is-failed { color: #c62828; background: #fdecea; border-color: #f5c2bf; white-space: normal; }
+/* Two classes deep on purpose: the chip sits inside .page-hero-actions, whose
+   `button` rule (0,1,1) would otherwise paint it gold. */
+.save-status .save-status-action {
+  background: #fff; color: #c62828; border: 1px solid #f5c2bf;
+  padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
+}
+/* Restated: the global and hero button:hover rules would fill it otherwise. */
+.save-status .save-status-action:hover { background: #fbe0de; }
+
 /* Announced once, to a screen reader, instead of a wall of decorative boxes. */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;

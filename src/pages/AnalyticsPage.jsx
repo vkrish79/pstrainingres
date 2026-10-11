@@ -12,6 +12,8 @@ import { useMemo, useState } from 'react';
 import { useSessionRollup } from '../hooks/useSessionRollup.js';
 import { headline, GROUPINGS } from '../lib/analyticsMetrics.js';
 import TopBar from '../components/TopBar.jsx';
+import { SkeletonCards } from '../components/Skeleton.jsx';
+import LoadFailed from '../components/LoadFailed.jsx';
 import AnalyticsGauges from '../components/analytics/AnalyticsGauges.jsx';
 import AnalyticsOverview from '../components/analytics/AnalyticsOverview.jsx';
 import AnalyticsHeatBoard from '../components/analytics/AnalyticsHeatBoard.jsx';
@@ -41,7 +43,7 @@ const TABS = [
 export default function AnalyticsPage() {
   const [rangeId, setRangeId] = useState('all');
   const range = RANGES.find(r => r.id === rangeId) || RANGES[2];
-  const { loading, error, sessions } = useSessionRollup({ sinceDays: range.days });
+  const { loading, error, reload, sessions } = useSessionRollup({ sinceDays: range.days });
 
   const [typeFilter, setTypeFilter] = useState('all');
   const [tab, setTab] = useState('overview');
@@ -114,8 +116,8 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {error && <p className="error">{error}</p>}
-        {loading && <p className="muted">Loading…</p>}
+        {loading && <SkeletonCards count={5} label="Reading sessions…" />}
+        {!loading && error && <LoadFailed what="the analytics" error={error} onRetry={reload} />}
 
         {!loading && !error && sessions.length === 0 && (
           <p className="muted">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useContentPrepBalances } from './useContentPrepBalances.js';
 import { WORKBOOK_PREP_KIND, ASSESSMENT_PREP_KIND } from './useContentPrep.js';
@@ -18,12 +18,18 @@ export function usePrepPools(vendorId) {
   const [parents, setParents] = useState({ workbooks: [], assessments: [], programs: [] });
   const [parentsLoading, setParentsLoading] = useState(true);
   const [sessionsById, setSessionsById] = useState({});
+  // Reported rather than read as "no workbooks or assessments yet" — see
+  // LoadFailed. `reload` re-reads the parents and both balances.
+  const [parentsError, setParentsError] = useState(null);
+  const [nonce, setNonce] = useState(0);
 
   const wb = useContentPrepBalances(WORKBOOK_PREP_KIND, vendorId);
   const as = useContentPrepBalances(ASSESSMENT_PREP_KIND, vendorId);
 
   useEffect(() => {
     let cancelled = false;
+    setParentsLoading(true);
+    setParentsError(null);
     (async () => {
       const [w, a, p] = await Promise.all([
         supabase.from('workbooks').select('id, title, prep_template, program_id').eq('is_template', true).order('title'),
@@ -32,6 +38,8 @@ export function usePrepPools(vendorId) {
         supabase.from('programs').select('id, title'),
       ]);
       if (cancelled) return;
+      const e = w.error || a.error || p.error;
+      if (e) { setParentsError(e); setParentsLoading(false); return; }
       setParents({
         workbooks: w.data || [],
         // A question bank cannot take prep — nobody sits a bank. Filtered here
@@ -42,7 +50,15 @@ export function usePrepPools(vendorId) {
       setParentsLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [nonce]);
+
+  const wbRefresh = wb.refresh;
+  const asRefresh = as.refresh;
+  const reload = useCallback(() => {
+    setNonce(n => n + 1);
+    wbRefresh();
+    asRefresh();
+  }, [wbRefresh, asRefresh]);
 
   const pools = useMemo(() => {
     const programTitle = Object.fromEntries(parents.programs.map(p => [p.id, p.title]));
@@ -92,6 +108,8 @@ export function usePrepPools(vendorId) {
     // `loading`, and hiding the grid for that would flash it away every time a
     // class draws a kit.
     loading: parentsLoading || !wb.ready || !as.ready,
+    error: parentsError || wb.error || as.error || null,
+    reload,
     pools,
     sessionsById,
   };

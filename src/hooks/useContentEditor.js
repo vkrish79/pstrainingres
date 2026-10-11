@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { useSaveTracker } from './useSaveTracker.js';
 
 // Generalized content-editor state for any parent-with-sections-with-blocks
 // shape (workbooks today, assessments next). kindConfig pins the table names
@@ -10,6 +11,18 @@ import { supabase } from '../lib/supabase.js';
 //   sectionsTable — e.g. 'sections' | 'assessment_sections'
 //   blocksTable   — e.g. 'blocks' | 'assessment_blocks'
 //   parentFK      — section column referencing the parent (e.g. 'workbook_id')
+// How the save chip names a change to the parent row's own fields.
+const FIELD_LABELS = {
+  title: 'the title',
+  description: 'the description',
+  pass_mark: 'the pass mark',
+  vendor_visible: '"Vendors can use it"',
+};
+function fieldLabel(patch) {
+  const keys = Object.keys(patch);
+  return keys.length === 1 && FIELD_LABELS[keys[0]] ? FIELD_LABELS[keys[0]] : 'that change';
+}
+
 export function useContentEditor(kindConfig, parentId) {
   const { parentTable, sectionsTable, blocksTable, parentFK } = kindConfig;
 
@@ -70,10 +83,12 @@ export function useContentEditor(kindConfig, parentId) {
       if (before) setParent(before);
       const msg = saveErr?.message
         || 'That change was not saved — you may not have permission to edit this.';
-      setError(msg);
+      // Returned, NOT put in `error`. `error` is the load error, and every
+      // editor page swaps itself for a bare error line when it is set — so a
+      // refused rename used to throw the whole editor away. The save chip
+      // (SaveStatus) reports this one, with a Retry.
       return { error: new Error(msg) };
     }
-    setError(null);
     return {};
   }, [parentTable, parentId]);
 
@@ -217,9 +232,15 @@ export function useContentEditor(kindConfig, parentId) {
 
   const updateSectionTitle = useCallback(async (sectionId, title) => {
     setSections(prev => prev.map(s => s.id === sectionId ? { ...s, title } : s));
-    const { error: updErr } = await supabase
-      .from(sectionsTable).update({ title }).eq('id', sectionId);
-    return updErr ? { error: updErr } : {};
+    // Read back for the same reason as updateParentField: a refused rename
+    // returns no error and zero rows, and would otherwise show as saved.
+    const { data, error: updErr } = await supabase
+      .from(sectionsTable).update({ title }).eq('id', sectionId).select('id');
+    if (updErr) return { error: updErr };
+    if (!data || data.length === 0) {
+      return { error: new Error('That rename was not saved — you may not have permission to edit this.') };
+    }
+    return {};
   }, [sectionsTable]);
 
   const deleteSection = useCallback(async (sectionId) => {
@@ -259,10 +280,12 @@ export function useContentEditor(kindConfig, parentId) {
       b.id === other.id ? { ...b, order_index: block.order_index } : b
     ));
 
-    await Promise.all([
+    const results = await Promise.all([
       supabase.from(blocksTable).update({ order_index: other.order_index }).eq('id', block.id),
       supabase.from(blocksTable).update({ order_index: block.order_index }).eq('id', other.id),
     ]);
+    const failed = results.find(r => r?.error);
+    return failed ? { error: failed.error } : {};
   }, [blocks, blocksTable]);
 
   // Jump a block to the top or bottom of its section. The cheap two thirds of
@@ -299,12 +322,65 @@ export function useContentEditor(kindConfig, parentId) {
     return failed ? { error: failed.error } : {};
   }, [blocks, blocksTable]);
 
+  // ── Save tracking ─────────────────────────────────────────────────────
+  // Every write below goes through `saves.track`, so the editor's one save
+  // chip (SaveStatus) reflects all of them. The raw functions above are left
+  // as they were; these wrappers only add the bookkeeping and the label.
+  const saves = useSaveTracker();
+  const { track } = saves;
+  // Labels name the exercise a block sits in, read at save time.
+  const namesRef = useRef({ sections: [], blocks: [] });
+  namesRef.current = { sections, blocks };
+  const sectionName = useCallback(id => {
+    const t = namesRef.current.sections.find(s => s.id === id)?.title;
+    return t ? `"${t}"` : 'a section';
+  }, []);
+  const inSection = useCallback(blockId => {
+    const b = namesRef.current.blocks.find(x => x.id === blockId);
+    return b ? ` in ${sectionName(b.section_id)}` : '';
+  }, [sectionName]);
+
+  const tracked = {
+    updateParentField: useCallback(
+      patch => track(`parent:${Object.keys(patch).sort().join(',')}`,
+        fieldLabel(patch), () => updateParentField(patch)),
+      [track, updateParentField]),
+    createBlock: useCallback(
+      (sectionId, ...rest) => track(`new-block:${sectionId}`, `a new block in ${sectionName(sectionId)}`,
+        () => createBlock(sectionId, ...rest), { retry: false }),
+      [track, createBlock, sectionName]),
+    updateBlock: useCallback(
+      (blockId, patch) => track(`block:${blockId}`, `a block${inSection(blockId)}`, () => updateBlock(blockId, patch)),
+      [track, updateBlock, inSection]),
+    deleteBlock: useCallback(
+      blockId => track(`block:${blockId}`, `a deletion${inSection(blockId)}`, () => deleteBlock(blockId)),
+      [track, deleteBlock, inSection]),
+    moveBlock: useCallback(
+      (blockId, dir) => track('order', `the block order${inSection(blockId)}`, () => moveBlock(blockId, dir), { retry: false }),
+      [track, moveBlock, inSection]),
+    moveBlockTo: useCallback(
+      (blockId, pos) => track('order', `the block order${inSection(blockId)}`, () => moveBlockTo(blockId, pos), { retry: false }),
+      [track, moveBlockTo, inSection]),
+    duplicateBlock: useCallback(
+      blockId => track(`dup:${blockId}`, `a copy of a block${inSection(blockId)}`, () => duplicateBlock(blockId), { retry: false }),
+      [track, duplicateBlock, inSection]),
+    createSection: useCallback(
+      title => track('new-section', 'a new section', () => createSection(title), { retry: false }),
+      [track, createSection]),
+    updateSectionTitle: useCallback(
+      (sectionId, title) => track(`section:${sectionId}`, `the name "${title}"`, () => updateSectionTitle(sectionId, title)),
+      [track, updateSectionTitle]),
+    deleteSection: useCallback(
+      sectionId => track(`section:${sectionId}`, `the deletion of ${sectionName(sectionId)}`, () => deleteSection(sectionId)),
+      [track, deleteSection, sectionName]),
+  };
+
   return {
     loading, error,
     parent, sections, blocks,
-    updateParentField,
-    createBlock, updateBlock, deleteBlock, moveBlock, moveBlockTo, duplicateBlock,
-    createSection, updateSectionTitle, deleteSection,
+    ...tracked,
     deleteParent, reload: load,
+    // The page's own writes (renumbering, prep links…) can report here too.
+    saves,
   };
 }

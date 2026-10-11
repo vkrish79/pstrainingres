@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 // Enrolment rows -> the participant list every view reads. The deactivation
@@ -498,5 +498,8 @@ export function useSessionDashboard(sessionId) {
     return (w.count || 0) + (a.count || 0) > 0;
   }
 
-  return { loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, programAssessment, attachProgramAssessment, setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
+  // For a "Couldn't load" card's Retry: the same whole-load-again as above.
+  const reload = useCallback(() => setReloadKey(k => k + 1), []);
+
+  return { loading, error, reload, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, programAssessment, attachProgramAssessment, setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline };
 }

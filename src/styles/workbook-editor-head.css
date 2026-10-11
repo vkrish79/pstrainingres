@@ -94,3 +94,6 @@
 @media (prefers-reduced-motion: reduce) {
   .wbe-switch-track, .wbe-switch-track::after { transition: none; }
 }
+
+/* Class-copy hero: the back link and the save chip share the top line. */
+.wbe-copy-top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }

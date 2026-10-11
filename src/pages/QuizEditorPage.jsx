@@ -11,6 +11,7 @@ import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { shapeFor } from '../lib/quizShapes.js';
 import { QUIZ_SCALES } from '../lib/quizScale.js';
 import TopBar from '../components/TopBar.jsx';
+import SaveStatus from '../components/SaveStatus.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
 import '../styles/quiz.css';
@@ -677,6 +678,7 @@ export default function QuizEditorPage() {
                 onSave={async v => { const { error: e } = await editor.renameQuiz(v); if (e) setRowError(e.message); }}
               />
               <div className="page-bar-actions">
+                <SaveStatus tracker={editor.saves} onReload={editor.refresh} />
                 {/* RUN NOW, here as well as in the library: you finish writing a
                     question and the next thing you want is to hear it in a room.
                     Only on the library copy — a session's own copy is run from
