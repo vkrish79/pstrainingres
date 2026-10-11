@@ -189,7 +189,7 @@ export default function ParticipantAssessmentPage() {
             <div className="page-hero-text">
               {!isResit && <Link to="/workbook" className="back-link">&larr; Back to workbook</Link>}
               <h1>🔒 Assessment locked</h1>
-              <p>Your trainer hasn't unlocked the assessment yet. Check back when they're ready.</p>
+              <p>Your trainer hasn't unlocked the assessment yet. Keep this page open — it opens by itself when they do.</p>
             </div>
           </section>
           {(Object.keys(sectionPrep).length > 0 || lockedPrep.length > 0) && (

@@ -3,7 +3,7 @@ import { SkeletonPage } from '../components/Skeleton.jsx';
 import { flushSync } from 'react-dom';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { useWorkbook } from '../hooks/useWorkbook.js';
+import { useWorkbook, NOT_ENROLLED } from '../hooks/useWorkbook.js';
 import { useParticipantNotes } from '../hooks/useParticipantNotes.js';
 import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
@@ -99,8 +99,21 @@ export default function ParticipantWorkbookPage() {
   const handUp = help.mineOpen;
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpError, setHelpError] = useState('');
+  // Back from one exercise to the whole book, landing on the exercise they
+  // were looking at rather than the top.
+  function backToAll() {
+    const id = selectedSectionId;
+    setSelectedSectionId(ALL_KEY);
+    requestAnimationFrame(() => {
+      const el = sectionRefs.current[id];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  // Set when the hand came down by itself (below), so they hear about it
+  // instead of finding the button quietly back to "Ask for help".
+  const [handMovedOn, setHandMovedOn] = useState(false);
   async function toggleHelp() {
-    setHelpBusy(true); setHelpError('');
+    setHelpBusy(true); setHelpError(''); setHandMovedOn(false);
     const { error: e } = handUp
       ? await help.lower('cancelled')
       : await help.raise(currentSectionId, sections.find(s => s.id === currentSectionId)?.title || '');
@@ -114,7 +127,9 @@ export default function ParticipantWorkbookPage() {
     if (!handUp?.section_id || !currentSectionId || currentSectionId === handUp.section_id) return;
     const at = sections.findIndex(x => x.id === currentSectionId);
     const asked = sections.findIndex(x => x.id === handUp.section_id);
-    if (at > asked && asked >= 0) help.lower('moved_on');
+    if (at > asked && asked >= 0) {
+      help.lower('moved_on').then(({ error: e } = {}) => { if (!e) setHandMovedOn(true); });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSectionId, handUp?.section_id]);
 
@@ -628,8 +643,20 @@ export default function ParticipantWorkbookPage() {
         <main className="page">
           <section className="page-hero compact">
             <div className="page-hero-text">
-              <h1>Welcome</h1>
-              <p>{error}</p>
+              {/* The one error with a known cause gets a plain explanation
+                  and a next step; anything else is a load failure. */}
+              {error === NOT_ENROLLED ? (
+                <>
+                  <h1>You're not in a class yet</h1>
+                  <p>This account isn't enrolled in a session. Ask your trainer for the join link.</p>
+                </>
+              ) : (
+                <>
+                  <h1>Your workbook didn't load</h1>
+                  <p>{error}</p>
+                  <button type="button" onClick={() => window.location.reload()}>Try again</button>
+                </>
+              )}
             </div>
           </section>
         </main>
@@ -660,8 +687,11 @@ export default function ParticipantWorkbookPage() {
               </span>
               {selectedSectionId !== liveReviewSectionId && (
                 <button type="button" className="spotlight-jump" onClick={() => setSelectedSectionId(liveReviewSectionId)}>
-                  Show my answers
+                  See the answer
                 </button>
+              )}
+              {selectedSectionId === liveReviewSectionId && (
+                <button type="button" className="spotlight-jump" onClick={backToAll}>← All exercises</button>
               )}
             </div>
           )}
@@ -758,6 +788,17 @@ export default function ParticipantWorkbookPage() {
             {handUp.acknowledged_at
               ? <>👋 <strong>{handUp.acknowledged_by_name || 'Your trainer'} is coming over.</strong> Carry on — your answers are saved.</>
               : <>✋ <strong>Your trainer can see you've asked for help.</strong> Only they can see it. Carry on while you wait.</>}
+          </div>
+        )}
+        {!handUp && handMovedOn && (
+          // A toast, not a banner in the flow: it fires because they scrolled
+          // DOWN, so anything up at the actions bar is already off screen.
+          <div className="hand-toast no-print" role="status">
+            <span>✋ Your hand went down when you moved on to a later exercise.</span>
+            <span className="hand-toast-actions">
+              <button type="button" className="hand-toast-btn" onClick={toggleHelp} disabled={helpBusy}>Raise it again</button>
+              <button type="button" className="hand-toast-x" onClick={() => setHandMovedOn(false)} aria-label="Dismiss">×</button>
+            </span>
           </div>
         )}
 
@@ -913,6 +954,12 @@ export default function ParticipantWorkbookPage() {
               sections={sections}
             />
             <WorkbookPrintFooter workbook={workbook} session={session} participantName={profile?.full_name} />
+            {/* One exercise on its own — from the rail, "Jump to it" or "See the
+                answer". The rail's own "All exercises" row is easy to miss when
+                the trainer's banner is what brought them here. */}
+            {selectedSectionId !== ALL_KEY && (
+              <button type="button" className="wb-back-all no-print" onClick={backToAll}>← All exercises</button>
+            )}
             {visibleSections.map(sec => {
               const noteText = sectionNotes[sec.id]?.note || '';
               const prepText = sectionPrep[sec.id]?.content || '';
@@ -981,7 +1028,7 @@ export default function ParticipantWorkbookPage() {
         sections={sections}
         notes={sectionNotes}
         saveNote={saveNote}
-        currentSectionId={selectedSectionId === ALL_KEY ? sections[0]?.id : selectedSectionId}
+        currentSectionId={selectedSectionId === ALL_KEY ? (currentSectionId || sections[0]?.id) : selectedSectionId}
       />
       <PrepDrawer
         open={prepOpen}

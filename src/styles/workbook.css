@@ -607,3 +607,33 @@ button.pab-chip { cursor: pointer; }
 @media print {
   .wb-prose img[data-wb-image], .wb-img { break-inside: avoid; max-height: 22cm; object-fit: contain; }
 }
+
+/* ── Participant Experience Pass · P5 ───────────────────────────────── */
+/* "Your hand went down when you moved on · Raise it again" — bottom centre,
+   because it fires when they have scrolled away from the actions bar. */
+.hand-toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); z-index: 300;
+  display: flex; align-items: center; gap: 1rem; max-width: calc(100vw - 2rem);
+  background: var(--midnight, #1f2a44); color: #fff; border-radius: 10px;
+  padding: 0.6rem 0.6rem 0.6rem 1rem; font-size: 0.88rem;
+  box-shadow: 0 8px 24px rgba(15, 22, 38, 0.25);
+}
+.hand-toast-actions { display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; }
+.hand-toast .hand-toast-btn {
+  background: var(--gold, #c8a04f); color: #fff; border: none; border-radius: 999px;
+  padding: 0.3rem 0.85rem; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.hand-toast .hand-toast-btn:hover { background: var(--gold-dark, #b08a3e); }
+.hand-toast .hand-toast-x {
+  background: transparent; border: none; color: rgba(255,255,255,0.75); cursor: pointer;
+  font-size: 1.15rem; line-height: 1; padding: 0.1rem 0.4rem; border-radius: 6px;
+}
+.hand-toast .hand-toast-x:hover { background: rgba(255,255,255,0.12); color: #fff; }
+/* Back from one exercise to the whole book. */
+.wb-back-all.wb-back-all {
+  display: inline-block; margin: 0 0 0.6rem; padding: 0.25rem 0.1rem;
+  background: none; border: none; cursor: pointer;
+  font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--midnight, #1f2a44);
+}
+.wb-back-all.wb-back-all:hover { background: none; text-decoration: underline; color: var(--midnight, #1f2a44); }

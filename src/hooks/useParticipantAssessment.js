@@ -27,6 +27,11 @@ export function useParticipantAssessment(userId, sessionId = null) {
   // that can work. Cleared per answer by its next successful save.
   const [failures, setFailures] = useState({});
   const [recentlyUpdated, setRecentlyUpdated] = useState({});
+  // Bumped when the trainer unlocks the paper while this page is open, so the
+  // locked notice turns into the paper without a refresh.
+  const [reloadKey, setReloadKey] = useState(0);
+  const unlockedRef = useRef(false);
+  useEffect(() => { unlockedRef.current = !!session?.assessment_unlocked_at; }, [session?.assessment_unlocked_at]);
 
   const timersRef = useRef({});
   const badgeTimersRef = useRef({});
@@ -107,7 +112,7 @@ export function useParticipantAssessment(userId, sessionId = null) {
       }
     })();
     return () => { cancelled = true; };
-  }, [userId, sessionId]);
+  }, [userId, sessionId, reloadKey]);
 
   useEffect(() => {
     if (!assessment?.id) return;
@@ -153,9 +158,9 @@ export function useParticipantAssessment(userId, sessionId = null) {
 
   // Live deadline updates: when the trainer extends (or shortens) the timer,
   // a participant already on the page picks up the new deadline without a
-  // refresh. We deliberately patch ONLY assessment_deadline_at here — flipping
-  // assessment_unlocked_at live would leave the locked→unlocked content unloaded
-  // (that transition keeps the existing refresh model).
+  // refresh. assessment_unlocked_at is NOT patched in place — flipping it alone
+  // would show an open paper with no content loaded. Locked → unlocked reloads
+  // the whole thing instead, so the locked page opens by itself.
   useEffect(() => {
     if (!session?.id) return;
     const channel = supabase
@@ -172,6 +177,11 @@ export function useParticipantAssessment(userId, sessionId = null) {
           const deadline = typeof next.assessment_deadline_at === 'string'
             ? next.assessment_deadline_at.replace(' ', 'T')
             : next.assessment_deadline_at;
+          if (next.assessment_unlocked_at && !unlockedRef.current) {
+            unlockedRef.current = true;
+            setReloadKey(k => k + 1);
+            return;
+          }
           setSession(prev => prev && prev.assessment_deadline_at !== deadline
             ? { ...prev, assessment_deadline_at: deadline }
             : prev);

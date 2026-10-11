@@ -5,6 +5,9 @@ import { classifySaveError } from '../lib/saveErrors.js';
 const SAVE_DEBOUNCE_MS = 600;
 const RECENT_UPDATE_MS = 5000;
 
+// The one load error with a known cause; the page words it for a participant.
+export const NOT_ENROLLED = 'You are not enrolled in any session yet.';
+
 export function useWorkbook(userId) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,7 +47,7 @@ export function useWorkbook(userId) {
           .limit(1);
         if (e1) throw e1;
         if (!spRows?.length || !spRows[0].sessions) {
-          if (!cancelled) { setError('You are not enrolled in any session yet.'); setLoading(false); }
+          if (!cancelled) { setError(NOT_ENROLLED); setLoading(false); }
           return;
         }
         const sess = spRows[0].sessions;
