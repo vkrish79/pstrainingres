@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SkeletonCards } from '../components/Skeleton.jsx';
 import LoadFailed from '../components/LoadFailed.jsx';
 import WorkbookPreviewModal from '../components/workbook/WorkbookPreviewModal.jsx';
@@ -48,6 +48,17 @@ export default function WorkbooksPage() {
   const isSuper = isSuperTrainerOrAbove(profile?.role);
   const { loading, error, workbooks, reload } = useTrainerWorkbooks(authSession?.user.id, profile?.role);
   const [creating, setCreating] = useState(false);
+  // ?new=1 (from search's "+ New workbook") opens the create dialog, then
+  // comes off the URL so Back or a refresh does not open it again.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get('new') !== '1') return;
+    if (!profile) return;               // role not known yet — decide once it is
+    if (isSuper) setCreating(true);
+    const next = new URLSearchParams(params);
+    next.delete('new');
+    setParams(next, { replace: true });
+  }, [params, setParams, isSuper, profile]);
   const heatTotals = useEditHeatTotals(isSuper);
   const [preview, setPreview] = useState(null);   // { id, title } | null
   const [filter, setFilter] = useState('all');    // 'all' | 'used' | 'unused' | 'review'

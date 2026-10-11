@@ -60,3 +60,21 @@
 .search-row-sub { font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 @media print { .search-backdrop { display: none !important; } }
+
+/* The row the arrow keys are on (and the one Enter opens). Mouse hover moves
+   the same highlight, so there is only ever one. Restates its background in
+   its own rule: the global button:hover would paint it midnight. */
+.search-row.is-active,
+.search-row.is-active:hover:where(:not(:disabled)) { background: #f3efe5; color: var(--text); }
+.search-row.is-active .search-row-title { color: var(--midnight); }
+
+.search-failed { color: #c62828; }
+
+.search-keys {
+  border-top: 1px solid var(--border); padding: 0.5rem 0.9rem;
+  font-size: 0.75rem; color: var(--muted); display: flex; align-items: center; gap: 0.3rem;
+}
+.search-keys kbd {
+  font-family: inherit; font-size: 0.7rem; border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 0.35rem; background: var(--card); color: var(--text);
+}

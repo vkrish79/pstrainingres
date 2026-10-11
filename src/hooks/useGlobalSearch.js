@@ -14,13 +14,16 @@ const MIN_CHARS = 2;
 export function useGlobalSearch(rawTerm, role) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
+  // Any group failing is reported, not shown as "No matches" — an empty list
+  // on a dropped connection is a claim that nothing matches.
+  const [failed, setFailed] = useState(false);
   const seqRef = useRef(0);
 
   useEffect(() => {
     // Strip characters that would break a PostgREST .or() filter string
     // (commas / parens / wildcards), then require a meaningful term.
     const term = (rawTerm || '').replace(/[,()*%_\\]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (term.length < MIN_CHARS) { setResults(null); setLoading(false); return undefined; }
+    if (term.length < MIN_CHARS) { setResults(null); setFailed(false); setLoading(false); return undefined; }
 
     const isSuper = isSuperTrainerOrAbove(role);
     const like = `%${term}%`;
@@ -51,7 +54,18 @@ export function useGlobalSearch(rawTerm, role) {
         .or(`full_name.ilike.${like},email.ilike.${like}`, { referencedTable: 'profiles' })
         .limit(PER_GROUP);
 
-      const queries = { workbooks: workbooksQ, sessions: sessionsQ, participants: participantsQ };
+      // Exercises (and topic headings) in master workbooks. Filtered to masters
+      // IN the query: filtering after the limit would let class copies, which
+      // a super can read in their hundreds, use up every slot.
+      let exercisesQ = supabase
+        .from('sections')
+        .select('id, title, kind, order_index, workbook_id, workbooks!inner(id, title, is_template, vendor_visible)')
+        .eq('workbooks.is_template', true)
+        .ilike('title', like)
+        .limit(PER_GROUP);
+      if (!isSuper) exercisesQ = exercisesQ.eq('workbooks.vendor_visible', true);
+
+      const queries = { workbooks: workbooksQ, exercises: exercisesQ, sessions: sessionsQ, participants: participantsQ };
       if (isSuper) {
         queries.staff = supabase
           .from('profiles').select('id, full_name, email, role')
@@ -70,6 +84,21 @@ export function useGlobalSearch(rawTerm, role) {
 
       const out = {};
       keys.forEach((k, i) => { out[k] = settled[i].data || []; });
+
+      // A topic heading ("Split PNR") has no content of its own; opening it
+      // lands on an empty page. Point each one at the first exercise after it.
+      const topics = out.exercises.filter(x => x.kind === 'group');
+      const firsts = await Promise.all(topics.map(t => supabase
+        .from('sections').select('id, kind')
+        .eq('workbook_id', t.workbook_id).gt('order_index', t.order_index)
+        .order('order_index').limit(1)));
+      if (seq !== seqRef.current) return;
+      topics.forEach((t, i) => {
+        const next = firsts[i].data?.[0];
+        t.open_id = next && next.kind !== 'group' ? next.id : t.id;
+      });
+
+      setFailed(settled.some(r => r.error) || firsts.some(r => r.error));
       setResults(out);
       setLoading(false);
     }, DEBOUNCE_MS);
@@ -77,5 +106,5 @@ export function useGlobalSearch(rawTerm, role) {
     return () => clearTimeout(timer);
   }, [rawTerm, role]);
 
-  return { loading, results };
+  return { loading, results, failed };
 }
