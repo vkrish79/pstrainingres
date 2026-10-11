@@ -5,6 +5,8 @@ import { homePathForRole } from '../lib/roles.js';
 import AuthBrand from '../components/auth/AuthBrand.jsx';
 import PasswordInput from '../components/auth/PasswordInput.jsx';
 
+const MIN = 8;
+
 export default function ChangePasswordPage() {
   const { profile, changePassword } = useAuth();
   const navigate = useNavigate();
@@ -12,17 +14,26 @@ export default function ChangePasswordPage() {
   const [pw2, setPw2] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // The two rules, ticked as they type rather than discovered on Save.
+  const longEnough = pw.length >= MIN;
+  const matches = pw2.length > 0 && pw === pw2;
+  const isParticipant = profile?.role === 'participant';
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (pw.length < 8) return setError('Password must be at least 8 characters.');
-    if (pw !== pw2) return setError('Passwords do not match.');
+    if (!longEnough) return setError(`Password must be at least ${MIN} characters.`);
+    if (!matches) return setError('Passwords do not match.');
     setBusy(true);
     const { error } = await changePassword(pw);
     setBusy(false);
     if (error) return setError(error.message);
-    navigate(homePathForRole(profile?.role), { replace: true });
+    // Said out loud before the page changes, so the new password is known to
+    // have taken rather than assumed.
+    setSaved(true);
+    setTimeout(() => navigate(homePathForRole(profile?.role), { replace: true }), 900);
   }
 
   return (
@@ -32,14 +43,23 @@ export default function ChangePasswordPage() {
         <h1>Set a new password</h1>
         <p className="auth-hint">First-time login — please choose your own password.</p>
         <label>New password
-          <PasswordInput value={pw} onChange={e => setPw(e.target.value)} required autoFocus aria-describedby="pw-rule" />
-          <span id="pw-rule" className="auth-rule">At least 8 characters</span>
+          <PasswordInput value={pw} onChange={e => setPw(e.target.value)} required autoFocus aria-describedby="pw-rules" disabled={saved} />
         </label>
         <label>Confirm new password
-          <PasswordInput value={pw2} onChange={e => setPw2(e.target.value)} required />
+          <PasswordInput value={pw2} onChange={e => setPw2(e.target.value)} required aria-describedby="pw-rules" disabled={saved} />
         </label>
+        <ul id="pw-rules" className="auth-checks" aria-live="polite">
+          <li className={longEnough ? 'is-met' : ''}>{longEnough ? '✓' : '○'} At least {MIN} characters</li>
+          <li className={matches ? 'is-met' : ''}>{matches ? '✓' : '○'} Both boxes match</li>
+        </ul>
         {error && <div className="auth-error" role="alert">{error}</div>}
-        <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        {saved ? (
+          <div className="auth-notice auth-saved" role="status">
+            ✓ Password saved — {isParticipant ? 'opening your workbook' : 'signing you in'}…
+          </div>
+        ) : (
+          <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        )}
       </form>
     </div>
   );

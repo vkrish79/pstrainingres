@@ -611,3 +611,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   background: var(--midnight); color: #fff; border: 0;
 }
 .save-failed-bar .sfb-retry:hover { background: var(--midnight-hover); }
+
+/* ChangePasswordPage — the password rules, ticked as they are met. */
+.auth-card .auth-checks {
+  list-style: none; margin: -0.2rem 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 0.3rem 1rem;
+  font-size: 0.8rem; color: var(--muted);
+}
+.auth-card .auth-checks .is-met { color: #2e7d4f; font-weight: 600; }
+.auth-saved { border-left-color: #2e7d4f; font-weight: 600; }
+/* JoinSessionLoginPage — "Trainer? Staff sign in", quietly. */
+.auth-meta-quiet { color: var(--muted); font-size: 0.8rem; margin-top: 0.9rem; }

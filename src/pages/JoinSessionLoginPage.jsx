@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import AuthBrand from '../components/auth/AuthBrand.jsx';
 import PasswordInput from '../components/auth/PasswordInput.jsx';
+import { friendlySignInError } from '../lib/authMessages.js';
 
 const SENTINEL_DOMAIN = 'pstrainingres.local';
 
@@ -55,7 +56,11 @@ export default function JoinSessionLoginPage() {
     const { error: signErr } = await signIn(authEmail, password);
     setBusy(false);
     if (signErr) {
-      setError('Username or password is incorrect for this session.');
+      // Only a credentials refusal is "wrong password"; offline or a rate
+      // limit keeps its own words (lib/authMessages.js).
+      setError(/invalid login credentials/i.test(signErr.message || '')
+        ? 'WRONG'
+        : friendlySignInError(signErr));
       return;
     }
     navigate('/workbook');
@@ -75,10 +80,12 @@ export default function JoinSessionLoginPage() {
         <div className="auth-card">
           <AuthBrand />
           <h1>This session has ended</h1>
-          <p>{session.name} closed on {new Date(session.closed_at).toLocaleDateString()}. Your workbook and answers have been archived by your trainer.</p>
-          <div className="auth-meta">
-            <Link to="/login" className="auth-link">Staff sign in</Link>
+          <div className="session-header-meta">
+            <div style={{ fontWeight: 600 }}>{session.name}</div>
+            {(session.starts_at || session.ends_at) && <div className="hint">{formatDateRange(session.starts_at, session.ends_at)}</div>}
           </div>
+          <p>It closed on {new Date(session.closed_at).toLocaleDateString()}. Your answers were kept with the class record — there is nothing more to do here. If you need a copy of your workbook, ask your trainer.</p>
+          <StaffLink />
         </div>
       </div>
     );
@@ -90,11 +97,9 @@ export default function JoinSessionLoginPage() {
         <div className="auth-card">
           <AuthBrand />
           <h1>Session not found</h1>
-          <p>No session matches the code <span className="mono">{normalizedCode}</span>. Check the link from your trainer.</p>
+          <p>No session matches the code <span className="mono">{normalizedCode}</span>. Check the link from your trainer — or ask them for it again, the code is six letters and numbers.</p>
           {lookupState === 'error' && lookupError && <p className="auth-error" role="alert">{lookupError}</p>}
-          <div className="auth-meta">
-            <Link to="/login" className="auth-link">Staff sign in</Link>
-          </div>
+          <StaffLink />
         </div>
       </div>
     );
@@ -121,12 +126,27 @@ export default function JoinSessionLoginPage() {
         <label>Password
           <PasswordInput value={password} onChange={e => setPassword(e.target.value)} required />
         </label>
-        {error && <div className="auth-error" role="alert">{error}</div>}
+        {error && (
+          <div className="auth-error" role="alert">
+            {error === 'WRONG'
+              ? <>That username and password don't match for this session. <strong>Forgotten it?</strong> Your trainer can reset it for you from the class.</>
+              : error}
+          </div>
+        )}
         <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <div className="auth-meta">
-          <Link to="/login" className="auth-link">Staff sign in</Link>
-        </div>
+        <StaffLink />
       </form>
+    </div>
+  );
+}
+
+// For a trainer who opened a participant link. Kept, but quiet: on these
+// screens the reader is almost always a participant, for whom "Staff sign in"
+// is a door that goes nowhere.
+function StaffLink() {
+  return (
+    <div className="auth-meta auth-meta-quiet">
+      Trainer? <Link to="/login" className="auth-link">Staff sign in</Link>
     </div>
   );
 }
