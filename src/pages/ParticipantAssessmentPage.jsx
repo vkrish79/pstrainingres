@@ -13,6 +13,7 @@ import { isInactiveBlock } from '../lib/assessmentScoring.js';
 import Block from '../components/blocks/Block.jsx';
 import AssessmentQuestionNav from '../components/participant/AssessmentQuestionNav.jsx';
 import TopBar from '../components/TopBar.jsx';
+import SaveFailedBar from '../components/participant/SaveFailedBar.jsx';
 import PrepCallout from '../components/PrepCallout.jsx';
 import { calloutItems } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
@@ -25,7 +26,7 @@ export default function ParticipantAssessmentPage() {
   const [searchParams] = useSearchParams();
   const sessionIdParam = searchParams.get('session');
   const {
-    loading, error, session, assessment, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated,
+    loading, error, session, assessment, sections, blocks, answers, savingMap, failures, retryFailed, saveAnswer, recentlyUpdated,
   } = useParticipantAssessment(authSession?.user.id, sessionIdParam);
   // A paper-only re-sit has no workbook, so every "back to the workbook" here
   // would send them to a page that immediately bounces them back.
@@ -44,7 +45,7 @@ export default function ParticipantAssessmentPage() {
   // them out server-side (20260909000000_manual_marking.sql). Filtering again
   // here is belt-and-braces against any path that loads blocks differently.
   const liveBlocks = useMemo(() => blocks.filter(b => !isInactiveBlock(b)), [blocks]);
-  const { questions: qList, partLabelByBlockId } = useMemo(
+  const { questions: qList, partLabelByBlockId, labelByBlockId } = useMemo(
     () => buildQuestions(sections, liveBlocks),
     [sections, liveBlocks]
   );
@@ -241,7 +242,7 @@ export default function ParticipantAssessmentPage() {
               <span>{overall.answered} of {overall.total} answered</span>
               {!expired && overallStatus && (
                 <span className={`exam-bar-save is-${overallStatus}`}>
-                  {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Save failed — check your connection' : '✓ Saved'}
+                  {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Not saved — see below' : '✓ Saved'}
                 </span>
               )}
             </p>
@@ -273,6 +274,7 @@ export default function ParticipantAssessmentPage() {
               </>
             )}
           </div>
+          {!expired && <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} where="assessment" nameOf={id => (labelByBlockId[id] ? `question ${labelByBlockId[id]}` : null)} />}
         </section>
 
         {helpError && <p className="exam-hand-error" role="alert">{helpError}</p>}

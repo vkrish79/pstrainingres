@@ -29,6 +29,7 @@ import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
 import PollParticipant from '../components/poll/PollParticipant.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
+import SaveFailedBar from '../components/participant/SaveFailedBar.jsx';
 import PrepCallout from '../components/PrepCallout.jsx';
 import { calloutItems, splitGeneralPrep } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
@@ -43,7 +44,7 @@ const ALL_KEY = '__all__';
 export default function ParticipantWorkbookPage() {
   const navigate = useNavigate();
   const { session: authSession, profile } = useAuth();
-  const { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, saveAnswer, recentlyUpdated } =
+  const { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, failures, retryFailed, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
 
@@ -669,11 +670,11 @@ export default function ParticipantWorkbookPage() {
         <div className="participant-actions-bar no-print" ref={actionsBarRef}>
           {/* One spot for "is my work safe": the live status while a save is in
               flight or has failed, otherwise when they last saved. */}
-          {overallStatus === 'saving' || overallStatus === 'error' ? (
-            <span className={`wb-save-indicator ${overallStatus}`}>
-              {overallStatus === 'saving' ? 'Saving…' : 'Save failed'}
-            </span>
-          ) : lastSavedAt ? (
+          {/* A failure is not shown here any more: it gets the full-width
+              SaveFailedBar below, which says why and whether to try again. */}
+          {overallStatus === 'saving' ? (
+            <span className="wb-save-indicator saving" role="status">Saving…</span>
+          ) : overallStatus !== 'error' && lastSavedAt ? (
             <span className="wb-save-indicator saved">✓ Last saved {whenStopped(lastSavedAt)}</span>
           ) : null}
           {/* The things you read sit together as one group; the assessment says
@@ -748,6 +749,7 @@ export default function ParticipantWorkbookPage() {
               { label: 'Print / Download PDF', glyph: '↓', onClick: () => { flushSync(() => setSelectedSectionId(ALL_KEY)); window.print(); } },
             ]}
           />
+          <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} where="workbook" />
         </div>
 
         {helpError && <p className="error no-print">{helpError}</p>}

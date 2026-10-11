@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { classifySaveError } from '../lib/saveErrors.js';
 
 const SAVE_DEBOUNCE_MS = 600;
 const RECENT_UPDATE_MS = 5000;
@@ -21,6 +22,10 @@ export function useParticipantAssessment(userId, sessionId = null) {
   const [blocks, setBlocks] = useState([]);
   const [answers, setAnswers] = useState({});
   const [savingMap, setSavingMap] = useState({});
+  // Why each failed answer failed ({ kind, retry }, lib/saveErrors.js), so the
+  // page can say something truer than "Save failed" and only offer a retry
+  // that can work. Cleared per answer by its next successful save.
+  const [failures, setFailures] = useState({});
   const [recentlyUpdated, setRecentlyUpdated] = useState({});
 
   const timersRef = useRef({});
@@ -189,8 +194,33 @@ export function useParticipantAssessment(userId, sessionId = null) {
           { onConflict: 'session_id,participant_id,assessment_block_id' }
         );
       setSavingMap(prev => ({ ...prev, [blockId]: upErr ? 'error' : 'saved' }));
+      setFailures(prev => {
+        if (upErr) return { ...prev, [blockId]: classifySaveError(upErr) };
+        if (!(blockId in prev)) return prev;
+        const next = { ...prev };
+        delete next[blockId];
+        return next;
+      });
     }, SAVE_DEBOUNCE_MS);
   }, [session, userId]);
 
-  return { loading, error, session, assessment, sections, blocks, answers, savingMap, saveAnswer, recentlyUpdated };
+  // Send every retryable failed answer again, with what is on screen NOW (the
+  // participant may have changed it since). Refused ones are left alone.
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const failuresRef = useRef(failures);
+  failuresRef.current = failures;
+  const retryFailed = useCallback(() => {
+    for (const [blockId, f] of Object.entries(failuresRef.current)) {
+      if (f.retry) saveAnswer(blockId, answersRef.current[blockId]);
+    }
+  }, [saveAnswer]);
+
+  // Back online: try again without being asked.
+  useEffect(() => {
+    window.addEventListener('online', retryFailed);
+    return () => window.removeEventListener('online', retryFailed);
+  }, [retryFailed]);
+
+  return { loading, error, session, assessment, sections, blocks, answers, savingMap, failures, retryFailed, saveAnswer, recentlyUpdated };
 }

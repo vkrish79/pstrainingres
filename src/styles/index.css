@@ -593,3 +593,21 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   font-size: 0.75rem; font-weight: 400; color: var(--muted);
   letter-spacing: normal; text-transform: none;
 }
+
+/* SaveFailedBar.jsx — a participant's answer did not save. A full-width row
+   inside the sticky actions bar / exam bar, so it never scrolls out of view.
+   Its own light card, because the exam bar it can sit in is midnight. */
+.save-failed-bar {
+  flex: 1 0 100%; order: 99;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem;
+  background: #fffafa; color: var(--text);
+  border: 1px solid #f5c2bf; border-radius: 10px;
+  padding: 0.55rem 0.85rem; text-align: left;
+}
+.save-failed-bar .sfb-head { font-weight: 700; color: #c62828; font-size: 0.9rem; }
+.save-failed-bar .sfb-why { font-size: 0.85rem; color: var(--text); flex: 1 1 18rem; }
+.save-failed-bar .sfb-retry {
+  margin-left: auto; padding: 0.4rem 0.95rem; font-size: 0.82rem;
+  background: var(--midnight); color: #fff; border: 0;
+}
+.save-failed-bar .sfb-retry:hover { background: var(--midnight-hover); }
