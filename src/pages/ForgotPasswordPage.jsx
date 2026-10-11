@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import AuthBrand from '../components/auth/AuthBrand.jsx';
 
 export default function ForgotPasswordPage() {
   const { sendPasswordReset } = useAuth();
@@ -26,13 +27,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="auth-shell">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <div className="auth-brand">
-          <div className="auth-brand-mark">PS</div>
-          <div>
-            <div className="auth-brand-title">pstrainingres</div>
-            <div className="auth-brand-sub">Training resources</div>
-          </div>
-        </div>
+        <AuthBrand />
         <h1>Reset your password</h1>
 
         {sent ? (
@@ -51,7 +46,7 @@ export default function ForgotPasswordPage() {
             <label>Email
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
             </label>
-            {error && <div className="auth-error">{error}</div>}
+            {error && <div className="auth-error" role="alert">{error}</div>}
             <button type="submit" disabled={busy || !email.trim()}>
               {busy ? 'Sending…' : 'Send reset link'}
             </button>

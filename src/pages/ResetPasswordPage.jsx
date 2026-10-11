@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { homePathForRole } from '../lib/roles.js';
+import AuthBrand from '../components/auth/AuthBrand.jsx';
+import PasswordInput from '../components/auth/PasswordInput.jsx';
 
 // Landing page for the password-reset email link. The Supabase client
 // detects the recovery token in the URL on load and creates a session,
@@ -58,13 +60,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="auth-shell">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <div className="auth-brand">
-          <div className="auth-brand-mark">PS</div>
-          <div>
-            <div className="auth-brand-title">pstrainingres</div>
-            <div className="auth-brand-sub">Training resources</div>
-          </div>
-        </div>
+        <AuthBrand />
         <h1>Set a new password</h1>
 
         {checking && <p className="auth-hint">Verifying reset link…</p>}
@@ -83,12 +79,13 @@ export default function ResetPasswordPage() {
         {!checking && recoveryReady && !done && (
           <>
             <label>New password
-              <input type="password" value={pw} onChange={e => setPw(e.target.value)} required autoFocus minLength={8} />
+              <PasswordInput value={pw} onChange={e => setPw(e.target.value)} required autoFocus minLength={8} aria-describedby="pw-rule" />
+              <span id="pw-rule" className="auth-rule">At least 8 characters</span>
             </label>
             <label>Confirm new password
-              <input type="password" value={pw2} onChange={e => setPw2(e.target.value)} required minLength={8} />
+              <PasswordInput value={pw2} onChange={e => setPw2(e.target.value)} required minLength={8} />
             </label>
-            {error && <div className="auth-error">{error}</div>}
+            {error && <div className="auth-error" role="alert">{error}</div>}
             <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save and sign in'}</button>
           </>
         )}

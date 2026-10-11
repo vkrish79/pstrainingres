@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { homePathForRole } from '../lib/roles.js';
+import AuthBrand from '../components/auth/AuthBrand.jsx';
+import PasswordInput from '../components/auth/PasswordInput.jsx';
 
 export default function ChangePasswordPage() {
   const { profile, changePassword } = useAuth();
@@ -26,22 +28,17 @@ export default function ChangePasswordPage() {
   return (
     <div className="auth-shell">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <div className="auth-brand">
-          <div className="auth-brand-mark">PS</div>
-          <div>
-            <div className="auth-brand-title">pstrainingres</div>
-            <div className="auth-brand-sub">Training resources</div>
-          </div>
-        </div>
+        <AuthBrand />
         <h1>Set a new password</h1>
         <p className="auth-hint">First-time login — please choose your own password.</p>
         <label>New password
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} required autoFocus />
+          <PasswordInput value={pw} onChange={e => setPw(e.target.value)} required autoFocus aria-describedby="pw-rule" />
+          <span id="pw-rule" className="auth-rule">At least 8 characters</span>
         </label>
         <label>Confirm new password
-          <input type="password" value={pw2} onChange={e => setPw2(e.target.value)} required />
+          <PasswordInput value={pw2} onChange={e => setPw2(e.target.value)} required />
         </label>
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error" role="alert">{error}</div>}
         <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
       </form>
     </div>

@@ -3,6 +3,8 @@ import { takeIdleNotice } from '../components/IdleSignOut.jsx';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import AuthBrand from '../components/auth/AuthBrand.jsx';
+import PasswordInput from '../components/auth/PasswordInput.jsx';
 
 const SENTINEL_DOMAIN = 'pstrainingres.local';
 
@@ -71,13 +73,7 @@ export default function JoinSessionLoginPage() {
     return (
       <div className="auth-shell">
         <div className="auth-card">
-          <div className="auth-brand">
-            <div className="auth-brand-mark">PS</div>
-            <div>
-              <div className="auth-brand-title">pstrainingres</div>
-              <div className="auth-brand-sub">Training resources</div>
-            </div>
-          </div>
+          <AuthBrand />
           <h1>This session has ended</h1>
           <p>{session.name} closed on {new Date(session.closed_at).toLocaleDateString()}. Your workbook and answers have been archived by your trainer.</p>
           <div className="auth-meta">
@@ -92,16 +88,10 @@ export default function JoinSessionLoginPage() {
     return (
       <div className="auth-shell">
         <div className="auth-card">
-          <div className="auth-brand">
-            <div className="auth-brand-mark">PS</div>
-            <div>
-              <div className="auth-brand-title">pstrainingres</div>
-              <div className="auth-brand-sub">Training resources</div>
-            </div>
-          </div>
+          <AuthBrand />
           <h1>Session not found</h1>
           <p>No session matches the code <span className="mono">{normalizedCode}</span>. Check the link from your trainer.</p>
-          {lookupState === 'error' && lookupError && <p className="auth-error">{lookupError}</p>}
+          {lookupState === 'error' && lookupError && <p className="auth-error" role="alert">{lookupError}</p>}
           <div className="auth-meta">
             <Link to="/login" className="auth-link">Staff sign in</Link>
           </div>
@@ -113,13 +103,7 @@ export default function JoinSessionLoginPage() {
   return (
     <div className="auth-shell">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <div className="auth-brand">
-          <div className="auth-brand-mark">PS</div>
-          <div>
-            <div className="auth-brand-title">pstrainingres</div>
-            <div className="auth-brand-sub">Training resources</div>
-          </div>
-        </div>
+        <AuthBrand />
         <h1>Join session</h1>
         {idleNotice && (
           <div className="auth-notice" role="status">You were signed out after an hour of inactivity. Sign in again to carry on — your answers are saved.</div>
@@ -135,9 +119,9 @@ export default function JoinSessionLoginPage() {
           <input value={username} onChange={e => setUsername(e.target.value)} required autoFocus autoCapitalize="none" autoCorrect="off" spellCheck={false} />
         </label>
         <label>Password
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+          <PasswordInput value={password} onChange={e => setPassword(e.target.value)} required />
         </label>
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error" role="alert">{error}</div>}
         <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         <div className="auth-meta">
           <Link to="/login" className="auth-link">Staff sign in</Link>

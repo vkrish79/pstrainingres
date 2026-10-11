@@ -493,6 +493,18 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   font-weight: 600;
   border-radius: var(--radius-md);
 }
+/* PasswordInput.jsx — the box with Show / Hide inside its right edge. */
+.pw-field { position: relative; display: block; }
+.pw-field input { width: 100%; box-sizing: border-box; padding-right: 4.2rem; }
+.pw-field .pw-toggle {
+  position: absolute; right: 0.4rem; top: 50%; transform: translateY(-50%);
+  background: transparent; color: var(--midnight); border: 0;
+  padding: 0.3rem 0.55rem; border-radius: var(--radius-sm);
+  font-size: 0.78rem; font-weight: 600; letter-spacing: normal; text-transform: none;
+}
+/* Restated: the global button:hover would fill it midnight. */
+.pw-field .pw-toggle:hover { background: rgba(30, 60, 90, 0.07); }
+.pw-field .pw-toggle:active { transform: translateY(-50%); }
 .auth-notice {
   background: rgba(30, 60, 90, 0.06);
   color: var(--midnight);
@@ -574,4 +586,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   .busy-overlay { animation: none; }
   .busy-overlay-spinner { animation-duration: 1800ms; }
+}
+
+/* "At least 8 characters" under a new-password box: the rule, said up front. */
+.auth-card .auth-rule {
+  font-size: 0.75rem; font-weight: 400; color: var(--muted);
+  letter-spacing: normal; text-transform: none;
 }

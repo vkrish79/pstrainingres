@@ -197,3 +197,14 @@
   .ir-grid { grid-template-columns: 200px minmax(0, 1fr); }
   .ir-side { grid-column: 1 / -1; position: static; max-height: none; }
 }
+
+/* An import that failed: said beside Create, where the trainer is looking. */
+.ir-error {
+  font-size: 0.78rem; font-weight: 600; color: #c62828;
+  background: #fdecea; border: 1px solid #f5c2bf; border-radius: 8px;
+  padding: 0.3rem 0.6rem; max-width: 34rem;
+}
+/* Discard asks first: the review's fixes are lost with it. */
+.ir-confirm { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+.ir-btn-danger { background: #c62828; color: #fff; border: 1px solid #c62828; }
+.ir-btn-danger:hover:where(:not(:disabled)) { background: #a61f1f; }

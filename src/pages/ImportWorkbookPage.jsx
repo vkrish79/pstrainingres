@@ -5,6 +5,7 @@ import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { parseDocxToWorkbook } from '../lib/docxImport.js';
 import { uploadImportedImages } from '../lib/workbookImages.js';
+import { importFailedMessage } from '../lib/importCleanup.js';
 import TopBar from '../components/TopBar.jsx';
 import ImportDropZone from '../components/import/ImportDropZone.jsx';
 import ImportReview from '../components/import/ImportReview.jsx';
@@ -44,6 +45,9 @@ export default function ImportWorkbookPage() {
     if (!reviewed) return;
     setImporting(true);
     setError('');
+    // Set once the workbook row exists, so a failure further in can take the
+    // half-built workbook back out instead of leaving it in the library.
+    let createdId = null;
     try {
       const newWbId = await runBusy('Importing workbook…', async () => {
         // Pictures go up first; `ready` is the parse with storage paths in.
@@ -60,6 +64,7 @@ export default function ImportWorkbookPage() {
           .select()
           .single();
         if (e1) throw e1;
+        createdId = wb.id;
 
         for (let si = 0; si < ready.sections.length; si++) {
           const sec = ready.sections[si];
@@ -84,7 +89,7 @@ export default function ImportWorkbookPage() {
       });
       navigate(`/trainer/workbooks/${newWbId}`);
     } catch (err) {
-      setError('Import failed: ' + err.message);
+      setError(await importFailedMessage(err, createdId, 'workbooks', 'workbook', 'Workbooks'));
       setImporting(false);
     }
   }
@@ -105,7 +110,6 @@ export default function ImportWorkbookPage() {
 
         {parsed ? (
           <>
-            {error && <p className="error">{error}</p>}
             <ImportReview
               parsed={parsed}
               kind="workbook"
@@ -114,6 +118,7 @@ export default function ImportWorkbookPage() {
               onCreate={confirmImport}
               onDiscard={() => { setParsed(null); setTitleDraft(''); setError(''); }}
               busy={importing}
+              error={error}
                 extra={(
                   <label className="checkbox-row">
                     <input type="checkbox" checked={vendorVisible} onChange={e => setVendorVisible(e.target.checked)} />

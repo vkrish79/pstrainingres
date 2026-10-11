@@ -5,6 +5,7 @@ import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import { parseDocxToWorkbook } from '../lib/docxImport.js';
 import { uploadImportedImages } from '../lib/workbookImages.js';
+import { importFailedMessage } from '../lib/importCleanup.js';
 import TopBar from '../components/TopBar.jsx';
 import ImportDropZone from '../components/import/ImportDropZone.jsx';
 import ImportReview from '../components/import/ImportReview.jsx';
@@ -46,6 +47,9 @@ export default function ImportAssessmentPage() {
     if (!reviewed) return;
     setImporting(true);
     setError('');
+    // Set once the assessment row exists, so a failure further in can take the
+    // half-built assessment back out instead of leaving it in the library.
+    let createdId = null;
     try {
       const newId = await runBusy('Importing assessment…', async () => {
         // Pictures go up first; `ready` is the parse with storage paths in.
@@ -61,6 +65,7 @@ export default function ImportAssessmentPage() {
           .select()
           .single();
         if (e1) throw e1;
+        createdId = ass.id;
 
         for (let si = 0; si < ready.sections.length; si++) {
           const sec = ready.sections[si];
@@ -85,7 +90,7 @@ export default function ImportAssessmentPage() {
       });
       navigate(`/trainer/assessments/${newId}`);
     } catch (err) {
-      setError('Import failed: ' + err.message);
+      setError(await importFailedMessage(err, createdId, 'assessments', 'assessment', 'Assessments'));
       setImporting(false);
     }
   }
@@ -106,7 +111,6 @@ export default function ImportAssessmentPage() {
 
         {parsed ? (
           <>
-            {error && <p className="error">{error}</p>}
             <ImportReview
               parsed={parsed}
               kind="assessment"
@@ -115,6 +119,7 @@ export default function ImportAssessmentPage() {
               onCreate={confirmImport}
               onDiscard={() => { setParsed(null); setTitleDraft(''); setError(''); }}
               busy={importing}
+              error={error}
             />
           </>
         ) : (

@@ -16,7 +16,11 @@ import '../../styles/import-review.css';
 // the workbook and assessment import pages. Nothing is saved here: Create hands
 // the edited parse back to the page (same shape parseDocxToWorkbook returns),
 // which saves it exactly as before.
-export default function ImportReview({ parsed, kind = 'workbook', title, onTitle, onCreate, onDiscard, busy = false, extra = null }) {
+// `error` is shown here, beside Create, rather than above the review: on a long
+// document the top of the page is out of sight when Create is pressed.
+export default function ImportReview({ parsed, kind = 'workbook', title, onTitle, onCreate, onDiscard, busy = false, extra = null, error = '' }) {
+  // Discard throws away every fix made in the review, so it asks first.
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [draft, setDraft] = useState(() => prepareReview(parsed, { kind }));
   const [selected, setSelected] = useState(() => firstExercise(draft));
   const [menuFor, setMenuFor] = useState(null);
@@ -92,11 +96,23 @@ export default function ImportReview({ parsed, kind = 'workbook', title, onTitle
           {items.length > 0 && <span className="ir-chip warn">{items.length} need{items.length === 1 ? 's' : ''} a look</span>}
         </div>
         <div className="ir-head-actions">
-          <span className="ir-note">Nothing saved yet</span>
-          <button type="button" className="ir-btn-ghost" onClick={onDiscard} disabled={busy}>Discard</button>
-          <button type="button" onClick={() => onCreate(finishReview(draft))} disabled={busy || !title.trim()}>
-            {busy ? 'Creating…' : `Create ${noun}`}
-          </button>
+          {confirmDiscard ? (
+            <>
+              <span className="ir-confirm">Discard this import and your fixes?</span>
+              <button type="button" className="ir-btn-danger" onClick={() => { setConfirmDiscard(false); onDiscard(); }}>Discard</button>
+              <button type="button" className="ir-btn-ghost" onClick={() => setConfirmDiscard(false)}>Keep</button>
+            </>
+          ) : (
+            <>
+              {error
+                ? <span className="ir-error" role="alert">{error}</span>
+                : <span className="ir-note">Nothing saved yet</span>}
+              <button type="button" className="ir-btn-ghost" onClick={() => setConfirmDiscard(true)} disabled={busy}>Discard…</button>
+              <button type="button" onClick={() => onCreate(finishReview(draft))} disabled={busy || !title.trim()}>
+                {busy ? 'Creating…' : `Create ${noun}`}
+              </button>
+            </>
+          )}
         </div>
         {extra && <div className="ir-head-extra">{extra}</div>}
       </div>
