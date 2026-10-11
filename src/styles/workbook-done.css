@@ -1,0 +1,52 @@
+/* WorkbookDoneCard — "All 48 exercises answered", the next step, a copy to
+   keep. Sits under the header, in the header's warm card style with a green
+   edge for done. */
+.wb-done {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: -0.4rem 0 1rem;
+  padding: 1rem 2.6rem 1rem 1.2rem;
+  border: 1px solid #cfe3d4;
+  border-left: 4px solid #2f8a4c;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f9f4 100%);
+}
+.wb-done-mark {
+  width: 40px; height: 40px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #2f8a4c; color: #fff;
+  font-size: 1.2rem; font-weight: 700;
+}
+.wb-done-text { flex: 1 1 18rem; min-width: 0; }
+.wb-done-text h2 { margin: 0; font-size: 1.1rem; color: var(--midnight); }
+.wb-done-text p { margin: 0.2rem 0 0; font-size: 0.9rem; color: #5b6878; }
+.wb-done-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Light buttons restate their background on hover: the global button:hover
+   would otherwise fill them midnight. */
+.wb-done .wb-done-next,
+.wb-done .wb-done-download {
+  font: inherit; font-size: 0.88rem; font-weight: 600;
+  border-radius: 999px; padding: 0.45rem 1rem; cursor: pointer;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.wb-done .wb-done-next.is-open { background: var(--midnight); color: #fff; }
+.wb-done .wb-done-next.is-open:hover { background: #2b3a5c; color: #fff; }
+.wb-done .wb-done-next.is-done { background: #e6f2e9; border-color: #bcd9c3; color: #24693a; }
+.wb-done .wb-done-next.is-done:hover { background: #d9ecdd; color: #24693a; }
+.wb-done .wb-done-next.is-locked {
+  display: inline-block; cursor: default;
+  background: #f1ede5; color: #6c7a88; font-weight: 500;
+}
+.wb-done .wb-done-download { background: #fff; border-color: #d9c89c; color: #5c4c28; }
+.wb-done .wb-done-download:hover { background: #fbf6ea; color: #3f3418; }
+.wb-done .wb-done-hide {
+  position: absolute; top: 0.45rem; right: 0.5rem;
+  background: transparent; border: none; cursor: pointer;
+  color: #7d8a97; font-size: 1.15rem; line-height: 1; padding: 0.15rem 0.4rem; border-radius: 6px;
+}
+.wb-done .wb-done-hide:hover { background: #e6efe8; color: var(--midnight); }

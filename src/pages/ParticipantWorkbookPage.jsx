@@ -25,6 +25,7 @@ import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
 import MaterialsDrawer from '../components/participant/MaterialsDrawer.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
+import WorkbookDoneCard from '../components/participant/WorkbookDoneCard.jsx';
 import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
 import PollParticipant from '../components/poll/PollParticipant.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
@@ -99,6 +100,14 @@ export default function ParticipantWorkbookPage() {
   const handUp = help.mineOpen;
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpError, setHelpError] = useState('');
+  // Always the whole workbook: from a single exercise (the rail, a spotlight
+  // jump) it printed that one exercise behind a cover listing all of them.
+  // flushSync so the page is re-rendered on "All exercises" before the print
+  // snapshot is taken.
+  function printWorkbook() {
+    flushSync(() => setSelectedSectionId(ALL_KEY));
+    window.print();
+  }
   // Back from one exercise to the whole book, landing on the exercise they
   // were looking at rather than the top.
   function backToAll() {
@@ -697,6 +706,21 @@ export default function ParticipantWorkbookPage() {
           )}
         />
 
+        {overallProgress.total > 0 && !resume && (
+          <WorkbookDoneCard
+            sessionId={session?.id}
+            exerciseCount={sectionStats.filter(st => st.kind !== 'group' && st.total > 0).length}
+            assessment={session?.assessment_id ? {
+              id: session.assessment_id,
+              unlockedAt: session.assessment_unlocked_at,
+              deadlineAt: session.assessment_deadline_at,
+              finishedAt: session.assessment_finished_at || null,
+            } : null}
+            onOpenAssessment={() => navigate(`/assessment?session=${session.id}`)}
+            onDownload={printWorkbook}
+          />
+        )}
+
         <div className="participant-actions-bar no-print" ref={actionsBarRef}>
           {/* One spot for "is my work safe": the live status while a save is in
               flight or has failed, otherwise when they last saved. */}
@@ -772,11 +796,7 @@ export default function ParticipantWorkbookPage() {
             label="More"
             className="pab-more"
             items={[
-              // Always the whole workbook: from a single exercise (the rail, a
-              // spotlight jump) it printed that one exercise behind a cover
-              // listing all of them. flushSync so the page is re-rendered on
-              // "All exercises" before the print snapshot is taken.
-              { label: 'Print / Download PDF', glyph: '↓', onClick: () => { flushSync(() => setSelectedSectionId(ALL_KEY)); window.print(); } },
+              { label: 'Print / Download PDF', glyph: '↓', onClick: printWorkbook },
             ]}
           />
           <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} where="workbook" />
