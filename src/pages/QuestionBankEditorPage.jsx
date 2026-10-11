@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
 import { useAssessmentDraft, isDraftId } from '../hooks/useAssessmentDraft.js';
 import { useAssessmentAnswerKeys } from '../hooks/useAssessmentAnswerKeys.js';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
 import QuestionTopics from '../components/editor/QuestionTopics.jsx';
 import TopBar from '../components/TopBar.jsx';
-import SaveStatus from '../components/SaveStatus.jsx';
+import QuestionEditorHead, { DraftSaveError } from '../components/editor/QuestionEditorHead.jsx';
+import SetupDrawer from '../components/editor/SetupDrawer.jsx';
 import '../styles/editor.css';
 import '../styles/workbook.css';
 import '../styles/dashboard.css';
+import '../styles/workbook-editor-head.css';
+import '../styles/question-editor-head.css';
 
 // The question bank editor.
 //
@@ -76,6 +79,8 @@ export default function QuestionBankEditorPage() {
   const [showPreview, setShowPreview] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const closeDetails = useCallback(() => setDetailsOpen(false), []);
 
   // Same shape as the assessment editor's, deliberately: an empty draft falls
   // back to the saved value rather than being seeded in an effect.
@@ -117,92 +122,67 @@ export default function QuestionBankEditorPage() {
   return (
     <>
       <TopBar />
-      <main className={`page editor ${showPreview ? 'with-preview' : ''}`}>
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer/question-bank" className="back-link">&larr; Back to Question bank</Link>
-            <h1>Question bank editor</h1>
-            <p>
-              Write each question once, with its correct answer. Assessments pick from here and set
-              what each question is worth; a question you change here is offered to every
-              assessment that has not started yet.
-            </p>
+      <main className={`page editor wbe-page ${showPreview ? 'with-preview' : ''}`}>
+        <QuestionEditorHead
+          backTo="/trainer/question-bank"
+          backLabel="← Question bank"
+          kindLabel="Question bank"
+          titleLabel="Question bank title"
+          title={title}
+          onTitleChange={setTitleDraft}
+          onTitleCommit={commitTitle}
+          saves={saves}
+          onReload={reload}
+          draft={draft}
+          onSaveDraft={() => draft.save(id)}
+          savedHint="Moving, adding and removing questions waits for Save. Wording and correct answers save on their own."
+          menuItems={[
+            { label: 'Delete bank…', glyph: '✕', danger: true, onClick: () => setConfirmDelete(true) },
+          ]}
+        >
+          <button type="button" className="wbe-chip wbe-preview-toggle" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>
+            {showPreview ? '◧ Hide preview' : '◨ Show preview'}
+          </button>
+        </QuestionEditorHead>
+
+        {confirmDelete && (
+          <div className="wbe-confirm">
+            <span className="confirm-text">Delete this bank and all its questions? This cannot be undone.</span>
+            <button className="danger" onClick={handleDelete}>Delete bank</button>
+            <button className="ghost" onClick={() => { setConfirmDelete(false); setDelErr(''); }}>Keep</button>
           </div>
-          <div className="page-hero-actions">
-            <SaveStatus tracker={saves} onReload={reload} />
-            <button className="ghost" onClick={() => setShowPreview(p => !p)}>
-              {showPreview ? '◧ Hide preview' : '◨ Show preview'}
-            </button>
-            {confirmDelete ? (
-              <>
-                <span className="confirm-text">Delete this bank &amp; all its questions?</span>
-                <button className="danger" onClick={handleDelete}>Yes</button>
-                <button className="ghost" onClick={() => { setConfirmDelete(false); setDelErr(''); }}>No</button>
-              </>
-            ) : (
-              <button className="ghost danger" onClick={() => setConfirmDelete(true)}>Delete bank</button>
-            )}
-          </div>
-        </section>
+        )}
         {delErr && <p className="error">{delErr}</p>}
+
+        <nav className="qe-setup" aria-label="Bank setup">
+          <button type="button" className="qe-chip" onClick={() => setDetailsOpen(true)}>
+            {description ? 'About this bank' : 'Add a description'}
+          </button>
+        </nav>
+
         {/* With no scorecard on this page there is nowhere else for an
             answer-key failure to appear, and a silently unsaved correct answer is
             the worst kind of failure here — the question looks finished. */}
         {keysApi.error && (
-          <p className="error">⚠️ Correct answers aren’t saving. {keysApi.error}</p>
+          <p className="error" role="alert">⚠️ Correct answers aren’t saving. {keysApi.error}</p>
         )}
+        <DraftSaveError
+          error={draft.saveError}
+          onDismiss={draft.clearSaveError}
+          onReload={async () => { draft.clearSaveError(); draft.discard(); await reload(); }}
+        />
 
-        <section className="editor-card">
-          <label className="form-label">Question bank title</label>
+        <SetupDrawer open={detailsOpen} title="Details" onClose={closeDetails}>
+          <label className="form-label" htmlFor="bank-desc">Description (optional)</label>
           <input
-            className="form-input large"
-            value={title}
-            onChange={e => setTitleDraft(e.target.value)}
-            onBlur={commitTitle}
-          />
-          <label className="form-label" style={{ marginTop: '0.75rem' }}>Description (optional)</label>
-          <input
+            id="bank-desc"
             className="form-input"
             value={description}
             onChange={e => setDescDraft(e.target.value)}
             onBlur={commitDescription}
             placeholder="What this bank covers"
           />
-        </section>
-
-        <div className={`draft-bar ${draft.dirty ? 'dirty' : ''}`}>
-          <span className="draft-bar-status">
-            {draft.dirty ? '● Unsaved changes to the questions' : 'All question changes saved'}
-          </span>
-          <span className="draft-bar-hint">
-            Question wording and correct answers save on their own.
-          </span>
-          <button disabled={!draft.dirty || draft.saving} onClick={() => draft.save(id)}>
-            {draft.saving ? 'Saving…' : 'Save changes'}
-          </button>
-          <button className="ghost" disabled={!draft.dirty || draft.saving} onClick={draft.discard}>
-            Discard
-          </button>
-        </div>
-
-        {draft.saveError && (
-          <div className="organise-error-detail">
-            <div className="organise-error-head">
-              Save failed at the “{draft.saveError.stage}” step — nothing else was written
-            </div>
-            <table>
-              <tbody>
-                <tr><th>code</th><td>{draft.saveError.code}</td></tr>
-                <tr><th>message</th><td>{draft.saveError.message}</td></tr>
-                <tr><th>details</th><td>{draft.saveError.details}</td></tr>
-                <tr><th>hint</th><td>{draft.saveError.hint}</td></tr>
-              </tbody>
-            </table>
-            <button className="ghost" style={{ marginTop: '.5rem' }} onClick={draft.clearSaveError}>
-              Dismiss
-            </button>
-          </div>
-        )}
+        </SetupDrawer>
 
         {/* NO SCORECARD PANEL HERE, deliberately. Marks and marking criteria are a
             property of the paper a question appears in, not of the question — the

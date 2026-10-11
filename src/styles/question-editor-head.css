@@ -1,0 +1,78 @@
+/* Assessment + question bank editors (QuestionEditorHead.jsx, SetupDrawer.jsx).
+   Builds on workbook-editor-head.css (.wbe-head, .wbe-chip, .wbe-confirm) so
+   all three editors share one header. Light buttons restate background on
+   hover: the global button:hover in index.css fills them midnight otherwise. */
+
+/* Sticky, so the staged Save is never a scroll away — the job the old
+   sticky draft bar did. */
+.qe-head {
+  position: sticky;
+  top: calc(var(--topbar-h, 61px) + 0.5rem);
+  z-index: 40;
+  box-shadow: 0 4px 14px rgba(30, 60, 90, 0.06);
+}
+
+/* "● Unsaved question changes · Save · Discard" */
+.qe-draft {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  background: #fff7e8; border: 1px solid #f3d29a; border-radius: 999px;
+  padding: 0.2rem 0.3rem 0.2rem 0.7rem;
+}
+.qe-draft-text { font-size: 0.78rem; font-weight: 700; color: #a65c00; white-space: nowrap; }
+.qe-draft .qe-draft-save {
+  padding: 0.25rem 0.8rem; font-size: 0.78rem; border-radius: 999px;
+}
+.qe-draft .qe-draft-discard {
+  padding: 0.25rem 0.7rem; font-size: 0.78rem; border-radius: 999px;
+  background: transparent; color: var(--text); border: 1px solid var(--border);
+}
+.qe-draft .qe-draft-discard:hover:where(:not(:disabled)) { background: #fff; color: var(--text); }
+
+/* The setup chips under the header. */
+.qe-setup { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: -0.35rem 0 1rem; }
+.qe-setup .qe-chip {
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 0.3rem 0.8rem; font-size: 0.8rem; font-weight: 600;
+}
+.qe-setup .qe-chip:hover:where(:not(:disabled)) { background: var(--bg); color: var(--text); border-color: var(--gold); }
+.qe-setup .qe-chip.is-ok { background: #e8f5e9; border-color: #b9dfbb; color: #2e7d32; }
+.qe-setup .qe-chip.is-ok:hover:where(:not(:disabled)) { background: #dcefdd; color: #2e7d32; }
+.qe-setup .qe-chip.is-warn { background: #fff3e0; border-color: #ffd59e; color: #a65c00; }
+.qe-setup .qe-chip.is-warn:hover:where(:not(:disabled)) { background: #ffe9c7; color: #a65c00; }
+.qe-setup .qe-chip.is-bad { background: #fdecea; border-color: #f5c2bf; color: #c62828; }
+.qe-setup .qe-chip.is-bad:hover:where(:not(:disabled)) { background: #fbdcd9; color: #c62828; }
+
+/* A failed staged save, as a sentence. */
+.qe-save-error {
+  background: #fffafa; border: 1px solid #f5c2bf; border-radius: 10px;
+  padding: 0.75rem 1rem; margin: 0 0 1rem; display: grid; gap: 0.35rem;
+}
+.qe-save-error p { margin: 0; }
+.qe-save-error-head { font-weight: 600; color: #c62828; font-size: 0.9rem; }
+.qe-save-error-detail { color: var(--muted); font-size: 0.78rem; word-break: break-word; }
+.qe-save-error-actions { display: flex; gap: 0.5rem; }
+.qe-save-error-actions button { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+.qe-save-error .qe-save-error-dismiss { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.qe-save-error .qe-save-error-dismiss:hover:where(:not(:disabled)) { background: #fff; color: var(--text); }
+
+/* The drawer: wider than the library's details panel, because the scorecard
+   and organise panels are full editors. */
+.wb-rail-panel.setup-drawer { width: min(760px, 100vw); display: flex; flex-direction: column; }
+.setup-drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--card); z-index: 1;
+}
+.setup-drawer-head h2 { margin: 0; font-size: 1.05rem; color: var(--midnight); }
+.setup-drawer .setup-drawer-close {
+  background: transparent; color: var(--text); font-size: 1.4rem; line-height: 1;
+  padding: 0.1rem 0.55rem; border: 0;
+}
+.setup-drawer .setup-drawer-close:hover:where(:not(:disabled)) { background: var(--bg); color: var(--text); }
+.setup-drawer-body { padding: 1rem 1.1rem 2rem; }
+/* The panels were cards on the page; inside the drawer the drawer is the card. */
+.setup-pane > .editor-card { border: 0; box-shadow: none; padding: 0; margin: 0; background: transparent; }
+/* A panel with nothing to show renders nothing at all. */
+.setup-pane:empty::before { content: 'Nothing to do here right now.'; color: var(--muted); font-size: 0.9rem; }
+.setup-pane .qe-gap { margin-top: 0.75rem; display: block; }

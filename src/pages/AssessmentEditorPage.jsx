@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
@@ -16,7 +16,6 @@ import AssessmentPrepPanel from '../components/editor/AssessmentPrepPanel.jsx';
 import AssessmentAnswerKeyPanel from '../components/editor/AssessmentAnswerKeyPanel.jsx';
 import QuestionNav from '../components/editor/QuestionNav.jsx';
 import EditHeatModal from '../components/editor/EditHeatModal.jsx';
-import WorkbookChangesModal from '../components/editor/WorkbookChangesModal.jsx';
 import { useAssessmentEditHeat } from '../hooks/useWorkbookEditHeat.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import OrganiseQuestionsPanel from '../components/editor/OrganiseQuestionsPanel.jsx';
@@ -26,11 +25,16 @@ import { linkedBySection } from '../lib/prepTemplateEdit.js';
 import { isWithdrawn, withdrawalOf, setQuestionWithdrawn } from '../lib/questionWithdrawal.js';
 import WithdrawQuestion from '../components/WithdrawQuestion.jsx';
 import TopBar from '../components/TopBar.jsx';
-import SaveStatus from '../components/SaveStatus.jsx';
+import QuestionEditorHead, { DraftSaveError } from '../components/editor/QuestionEditorHead.jsx';
+import SetupDrawer from '../components/editor/SetupDrawer.jsx';
+import { isScorableBlock, isManuallyMarkable, isInactiveBlock } from '../lib/assessmentScoring.js';
+import { placeholderFixes, newBoxId } from '../lib/tableCells.js';
 import '../styles/editor.css';
 import '../styles/workbook.css';
 import '../styles/dashboard.css';
 import '../styles/edit-heat.css';
+import '../styles/workbook-editor-head.css';
+import '../styles/question-editor-head.css';
 import PlaceholderRepair from '../components/editor/PlaceholderRepair.jsx';
 
 export default function AssessmentEditorPage() {
@@ -62,7 +66,9 @@ export default function AssessmentEditorPage() {
   const [withdrawBusy, setWithdrawBusy] = useState(null);
   const [withdrawErr, setWithdrawErr] = useState({});
   const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
-  const [showAllChanges, setShowAllChanges] = useState(false);
+  // Which setup panel the drawer shows; null = closed.
+  const [pane, setPane] = useState(null);
+  const closePane = useCallback(() => setPane(null), []);
   // The prep template as the Prep template card last loaded or saved it, so each
   // ticked question can carry a marker on its own heading.
   const [prepTemplate, setPrepTemplate] = useState(null);
@@ -221,173 +227,205 @@ export default function AssessmentEditorPage() {
     navigate('/trainer/assessments');
   }
 
+  // ── Setup chips: one line of state, each opening its panel ──────────────
+  // Every count comes from data this page already holds; none adds a query.
+  const qCount = qList.length;
+  const prepCount = prepTemplate ? qList.filter(q => prepBySection.get(q.section.id)).length : null;
+  const markable = blocks.filter(b => !isDraftId(b.id) && !isInactiveBlock(b)
+    && (isScorableBlock(b) || isManuallyMarkable(b)));
+  const setUp = markable.filter(b => keysApi.keys[b.id] != null || keysApi.modes?.[b.id] === 'manual').length;
+  const repairCells = blocks.filter(b => !isDraftId(b.id) && b.block_type === 'table')
+    .reduce((n, b) => n + placeholderFixes(b.config, newBoxId).length, 0);
+  const bankUpdates = (bankLinks.stale?.length || 0) + (bankLinks.orphaned?.length || 0);
+  const PANES = {
+    details: 'Details',
+    prep: 'Prep template',
+    scorecard: 'Scorecard',
+    repair: 'Answer boxes to fix',
+    bank: 'Bank updates',
+    organise: 'Organise questions',
+    savebank: 'Save to the question bank',
+  };
+  // Until the keys have loaded, "0 of 34" would be a false alarm: say nothing.
+  const scoreKnown = keysApi.loaded && markable.length > 0;
+  const scoreClass = keysApi.error ? ' is-bad'
+    : scoreKnown && setUp === markable.length ? ' is-ok'
+      : scoreKnown ? ' is-warn' : '';
+
   return (
     <>
       <TopBar />
-      <main className={`page editor ${showPreview ? 'with-preview' : ''}`}>
-        <section className="page-hero compact">
-          <div className="page-hero-text">
-            <Link to="/trainer/assessments" className="back-link">&larr; Back to Assessments</Link>
-            <h1>Assessment editor</h1>
-            <p>Same block model as a workbook. Attach to a program from its editor page when ready.</p>
-          </div>
-          <div className="page-hero-actions">
-            <SaveStatus tracker={saves} onReload={reload} />
-            {/* Uses TOTAL, not open: once everything is reviewed the marker
-                goes quiet but must stay reachable, or finishing a review would
-                make the record disappear. */}
-            {heatEnabled && totalSections > 0 && (
-              <button
-                type="button"
-                className="wb-heat-note wb-heat-btn"
-                onClick={() => setHeatFocus({
-                  sectionId: [...heatBySection.keys()][0],
-                  sectionTitle: 'Session changes',
-                  blockId: null,
-                })}
-                title="Questions the field has reworded or withdrawn in their own copies"
-              >
-                <span className={`heat-dot heat-l${openSections > 0 ? 3 : 0}`} aria-hidden />
-                {openSections > 0
-                  ? `${openSections} question${openSections === 1 ? '' : 's'} need a look`
-                  : `${totalSections} reviewed`}
-              </button>
-            )}
-            <button className="ghost" onClick={() => setShowPreview(p => !p)}>
-              {showPreview ? '◧ Hide preview' : '◨ Show preview'}
+      <main className={`page editor wbe-page ${showPreview ? 'with-preview' : ''}`}>
+        <QuestionEditorHead
+          backTo="/trainer/assessments"
+          backLabel="← Assessments"
+          kindLabel="Assessment"
+          titleLabel="Assessment title"
+          title={title}
+          onTitleChange={setTitleDraft}
+          onTitleCommit={commitTitle}
+          saves={saves}
+          onReload={reload}
+          draft={draft}
+          onSaveDraft={() => draft.save(id)}
+          savedHint="Moving, adding and removing questions waits for Save. Wording, answer keys and marks save on their own."
+          menuItems={[
+            { label: 'Delete assessment…', glyph: '✕', danger: true, onClick: () => setConfirmDelete(true) },
+          ]}
+        >
+          {/* Uses TOTAL, not open: once everything is reviewed the marker
+              goes quiet but must stay reachable, or finishing a review would
+              make the record disappear. */}
+          {heatEnabled && totalSections > 0 && (
+            <button
+              type="button"
+              className="wbe-chip wbe-heat"
+              onClick={() => setHeatFocus({
+                sectionId: [...heatBySection.keys()][0],
+                sectionTitle: 'Session changes',
+                blockId: null,
+              })}
+              data-tip="Questions the field has reworded or withdrawn in their own copies"
+            >
+              <span className={`heat-dot heat-l${openSections > 0 ? 3 : 0}`} aria-hidden />
+              {openSections > 0
+                ? `${openSections} question${openSections === 1 ? '' : 's'} need a look`
+                : `${totalSections} reviewed`}
             </button>
-            {confirmDelete ? (
-              <>
-                <span className="confirm-text">Delete assessment &amp; all questions?</span>
-                <button className="danger" onClick={handleDelete}>Yes</button>
-                <button className="ghost" onClick={() => { setConfirmDelete(false); setDelErr(''); }}>No</button>
-              </>
-            ) : (
-              <button className="ghost danger" onClick={() => setConfirmDelete(true)}>Delete assessment</button>
-            )}
-          </div>
-        </section>
-        {delErr && <p className="error">{delErr}</p>}
-
-        <section className="editor-card">
-          <label className="form-label">Assessment title</label>
-          <input
-            className="form-input large"
-            value={title}
-            onChange={e => setTitleDraft(e.target.value)}
-            onBlur={commitTitle}
-          />
-          <label className="form-label" style={{ marginTop: '0.75rem' }}>Description (optional)</label>
-          <input
-            className="form-input"
-            value={description}
-            onChange={e => setDescDraft(e.target.value)}
-            onBlur={commitDescription}
-            placeholder="What this assessment covers"
-          />
-
-          {/* Blank is a real value, not a missing one: it means nobody has
-              decided what a pass is, and the report prints that Result cell
-              empty rather than calling it a fail. */}
-          <label className="form-label" style={{ marginTop: '0.75rem' }}>Pass mark (optional)</label>
-          <div className="pass-mark-row">
-            <input
-              className="form-input pass-mark-input"
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value={passMark}
-              onChange={e => setPassMarkDraft(e.target.value)}
-              onBlur={commitPassMark}
-              placeholder="—"
-            />
-            <span className="pass-mark-suffix">%</span>
-            <span className="muted pass-mark-hint">
-              {passMark === ''
-                ? 'Not set — the report leaves Result blank.'
-                : `Scoring ${passMark}% or above is a pass.`}
-            </span>
-          </div>
-        </section>
-
-        {/* Sticky, because structural work happens far down a long paper and a
-            Save you have to scroll back to is a Save you forget. */}
-        <div className={`draft-bar ${draft.dirty ? 'dirty' : ''}`}>
-          <span className="draft-bar-status">
-            {draft.dirty
-              ? '● Unsaved changes to the questions'
-              : 'All question changes saved'}
-          </span>
-          <span className="draft-bar-hint">
-            Question wording, answer keys and marks save on their own.
-          </span>
-          <button disabled={!draft.dirty || draft.saving} onClick={() => draft.save(id)}>
-            {draft.saving ? 'Saving…' : 'Save changes'}
+          )}
+          <button type="button" className="wbe-chip wbe-preview-toggle" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>
+            {showPreview ? '◧ Hide preview' : '◨ Show preview'}
           </button>
-          <button className="ghost" disabled={!draft.dirty || draft.saving} onClick={draft.discard}>
-            Cancel
-          </button>
-        </div>
+        </QuestionEditorHead>
 
-        {draft.saveError && (
-          <div className="organise-error-detail">
-            <div className="organise-error-head">
-              Save failed at the “{draft.saveError.stage}” step — nothing else was written
-            </div>
-            <table>
-              <tbody>
-                <tr><th>code</th><td>{draft.saveError.code}</td></tr>
-                <tr><th>message</th><td>{draft.saveError.message}</td></tr>
-                <tr><th>details</th><td>{draft.saveError.details}</td></tr>
-                <tr><th>hint</th><td>{draft.saveError.hint}</td></tr>
-              </tbody>
-            </table>
-            <button className="ghost" style={{ marginTop: '.5rem' }} onClick={draft.clearSaveError}>
-              Dismiss
-            </button>
+        {confirmDelete && (
+          <div className="wbe-confirm">
+            <span className="confirm-text">Delete this assessment and all its questions? This cannot be undone.</span>
+            <button className="danger" onClick={handleDelete}>Delete assessment</button>
+            <button className="ghost" onClick={() => { setConfirmDelete(false); setDelErr(''); }}>Keep</button>
           </div>
         )}
+        {delErr && <p className="error">{delErr}</p>}
 
-        <AssessmentPrepPanel assessment={assessment} sections={sections.filter(s => !isDraftId(s.id))} allSections={sections} profile={profile} onTemplate={setPrepTemplate} />
+        {/* Setup, as chips. Anything that needs attention is a warning chip,
+            so moving the panels into the drawer never makes it go quiet. */}
+        <nav className="qe-setup" aria-label="Assessment setup">
+          <button type="button" className="qe-chip" onClick={() => setPane('details')}>
+            {passMark === '' ? 'No pass mark' : `Pass mark ${passMark}%`}
+          </button>
+          <button
+            type="button"
+            className={`qe-chip${prepCount != null && qCount && prepCount === qCount ? ' is-ok' : ''}`}
+            onClick={() => setPane('prep')}
+          >
+            {prepCount == null ? 'Prep' : `Prep · ${prepCount} of ${qCount}`}
+          </button>
+          <button type="button" className={`qe-chip${scoreClass}`} onClick={() => setPane('scorecard')}>
+            {keysApi.error
+              ? 'Answer keys aren’t saving'
+              : scoreKnown ? `Scorecard · ${setUp} of ${markable.length} set up` : 'Scorecard'}
+          </button>
+          {repairCells > 0 && (
+            <button type="button" className="qe-chip is-warn" onClick={() => setPane('repair')}>
+              {repairCells} answer box{repairCells === 1 ? '' : 'es'} to fix
+            </button>
+          )}
+          {bankUpdates > 0 && (
+            <button type="button" className="qe-chip is-warn" onClick={() => setPane('bank')}>
+              {bankUpdates} bank update{bankUpdates === 1 ? '' : 's'}
+            </button>
+          )}
+          <button type="button" className="qe-chip" onClick={() => setPane('organise')}>Organise questions</button>
+          <button type="button" className="qe-chip" onClick={() => setPane('savebank')}>Save to bank</button>
+        </nav>
 
-        <OrganiseQuestionsPanel
-          sections={sections}
-          blocks={blocks}
-          onApply={draft.applyGrouping}
+        {keysApi.error && (
+          <p className="error" role="alert">⚠️ Answer keys aren’t saving — changes won’t persist. {keysApi.error}</p>
+        )}
+        <DraftSaveError
+          error={draft.saveError}
+          onDismiss={draft.clearSaveError}
+          onReload={async () => { draft.clearSaveError(); draft.discard(); await reload(); }}
         />
 
-        {/* Answer keys address a block's database id, so a question that only
-            exists in the draft has nothing to key. Filter those out here and
-            say why, rather than offering a control that would fail on save. */}
-        {/* Saved blocks only: a draft block is written whole on Save anyway. */}
-        <PlaceholderRepair
-          sections={sections}
-          blocks={blocks.filter(b => !isDraftId(b.id))}
-          onSaveBlock={draft.updateBlock}
-        />
-
-        {/* Saved sections only: a draft question has no row yet, so there is
-            no answer key for the copy to carry. */}
-        <SaveToBankPanel
-          sections={sections.filter(s => !isDraftId(s.id))}
-          blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
-          unsavedCount={sections.filter(s => isDraftId(s.id)).length
-            + blocks.filter(b => isDraftId(b.id)).length}
-        />
-
-        <BankUpdatesBar
-          stale={bankLinks.stale}
-          orphaned={bankLinks.orphaned}
-          onResync={async (ids) => { const r = await bankLinks.resync(ids); await reload(); return r; }}
-        />
-
-        <AssessmentAnswerKeyPanel
-          keysApi={keysApi}
-          sections={sections.filter(s => !isDraftId(s.id))}
-          blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
-          unsavedCount={blocks.filter(b => isDraftId(b.id)).length}
-        />
+        <SetupDrawer open={!!pane} title={PANES[pane] || ''} onClose={closePane}>
+          <div className="setup-pane" hidden={pane !== 'details'}>
+            <label className="form-label" htmlFor="asmt-desc">Description (optional)</label>
+            <input
+              id="asmt-desc"
+              className="form-input"
+              value={description}
+              onChange={e => setDescDraft(e.target.value)}
+              onBlur={commitDescription}
+              placeholder="What this assessment covers"
+            />
+            {/* Blank is a real value, not a missing one: it means nobody has
+                decided what a pass is, and the report prints that Result cell
+                empty rather than calling it a fail. */}
+            <label className="form-label qe-gap" htmlFor="asmt-pass">Pass mark (optional)</label>
+            <div className="pass-mark-row">
+              <input
+                id="asmt-pass"
+                className="form-input pass-mark-input"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={passMark}
+                onChange={e => setPassMarkDraft(e.target.value)}
+                onBlur={commitPassMark}
+                placeholder="—"
+              />
+              <span className="pass-mark-suffix">%</span>
+              <span className="muted pass-mark-hint">
+                {passMark === ''
+                  ? 'Not set — the report leaves Result blank.'
+                  : `Scoring ${passMark}% or above is a pass.`}
+              </span>
+            </div>
+          </div>
+          <div className="setup-pane" hidden={pane !== 'prep'}>
+            <AssessmentPrepPanel assessment={assessment} sections={sections.filter(s => !isDraftId(s.id))} allSections={sections} profile={profile} onTemplate={setPrepTemplate} />
+          </div>
+          <div className="setup-pane" hidden={pane !== 'scorecard'}>
+            {/* Answer keys address a block's database id, so a question that
+                only exists in the draft has nothing to key yet. */}
+            <AssessmentAnswerKeyPanel
+              keysApi={keysApi}
+              sections={sections.filter(s => !isDraftId(s.id))}
+              blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
+              unsavedCount={blocks.filter(b => isDraftId(b.id)).length}
+            />
+          </div>
+          <div className="setup-pane" hidden={pane !== 'repair'}>
+            {/* Saved blocks only: a draft block is written whole on Save anyway. */}
+            <PlaceholderRepair
+              sections={sections}
+              blocks={blocks.filter(b => !isDraftId(b.id))}
+              onSaveBlock={draft.updateBlock}
+            />
+          </div>
+          <div className="setup-pane" hidden={pane !== 'bank'}>
+            <BankUpdatesBar
+              stale={bankLinks.stale}
+              orphaned={bankLinks.orphaned}
+              onResync={async (ids) => { const r = await bankLinks.resync(ids); await reload(); return r; }}
+            />
+          </div>
+          <div className="setup-pane" hidden={pane !== 'organise'}>
+            <OrganiseQuestionsPanel sections={sections} blocks={blocks} onApply={draft.applyGrouping} />
+          </div>
+          <div className="setup-pane" hidden={pane !== 'savebank'}>
+            {/* Saved sections only: a draft question has no row yet, so there
+                is no answer key for the copy to carry. */}
+            <SaveToBankPanel
+              sections={sections.filter(s => !isDraftId(s.id))}
+              blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
+              unsavedCount={sections.filter(s => isDraftId(s.id)).length
+                + blocks.filter(b => isDraftId(b.id)).length}
+            />
+          </div>
+        </SetupDrawer>
 
         <div className="assessment-editor-body">
           <QuestionNav questions={qList} onJump={jumpToQuestion} />
@@ -460,16 +498,6 @@ export default function AssessmentEditorPage() {
           </div>
         </div>
       </main>
-      {showAllChanges && (
-        <WorkbookChangesModal
-          kind="assessment"
-          workbookId={id}
-          workbookTitle={assessment?.title || 'this assessment'}
-          onClose={() => setShowAllChanges(false)}
-          onResolved={async () => { await refreshHeat(); }}
-          onJumpToSection={jumpToQuestion}
-        />
-      )}
       {heatFocus && (
         <EditHeatModal
           kind="assessment"
