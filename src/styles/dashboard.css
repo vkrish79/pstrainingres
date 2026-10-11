@@ -3620,3 +3620,41 @@
   .create-dialog { animation-duration: 0.01ms; }
   .create-dialog { animation-name: create-dialog-veil; }
 }
+
+/* ConfirmRow.jsx — "are you sure?" asked in the Settings table, under the row
+   it is about. Light Keep restates its hover background (global button:hover). */
+.settings-confirm-row > td { padding: 0 !important; border-top: 0; }
+.settings-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  background: #fffafa; border: 1px solid #f5c2bf; border-radius: 8px;
+  margin: 0.15rem 0 0.6rem; padding: 0.6rem 0.8rem;
+}
+.settings-confirm-text { flex: 1 1 22rem; font-size: 0.85rem; color: var(--text); }
+.settings-confirm-actions { display: flex; gap: 0.4rem; margin-left: auto; }
+.settings-confirm .settings-confirm-go {
+  background: #c62828; color: #fff; border: 0; padding: 0.35rem 0.85rem; font-size: 0.82rem;
+}
+.settings-confirm .settings-confirm-go:hover:where(:not(:disabled)) { background: #a61f1f; }
+.settings-confirm .settings-confirm-keep {
+  background: #fff; color: var(--text); border: 1px solid var(--border); padding: 0.35rem 0.85rem; font-size: 0.82rem;
+}
+.settings-confirm .settings-confirm-keep:hover:where(:not(:disabled)) { background: var(--bg); color: var(--text); }
+
+/* HelpedToasts.jsx — "Marked … as helped · Undo" while the call waits. */
+.helped-toasts {
+  /* Bottom centre: bottom-left sat over the sidebar. */
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  z-index: 300; display: grid; gap: 0.5rem; justify-items: center;
+}
+.helped-toast {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--midnight); color: #fff; border-radius: 10px;
+  padding: 0.6rem 0.75rem 0.6rem 1rem; font-size: 0.88rem;
+  box-shadow: 0 8px 24px rgba(15, 22, 38, 0.25);
+}
+.helped-toast .helped-toast-undo {
+  background: transparent; color: #e6d3a6; border: 1px solid rgba(230, 211, 166, 0.5);
+  padding: 0.25rem 0.75rem; font-size: 0.82rem; font-weight: 700; border-radius: 6px;
+}
+.helped-toast .helped-toast-undo:hover:where(:not(:disabled)) { background: rgba(255, 255, 255, 0.1); color: #fff; }

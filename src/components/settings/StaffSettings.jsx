@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { SkeletonTable } from '../Skeleton.jsx';
 import { useStaff } from '../../hooks/useStaff.js';
 import { useVendors } from '../../hooks/useVendors.js';
 import { generateTempPassword } from '../../lib/passwords.js';
 import { SettingsCard } from './SettingsCard.jsx';
 import KebabMenu from '../KebabMenu.jsx';
+import ConfirmRow from './ConfirmRow.jsx';
 
 // Settings → Staff. Was its own page in the rail; same managed-list shape as
 // the rest of Settings.
@@ -84,11 +85,14 @@ export default function StaffSettings() {
     cancelEdit();
   }
 
+  // One question open at a time, asked in the row (ConfirmRow): { kind, id }.
+  const [confirming, setConfirming] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  function ask(kind, s) { setRowError(''); setConfirming({ kind, id: s.id }); }
+
   async function handleResetPassword(s) {
     setRowError('');
     setLastReset(null);
-    const who = s.full_name || s.email;
-    if (!window.confirm(`Reset password for ${who} (${s.email})?\n\nTheir current password will stop working. You'll get a new temp password to share with them.`)) return;
     const newPassword = generateTempPassword();
     const { data, error: err } = await resetStaffPassword(s.id, newPassword);
     if (err) { setRowError(err.message); return; }
@@ -97,15 +101,23 @@ export default function StaffSettings() {
 
   async function handleDelete(s) {
     setRowError('');
-    const who = s.full_name || s.email;
-    const msg =
-      `Permanently delete ${who} (${s.email})?\n\n`
-      + 'This deletes both the auth account and the profile. '
-      + 'They will no longer be able to log in, and the email is freed up for re-invite. '
-      + 'This cannot be undone.';
-    if (!window.confirm(msg)) return;
     const { error: err } = await deleteStaff(s.id);
     if (err) setRowError(err.message);
+  }
+
+  async function runConfirmed(s) {
+    setConfirmBusy(true);
+    if (confirming.kind === 'reset') await handleResetPassword(s);
+    else await handleDelete(s);
+    setConfirmBusy(false);
+    setConfirming(null);
+  }
+
+  function confirmText(s) {
+    const who = `${s.full_name || s.email} (${s.email})`;
+    return confirming.kind === 'reset'
+      ? `Reset the password for ${who}? Their current password stops working, and you get a new temporary one to share with them.`
+      : `Permanently delete ${who}? This removes their login and profile; they can no longer sign in, and the email is freed for a new invite. This cannot be undone.`;
   }
 
   return (
@@ -219,7 +231,8 @@ export default function StaffSettings() {
           </thead>
           <tbody>
             {filtered.map(s => (
-              <tr key={s.id}>
+              <Fragment key={s.id}>
+              <tr>
                 <td>{s.full_name || '—'}</td>
                 <td>{s.email || '—'}</td>
                 <td className="st-vendor">
@@ -252,14 +265,25 @@ export default function StaffSettings() {
                       label={`Actions for ${s.full_name || s.email}`}
                       items={[
                         { label: 'Change vendor…', glyph: '⇄', onClick: () => startEdit(s) },
-                        { label: 'Reset password', glyph: '⟲', onClick: () => handleResetPassword(s) },
+                        { label: 'Reset password…', glyph: '⟲', onClick: () => ask('reset', s) },
                         { separator: true },
-                        { label: 'Delete staff member', glyph: '✕', danger: true, onClick: () => handleDelete(s) },
+                        { label: 'Delete staff member…', glyph: '✕', danger: true, onClick: () => ask('delete', s) },
                       ]}
                     />
                   )}
                 </td>
               </tr>
+              {confirming?.id === s.id && (
+                <ConfirmRow
+                  colSpan={7}
+                  message={confirmText(s)}
+                  confirmLabel={confirming.kind === 'reset' ? 'Reset password' : 'Delete staff member'}
+                  onConfirm={() => runConfirmed(s)}
+                  onCancel={() => setConfirming(null)}
+                  busy={confirmBusy}
+                />
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

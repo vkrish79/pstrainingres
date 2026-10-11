@@ -19,6 +19,7 @@ import PrepEditor from '../components/dashboard/PrepEditor.jsx';
 import ChangeTrainerControl from '../components/dashboard/ChangeTrainerControl.jsx';
 import AssessmentRunStrip from '../components/dashboard/AssessmentRunStrip.jsx';
 import HandsBar from '../components/dashboard/HandsBar.jsx';
+import HelpedToasts from '../components/dashboard/HelpedToasts.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { isVendorManagerOrAbove } from '../lib/roles.js';
 import { isFillableBlock, expectedInputs, filledInputs } from '../lib/blockHelpers.js';
@@ -922,7 +923,7 @@ export default function SessionDashboardPage() {
         <HandsBar
           hands={help.open}
           participants={participants}
-          error={helpError}
+          error={helpError || help.error}
           onShowInRoom={() => setView('participants')}
           onAcknowledge={async (reqId) => {
             setHelpError('');
@@ -935,6 +936,7 @@ export default function SessionDashboardPage() {
             if (e) setHelpError(e.message);
           }}
         />
+        <HelpedToasts pending={help.pendingHelped} participants={participants} onUndo={help.undoResolve} />
 
 
         {view === 'participants' && roomView !== 'exercise' && (

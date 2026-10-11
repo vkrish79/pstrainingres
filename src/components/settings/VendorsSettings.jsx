@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { SkeletonTable } from '../Skeleton.jsx';
 import { Link } from 'react-router-dom';
 import { useVendors, VENDOR_CODE_PATTERN } from '../../hooks/useVendors.js';
 import { SettingsCard, NameEditor } from './SettingsCard.jsx';
 import KebabMenu from '../KebabMenu.jsx';
+import ConfirmRow from './ConfirmRow.jsx';
 
 // Settings → Vendors. Was its own page in the rail; the same managed-list
 // shape as Program types and Cities, so it belongs with them.
@@ -47,7 +48,13 @@ export default function VendorsSettings() {
 
   // Refused rather than cascaded: deleting a vendor that still has trainers or
   // sessions would orphan them.
-  async function handleDelete(v) {
+  // The vendor being asked about in its row (ConfirmRow), or null.
+  const [confirmingId, setConfirmingId] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
+  // The guard runs FIRST: a vendor that still has staff or sessions is refused
+  // with the reason, and is never offered a Delete button to press.
+  function askDelete(v) {
     setRowError('');
     if (v.trainer_count > 0 || v.session_count > 0) {
       const parts = [];
@@ -56,8 +63,15 @@ export default function VendorsSettings() {
       setRowError(`${v.name} has ${parts.join(' and ')}. Reassign or remove them before deleting this vendor.`);
       return;
     }
-    if (!window.confirm(`Delete vendor "${v.name}" (${v.code})? This cannot be undone.`)) return;
+    setConfirmingId(v.id);
+  }
+
+  async function handleDelete(v) {
+    setRowError('');
+    setConfirmBusy(true);
     const { error: err } = await deleteVendor(v.id);
+    setConfirmBusy(false);
+    setConfirmingId(null);
     if (err) setRowError(err.message);
   }
 
@@ -120,7 +134,8 @@ export default function VendorsSettings() {
           </thead>
           <tbody>
             {vendors.map(v => (
-              <tr key={v.id}>
+              <Fragment key={v.id}>
+              <tr>
                 <td className="st-code st-mono">{v.code}</td>
                 <td>
                   {editingId === v.id ? (
@@ -148,12 +163,23 @@ export default function VendorsSettings() {
                       items={[
                         { label: 'Rename…', glyph: '✎', onClick: () => startEdit(v) },
                         { separator: true },
-                        { label: 'Delete vendor', glyph: '✕', danger: true, onClick: () => handleDelete(v) },
+                        { label: 'Delete vendor…', glyph: '✕', danger: true, onClick: () => askDelete(v) },
                       ]}
                     />
                   )}
                 </td>
               </tr>
+              {confirmingId === v.id && (
+                <ConfirmRow
+                  colSpan={6}
+                  message={`Delete the vendor "${v.name}" (${v.code})? This cannot be undone.`}
+                  confirmLabel="Delete vendor"
+                  onConfirm={() => handleDelete(v)}
+                  onCancel={() => setConfirmingId(null)}
+                  busy={confirmBusy}
+                />
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
