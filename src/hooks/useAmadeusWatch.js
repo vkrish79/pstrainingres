@@ -18,6 +18,11 @@ const LIVE_EVERY_MS = 3000;
 // A state older than this means the participant's page has gone (closed,
 // offline, signed out) even if the last thing it said was "sharing".
 const STATE_STALE_MS = 15000;
+// Look-back (A6): the pictures received for each person over the last 10
+// minutes, in this page only. Kept when the picture changed; live frames at
+// most one every 2s. Nothing is saved: a refresh or leaving the page drops it.
+const HISTORY_MS = 10 * 60 * 1000;
+const HISTORY_FRAME_EVERY_MS = 2000;
 
 export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thumbs = true, big = false } = {}) {
   const [people, setPeople] = useState({});   // pid → { status, surface, at, thumb, thumbAt }
@@ -26,6 +31,16 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
   const [frame, setFrame] = useState(null);   // { pid, img, w, h, at }
   const [, setNow] = useState(0);
   const channelsRef = useRef({});
+  const historyRef = useRef({});   // pid → [{ at, img }], oldest first
+  const remember = useCallback((pid, img, isFrame) => {
+    const at = Date.now();
+    const list = historyRef.current[pid] || (historyRef.current[pid] = []);
+    const last = list[list.length - 1];
+    if (last && last.img === img) return;
+    if (isFrame && last && at - last.at < HISTORY_FRAME_EVERY_MS) return;
+    list.push({ at, img });
+    while (list.length && at - list[0].at > HISTORY_MS) list.shift();
+  }, []);
   const thumbsRef = useRef(thumbs);
   thumbsRef.current = thumbs;
   const bigRef = useRef(big);
@@ -48,10 +63,12 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
       });
       ch.on('broadcast', { event: 'thumb' }, ({ payload }) => {
         if (!payload?.img) return;
+        remember(pid, payload.img, false);
         setPeople(p => ({ ...p, [pid]: { ...p[pid], thumb: payload.img, thumbAt: Date.now(), at: Date.now(), status: p[pid]?.status === 'paused' ? 'paused' : 'sharing' } }));
       });
       ch.on('broadcast', { event: 'frame' }, ({ payload }) => {
         if (!payload?.img) return;
+        remember(pid, payload.img, true);
         setFrame({ pid, img: payload.img, w: payload.w, h: payload.h, at: Date.now() });
       });
       ch.subscribe(st => {
@@ -74,7 +91,7 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
       channelsRef.current = {};
       for (const ch of Object.values(chans)) supabase.removeChannel(ch);
     };
-  }, [enabled, sessionId, key, hello]);
+  }, [enabled, sessionId, key, hello, remember]);
 
   // Switching pictures back on, or opening / leaving the Screens grid, says so
   // straight away rather than at the next 20s hello.
@@ -112,6 +129,8 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
     watch: setWatchingId,
     frame: frame && frame.pid === watchingId ? frame : null,
     ask,
+    // A copy, oldest first, trimmed to the last 10 minutes.
+    historyOf: pid => (historyRef.current[pid] || []).filter(x => Date.now() - x.at <= HISTORY_MS),
     askAll,
   };
 }

@@ -829,6 +829,7 @@ export default function SessionDashboardPage() {
                 selectedParticipantId={selectedParticipantId}
                 state={amx.stateOf(selected.id)}
                 frame={amx.frame}
+                history={amx.historyOf(selected.id)}
                 onAsk={() => amx.ask(selected.id)}
                 onBack={() => setAmxOpen(false)}
                 onOpenAnswers={() => { setAmxOpen(false); setAnswersOpen(true); }}

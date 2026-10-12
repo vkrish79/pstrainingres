@@ -12,6 +12,14 @@ function ageText(at) {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m`;
 }
 
+function clockOf(at) {
+  return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+function agoOf(at) {
+  const s = Math.max(0, Math.round((Date.now() - at) / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)} min ${s % 60}s`;
+}
+
 // state: { status: 'sharing' | 'paused' | 'off', thumb, thumbAt }
 export function AmadeusThumb({ state, size = 'tile' }) {
   if (state.status === 'off') {
@@ -60,7 +68,7 @@ export function AmadeusRoomControls({ sharing, of, pictures, onPictures, onAskAl
 export function AmadeusWatchPane({
   selected, state, frame, onAsk, onBack, onOpenAnswers,
   stepPeople, stepAt, stepPrev, stepNext, stepTo, selectedParticipantId,
-  section, blocks, answers,
+  section, blocks, answers, history = [],
 }) {
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -68,10 +76,21 @@ export function AmadeusWatchPane({
     return () => clearInterval(t);
   }, []);
   const [asked, setAsked] = useState(false);
-  useEffect(() => { setAsked(false); }, [selectedParticipantId]);
+  // Looking back (A6): the time of the picture being shown, or null for live.
+  // Held as a time rather than a position, so pictures arriving while you look
+  // don't move what you're looking at.
+  const [backAt, setBackAt] = useState(null);
+  useEffect(() => { setAsked(false); setBackAt(null); }, [selectedParticipantId]);
 
   const fresh = frame && Date.now() - frame.at < 4000;
   const img = frame?.img || state.thumb || null;
+  const looking = backAt != null && history.length > 0;
+  let backIdx = -1;
+  if (looking) {
+    backIdx = 0;
+    for (let i = 0; i < history.length; i++) if (history[i].at <= backAt) backIdx = i;
+  }
+  const shown = looking ? history[backIdx] : null;
   const sectionBlocks = section ? blocks.filter(b => b.section_id === section.id) : [];
 
   return (
@@ -86,8 +105,8 @@ export function AmadeusWatchPane({
           </div>
           <button type="button" className="answers-step" onClick={() => stepTo(stepNext)} disabled={!stepNext} title="Next person (→)" aria-label="Next person">Next ›</button>
         </div>
-        <span className={`amx-live${fresh ? '' : ' is-wait'}`}>
-          {state.status === 'paused' ? 'PAUSED' : fresh ? 'LIVE' : state.status === 'sharing' ? 'CONNECTING…' : 'NOT SHARING'}
+        <span className={`amx-live${fresh && !looking ? '' : ' is-wait'}`}>
+          {looking ? 'LOOKING BACK' : state.status === 'paused' ? 'PAUSED' : fresh ? 'LIVE' : state.status === 'sharing' ? 'CONNECTING…' : 'NOT SHARING'}
         </span>
         <button type="button" className="ghost" onClick={onOpenAnswers}>All their answers</button>
       </header>
@@ -103,7 +122,11 @@ export function AmadeusWatchPane({
       </nav>
       <div className="amx-watch-body">
         <div className="amx-watch-screen">
-          {state.status === 'off' ? (
+          {looking ? (
+            <div className="amx-watch-img is-back">
+              <img src={shown.img} alt={`${selected.full_name}'s Amadeus at ${clockOf(shown.at)}`} />
+            </div>
+          ) : state.status === 'off' ? (
             <div className="amx-watch-empty">
               <p><strong>{selected.full_name}</strong> isn't sharing Amadeus.</p>
               <button type="button" onClick={() => { onAsk(); setAsked(true); }} disabled={asked}>
@@ -118,6 +141,31 @@ export function AmadeusWatchPane({
             </div>
           ) : (
             <div className="amx-watch-empty"><p className="muted">Waiting for the first picture…</p></div>
+          )}
+          {history.length > 1 && (
+            <div className="amx-scrub">
+              <span className="amx-scrub-end">{clockOf(history[0].at)}</span>
+              <input
+                type="range"
+                min={0}
+                max={history.length}
+                value={looking ? backIdx : history.length}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setBackAt(v >= history.length ? null : history[v].at);
+                }}
+                // ← → move the slider here, not to the next person.
+                onKeyDown={e => e.stopPropagation()}
+                aria-label="Look back through the last 10 minutes"
+              />
+              <span className="amx-scrub-end">Live</span>
+              <span className="amx-scrub-what">
+                {looking
+                  ? <>Showing <b>{clockOf(shown.at)}</b> · {agoOf(shown.at)} ago</>
+                  : <span className="muted">Drag back to see the last {Math.max(1, Math.round((Date.now() - history[0].at) / 60000))} min</span>}
+              </span>
+              {looking && <button type="button" className="ghost" onClick={() => setBackAt(null)}>Back to live</button>}
+            </div>
           )}
         </div>
         <div className="amx-watch-side">
