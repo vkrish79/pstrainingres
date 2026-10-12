@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useCountdown } from '../lib/assessmentTimer.js';
 import { Link, useSearchParams } from 'react-router-dom';
+import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useParticipantAssessment } from '../hooks/useParticipantAssessment.js';
 import { useHelpRequests } from '../hooks/useHelpRequests.js';
@@ -22,7 +23,7 @@ import '../styles/workbook-rail.css';
 import '../styles/assessment-exam.css';
 
 export default function ParticipantAssessmentPage() {
-  const { session: authSession } = useAuth();
+  const { session: authSession, signOut } = useAuth();
   const [searchParams] = useSearchParams();
   const sessionIdParam = searchParams.get('session');
   const {
@@ -113,6 +114,52 @@ export default function ParticipantAssessmentPage() {
     });
   }
   const page = typeof current === 'number' ? paper.pages[current] || null : null;
+
+  // "I've finished" (P1). Answers save as they are typed, so finishing locks
+  // nothing — it is the participant's own "that's me done", and it tells the
+  // trainer's cockpit. Read and written only through two functions
+  // (20261012000000_participant_endings.sql); if they are not there yet the
+  // call fails quietly and the screen still shows, because the thing it
+  // promises — the answers are saved — is true either way.
+  const [finishedAt, setFinishedAt] = useState(null);
+  const [finishBusy, setFinishBusy] = useState(false);
+  useEffect(() => {
+    if (!session?.id || !session?.assessment_unlocked_at) return;
+    let gone = false;
+    supabase.rpc('assessment_my_finish', { p_session_id: session.id }).then(({ data, error: e }) => {
+      if (!gone && !e && data) setFinishedAt(data);
+    });
+    return () => { gone = true; };
+  }, [session?.id, session?.assessment_unlocked_at]);
+  // Someone who already finished opens on the finished screen.
+  const openedDone = useRef(false);
+  useEffect(() => {
+    if (finishedAt && !openedDone.current && current !== null) { openedDone.current = true; setCurrent('done'); }
+  }, [finishedAt, current]);
+  // The clock running out lands everyone on the same screen ("Time's up —
+  // your answers were kept") instead of boxes silently going read-only.
+  const sawExpiry = useRef(false);
+  useEffect(() => {
+    if (expired && !sawExpiry.current && current !== null) { sawExpiry.current = true; setCurrent('done'); }
+  }, [expired, current]);
+
+  async function finish() {
+    setFinishBusy(true);
+    const { data, error: e } = await supabase.rpc('assessment_set_finished', { p_session_id: session.id, p_finished: true });
+    setFinishBusy(false);
+    setFinishedAt(!e && data ? data : new Date().toISOString());
+    goTo('done');
+  }
+  async function reopen() {
+    // Changing an answer takes the "finished" back off, so the trainer's count
+    // is not left saying done about someone who is still working.
+    if (!expired) {
+      setFinishedAt(null);
+      supabase.rpc('assessment_set_finished', { p_session_id: session.id, p_finished: false }).then(() => {});
+    }
+    goTo(unfinished.length ? unfinished[0].index : 'review');
+  }
+  const unsaved = Object.keys(failures || {}).length;
 
   // Calling the trainer during the paper.
   //
@@ -240,6 +287,7 @@ export default function ParticipantAssessmentPage() {
             </h1>
             <p className="exam-bar-meta">
               <span>{overall.answered} of {overall.total} answered</span>
+              {finishedAt && !expired && <span className="exam-bar-finished">✓ Finished</span>}
               {!expired && overallStatus && (
                 <span className={`exam-bar-save is-${overallStatus}`}>
                   {overallStatus === 'saving' ? 'Saving…' : overallStatus === 'error' ? 'Not saved — see below' : '✓ Saved'}
@@ -415,7 +463,46 @@ export default function ParticipantAssessmentPage() {
                       ‹ {paper.pages[paper.pages.length - 1].question.heading}
                     </button>
                   ) : <span />}
-                  {!isResit && <Link to="/workbook" className="exam-next">Back to the workbook</Link>}
+                  {expired ? (
+                    <button type="button" className="exam-next" onClick={() => goTo('done')}>Done ›</button>
+                  ) : (
+                    <button type="button" className="exam-next exam-finish" onClick={finish} disabled={finishBusy || unsaved > 0 || overallStatus === 'saving'}>
+                      {finishBusy ? 'One moment…' : "I've finished"}
+                    </button>
+                  )}
+                </div>
+                {!expired && (
+                  <p className="exam-finish-note">
+                    {unsaved > 0
+                      ? `${unsaved} answer${unsaved === 1 ? " hasn't" : "s haven't"} saved yet — try again above first.`
+                      : unfinished.length > 0
+                        ? `${unfinished.length} question${unfinished.length === 1 ? ' is' : 's are'} not finished. You can finish anyway, and still change answers until your trainer closes it.`
+                        : 'You can still change answers until your trainer closes it.'}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {current === 'done' && (
+              <section className="wb-section exam-page exam-done">
+                <div className={`exam-done-mark${expired ? ' is-time' : ''}`} aria-hidden="true">{expired ? '⏱' : '✓'}</div>
+                <h2 className="exam-title">{expired ? "Time's up — your answers were kept" : 'Your answers are in'}</h2>
+                <p className="exam-lede">
+                  {overall.answered} of {overall.total} answered{unsaved > 0 || overall.answered === 0 ? '' : ', all saved'}.
+                  {' '}Your trainer marks the assessment and shares results after the course.
+                </p>
+                {unsaved > 0 && (
+                  <p className="exam-finish-note is-warn">
+                    {unsaved} answer{unsaved === 1 ? " didn't" : "s didn't"} save. {expired ? 'Tell your trainer.' : 'Try again above before you leave.'}
+                  </p>
+                )}
+                <div className="exam-done-actions">
+                  {isResit
+                    ? <button type="button" className="exam-next" onClick={signOut}>Sign out</button>
+                    : <Link to="/workbook" className="exam-next">Back to the workbook</Link>}
+                  <button type="button" className="exam-prev" onClick={reopen}>
+                    {expired ? 'Look over my answers' : 'Change an answer'}
+                  </button>
                 </div>
               </section>
             )}

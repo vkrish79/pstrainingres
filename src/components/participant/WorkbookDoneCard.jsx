@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase.js';
 import { useServerOffset } from '../../lib/serverTime.js';
 import '../../styles/workbook-done.css';
 
@@ -17,6 +18,17 @@ export default function WorkbookDoneCard({ sessionId, exerciseCount, assessment,
     try { return localStorage.getItem(key) === '1'; } catch { return false; }
   });
   const offset = useServerOffset();
+  // Their own "I've finished" (P1). Quietly absent until that SQL is applied.
+  const [finishedAt, setFinishedAt] = useState(null);
+  const unlocked = !!assessment?.unlockedAt;
+  useEffect(() => {
+    if (!sessionId || !unlocked || hidden) return undefined;
+    let gone = false;
+    supabase.rpc('assessment_my_finish', { p_session_id: sessionId }).then(({ data, error }) => {
+      if (!gone && !error) setFinishedAt(data || null);
+    });
+    return () => { gone = true; };
+  }, [sessionId, unlocked, hidden]);
   if (hidden) return null;
 
   function hide() {
@@ -32,7 +44,7 @@ export default function WorkbookDoneCard({ sessionId, exerciseCount, assessment,
         <p>Your trainer goes over them with the class. Your notes are kept with your answers.</p>
       </div>
       <div className="wb-done-actions">
-        {assessment?.id && <AssessmentStep assessment={assessment} offset={offset} onOpen={onOpenAssessment} />}
+        {assessment?.id && <AssessmentStep assessment={{ ...assessment, finishedAt }} offset={offset} onOpen={onOpenAssessment} />}
         <button type="button" className="wb-done-download" onClick={onDownload}>↓ Download my workbook (PDF)</button>
       </div>
       <button type="button" className="wb-done-hide" onClick={hide} aria-label="Hide" data-tip="Hide this">×</button>

@@ -21,6 +21,8 @@ function toParticipants(rows) {
       deactivated_at: sp.deactivated_at ?? null,
       deactivated_by_name: sp.deactivated_by_name ?? null,
       deactivation_reason: sp.deactivation_reason ?? null,
+      // "I've finished" on the assessment (P1). Undefined until the SQL is applied.
+      assessment_finished_at: sp.assessment_finished_at ?? null,
     }))
     .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
 }

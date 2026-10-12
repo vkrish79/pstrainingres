@@ -253,3 +253,21 @@
 @media (max-width: 640px) {
   .exam-hand { padding: 0.4rem 0.6rem; font-size: 0.8rem; }
 }
+
+/* ── P1: "I've finished" and the finished screen ─────────────────────── */
+.exam .exam-next.exam-finish { background: #2f8a4c; border-color: #2f8a4c; font-weight: 600; }
+.exam .exam-next.exam-finish:hover:not(:disabled) { background: #27753f; }
+.exam .exam-next:disabled { opacity: 0.55; cursor: not-allowed; }
+.exam-finish-note { margin: 0.5rem 0 0; text-align: right; font-size: 0.85rem; color: var(--muted); }
+.exam-finish-note.is-warn { text-align: left; color: #9a3412; font-weight: 600; }
+.exam-done { text-align: center; }
+.exam-done .exam-lede { max-width: 34rem; margin-left: auto; margin-right: auto; }
+.exam-done-mark {
+  width: 56px; height: 56px; margin: 0.4rem auto 0.6rem;
+  display: grid; place-items: center; border-radius: 50%;
+  background: #2f8a4c; color: #fff; font-size: 1.6rem; font-weight: 700;
+}
+.exam-done-mark.is-time { background: var(--midnight); }
+.exam-done-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.2rem; }
+.exam-done-actions .exam-next { text-decoration: none; }
+.exam-bar-finished { color: #9fd9b4; font-weight: 600; }

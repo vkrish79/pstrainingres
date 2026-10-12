@@ -32,7 +32,8 @@ export function Ring({ frac, tone, label }) {
 // The assessment, as a gauge. Clicking it opens the Assessment tab, which is
 // where it is opened, locked and extended — this only reports.
 //
-// "started" is who has saved at least one assessment answer, as of page load.
+// "started" is who has saved at least one assessment answer, as of page load;
+// "finished" is who pressed "I've finished" on the paper (P1).
 function AssessmentGauge({ assessment, onOpen }) {
   const { label, expired, urgent } = useCountdown(assessment?.deadlineAt);
   if (!assessment?.id) {
@@ -59,7 +60,10 @@ function AssessmentGauge({ assessment, onOpen }) {
         <div className={`cockpit-gauge-value state-${state}`}>
           {STATE_LABEL[state]}{state === 'open' && label && <small> · {label} left</small>}
         </div>
-        <div className="cockpit-gauge-hint">{assessment.started} of {assessment.of} have started</div>
+        <div className="cockpit-gauge-hint">
+          {assessment.started} of {assessment.of} have started
+          {assessment.finished > 0 && <> · {assessment.finished} finished</>}
+        </div>
       </div>
     </button>
   );

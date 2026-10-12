@@ -910,8 +910,9 @@ export default function SessionDashboardPage() {
             id: session?.assessment_id || null,
             unlockedAt: session?.assessment_unlocked_at,
             deadlineAt: session?.assessment_deadline_at,
-            started: participants.filter(p => !p.deactivated_at && assessmentStarted.has(p.id)).length,
+            started: participants.filter(p => !p.deactivated_at && (assessmentStarted.has(p.id) || p.assessment_finished_at)).length,
             of: participants.filter(p => !p.deactivated_at).length,
+            finished: participants.filter(p => !p.deactivated_at && p.assessment_finished_at).length,
           }}
           onOpenAssessment={() => setView('assessment')}
         />

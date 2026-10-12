@@ -732,7 +732,6 @@ export default function ParticipantWorkbookPage() {
               id: session.assessment_id,
               unlockedAt: session.assessment_unlocked_at,
               deadlineAt: session.assessment_deadline_at,
-              finishedAt: session.assessment_finished_at || null,
             } : null}
             onOpenAssessment={() => navigate(`/assessment?session=${session.id}`)}
             onDownload={printWorkbook}
