@@ -283,3 +283,32 @@
   .plive-pick:hover:not(:disabled) { transform: none; }
   .plive-badge.has-gained { animation: none; }
 }
+
+/* ── Handset: the question and each answer's words (P4, 11 Oct) ──────────
+   The shape stays the identity; the label sits beside it. Tiles stay big
+   targets — the text shrinks before the tile does. */
+.plive-q {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: clamp(1.05rem, 4.2vw, 1.6rem);
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
+}
+.plive-participant .plive-pick { gap: clamp(0.5rem, 2vw, 0.9rem); min-height: 4.5rem; }
+.plive-participant .plive-pick .quiz-shape { width: clamp(1.8rem, 9vw, 3.2rem); flex: 0 0 auto; }
+.plive-pick-label {
+  font: inherit;
+  font-weight: 600;
+  font-size: clamp(0.95rem, 3.6vw, 1.3rem);
+  line-height: 1.2;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.plive-thanks { justify-content: center; align-items: center; text-align: center; }
+.plive-thanks .plive-back,
+.plive-thanks .plive-back:hover {
+  background: #fff; color: var(--midnight, #1f2a44); border: none; border-radius: 999px;
+  padding: 0.6rem 1.4rem; font: inherit; font-weight: 600; cursor: pointer;
+}
+.plive-thanks .plive-back:hover { background: #eef2f7; }

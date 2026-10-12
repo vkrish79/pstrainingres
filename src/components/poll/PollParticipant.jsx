@@ -4,13 +4,14 @@ import QuizShape from '../quiz/QuizShape.jsx';
 import QuizTimer, { spanSeconds } from '../quiz/QuizTimer.jsx';
 import '../../styles/poll-live.css';
 
-// The handset during a poll: SHAPES AND NOTHING ELSE.
+// The handset during a poll: the question, and each shape with its answer.
 //
-// The question is on the wall, not in their hand — same rule as the quiz, and
-// for the same reason. Sixteen people reading sixteen small copies of a
-// question are sixteen people looking down; the trainer wants them looking up.
-// (The word cloud will break this rule, deliberately and only there, because
-// typing a word means looking down anyway.)
+// It used to be shapes and nothing else, on the quiz's old rule that the
+// question belongs on the wall. That rule was reversed for the quiz on 7 Oct
+// and for the poll in the Participant Experience Pass (P4, 11 Oct): anyone at
+// the back of the room, behind a pillar, or in a long room was voting blind.
+// The shapes stay, and stay the identity — "hit the triangle" still means the
+// same thing on the wall and in the hand.
 //
 // QuizShape is borrowed rather than copied: the four shapes are the room's
 // shared vocabulary, so "hit the triangle" has to mean the same thing whether
@@ -69,6 +70,8 @@ export default function PollParticipant({ run, secondsLeft, onRefresh }) {
           )}
         </div>
 
+        {run?.question && <h1 className="plive-q">{run.question}</h1>}
+
         <div
           className={`plive-picks plive-picks-${options.length}`}
           role="group"
@@ -78,9 +81,6 @@ export default function PollParticipant({ run, secondsLeft, onRefresh }) {
             <button
               key={i}
               type="button"
-              // The shape is the identity; the label is what a screen reader
-              // reads, since there is no text on this screen to read.
-              aria-label={label}
               aria-pressed={picked === i}
               disabled={!run?.is_open}
               className={`plive-pick plive-opt-${i}`
@@ -88,7 +88,8 @@ export default function PollParticipant({ run, secondsLeft, onRefresh }) {
                 + (picked !== null && picked !== i ? ' is-dimmed' : '')}
               onClick={() => vote(i)}
             >
-              <QuizShape index={i} title={label} />
+              <QuizShape index={i} />
+              <span className="plive-pick-label">{label}</span>
             </button>
           ))}
         </div>
@@ -97,8 +98,8 @@ export default function PollParticipant({ run, secondsLeft, onRefresh }) {
         {!note && run?.is_open && (
           <p className="plive-note plive-muted">
             {picked === null
-              ? 'Tap a shape to vote.'
-              : 'Vote in. Tap another shape to change it.'}
+              ? 'Tap an answer to vote.'
+              : 'Vote in. Tap another to change it.'}
           </p>
         )}
         {!note && !run?.is_open && (
@@ -108,6 +109,21 @@ export default function PollParticipant({ run, secondsLeft, onRefresh }) {
               : 'Voting has closed. Look up at the screen.'}
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+// The few seconds after the trainer takes a poll down, before the workbook
+// comes back (ParticipantWorkbookPage holds it). Says the vote was counted;
+// the results themselves are the wall's, never the handset's.
+export function PollThanks({ voted, onDone }) {
+  return (
+    <div className="plive plive-participant">
+      <div className="plive-stage plive-thanks">
+        <h1 className="plive-q">{voted ? 'Thanks — your vote is in' : 'That poll has closed'}</h1>
+        <p className="plive-note plive-muted">Back to your workbook in a moment.</p>
+        <button type="button" className="plive-back" onClick={onDone}>Back to my workbook</button>
       </div>
     </div>
   );

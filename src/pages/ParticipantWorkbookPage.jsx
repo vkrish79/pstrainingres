@@ -27,7 +27,7 @@ import MaterialsDrawer from '../components/participant/MaterialsDrawer.jsx';
 import NotesDrawer from '../components/participant/NotesDrawer.jsx';
 import WorkbookDoneCard from '../components/participant/WorkbookDoneCard.jsx';
 import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
-import PollParticipant from '../components/poll/PollParticipant.jsx';
+import PollParticipant, { PollThanks } from '../components/poll/PollParticipant.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import SaveFailedBar from '../components/participant/SaveFailedBar.jsx';
@@ -41,6 +41,7 @@ import '../styles/workbook-rail.css';
 import '../styles/answer-review-marks.css';
 
 const ALL_KEY = '__all__';
+const POLL_THANKS_MS = 3500;
 
 export default function ParticipantWorkbookPage() {
   const navigate = useNavigate();
@@ -63,6 +64,20 @@ export default function ParticipantWorkbookPage() {
   // column on poll_runs, so letting a handset SELECT that row to hang a
   // subscription on would hand it the live counts. See useActivePoll.
   const { run: activePoll, refresh: refreshPoll, secondsLeft: pollSecondsLeft } = useActivePoll(session?.id);
+  // When the trainer takes a poll down, a few seconds of "thanks" before the
+  // workbook comes back — being dropped straight back mid-glance read as the
+  // phone having crashed.
+  const [pollThanks, setPollThanks] = useState(null);
+  const lastPollRef = useRef(null);
+  useEffect(() => {
+    const prev = lastPollRef.current;
+    lastPollRef.current = activePoll;
+    if (activePoll) { setPollThanks(null); return undefined; }
+    if (!prev) return undefined;
+    setPollThanks({ voted: prev.my_vote != null });
+    const t = setTimeout(() => setPollThanks(null), POLL_THANKS_MS);
+    return () => clearTimeout(t);
+  }, [activePoll]);
   const [stickyQuizRunId, setStickyQuizRunId] = useState(null);
   const [quizDismissed, setQuizDismissed] = useState(null);
   useEffect(() => {
@@ -634,6 +649,9 @@ export default function ParticipantWorkbookPage() {
   // the trainer takes it down they should be back in their workbook at once.
   if (activePoll) {
     return <PollParticipant run={activePoll} secondsLeft={pollSecondsLeft} onRefresh={refreshPoll} />;
+  }
+  if (pollThanks) {
+    return <PollThanks voted={pollThanks.voted} onDone={() => setPollThanks(null)} />;
   }
 
   if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
