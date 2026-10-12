@@ -133,3 +133,101 @@ export function AmadeusWatchPane({
     </aside>
   );
 }
+
+// ── The Screens grid: everyone's Amadeus at once ──────────────────────────
+// Raised hands first (longest waiting first), then the class in its own order,
+// then everyone not sharing. Only status changes move a square, so the grid
+// doesn't reshuffle while you're reading it.
+const WALL_SIZES = { S: 180, M: 260, L: 380 };
+const WALL_STALE_MS = 30000;
+
+export function AmadeusWall({ people, stateOf, onOpen, onAsk, size, onSize, full, onFull }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const [asked, setAsked] = useState({});
+
+  // Esc leaves the full-window grid (the page's own Esc only acts while an
+  // answers or watch pane is open, so the two never fight).
+  useEffect(() => {
+    if (!full) return undefined;
+    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); onFull(false); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [full, onFull]);
+
+  const live = people.filter(x => !x.dropped);
+  const rank = x => (x.hand ? 0 : stateOf(x.id).status === 'off' ? 2 : 1);
+  const ordered = live
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => rank(a.x) - rank(b.x)
+      || (a.x.hand && b.x.hand ? a.x.hand.raised_at.localeCompare(b.x.hand.raised_at) : 0)
+      || a.i - b.i)
+    .map(({ x }) => x);
+  const sharing = live.filter(x => stateOf(x.id).status !== 'off').length;
+
+  const grid = (
+    <ul className="amx-wall-grid" style={{ '--sq': `${WALL_SIZES[size] || WALL_SIZES.M}px` }} aria-label="Everyone's Amadeus">
+      {ordered.map(x => {
+        const st = stateOf(x.id);
+        const stale = st.status === 'sharing' && st.thumbAt && Date.now() - st.thumbAt > WALL_STALE_MS;
+        const age = st.thumbAt ? Math.max(0, Math.round((Date.now() - st.thumbAt) / 1000)) : null;
+        const where = x.hand
+          ? `Asked for help · ${x.hand.section_title || ''}`.replace(/ · $/, '')
+          : st.status === 'paused' ? 'Paused'
+            : st.status === 'off' ? x.presence.label.replace(/^last · /, '')
+              : `${x.presence.label.replace(/^last · /, '')}${age != null ? ` · ${age < 60 ? `${age}s` : `${Math.floor(age / 60)}m`}` : ''}`;
+        return (
+          <li key={x.id} className={`amx-sq${x.hand ? ' has-hand' : ''}${st.status === 'off' ? ' is-off' : ''}${st.status === 'paused' ? ' is-paused' : ''}${stale ? ' is-stale' : ''}`}>
+            <div className="amx-sq-head">
+              <b>{x.hand && '✋ '}{x.name}</b>
+              <span>{where}</span>
+            </div>
+            {st.status === 'off' ? (
+              <div className="amx-sq-img is-empty">
+                <span>Not sharing</span>
+                <button type="button" className="ghost" disabled={asked[x.id]}
+                  onClick={() => { onAsk(x.id); setAsked(a => ({ ...a, [x.id]: true })); }}>
+                  {asked[x.id] ? 'Asked ✓' : 'Ask to share'}
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="amx-sq-img" onClick={() => onOpen(x.id)} data-tip={`Watch ${x.name}'s Amadeus`}>
+                {st.thumb ? <img src={st.thumb} alt={`${x.name}'s Amadeus`} /> : <span>Picture on its way…</span>}
+                {st.status === 'paused' && <span className="amx-thumb-flag">Paused</span>}
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const bar = (
+    <div className="amx-wall-bar">
+      {/* Above the class the Room controls already count; full window hides them. */}
+      {full && <span className="amx-room-count">🖥 Sharing <b>{sharing}</b> of {live.length}</span>}
+      <span className="amx-wall-sizes" role="group" aria-label="Square size">
+        {Object.keys(WALL_SIZES).map(k => (
+          <button key={k} type="button" aria-pressed={size === k} onClick={() => onSize(k)}>{k}</button>
+        ))}
+      </span>
+      <button type="button" className="ghost amx-wall-full-btn" onClick={() => onFull(!full)}
+        data-tip={full ? 'Back to the cockpit (Esc)' : 'Fill the window with the screens'}>
+        {full ? '✕ Exit full window' : '⛶ Full window'}
+      </button>
+    </div>
+  );
+
+  if (full) {
+    return (
+      <div className="amx-wall-full" role="dialog" aria-label="Everyone's Amadeus">
+        <div className="amx-wall-full-head"><h2>Screens</h2>{bar}</div>
+        {grid}
+      </div>
+    );
+  }
+  return <div className="amx-wall">{bar}{grid}</div>;
+}

@@ -43,7 +43,7 @@ import ParticipantsTable from '../components/dashboard/ParticipantsTable.jsx';
 import InvitesBanner from '../components/dashboard/InvitesBanner.jsx';
 import SessionCockpitHeader from '../components/dashboard/SessionCockpitHeader.jsx';
 import { useAmadeusWatch } from '../hooks/useAmadeusWatch.js';
-import { AmadeusThumb, AmadeusRoomControls, AmadeusWatchPane } from '../components/dashboard/AmadeusWatch.jsx';
+import { AmadeusThumb, AmadeusRoomControls, AmadeusWatchPane, AmadeusWall } from '../components/dashboard/AmadeusWatch.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
 import '../styles/editor.css';
@@ -78,20 +78,6 @@ export default function SessionDashboardPage() {
   const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
   // Raised hands, live. Each is also shown on that person wherever they appear.
   const help = useHelpRequests(id);
-  // Watch Amadeus: each participant can share their ARD Web tab; pictures on
-  // the tiles (switchable, remembered per browser) and a watch view.
-  const [amxPictures, setAmxPicturesState] = useState(() => {
-    try { return localStorage.getItem('room-amadeus-pictures') !== 'off'; } catch { return true; }
-  });
-  function setAmxPictures(v) {
-    setAmxPicturesState(v);
-    try { localStorage.setItem('room-amadeus-pictures', v ? 'on' : 'off'); } catch { /* fine */ }
-  }
-  const amx = useAmadeusWatch(id, participants.filter(p => !p.deactivated_at).map(p => p.id), {
-    enabled: session?.kind !== 'resit' && !session?.closed_at,
-    thumbs: amxPictures,
-  });
-  const [amxOpen, setAmxOpen] = useState(false);
   const [helpError, setHelpError] = useState('');
 
 
@@ -133,11 +119,6 @@ export default function SessionDashboardPage() {
   const [attachError, setAttachError] = useState('');
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [answersOpen, setAnswersOpen] = useState(false);
-  // Live pictures only while someone's Amadeus is actually open.
-  const amxWatch = amx.watch;
-  useEffect(() => {
-    amxWatch(amxOpen && selectedParticipantId ? selectedParticipantId : null);
-  }, [amxOpen, selectedParticipantId, amxWatch]);
   // Stepping through people while reading answers. "Stay on this exercise"
   // keeps the same exercise in view as you move from one person to the next,
   // so Exercise 4 is compared with Exercise 4. Remembered per browser.
@@ -181,7 +162,7 @@ export default function SessionDashboardPage() {
       const typing = t && (t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'
         || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|color|file)$/i.test(t.type)));
       if (typing) return;
-      if (document.querySelector('.modal-backdrop.visible, .materials-drawer.open, .kebab-menu, .idle-signout, .prep-editor.open')) return;
+      if (document.querySelector('.modal-backdrop.visible, .materials-drawer.open, .kebab-menu, .idle-signout, .prep-editor.open, .amx-wall-full')) return;
       if (k.reading && e.key === 'ArrowRight' && k.next) { e.preventDefault(); k.step(k.next); return; }
       if (k.reading && e.key === 'ArrowLeft' && k.prev) { e.preventDefault(); k.step(k.prev); return; }
       if (k.reading && e.key === 'Escape') { e.preventDefault(); k.back(); return; }
@@ -199,7 +180,7 @@ export default function SessionDashboardPage() {
   const [roomView, setRoomViewState] = useState(() => {
     try {
       const v = localStorage.getItem('session-room-view');
-      return v === 'heat' || v === 'table' || v === 'exercise' ? v : 'tiles';
+      return v === 'heat' || v === 'table' || v === 'exercise' || v === 'screens' ? v : 'tiles';
     } catch { return 'tiles'; }
   });
   function setRoomView(v) {
@@ -213,6 +194,39 @@ export default function SessionDashboardPage() {
   useEffect(() => {
     if (paperOnly && (roomView === 'heat' || roomView === 'exercise')) setRoomView('tiles');
   }, [paperOnly, roomView]);
+
+  // Watch Amadeus: each participant can share their ARD Web tab. Pictures on
+  // the tiles (switchable, remembered per browser), a Screens grid of
+  // everyone, and a watch view for one person.
+  const [amxPictures, setAmxPicturesState] = useState(() => {
+    try { return localStorage.getItem('room-amadeus-pictures') !== 'off'; } catch { return true; }
+  });
+  function setAmxPictures(v) {
+    setAmxPicturesState(v);
+    try { localStorage.setItem('room-amadeus-pictures', v ? 'on' : 'off'); } catch { /* fine */ }
+  }
+  const [amxOpen, setAmxOpen] = useState(false);
+  const [wallSize, setWallSizeState] = useState(() => {
+    try { const v = localStorage.getItem('room-screens-size'); return v === 'S' || v === 'L' ? v : 'M'; } catch { return 'M'; }
+  });
+  function setWallSize(v) {
+    setWallSizeState(v);
+    try { localStorage.setItem('room-screens-size', v); } catch { /* fine */ }
+  }
+  const [wallFull, setWallFull] = useState(false);
+  // The grid asks for bigger (640px) pictures, and only while it is on screen;
+  // it needs pictures even if they're switched off for the tiles.
+  const wallOn = view === 'participants' && roomView === 'screens' && !answersOpen && !amxOpen;
+  const amx = useAmadeusWatch(id, participants.filter(p => !p.deactivated_at).map(p => p.id), {
+    enabled: session?.kind !== 'resit' && !session?.closed_at,
+    thumbs: amxPictures || wallOn,
+    big: wallOn,
+  });
+  // Live pictures only while someone's Amadeus is actually open.
+  const amxWatch = amx.watch;
+  useEffect(() => {
+    amxWatch(amxOpen && selectedParticipantId ? selectedParticipantId : null);
+  }, [amxOpen, selectedParticipantId, amxWatch]);
 
   // Where "By exercise" should open when the heat board sends a trainer there.
   const [exerciseJump, setExerciseJump] = useState(null); // { sectionId, participantId, n }
@@ -510,6 +524,8 @@ export default function SessionDashboardPage() {
           so they are not offered. Tiles and Table still say who is here. */}
       {!paperOnly && <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>}
       {!paperOnly && <button type="button" aria-pressed={roomView === 'exercise'} onClick={() => { setExerciseJump(null); setRoomView('exercise'); }}>By exercise</button>}
+      {/* Everyone's shared Amadeus at once. Only once sharing is available here. */}
+      {amx.available && <button type="button" aria-pressed={roomView === 'screens'} onClick={() => setRoomView('screens')}>Screens</button>}
     </div>
   );
 
@@ -752,12 +768,24 @@ export default function SessionDashboardPage() {
               )}
 
               {participants.length === 0 && <p className="muted">No participants enrolled.</p>}
-              {participants.length > 0 && roomView === 'tiles' && (
+              {participants.length > 0 && (roomView === 'tiles' || (roomView === 'screens' && !amx.available)) && (
                 <RoomTiles
                   people={roomPeople}
                   selectedId={selectedParticipantId}
                   onPick={pickParticipant}
                   amx={amx.available && amxPictures ? (x => <AmadeusThumb state={amx.stateOf(x.id)} />) : null}
+                />
+              )}
+              {participants.length > 0 && roomView === 'screens' && amx.available && (
+                <AmadeusWall
+                  people={roomPeople}
+                  stateOf={amx.stateOf}
+                  onOpen={pid => { setWallFull(false); openAmadeus(pid); }}
+                  onAsk={amx.ask}
+                  size={wallSize}
+                  onSize={setWallSize}
+                  full={wallFull}
+                  onFull={setWallFull}
                 />
               )}
               {participants.length > 0 && roomView === 'heat' && (

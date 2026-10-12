@@ -21,7 +21,8 @@ import { markActive } from '../hooks/useIdleSignOut.js';
 //   state — tiny, every 5s while sharing or paused, and on every change, so a
 //           trainer who opens the Room late knows within seconds;
 //   thumb — ~320px JPEG, only while a host has said hello in the last minute,
-//           every 5s if the screen changed, else every 30s;
+//           every 5s if the screen changed, else every 30s; 640px every 3s
+//           while a host has the Screens grid open (hello size:'mid');
 //   frame — ~1280px JPEG about twice a second, only while a host is watching
 //           this person (a 'live' ping in the last 8s).
 // Receives: hello (a host has the Room open), live (watching me), ask (please
@@ -38,6 +39,8 @@ const LIVE_FRESH_MS = 8000;
 const FRAME_EVERY_MS = 500;
 const ACTIVE_EVERY_MS = 30000;
 const THUMB = { maxW: 320, quality: 0.6, maxBytes: 40000 };
+const MID = { maxW: 640, quality: 0.6, maxBytes: 90000 };
+const MID_EVERY_MS = 3000;
 const FRAME = { maxW: 1280, quality: 0.65, maxBytes: 200000 };
 
 export function AmadeusShareProvider({ children }) {
@@ -86,7 +89,13 @@ export function AmadeusShareProvider({ children }) {
     let gone = false;
     const ch = supabase.channel(`amx:${sessionId}:${uid}`, { config: { private: true, broadcast: { ack: true } } });
     ch.on('broadcast', { event: 'hello' }, ({ payload }) => {
-      if (payload?.thumbs !== false) timesRef.current.hostAt = Date.now();
+      const t = timesRef.current;
+      if (payload?.thumbs !== false) t.hostAt = Date.now();
+      // The Screens grid asks for bigger pictures; send one straight away
+      // when it starts asking, and drop back when it stops.
+      const wasBig = Date.now() < (t.bigUntil || 0);
+      t.bigUntil = payload?.size === 'mid' ? Date.now() + HOST_FRESH_MS : 0;
+      if (!wasBig && t.bigUntil) t.thumbAt = 0;
       sendState();
     });
     ch.on('broadcast', { event: 'live' }, () => {
@@ -150,8 +159,9 @@ export function AmadeusShareProvider({ children }) {
         if (f) { t.frameAt = now; await send('frame', { img: f.img, w: f.w, h: f.h, at: now }); } else setDiag(d => ({ ...d, noPicture: (d.noPicture || 0) + 1 }));
       }
       const hosted = now - (t.hostAt || 0) < HOST_FRESH_MS;
-      if (hosted && now - (t.thumbAt || 0) >= THUMB_EVERY_MS) {
-        const th = await sh.grabber.grab(THUMB);
+      const big = now < (t.bigUntil || 0);
+      if (hosted && now - (t.thumbAt || 0) >= (big ? MID_EVERY_MS : THUMB_EVERY_MS)) {
+        const th = await sh.grabber.grab(big ? MID : THUMB);
         if (!th) setDiag(d => ({ ...d, noPicture: (d.noPicture || 0) + 1 }));
         if (th) {
           const changed = th.sig !== t.lastSig;

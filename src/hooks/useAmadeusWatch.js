@@ -8,7 +8,8 @@ import { supabase } from '../lib/supabase.js';
 //
 // What we send them:
 //   hello — every 20s on every channel: "a host has the Room open" (with
-//           thumbs:false when pictures are switched off, so they stop sending);
+//           thumbs:false when pictures are switched off, so they stop sending,
+//           and size:'mid' while the Screens grid is open, for 640px pictures);
 //   live  — every 3s to the one person being watched: send frames;
 //   ask   — please share.
 
@@ -18,7 +19,7 @@ const LIVE_EVERY_MS = 3000;
 // offline, signed out) even if the last thing it said was "sharing".
 const STATE_STALE_MS = 15000;
 
-export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thumbs = true } = {}) {
+export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thumbs = true, big = false } = {}) {
   const [people, setPeople] = useState({});   // pid → { status, surface, at, thumb, thumbAt }
   const [available, setAvailable] = useState(null); // null until a channel answers
   const [watchingId, setWatchingId] = useState(null);
@@ -27,10 +28,12 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
   const channelsRef = useRef({});
   const thumbsRef = useRef(thumbs);
   thumbsRef.current = thumbs;
+  const bigRef = useRef(big);
+  bigRef.current = big;
   const key = (participantIds || []).slice().sort().join(',');
 
   const hello = useCallback(ch => {
-    ch.send({ type: 'broadcast', event: 'hello', payload: { thumbs: thumbsRef.current } }).catch(() => {});
+    ch.send({ type: 'broadcast', event: 'hello', payload: { thumbs: thumbsRef.current, size: bigRef.current ? 'mid' : 'thumb' } }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -73,10 +76,11 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
     };
   }, [enabled, sessionId, key, hello]);
 
-  // Switching pictures back on asks for them straight away.
+  // Switching pictures back on, or opening / leaving the Screens grid, says so
+  // straight away rather than at the next 20s hello.
   useEffect(() => {
-    if (thumbs) for (const ch of Object.values(channelsRef.current)) hello(ch);
-  }, [thumbs, hello]);
+    for (const ch of Object.values(channelsRef.current)) hello(ch);
+  }, [thumbs, big, hello]);
 
   // The one person being watched: keep telling them, so they keep sending.
   useEffect(() => {
