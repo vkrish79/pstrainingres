@@ -10,16 +10,16 @@ import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
-import { useActiveQuizRun } from '../hooks/useActiveQuizRun.js';
-import { useActivePoll } from '../hooks/useActivePoll.js';
+import { useLiveTakeover } from '../hooks/useLiveTakeover.js';
+import { usePrepDrawerAnchor } from '../hooks/usePrepDrawerAnchor.js';
 import { useSessionReviews, useMyReviewMarks } from '../hooks/useAnswerReview.js';
 import { marksForBlock } from '../components/blocks/ReviewMark.jsx';
 import { progressOf } from '../lib/blockHelpers.js';
-import { resumePoint, whenStopped } from '../lib/workbookResume.js';
+import { resumePoint } from '../lib/workbookResume.js';
 import WorkbookHeader from '../components/participant/WorkbookHeader.jsx';
 import WorkbookPrintCover, { WorkbookPrintFooter } from '../components/participant/WorkbookPrintCover.jsx';
-import AssessmentChip from '../components/participant/AssessmentChip.jsx';
-import KebabMenu from '../components/KebabMenu.jsx';
+import WorkbookRail, { ALL_KEY } from '../components/participant/WorkbookRail.jsx';
+import WorkbookActionsBar from '../components/participant/WorkbookActionsBar.jsx';
 import { useJustCompleted } from '../hooks/useJustCompleted.js';
 import { sanitizeNotesHtml, wordCountHtml } from '../lib/notesRichText.js';
 import Block from '../components/blocks/Block.jsx';
@@ -30,7 +30,6 @@ import QuizParticipant from '../components/quiz/QuizParticipant.jsx';
 import PollParticipant, { PollThanks } from '../components/poll/PollParticipant.jsx';
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
-import SaveFailedBar from '../components/participant/SaveFailedBar.jsx';
 import PrepCallout from '../components/PrepCallout.jsx';
 import { calloutItems, splitGeneralPrep } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
@@ -40,9 +39,6 @@ import '../styles/drawer.css';
 import '../styles/workbook-rail.css';
 import '../styles/answer-review-marks.css';
 
-const ALL_KEY = '__all__';
-const POLL_THANKS_MS = 3500;
-
 export default function ParticipantWorkbookPage() {
   const navigate = useNavigate();
   const { session: authSession, profile } = useAuth();
@@ -50,46 +46,14 @@ export default function ParticipantWorkbookPage() {
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
 
-  // A quiz is not something a participant navigates to — the trainer says
-  // "we're doing a quiz" and it appears. Watching for one beats reading a URL
-  // out to sixteen people.
-  //
-  // STICKY once entered. useActiveQuizRun only reports runs that have not
-  // ended, so the moment the trainer ends the quiz it returns null — which
-  // yanked the participant back to their workbook before they ever saw the
-  // final screen or their score. Holding the id until they dismiss it means
-  // the quiz ends the way it should: they close it.
-  const { runId: activeQuizRunId } = useActiveQuizRun(session?.id);
-  // Polls ask every couple of seconds rather than subscribing: `tally` is a
-  // column on poll_runs, so letting a handset SELECT that row to hang a
-  // subscription on would hand it the live counts. See useActivePoll.
-  const { run: activePoll, refresh: refreshPoll, secondsLeft: pollSecondsLeft } = useActivePoll(session?.id);
-  // When the trainer takes a poll down, a few seconds of "thanks" before the
-  // workbook comes back — being dropped straight back mid-glance read as the
-  // phone having crashed.
-  const [pollThanks, setPollThanks] = useState(null);
-  const lastPollRef = useRef(null);
-  useEffect(() => {
-    const prev = lastPollRef.current;
-    lastPollRef.current = activePoll;
-    if (activePoll) { setPollThanks(null); return undefined; }
-    if (!prev) return undefined;
-    setPollThanks({ voted: prev.my_vote != null });
-    const t = setTimeout(() => setPollThanks(null), POLL_THANKS_MS);
-    return () => clearTimeout(t);
-  }, [activePoll]);
-  const [stickyQuizRunId, setStickyQuizRunId] = useState(null);
-  const [quizDismissed, setQuizDismissed] = useState(null);
-  useEffect(() => {
-    if (activeQuizRunId) setStickyQuizRunId(activeQuizRunId);
-  }, [activeQuizRunId]);
-  // A later quiz has a new id, so dismissing one never suppresses the next.
-  const quizRunId = stickyQuizRunId && stickyQuizRunId !== quizDismissed ? stickyQuizRunId : null;
+  // A running quiz, a live poll, or a poll's thanks screen takes the whole
+  // screen; see useLiveTakeover.
+  const { quizRunId, dismissQuiz, activePoll, refreshPoll, pollSecondsLeft, pollThanks, dismissPollThanks } =
+    useLiveTakeover(session?.id);
   const { prep: sectionPrep, standalone: standalonePrep, expected: expectedPrep } = useParticipantPrep(session?.id, authSession?.user.id);
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(session?.id);
 
   const [selectedSectionId, setSelectedSectionId] = useState(ALL_KEY);
-  const [exFilter, setExFilter] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(false);
@@ -100,7 +64,6 @@ export default function ParticipantWorkbookPage() {
   const [currentSectionId, setCurrentSectionId] = useState(null);
   const sectionRefs = useRef({}); // sectionId -> DOM node
   const sidebarRef = useRef(null);
-  const actionsBarRef = useRef(null);
   const prepBtnRef = useRef(null);
   useSessionCursor(session?.id, {
     selfId: authSession?.user.id,
@@ -211,127 +174,9 @@ export default function ParticipantWorkbookPage() {
     [standalonePrep, expectedPrep]
   );
 
-  // Publish the sticky actions-bar height as --page-actions-h so the exercise
-  // sidebar's sticky top can stack below it without overlapping.
-  useEffect(() => {
-    const el = actionsBarRef.current;
-    if (!el) return undefined;
-    const apply = () => {
-      const h = Math.round(el.getBoundingClientRect().height);
-      document.body.style.setProperty('--page-actions-h', `${h}px`);
-    };
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      document.body.style.removeProperty('--page-actions-h');
-    };
-  }, []);
 
-  // Push the page canvas left while the prep drawer is open (desktop). The
-  // fixed drawer fills the gap. Cleaned up on close / unmount.
-  useEffect(() => {
-    document.body.classList.toggle('prep-drawer-pushed', prepOpen);
-    return () => document.body.classList.remove('prep-drawer-pushed');
-  }, [prepOpen]);
-
-  // Anchor the drawer BEFORE it is allowed to paint open.
-  //
-  // The drawer is fixed by top AND bottom, so its top is not a position but a
-  // dimension: rewriting it resizes the panel. Previously nothing wrote
-  // --page-prep-top until the tracker's first frame, which lands AFTER the open
-  // has started — so the drawer painted its first frame at the CSS fallback of
-  // 80px (near the top of the window), then was yanked down to the rail on the
-  // next frame. It didn't slide, it slid-dropped-and-shrank.
-  //
-  // useLayoutEffect runs after the DOM is updated but before the browser paints,
-  // so the measurement below is in place for the drawer's very first frame.
-  useLayoutEffect(() => {
-    if (!prepOpen) return;
-    const el = sidebarRef.current;
-    if (el) {
-      const top = Math.max(60, Math.round(el.getBoundingClientRect().top));
-      document.body.style.setProperty('--page-prep-top', `${top}px`);
-    }
-  }, [prepOpen]);
-
-  // Keep the prep drawer pixel-locked to the exercise sidebar's top so it tucks
-  // under the sticky bar exactly like the nav panel does. A per-frame rAF loop
-  // re-reads the sidebar's live top, so no layout shift — scroll, sticky
-  // pin/unpin, or async reflow (materials thumbnails loading) — can knock the
-  // two out of alignment. We only write the CSS var when the value actually
-  // changes, so it's cheap.
-  //
-  // It deliberately does NOT run during the slide. The anchor is already correct
-  // (set pre-paint above), and the canvas is animating its margin for those
-  // 300ms — measuring a layout that is still settling is how a write lands
-  // mid-slide and resizes the drawer.
-  useEffect(() => {
-    if (!prepOpen) return undefined;
-    let raf = 0;
-    let easeTimer = 0;
-    let last = null;
-    let lastScrollY = window.scrollY;
-    const loop = () => {
-      const el = sidebarRef.current;
-      if (el) {
-        const top = Math.max(60, Math.round(el.getBoundingClientRect().top));
-        if (top !== last) {
-          // Two kinds of move, opposite treatment. Scrolling writes small
-          // deltas many times a second and must stay instant or the drawer
-          // lags the rail. A banner appearing above the workbook writes one
-          // big delta with no scroll behind it — ease that, or it teleports.
-          const jumped = last !== null && Math.abs(top - last) > 20;
-          const scrolled = window.scrollY !== lastScrollY;
-          if (jumped && !scrolled) {
-            document.body.classList.add('prep-anchor-eased');
-            clearTimeout(easeTimer);
-            easeTimer = setTimeout(() => document.body.classList.remove('prep-anchor-eased'), 320);
-          }
-          last = top;
-          document.body.style.setProperty('--page-prep-top', `${top}px`);
-        }
-      }
-      lastScrollY = window.scrollY;
-      raf = requestAnimationFrame(loop);
-    };
-    // Start once the slide has finished. A plain timer rather than
-    // `transitionend`: that event fires per-property and never fires at all if
-    // the transition is interrupted (open → close → open) or collapsed by
-    // prefers-reduced-motion, and a tracker that never starts is worse than the
-    // bug it replaces — the drawer would desync on the first scroll.
-    const startTimer = setTimeout(() => { raf = requestAnimationFrame(loop); }, 320);
-    return () => {
-      clearTimeout(startTimer);
-      clearTimeout(easeTimer);
-      cancelAnimationFrame(raf);
-      document.body.classList.remove('prep-anchor-eased');
-    };
-  }, [prepOpen]);
-
-  // Send focus back to the 🎯 Prep button when the drawer closes, so keyboard
-  // users aren't dropped at the top of the document.
-  //
-  // Only when focus was inside the drawer. This is a non-modal reference panel —
-  // it's opened to read a PNR *while* filling in an answer — so Esc pressed
-  // mid-sentence must close it without pulling the caret out of the answer box.
-  // For the same reason focus is NOT moved into the drawer on open.
-  const prepWasOpen = useRef(false);
-  useEffect(() => {
-    if (prepWasOpen.current && !prepOpen) {
-      const active = document.activeElement;
-      if (!active || active === document.body || active.closest?.('.prep-drawer')) {
-        prepBtnRef.current?.focus();
-      }
-    }
-    prepWasOpen.current = prepOpen;
-  }, [prepOpen]);
-
-  // NB: --page-prep-top is deliberately NOT cleared when the drawer closes.
-  // Clearing it rewrites the drawer's top while it is still sliding out, which
-  // (top + bottom being pinned) makes the panel grow as it leaves. The next
-  // open re-measures pre-paint anyway, so a stale value is never read.
+  // The drawer slides in beside the rail and tracks it; see the hook.
+  usePrepDrawerAnchor(prepOpen, sidebarRef, prepBtnRef);
 
   // Keyboard shortcut: "N" toggles the drawer. Skip when typing in an input,
   // textarea, contenteditable, or when meta/ctrl/alt is held (let real
@@ -442,133 +287,6 @@ export default function ParticipantWorkbookPage() {
   );
   const justCompleted = useJustCompleted(sectionStats);
 
-  // Exercise-jump filter: narrows the sidebar to exercises whose title contains
-  // the typed text. Titles already carry the exercise number ("Exercise 18"), so
-  // a plain substring match handles both "18" and title words — and avoids the
-  // false hits a position-based match caused (section order ≠ exercise number).
-  // Enter jumps to the top match; Esc clears. See docs/enhancements-roadmap.md #4.
-  const filteredStats = useMemo(() => {
-    const q = exFilter.trim().toLowerCase();
-    if (!q) return sectionStats;
-    return sectionStats.filter(s => s.title.toLowerCase().includes(q));
-  }, [sectionStats, exFilter]);
-
-  // ── The exercise rail ─────────────────────────────────────────────────────
-  // Exercises sit under the group (Word H1) before them. A group with no
-  // exercises of its own — Cover, Document information — is a page, not a
-  // chapter, and moves to the foot of the rail.
-  const railModel = useMemo(() => {
-    const groups = [];
-    let cur = null;
-    for (const st of sectionStats) {
-      if (st.kind === 'group') { cur = { id: st.id, title: st.title, items: [] }; groups.push(cur); continue; }
-      if (!cur) { cur = { id: '__lead', title: null, items: [] }; groups.push(cur); }
-      cur.items.push(st);
-    }
-    const out = [], pages = [];
-    for (const g of groups) {
-      if (!g.items.length) { if (g.title) pages.push(g); continue; }
-      const counted = g.items.filter(i => i.total > 0);
-      const total = counted.reduce((n, i) => n + i.total, 0);
-      const answered = counted.reduce((n, i) => n + i.answered, 0);
-      const done = counted.filter(i => i.pct === 100).length;
-      out.push({
-        ...g, total, answered, done, of: counted.length,
-        pct: total ? Math.round((answered / total) * 100) : 0,
-        complete: counted.length > 0 && done === counted.length,
-      });
-    }
-    return { groups: out, pages };
-  }, [sectionStats]);
-
-  const groupOfSection = useMemo(() => {
-    const m = {};
-    for (const g of railModel.groups) for (const i of g.items) m[i.id] = g.id;
-    return m;
-  }, [railModel]);
-
-  // Folding. A finished group folds by itself; any other group is open. The
-  // participant can fold or open either, and the group holding where they are
-  // — scrolled to, picked, or spotlighted by the trainer — reopens whenever
-  // that place moves into it, so a folded group never hides their place.
-  const [foldedGroups, setFoldedGroups] = useState(() => new Set());
-  const [openedGroups, setOpenedGroups] = useState(() => new Set());
-  const isGroupOpen = g => !g.title || (g.complete ? openedGroups.has(g.id) : !foldedGroups.has(g.id));
-  function toggleGroup(g) {
-    const open = isGroupOpen(g);
-    const edit = add => prev => {
-      const next = new Set(prev);
-      if (add) next.add(g.id); else next.delete(g.id);
-      return next;
-    };
-    if (g.complete) setOpenedGroups(edit(!open));
-    else setFoldedGroups(edit(open));
-  }
-  const hereSectionId = selectedSectionId === ALL_KEY ? currentSectionId : selectedSectionId;
-  useEffect(() => {
-    const ids = [hereSectionId, focus?.section_id].map(id => groupOfSection[id]).filter(Boolean);
-    if (!ids.length) return;
-    setFoldedGroups(prev => (ids.some(id => prev.has(id)) ? new Set([...prev].filter(id => !ids.includes(id))) : prev));
-    setOpenedGroups(prev => (ids.every(id => prev.has(id)) ? prev : new Set([...prev, ...ids])));
-  }, [hereSectionId, focus?.section_id, groupOfSection]);
-
-  // Searching shows matching exercises as one flat list, groups set aside.
-  const railFiltered = useMemo(
-    () => (exFilter.trim() ? filteredStats.filter(st => st.kind !== 'group') : []),
-    [filteredStats, exFilter],
-  );
-
-  function renderRailRow(st) {
-    const isActive = selectedSectionId === st.id;
-    // WHERE THEY ARE, as opposed to what they picked: in All exercises the
-    // scroll-spy's section is marked, so the rail follows the page.
-    const isHere = selectedSectionId === ALL_KEY && currentSectionId === st.id;
-    const noteWords = notesByCount[st.id] || 0;
-    const state = st.total === 0 ? 'read' : st.pct === 100 ? 'done' : st.answered > 0 ? 'part' : 'none';
-    return (
-      <li key={st.id}>
-        <button
-          className={`exresp-sidebar-item wb-rail-row ${isActive ? 'active' : ''} ${isHere ? 'is-here' : ''}`}
-          data-nav-id={st.id}
-          aria-current={isHere || isActive ? 'true' : undefined}
-          onClick={() => setSelectedSectionId(st.id)}
-        >
-          <span
-            className={`wb-rail-tick is-${state}`}
-            style={state === 'part' ? { '--p': `${st.pct}%` } : undefined}
-            role={state === 'read' ? undefined : 'img'}
-            aria-label={state === 'done' ? 'Every box answered' : state === 'part' ? `${st.pct}% answered` : state === 'none' ? 'Not started' : undefined}
-          >
-            {state === 'done' ? '✓' : ''}
-          </span>
-          <span className="exresp-sidebar-title wb-rail-name">
-            {st.title}
-            {focus?.section_id === st.id && <span className="wb-rail-spot">Trainer here</span>}
-            {noteWords > 0 && (
-              <span className="exresp-sidebar-note-badge" data-tip={`${noteWords} word${noteWords === 1 ? '' : 's'} in your note`}>
-                💬 {noteWords}
-              </span>
-            )}
-          </span>
-          {st.total > 0 && <span className={`wb-rail-count is-${state}`}>{st.answered}/{st.total}</span>}
-          {st.total > 0 && (
-            <span className={`wb-rail-bar is-thin${state === 'done' ? ' is-done' : ''}`}>
-              <i style={{ width: `${st.pct}%` }} />
-            </span>
-          )}
-        </button>
-      </li>
-    );
-  }
-
-  function onExFilterKeyDown(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (railFiltered.length) setSelectedSectionId(railFiltered[0].id);
-    } else if (e.key === 'Escape') {
-      setExFilter('');
-    }
-  }
 
   // If a section is deleted while we're viewing it, fall back to "All".
   useEffect(() => {
@@ -609,31 +327,13 @@ export default function ParticipantWorkbookPage() {
     return () => observer.disconnect();
   }, [loading, selectedSectionId, sections]);
 
-  // Keep the "you are here" row visible IN THE RAIL as the page scrolls.
-  //
-  // The rail is 85 entries with its own scrollbar, so marking the current
-  // exercise is only half of it — the mark lands on a row nobody can see, and
-  // the rail reads as though it has stopped following.
-  //
-  // Nudges the rail's own scrollTop rather than calling scrollIntoView, which
-  // would scroll the PAGE and fight the scroll that moved the marker.
-  useEffect(() => {
-    if (selectedSectionId !== ALL_KEY || !currentSectionId) return;
-    const rail = sidebarRef.current;
-    const item = rail?.querySelector(`[data-nav-id="${currentSectionId}"]`);
-    if (!rail || !item) return;
-    const r = rail.getBoundingClientRect();
-    const i = item.getBoundingClientRect();
-    if (i.top < r.top + 8) rail.scrollTop -= (r.top + 8 - i.top);
-    else if (i.bottom > r.bottom - 8) rail.scrollTop += (i.bottom - (r.bottom - 8));
-  }, [currentSectionId, selectedSectionId, foldedGroups, openedGroups]);
 
   // Above the loading gate: once a quiz is running it IS the screen, and a
   // participant who reloads mid-quiz must land back in it rather than in a
   // workbook the room has moved on from. The dismiss check lives in quizRunId
   // itself, above.
   if (quizRunId) {
-    return <QuizParticipant runId={quizRunId} onDismiss={() => setQuizDismissed(quizRunId)} />;
+    return <QuizParticipant runId={quizRunId} onDismiss={dismissQuiz} />;
   }
 
   // A poll takes the screen the same way, and for the same reason — the trainer
@@ -651,7 +351,7 @@ export default function ParticipantWorkbookPage() {
     return <PollParticipant run={activePoll} secondsLeft={pollSecondsLeft} onRefresh={refreshPoll} />;
   }
   if (pollThanks) {
-    return <PollThanks voted={pollThanks.voted} onDone={() => setPollThanks(null)} />;
+    return <PollThanks voted={pollThanks.voted} onDone={dismissPollThanks} />;
   }
 
   if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
@@ -738,86 +438,30 @@ export default function ParticipantWorkbookPage() {
           />
         )}
 
-        <div className="participant-actions-bar no-print" ref={actionsBarRef}>
-          {/* One spot for "is my work safe": the live status while a save is in
-              flight or has failed, otherwise when they last saved. */}
-          {/* A failure is not shown here any more: it gets the full-width
-              SaveFailedBar below, which says why and whether to try again. */}
-          {overallStatus === 'saving' ? (
-            <span className="wb-save-indicator saving" role="status">Saving…</span>
-          ) : overallStatus !== 'error' && lastSavedAt ? (
-            <span className="wb-save-indicator saved">✓ Last saved {whenStopped(lastSavedAt)}</span>
-          ) : null}
-          {/* The things you read sit together as one group; the assessment says
-              its state; asking for help is the one strong button; printing is
-              occasional, so it lives behind ⋯. */}
-          <div className="pab-group" role="group" aria-label="Your reading">
-            <button
-              type="button"
-              className="pab-seg"
-              onClick={() => setNotesOpen(true)}
-              data-tip={notedSections > 0
-                ? `Your notes — ${notedSections} exercise${notedSections === 1 ? '' : 's'}, ${totalNoteWords} word${totalNoteWords === 1 ? '' : 's'} (press N)`
-                : 'Your notes (press N)'}
-            >
-              📝 Notes{notedSections > 0 && <span className="pab-count">{notedSections}</span>}
-            </button>
-            {/* Toggles. It used to only ever open, so pressing it again while
-                the drawer was already open did nothing — and nothing about the
-                button said the drawer was open in the first place. */}
-            <button
-              type="button"
-              ref={prepBtnRef}
-              className={`pab-seg${prepOpen ? ' is-on' : ''}`}
-              aria-expanded={prepOpen}
-              onClick={() => setPrepOpen(o => !o)}
-              data-tip={prepOpen ? 'Hide your pre-work' : 'Pre-work from your trainer'}
-            >
-              🎯 Prep{prepCount > 0 && <span className="pab-count">{prepCount}</span>}
-            </button>
-            {/* Only when this program HAS handouts. A button that opens an empty
-                drawer is a promise of something to read that does not exist, and
-                most programs carry none.
-                `!materialsLoading` matters as much as the count: without it the
-                button pops into a row the participant may already be reaching
-                for, moving the buttons after it out from under the cursor. */}
-            {!materialsLoading && materials.length > 0 && (
-              <button
-                type="button"
-                className="pab-seg"
-                onClick={() => setMaterialsOpen(true)}
-                data-tip="Handouts and quick references for this program"
-              >
-                📎 Handouts<span className="pab-count">{materials.length}</span>
-              </button>
-            )}
-          </div>
-          {session?.assessment_id && (
-            <AssessmentChip
-              unlockedAt={session.assessment_unlocked_at}
-              deadlineAt={session.assessment_deadline_at}
-              onOpen={() => navigate(`/assessment?session=${session.id}`)}
-            />
-          )}
-          <button
-            type="button"
-            className={`help-hand${handUp ? ' is-up' : ''}`}
-            onClick={toggleHelp}
-            disabled={helpBusy || !session?.id}
-            aria-pressed={!!handUp}
-            data-tip={handUp ? 'Put your hand down' : 'Ask your trainer for help — only they will see it'}
-          >
-            {handUp ? '✋ Help asked · Cancel' : '✋ Ask for help'}
-          </button>
-          <KebabMenu
-            label="More"
-            className="pab-more"
-            items={[
-              { label: 'Print / Download PDF', glyph: '↓', onClick: printWorkbook },
-            ]}
-          />
-          <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} where="workbook" />
-        </div>
+        <WorkbookActionsBar
+          session={session}
+          overallStatus={overallStatus}
+          lastSavedAt={lastSavedAt}
+          notedSections={notedSections}
+          totalNoteWords={totalNoteWords}
+          setNotesOpen={setNotesOpen}
+          prepOpen={prepOpen}
+          setPrepOpen={setPrepOpen}
+          prepBtnRef={prepBtnRef}
+          prepCount={prepCount}
+          materials={materials}
+          materialsLoading={materialsLoading}
+          setMaterialsOpen={setMaterialsOpen}
+          onOpenAssessment={() => navigate(`/assessment?session=${session.id}`)}
+          handUp={handUp}
+          helpBusy={helpBusy}
+          toggleHelp={toggleHelp}
+          printWorkbook={printWorkbook}
+          failures={failures}
+          blocks={blocks}
+          sections={sections}
+          retryFailed={retryFailed}
+        />
 
         {helpError && <p className="error no-print">{helpError}</p>}
         {handUp && (
@@ -879,106 +523,19 @@ export default function ParticipantWorkbookPage() {
             </select>
           </div>
 
-          <aside className="exresp-sidebar wb-rail" ref={sidebarRef}>
-            <div className="exresp-sidebar-head wb-rail-head">
-              <div className="wb-rail-cap">
-                <span>Exercises</span>
-                <span className="wb-rail-total">{overallProgress.filled} / {overallProgress.total} answered</span>
-              </div>
-              <div className={`wb-rail-bar${overallProgress.total && overallProgress.filled === overallProgress.total ? ' is-done' : ''}`}>
-                <i style={{ width: `${overallProgress.total ? Math.round(overallProgress.filled / overallProgress.total * 100) : 0}%` }} />
-              </div>
-            </div>
-            {resume && (
-              <button type="button" className="wb-rail-next" onClick={continueWorkbook}>
-                <span>Next unanswered → {resume.sectionTitle}{resume.questionCount > 1 ? `, question ${resume.questionNo}` : ''}</span>
-                <span aria-hidden="true">›</span>
-              </button>
-            )}
-            <input
-              type="text"
-              className="exresp-sidebar-filter"
-              placeholder="Jump to exercise…"
-              value={exFilter}
-              onChange={e => setExFilter(e.target.value)}
-              onKeyDown={onExFilterKeyDown}
-              aria-label="Filter exercises"
-            />
-            <ul className="exresp-sidebar-list wb-rail-list">
-              {!exFilter.trim() && (
-                <li>
-                  <button
-                    className={`exresp-sidebar-item wb-rail-all ${selectedSectionId === ALL_KEY ? 'active' : ''}`}
-                    onClick={() => setSelectedSectionId(ALL_KEY)}
-                  >
-                    <div className="exresp-sidebar-row">
-                      <span className="exresp-sidebar-title">All exercises</span>
-                    </div>
-                  </button>
-                </li>
-              )}
-              {exFilter.trim() ? (
-                railFiltered.length === 0
-                  ? <li className="exresp-sidebar-empty">No exercises match “{exFilter.trim()}”</li>
-                  : railFiltered.map(renderRailRow)
-              ) : (
-                <>
-                  {railModel.groups.map(g => {
-                    const open = isGroupOpen(g);
-                    const groupHere = selectedSectionId === ALL_KEY && currentSectionId === g.id;
-                    return (
-                      <li key={g.id} className={`wb-rail-group${open ? ' is-open' : ''}`}>
-                        {g.title && (
-                          <>
-                            <button
-                              type="button"
-                              className={`wb-rail-group-head${groupHere ? ' is-here' : ''}`}
-                              data-nav-id={g.id}
-                              aria-expanded={open}
-                              onClick={() => toggleGroup(g)}
-                              data-tip={open ? 'Fold this group' : 'Show the exercises in this group'}
-                            >
-                              <span className="wb-rail-chev" aria-hidden="true">▼</span>
-                              {/* Break long chapter names after a slash, not mid-word. */}
-                              <span className="wb-rail-group-title">{g.title.replace(/\//g, '/​')}</span>
-                              {g.of > 0 && <span className="wb-rail-group-n">{g.done} of {g.of}</span>}
-                            </button>
-                            {g.total > 0 && (
-                              <div className={`wb-rail-bar is-thin wb-rail-group-bar${g.complete ? ' is-done' : ''}`}>
-                                <i style={{ width: `${g.pct}%` }} />
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {open && <ul className="wb-rail-rows">{g.items.map(renderRailRow)}</ul>}
-                      </li>
-                    );
-                  })}
-                  {railModel.pages.length > 0 && (
-                    <li className="wb-rail-pages">
-                      {railModel.pages.map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          data-nav-id={p.id}
-                          className={selectedSectionId === ALL_KEY && currentSectionId === p.id ? 'is-here' : ''}
-                          onClick={() => {
-                            setSelectedSectionId(ALL_KEY);
-                            requestAnimationFrame(() => {
-                              const el = sectionRefs.current[p.id];
-                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            });
-                          }}
-                        >
-                          {p.title}
-                        </button>
-                      ))}
-                    </li>
-                  )}
-                </>
-              )}
-            </ul>
-          </aside>
+          <WorkbookRail
+            sidebarRef={sidebarRef}
+            sectionRefs={sectionRefs}
+            sectionStats={sectionStats}
+            overallProgress={overallProgress}
+            resume={resume}
+            onContinue={continueWorkbook}
+            selectedSectionId={selectedSectionId}
+            setSelectedSectionId={setSelectedSectionId}
+            currentSectionId={currentSectionId}
+            focus={focus}
+            notesByCount={notesByCount}
+          />
 
           <div className="exresp-main">
             {/* Print-only cover and running footer, so trainers / the

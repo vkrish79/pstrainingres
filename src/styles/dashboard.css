@@ -1946,7 +1946,11 @@
 /* Stack the exercise sidebar below the sticky actions bar so they don't
    overlap when both are pinned. Other pages that don't set --page-actions-h
    keep the default 80px. The trainer .practice-view rule still overrides. */
-.workbook .exresp-sidebar { top: calc(80px + var(--page-actions-h, 0px)); }
+.workbook .exresp-sidebar {
+  top: calc(80px + var(--page-actions-h, 0px));
+  /* Shorter by the same amount, or its foot hangs below the window. */
+  max-height: calc(100vh - 100px - var(--page-actions-h, 0px));
+}
 
 
 /* Assessment prep panel (participant assessment page) */
