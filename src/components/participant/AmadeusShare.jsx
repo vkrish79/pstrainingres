@@ -93,7 +93,7 @@ export function AmadeusShareNotices() {
           <b>amx</b> channel {available ? 'ok' : 'no'} · {status} · surface {surface || '–'}<br />
           label “{diag.label || '–'}”<br />
           sent {diag.sent} · failed {diag.failed} · last {diag.lastKind || '–'} {diag.lastBytes ? `${Math.round(diag.lastBytes / 1024)} KB` : ''} ({diag.lastAck || '–'})<br />
-          longest tick gap {diag.tickGapMax ? `${(diag.tickGapMax / 1000).toFixed(1)}s` : '–'}
+          longest tick gap {diag.tickGapMax ? `${(diag.tickGapMax / 1000).toFixed(1)}s` : '–'} · no picture {diag.noPicture || 0}
         </div>
       )}
     </>

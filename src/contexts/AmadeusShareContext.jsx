@@ -136,7 +136,9 @@ export function AmadeusShareProvider({ children }) {
       setDiag(d => (gap > d.tickGapMax ? { ...d, tickGapMax: gap } : d));
     }
     t.lastTick = now;
-    if (!t.activeAt || now - t.activeAt >= ACTIVE_EVERY_MS) { t.activeAt = now; markActive(); }
+    // Only an ACTIVE share keeps the session alive. A paused one doesn't: a
+    // laptop left paused at lunch must still reach the 1-hour sign-out.
+    if (statusRef.current === 'sharing' && (!t.activeAt || now - t.activeAt >= ACTIVE_EVERY_MS)) { t.activeAt = now; markActive(); }
     if (busyRef.current) return;
     if (statusRef.current !== 'sharing') return;
 
@@ -145,11 +147,12 @@ export function AmadeusShareProvider({ children }) {
       const live = now - (t.liveAt || 0) < LIVE_FRESH_MS;
       if (live && now - (t.frameAt || 0) >= FRAME_EVERY_MS) {
         const f = await sh.grabber.grab(FRAME);
-        if (f) { t.frameAt = now; await send('frame', { img: f.img, w: f.w, h: f.h, at: now }); }
+        if (f) { t.frameAt = now; await send('frame', { img: f.img, w: f.w, h: f.h, at: now }); } else setDiag(d => ({ ...d, noPicture: (d.noPicture || 0) + 1 }));
       }
       const hosted = now - (t.hostAt || 0) < HOST_FRESH_MS;
       if (hosted && now - (t.thumbAt || 0) >= THUMB_EVERY_MS) {
         const th = await sh.grabber.grab(THUMB);
+        if (!th) setDiag(d => ({ ...d, noPicture: (d.noPicture || 0) + 1 }));
         if (th) {
           const changed = th.sig !== t.lastSig;
           if (changed || now - (t.thumbSentAt || 0) >= THUMB_UNCHANGED_EVERY_MS) {

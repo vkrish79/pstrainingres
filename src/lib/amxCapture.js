@@ -89,9 +89,18 @@ export function makeGrabber(track) {
     return v.videoWidth ? { img: v, w: v.videoWidth, h: v.videoHeight } : null;
   }
 
-  // maxW: the longest side to encode at; quality: JPEG 0–1; maxBytes: the
-  // payload ceiling — quality steps down until the picture fits.
+  // maxW: the widest to encode at; quality: JPEG 0–1; maxBytes: the payload
+  // ceiling. Quality steps down first, then the width (a dense screen on a
+  // high-DPI laptop may not fit at full width), before giving up.
   async function grab({ maxW, quality, maxBytes }) {
+    for (const w of [maxW, Math.round(maxW * 0.75), Math.round(maxW * 0.55)]) {
+      const out = encode(w, quality, maxBytes);
+      if (out !== 'too-big') return out;
+    }
+    return null;
+  }
+
+  function encode(maxW, quality, maxBytes) {
     const src = source();
     if (!src || !src.w || !src.h) return null;
     const scale = Math.min(1, maxW / src.w);
@@ -105,7 +114,7 @@ export function makeGrabber(track) {
       q -= 0.15;
       url = canvas.toDataURL('image/jpeg', q);
     }
-    if (url.length > maxBytes) return null;
+    if (url.length > maxBytes) return 'too-big';
     // The encoded picture is its own fingerprint: the same pixels encode to
     // the same bytes, and one new line of cryptic text changes them. (A coarse
     // downscaled fingerprint missed exactly that.)
