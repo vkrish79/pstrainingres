@@ -12,6 +12,8 @@ import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { useLiveTakeover } from '../hooks/useLiveTakeover.js';
 import { usePrepDrawerAnchor } from '../hooks/usePrepDrawerAnchor.js';
+import { useAmadeusShareSession } from '../contexts/AmadeusShareContext.jsx';
+import { AmadeusShareNotices } from '../components/participant/AmadeusShare.jsx';
 import { useSessionReviews, useMyReviewMarks } from '../hooks/useAnswerReview.js';
 import { marksForBlock } from '../components/blocks/ReviewMark.jsx';
 import { progressOf } from '../lib/blockHelpers.js';
@@ -50,6 +52,9 @@ export default function ParticipantWorkbookPage() {
   // screen; see useLiveTakeover.
   const { quizRunId, dismissQuiz, activePoll, refreshPoll, pollSecondsLeft, pollThanks, dismissPollThanks } =
     useLiveTakeover(session?.id);
+  // Sharing the ARD Web tab with the trainer. The share itself lives above the
+  // routes, so a poll or the assessment taking the screen doesn't end it.
+  useAmadeusShareSession(session?.id);
   const { prep: sectionPrep, standalone: standalonePrep, expected: expectedPrep } = useParticipantPrep(session?.id, authSession?.user.id);
   const { materials, signedUrlFor: materialUrlFor, loading: materialsLoading } = useProgramMaterials(session?.id);
 
@@ -471,6 +476,7 @@ export default function ParticipantWorkbookPage() {
               : <>✋ <strong>Your trainer can see you've asked for help.</strong> Only they can see it. Carry on while you wait.</>}
           </div>
         )}
+        <AmadeusShareNotices />
         {!handUp && handMovedOn && (
           // A toast, not a banner in the flow: it fires because they scrolled
           // DOWN, so anything up at the actions bar is already off screen.

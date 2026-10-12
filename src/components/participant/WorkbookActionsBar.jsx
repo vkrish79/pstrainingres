@@ -3,6 +3,7 @@ import { whenStopped } from '../../lib/workbookResume.js';
 import AssessmentChip from './AssessmentChip.jsx';
 import KebabMenu from '../KebabMenu.jsx';
 import SaveFailedBar from './SaveFailedBar.jsx';
+import { AmadeusShareButton } from './AmadeusShare.jsx';
 
 // The sticky bar under the workbook header: save state, the reading drawers,
 // the assessment chip, raise hand, and ⋯.
@@ -94,6 +95,7 @@ export default function WorkbookActionsBar({
           onOpen={onOpenAssessment}
         />
       )}
+      <AmadeusShareButton />
       <button
         type="button"
         className={`help-hand${handUp ? ' is-up' : ''}`}

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import { BusyOverlayProvider } from './contexts/BusyOverlayContext.jsx';
+import { AmadeusShareProvider } from './contexts/AmadeusShareContext.jsx';
 import IdleSignOut from './components/IdleSignOut.jsx';
 import TooltipLayer from './components/TooltipLayer.jsx';
 import './styles/index.css';
@@ -15,7 +16,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <BusyOverlayProvider>
-          <App />
+          <AmadeusShareProvider>
+            <App />
+          </AmadeusShareProvider>
           <IdleSignOut />
           <TooltipLayer />
         </BusyOverlayProvider>

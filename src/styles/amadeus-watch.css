@@ -1,0 +1,129 @@
+/* Watch Amadeus: the participant's share controls and the trainer's pictures.
+   Light buttons restate their own hover: the global button:hover fills every
+   button midnight, and a light one would otherwise go dark navy. */
+
+/* ── participant: action bar ── */
+.amx-share {
+  border-radius: 999px;
+  background: #1e3c5a;
+  border: 1px solid #1e3c5a;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  white-space: nowrap;
+}
+.amx-share:hover:not(:disabled) { background: #2a5078; border-color: #2a5078; }
+.amx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #f0c4bf;
+  background: #fff6f5;
+  color: #8f2a1f;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.7rem;
+  white-space: nowrap;
+}
+.amx-pill.is-paused { border-color: #d8d2c4; background: #f6f3ec; color: #5f6b78; }
+.amx-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; animation: amx-blink 1.6s ease-in-out infinite; }
+.amx-pill.is-paused .amx-dot { background: #a5adb6; animation: none; }
+@keyframes amx-blink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .amx-dot { animation: none; } }
+.amx-pill-btn, .amx-ghost {
+  border-radius: 999px;
+  border: 1px solid #e3dccb;
+  background: #ffffff;
+  color: #1e3c5a;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+}
+.amx-pill-btn:hover:not(:disabled), .amx-ghost:hover:not(:disabled) { background: #f1ebdc; color: #1e3c5a; border-color: #d6cbb1; }
+
+/* ── participant: notices under the bar ── */
+.amx-ask, .amx-warn, .amx-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+.amx-ask { background: #eef3f8; border: 1px solid #c9d6e3; color: #1e3c5a; }
+.amx-ask-actions { display: flex; gap: 0.5rem; align-items: center; }
+.amx-warn { background: #fff3e0; border: 1px solid #ffd59e; color: #7a4a00; }
+.amx-note { background: #f6f3ec; border: 1px solid #e3dccb; color: #4b5a6a; }
+.amx-diag {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 60;
+  background: rgba(16, 38, 59, 0.92);
+  color: #d9e6f2;
+  font: 11px/1.45 ui-monospace, Consolas, monospace;
+  border-radius: 8px;
+  padding: 8px 10px;
+  max-width: 360px;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+/* ── trainer: thumbnails ── */
+.amx-thumb {
+  position: relative;
+  display: block;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f1f3f6;
+  border: 1px solid #e2e5ea;
+}
+.amx-thumb.is-tile { height: 86px; }
+.amx-thumb.is-card { height: 120px; }
+.amx-thumb.is-hand { height: 70px; width: 124px; flex: none; }
+.amx-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+.amx-thumb.is-none { display: grid; place-items: center; font-size: 0.72rem; color: #8a96a3; text-align: center; padding: 0 0.4rem; }
+.amx-thumb.is-paused img { filter: grayscale(1) blur(2px); opacity: 0.5; }
+.amx-thumb-age {
+  position: absolute; right: 4px; bottom: 3px;
+  background: rgba(30, 60, 90, 0.85); color: #ffffff;
+  font-size: 0.62rem; border-radius: 4px; padding: 0 0.3rem;
+}
+.amx-thumb-flag {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-weight: 700; font-size: 0.8rem; color: #1e3c5a;
+}
+.room-tiles .room-tile .room-tile-amx { grid-column: 1 / -1; margin-top: 0.4rem; }
+
+/* ── trainer: Room controls ── */
+.amx-room { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.amx-room-count { font-size: 0.82rem; color: #4b5a6a; white-space: nowrap; }
+.amx-room-count b { color: #1e3c5a; }
+.amx-room-pics { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: #4b5a6a; cursor: pointer; }
+
+/* ── trainer: Selected card + hands ── */
+.amx-card { display: grid; gap: 0.4rem; margin: 0.25rem 0 0.5rem; }
+.amx-card-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.amx-watch-btn { font-weight: 600; }
+.hands-bar .amx-thumb { cursor: pointer; }
+.hands-bar-watch { display: inline-flex; align-items: center; gap: 0.5rem; border: 0; background: transparent; padding: 0; cursor: pointer; }
+.hands-bar-watch:hover:not(:disabled) { background: transparent; }
+
+/* ── trainer: the watch view ── */
+.amx-live { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; color: #c62828; display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.amx-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #e53935; }
+.amx-live.is-wait { color: #7d8a97; }
+.amx-live.is-wait::before { background: #b5bcc4; }
+.amx-watch-body { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1rem; align-items: start; padding-top: 0.75rem; }
+@media (max-width: 1100px) { .amx-watch-body { grid-template-columns: minmax(0, 1fr); } }
+.amx-watch-screen { position: sticky; top: 120px; }
+.amx-watch-img { position: relative; border: 1px solid #d6dbe2; border-radius: 8px; overflow: hidden; background: #ffffff; }
+.amx-watch-img img { display: block; width: 100%; height: auto; }
+.amx-watch-img.is-paused img { filter: grayscale(1) blur(3px); opacity: 0.45; }
+.amx-watch-empty { border: 1px dashed #cfd5dc; border-radius: 8px; padding: 2rem 1rem; text-align: center; display: grid; gap: 0.6rem; justify-items: center; background: #fafbfc; }
+.amx-watch-side { display: grid; gap: 0.5rem; min-width: 0; }
+.amx-watch-side h3 { margin: 0; font-size: 1rem; color: #1e3c5a; }

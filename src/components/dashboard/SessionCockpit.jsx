@@ -107,7 +107,8 @@ export const TONE_LABEL = {
 // coloured edge for what state they are in. The same data as the table, read
 // from across a room instead of down a column. Clicking a tile selects that
 // person; their details and actions appear in the panel beside it.
-export function RoomTiles({ people, selectedId, onPick }) {
+// amx(person) — optional: their Amadeus picture (Watch Amadeus), or null.
+export function RoomTiles({ people, selectedId, onPick, amx }) {
   return (
     <ul className="room-tiles" aria-label="Class">
       {people.map(x => (
@@ -130,6 +131,7 @@ export function RoomTiles({ people, selectedId, onPick }) {
               {x.answered}/{x.total} · {x.dropped ? 'dropped out' : ago(x.lastActive)}
               {x.noPrep && <span className="no-prep-tag">No prep</span>}
             </span>
+            {amx && !x.dropped && <span className="room-tile-amx">{amx(x)}</span>}
           </button>
         </li>
       ))}

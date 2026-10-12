@@ -3,7 +3,8 @@ import { ago } from '../../lib/sessionPace.js';
 
 // The Selected card beside the class: one person's state, their raised hand,
 // and their actions (the same ⋯ the table row has, passed in as `actions`).
-export default function SelectedPersonCard({ sp, pace, help, helpError, setHelpError, onClear, onOpenAnswers, actions }) {
+// amadeus — optional: their Amadeus picture and Watch button (Watch Amadeus).
+export default function SelectedPersonCard({ sp, pace, help, helpError, setHelpError, onClear, onOpenAnswers, actions, amadeus }) {
   const delta = sp.answered - pace;
   return (
     <section className="cockpit-card cockpit-selected" aria-label={`${sp.name}, selected`}>
@@ -36,6 +37,7 @@ export default function SelectedPersonCard({ sp, pace, help, helpError, setHelpE
           <span> — {sp.p.deactivated_by_name ? `${sp.p.deactivated_by_name}, ` : ''}{new Date(sp.p.deactivated_at).toLocaleDateString()}</span>
         </p>
       )}
+      {amadeus}
       <dl className="cockpit-facts">
         <div><dt>Progress</dt><dd>{sp.answered} / {sp.total}</dd></div>
         <div>

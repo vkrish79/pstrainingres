@@ -16,7 +16,10 @@ import { useEffect, useState } from 'react';
 // It says who and where in words rather than carrying a count. A badge reading
 // "2" makes you go and find out what it means; this has already told you. That
 // is the same reasoning that took the count badge off the top bar.
-export default function HandsBar({ hands, participants, onAcknowledge, onResolve, onShowInRoom, error }) {
+// amxThumb(pid) / onWatch(pid) — optional (Watch Amadeus): their screen beside
+// the ask, so you can often see the problem before walking over, and for a
+// remote participant it is the only way to see it at all.
+export default function HandsBar({ hands, participants, onAcknowledge, onResolve, onShowInRoom, error, amxThumb, onWatch }) {
   // Re-render on a slow tick so "up 4m" doesn't sit there saying "up 1m" for
   // the rest of the morning. Nothing is fetched — this only re-reads the clock.
   const [, setTick] = useState(0);
@@ -39,6 +42,11 @@ export default function HandsBar({ hands, participants, onAcknowledge, onResolve
   return (
     <div className={`hands-bar${coming ? ' is-coming' : ''}`} role="status">
       <span className="hands-bar-icon" aria-hidden="true">{coming ? '👋' : '✋'}</span>
+      {amxThumb && amxThumb(first.participant_id) && (
+        <button type="button" className="hands-bar-watch" onClick={() => onWatch(first.participant_id)} data-tip="Watch their Amadeus">
+          {amxThumb(first.participant_id)}
+        </button>
+      )}
 
       <span className="hands-bar-what">
         <strong>{name}</strong>

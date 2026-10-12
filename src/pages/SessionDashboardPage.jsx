@@ -42,6 +42,8 @@ import SelectedPersonCard from '../components/dashboard/SelectedPersonCard.jsx';
 import ParticipantsTable from '../components/dashboard/ParticipantsTable.jsx';
 import InvitesBanner from '../components/dashboard/InvitesBanner.jsx';
 import SessionCockpitHeader from '../components/dashboard/SessionCockpitHeader.jsx';
+import { useAmadeusWatch } from '../hooks/useAmadeusWatch.js';
+import { AmadeusThumb, AmadeusRoomControls, AmadeusWatchPane } from '../components/dashboard/AmadeusWatch.jsx';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
 import '../styles/editor.css';
@@ -76,6 +78,20 @@ export default function SessionDashboardPage() {
   const { cursors } = useSessionCursor(id, { selfId: authSession?.user.id, track: false });
   // Raised hands, live. Each is also shown on that person wherever they appear.
   const help = useHelpRequests(id);
+  // Watch Amadeus: each participant can share their ARD Web tab; pictures on
+  // the tiles (switchable, remembered per browser) and a watch view.
+  const [amxPictures, setAmxPicturesState] = useState(() => {
+    try { return localStorage.getItem('room-amadeus-pictures') !== 'off'; } catch { return true; }
+  });
+  function setAmxPictures(v) {
+    setAmxPicturesState(v);
+    try { localStorage.setItem('room-amadeus-pictures', v ? 'on' : 'off'); } catch { /* fine */ }
+  }
+  const amx = useAmadeusWatch(id, participants.filter(p => !p.deactivated_at).map(p => p.id), {
+    enabled: session?.kind !== 'resit' && !session?.closed_at,
+    thumbs: amxPictures,
+  });
+  const [amxOpen, setAmxOpen] = useState(false);
   const [helpError, setHelpError] = useState('');
 
 
@@ -117,6 +133,11 @@ export default function SessionDashboardPage() {
   const [attachError, setAttachError] = useState('');
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [answersOpen, setAnswersOpen] = useState(false);
+  // Live pictures only while someone's Amadeus is actually open.
+  const amxWatch = amx.watch;
+  useEffect(() => {
+    amxWatch(amxOpen && selectedParticipantId ? selectedParticipantId : null);
+  }, [amxOpen, selectedParticipantId, amxWatch]);
   // Stepping through people while reading answers. "Stay on this exercise"
   // keeps the same exercise in view as you move from one person to the next,
   // so Exercise 4 is compared with Exercise 4. Remembered per browser.
@@ -344,10 +365,11 @@ export default function SessionDashboardPage() {
   const selectedNotes = selected ? (notes[selected.id] || {}) : {};
   // Selecting someone fills the Selected card beside the class; their answers
   // open only when asked for, and then take the panel's width.
-  const reading = !!selected && answersOpen;
+  const reading = !!selected && (answersOpen || amxOpen);
   // The same click in every view: select, or deselect if already selected.
   function pickParticipant(pid) {
     setAnswersOpen(false);
+    setAmxOpen(false);
     setSelectedParticipantId(prev => (prev === pid ? null : pid));
   }
 
@@ -517,10 +539,18 @@ export default function SessionDashboardPage() {
     prev: stepPrev,
     next: stepNext,
     step: stepTo,
-    back: () => setAnswersOpen(false),
+    back: () => { setAnswersOpen(false); setAmxOpen(false); },
     setView,
   };
 
+  // Open someone's Amadeus from anywhere (their card, a raised hand).
+  function openAmadeus(pid) {
+    setView('participants');
+    if (roomView === 'exercise') setRoomView('tiles');
+    setSelectedParticipantId(pid);
+    setAnswersOpen(false);
+    setAmxOpen(true);
+  }
   const selectedPerson = selected ? roomPerson(selected) : null;
   const selectedCard = selectedPerson && (
     <SelectedPersonCard
@@ -530,8 +560,21 @@ export default function SessionDashboardPage() {
       helpError={helpError}
       setHelpError={setHelpError}
       onClear={() => setSelectedParticipantId(null)}
-      onOpenAnswers={() => setAnswersOpen(true)}
+      onOpenAnswers={() => { setAmxOpen(false); setAnswersOpen(true); }}
       actions={participantActions(selectedPerson.p)}
+      amadeus={amx.available && !selectedPerson.dropped && (() => {
+        const st = amx.stateOf(selectedPerson.id);
+        return (
+          <div className="amx-card">
+            {st.status !== 'off' && <AmadeusThumb state={st} size="card" />}
+            <div className="amx-card-actions">
+              {st.status !== 'off'
+                ? <button type="button" className="amx-watch-btn" onClick={() => openAmadeus(selectedPerson.id)}>▶ Watch Amadeus</button>
+                : <button type="button" className="ghost" onClick={() => amx.ask(selectedPerson.id)}>Ask to share Amadeus</button>}
+            </div>
+          </div>
+        );
+      })()}
     />
   );
 
@@ -628,6 +671,8 @@ export default function SessionDashboardPage() {
           participants={participants}
           error={helpError || help.error}
           onShowInRoom={() => setView('participants')}
+          amxThumb={amx.available ? (pid => (amx.stateOf(pid).status !== 'off' ? <AmadeusThumb state={amx.stateOf(pid)} size="hand" /> : null)) : null}
+          onWatch={openAmadeus}
           onAcknowledge={async (reqId) => {
             setHelpError('');
             const { error: e } = await help.acknowledge(reqId);
@@ -666,6 +711,15 @@ export default function SessionDashboardPage() {
                 </h2>
                 <div className="participants-header-actions">
                   {participants.length > 0 && roomSwitch}
+                  {amx.available && !reading && participants.length > 0 && (
+                    <AmadeusRoomControls
+                      sharing={participants.filter(p => !p.deactivated_at && amx.stateOf(p.id).status !== 'off').length}
+                      of={participants.filter(p => !p.deactivated_at).length}
+                      pictures={amxPictures}
+                      onPictures={setAmxPictures}
+                      onAskAll={amx.askAll}
+                    />
+                  )}
                   {unPreppedIds.length > 0 && (
                     <button className="ghost" onClick={doAllocateAll} disabled={allocating}>
                       {allocating ? 'Allocating…' : `Allocate prep (${unPreppedIds.length} need it)`}
@@ -699,7 +753,12 @@ export default function SessionDashboardPage() {
 
               {participants.length === 0 && <p className="muted">No participants enrolled.</p>}
               {participants.length > 0 && roomView === 'tiles' && (
-                <RoomTiles people={roomPeople} selectedId={selectedParticipantId} onPick={pickParticipant} />
+                <RoomTiles
+                  people={roomPeople}
+                  selectedId={selectedParticipantId}
+                  onPick={pickParticipant}
+                  amx={amx.available && amxPictures ? (x => <AmadeusThumb state={amx.stateOf(x.id)} />) : null}
+                />
               )}
               {participants.length > 0 && roomView === 'heat' && (
                 <HeatBoard
@@ -736,7 +795,26 @@ export default function SessionDashboardPage() {
             </div>
             )}
 
-            {reading && (
+            {reading && amxOpen && (
+              <AmadeusWatchPane
+                selected={selected}
+                selectedParticipantId={selectedParticipantId}
+                state={amx.stateOf(selected.id)}
+                frame={amx.frame}
+                onAsk={() => amx.ask(selected.id)}
+                onBack={() => setAmxOpen(false)}
+                onOpenAnswers={() => { setAmxOpen(false); setAnswersOpen(true); }}
+                stepPeople={stepPeople}
+                stepAt={stepAt}
+                stepPrev={stepPrev}
+                stepNext={stepNext}
+                stepTo={stepTo}
+                section={sections.find(x => x.id === cursors[selected.id]?.section_id) || null}
+                blocks={blocks}
+                answers={selectedAnswers}
+              />
+            )}
+            {reading && !amxOpen && (
               <ParticipantAnswersPane
                 selected={selected}
                 selectedParticipantId={selectedParticipantId}
@@ -771,7 +849,7 @@ export default function SessionDashboardPage() {
               stats={cockpit}
               materialsCount={materialsLoading ? 0 : (materials?.length || 0)}
               onOpenMaterials={() => setMaterialsOpen(true)}
-              onPick={(pid) => { setAnswersOpen(false); setSelectedParticipantId(pid); }}
+              onPick={(pid) => { setAnswersOpen(false); setAmxOpen(false); setSelectedParticipantId(pid); }}
             />
           )}
           </div>

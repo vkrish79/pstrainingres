@@ -1,0 +1,135 @@
+import { useEffect, useState } from 'react';
+import Block from '../blocks/Block.jsx';
+import { TONE_LABEL } from './SessionCockpit.jsx';
+import '../../styles/amadeus-watch.css';
+
+// Watch Amadeus on the session dashboard: the small picture on a tile, the
+// Room's controls, and the watch view. Data comes from useAmadeusWatch.
+
+function ageText(at) {
+  if (!at) return '';
+  const s = Math.max(0, Math.round((Date.now() - at) / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m`;
+}
+
+// state: { status: 'sharing' | 'paused' | 'off', thumb, thumbAt }
+export function AmadeusThumb({ state, size = 'tile' }) {
+  if (state.status === 'off') {
+    return <span className={`amx-thumb is-none is-${size}`}>Not sharing Amadeus</span>;
+  }
+  if (!state.thumb) {
+    return <span className={`amx-thumb is-none is-${size}`}>{state.status === 'paused' ? 'Paused' : 'Sharing · picture on its way'}</span>;
+  }
+  return (
+    <span className={`amx-thumb is-${size}${state.status === 'paused' ? ' is-paused' : ''}`}>
+      <img src={state.thumb} alt="" />
+      {state.status === 'paused'
+        ? <span className="amx-thumb-flag">Paused</span>
+        : <span className="amx-thumb-age">{ageText(state.thumbAt)}</span>}
+    </span>
+  );
+}
+
+// Above the class: how many are sharing, ask everyone, pictures on/off.
+export function AmadeusRoomControls({ sharing, of, pictures, onPictures, onAskAll }) {
+  const [asked, setAsked] = useState(false);
+  useEffect(() => {
+    if (!asked) return undefined;
+    const t = setTimeout(() => setAsked(false), 2500);
+    return () => clearTimeout(t);
+  }, [asked]);
+  return (
+    <span className="amx-room" role="group" aria-label="Amadeus">
+      <span className="amx-room-count" data-tip="Participants sharing their ARD Web tab">
+        🖥 Sharing <b>{sharing}</b> of {of}
+      </span>
+      {sharing < of && (
+        <button type="button" className="ghost amx-room-ask" onClick={() => { onAskAll(); setAsked(true); }}
+          data-tip="Shows a “please share” card in everyone's workbook">
+          {asked ? 'Asked ✓' : 'Ask everyone to share'}
+        </button>
+      )}
+      <label className="amx-room-pics" data-tip="Show a picture of their Amadeus on each tile">
+        <input type="checkbox" checked={pictures} onChange={e => onPictures(e.target.checked)} /> Pictures
+      </label>
+    </span>
+  );
+}
+
+// One person's Amadeus, big, with the exercise they're on beside it.
+export function AmadeusWatchPane({
+  selected, state, frame, onAsk, onBack, onOpenAnswers,
+  stepPeople, stepAt, stepPrev, stepNext, stepTo, selectedParticipantId,
+  section, blocks, answers,
+}) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const [asked, setAsked] = useState(false);
+  useEffect(() => { setAsked(false); }, [selectedParticipantId]);
+
+  const fresh = frame && Date.now() - frame.at < 4000;
+  const img = frame?.img || state.thumb || null;
+  const sectionBlocks = section ? blocks.filter(b => b.section_id === section.id) : [];
+
+  return (
+    <aside className="answers-pane amx-watch">
+      <header className="answers-pane-header">
+        <button type="button" className="ghost answers-back" onClick={onBack} title="Back to the class (Esc)">&larr; Back to the class</button>
+        <div className="answers-stepper" role="group" aria-label="Step through participants">
+          <button type="button" className="answers-step" onClick={() => stepTo(stepPrev)} disabled={!stepPrev} title="Previous person (←)" aria-label="Previous person">‹ Prev</button>
+          <div className="answers-who">
+            <h2>{selected.full_name} · Amadeus</h2>
+            {stepAt >= 0 && <span className="answers-count">{stepAt + 1} of {stepPeople.length}</span>}
+          </div>
+          <button type="button" className="answers-step" onClick={() => stepTo(stepNext)} disabled={!stepNext} title="Next person (→)" aria-label="Next person">Next ›</button>
+        </div>
+        <span className={`amx-live${fresh ? '' : ' is-wait'}`}>
+          {state.status === 'paused' ? 'PAUSED' : fresh ? 'LIVE' : state.status === 'sharing' ? 'CONNECTING…' : 'NOT SHARING'}
+        </span>
+        <button type="button" className="ghost" onClick={onOpenAnswers}>All their answers</button>
+      </header>
+      <nav className="answers-strip" aria-label="Participants">
+        {stepPeople.map(x => (
+          <button key={x.id} type="button" className="answers-chip" aria-pressed={x.id === selectedParticipantId}
+            onClick={() => stepTo(x.id)} title={`${x.name} — ${TONE_LABEL[x.tone]}`}>
+            <span className={`cockpit-dot tone-${x.tone}`} aria-hidden="true" />
+            {x.hand && <span aria-label="Asked for help">✋</span>}
+            {x.name}
+          </button>
+        ))}
+      </nav>
+      <div className="amx-watch-body">
+        <div className="amx-watch-screen">
+          {state.status === 'off' ? (
+            <div className="amx-watch-empty">
+              <p><strong>{selected.full_name}</strong> isn't sharing Amadeus.</p>
+              <button type="button" onClick={() => { onAsk(); setAsked(true); }} disabled={asked}>
+                {asked ? 'Asked ✓' : `Ask ${selected.full_name} to share`}
+              </button>
+              <p className="muted">A card appears in their workbook. Only you see what they share.</p>
+            </div>
+          ) : img ? (
+            <div className={`amx-watch-img${state.status === 'paused' ? ' is-paused' : ''}`}>
+              <img src={img} alt={`${selected.full_name}'s Amadeus`} />
+              {state.status === 'paused' && <span className="amx-thumb-flag">Paused</span>}
+            </div>
+          ) : (
+            <div className="amx-watch-empty"><p className="muted">Waiting for the first picture…</p></div>
+          )}
+        </div>
+        <div className="amx-watch-side">
+          <h3>{section ? section.title : 'Their answers'}</h3>
+          {!section && <p className="muted">Not in the workbook right now. “All their answers” shows everything.</p>}
+          {sectionBlocks.map(b => (
+            <div key={b.id} className="answers-block">
+              <Block block={b} value={answers[b.id]?.value} onChange={() => {}} readOnly />
+            </div>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}

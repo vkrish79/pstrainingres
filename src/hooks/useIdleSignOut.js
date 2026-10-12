@@ -41,6 +41,13 @@ function writeLast(t) {
   try { localStorage.setItem(KEY, String(t)); } catch { /* private window — this tab still tracks it */ }
 }
 
+// Activity that isn't a pointer or a key in this app: a participant sharing
+// their ARD Web tab is working in that tab for an hour at a time, and must not
+// be signed out of the workbook (which ends the share) for it.
+export function markActive() {
+  writeLast(Date.now());
+}
+
 export function useIdleSignOut({ enabled, signedInAt, onSignOut }) {
   const [msLeft, setMsLeft] = useState(null);   // set only inside the warning window
   const localLast = useRef(0);
