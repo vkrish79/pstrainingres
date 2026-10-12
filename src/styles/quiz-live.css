@@ -1358,3 +1358,30 @@
   .qlive-submit { padding: 0.65rem 2.2rem; }
   .qlive-tick { width: clamp(1.6rem, 2.6cqi, 2rem); height: clamp(1.6rem, 2.6cqi, 2rem); }
 }
+
+/* ── Phone: the right answer at a reveal, and the end-of-quiz recap (P2) ── */
+.qlive-answer { margin: 0.4rem 0 0; font-size: clamp(0.95rem, 3.6vw, 1.2rem); opacity: 0.92; text-align: center; }
+.qlive-answer strong { font-weight: 700; }
+.qlive-recap { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; width: 100%; max-width: 30rem; }
+.qlive-recap .qlive-sub { margin: 0; opacity: 0.8; }
+.qlive-recap .qlive-big { margin: 0; }
+.qlive-of { font-size: 0.5em; font-weight: 600; opacity: 0.8; }
+.qlive-recap .qlive-rank { margin: 0; }
+.qlive-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; margin-top: 0.4rem; }
+.qlive-strip .qlive-strip-q,
+.qlive-strip .qlive-strip-q:hover {
+  width: 2.4rem; height: 2.4rem; border-radius: 8px; border: 2px solid transparent;
+  font: inherit; font-weight: 700; color: #fff; cursor: pointer; padding: 0;
+}
+.qlive-strip .qlive-strip-q.is-right { background: #2f8a4c; }
+.qlive-strip .qlive-strip-q.is-part  { background: #b7791f; }
+.qlive-strip .qlive-strip-q.is-wrong { background: #b1452f; }
+.qlive-strip .qlive-strip-q.is-none  { background: rgba(255, 255, 255, 0.16); color: rgba(255, 255, 255, 0.85); }
+.qlive-strip .qlive-strip-q.is-open  { border-color: #fff; }
+.qlive-recap-q {
+  width: 100%; text-align: left; background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px; padding: 0.75rem 0.9rem; display: grid; gap: 0.3rem;
+}
+.qlive-recap-q-head { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.75; }
+.qlive-recap-q-prompt { font-weight: 600; line-height: 1.3; }
+.qlive-recap-q-answer { opacity: 0.92; }

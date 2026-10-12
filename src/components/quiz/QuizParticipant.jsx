@@ -4,6 +4,7 @@ import { useQuizRun } from '../../hooks/useQuizRun.js';
 import { ordinal } from '../../lib/ordinal.js';
 import { QuizQuestionHead, QuizPick, QuizSeqSlots } from './QuizAnswerParts.jsx';
 import QuizImage from './QuizImage.jsx';
+import { RightAnswerLine, QuizPhoneRecap } from './QuizPhoneRecap.jsx';
 import QuizPinField from './QuizPinField.jsx';
 import QuizTimer, { spanSeconds } from './QuizTimer.jsx';
 import { scaleClass } from '../../lib/quizScale.js';
@@ -536,8 +537,10 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
                     : 'No points for that one'}
                 {result?.wager > 1 && <> · you staked {result.wager}×</>}
               </p>
+              {result && !result.was_correct && <RightAnswerLine runId={runId} kind={run?.kind} idx={idx} />}
             </>
           )}
+          {result?.answered === false && <RightAnswerLine runId={runId} kind={run?.kind} idx={idx} />}
           {/* Your own rank, on your own screen. The wall shows only the top
               five, so nobody is publicly shown to be last. */}
           {result && (
@@ -551,16 +554,10 @@ export default function QuizParticipant({ runId, onDismiss, guest = false }) {
 
       {['podium', 'ended'].includes(phase) && (
         <div className="qlive-stage qlive-centre">
-          {/* The score, and the way out. Nothing else — the room is looking at
-              the podium, and this screen has one thing to tell its owner.
-
-              The placeholder matters: quiz_my_result is a round trip, and
-              rendering the number before it lands would tell everyone they
-              finished with 0 points for a moment. A wrong score is worse than
-              a short wait. */}
-          <h1 className="qlive-big">
-            {result ? `You finished with ${result.total_points} points` : 'Counting up…'}
-          </h1>
+          {/* The score and the way out, now with how it went: place out of
+              everyone who played, how many were right, and which (P2). The
+              room is looking at the podium; this is the owner's own copy. */}
+          <QuizPhoneRecap runId={runId} result={result} showPlace={phase === 'ended'} />
           <button type="button" className="qlive-go" onClick={onDismiss}>{guest ? 'Done' : 'Back to my workbook'}</button>
         </div>
       )}
