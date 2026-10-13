@@ -272,3 +272,37 @@
 @media (max-width: 560px) {
   .inline-key-row { grid-template-columns: 1fr; gap: 0.2rem; }
 }
+
+/* ── Scorecard: the paper total and each question's sum ─────────────────── */
+.ak-paper { display: grid; gap: 0.4rem; padding: 0.6rem 0.2rem 0.8rem; border-bottom: 1px solid var(--border); margin-bottom: 0.6rem; }
+.ak-paper-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem; }
+.ak-paper-top b { font-size: 1.2rem; color: var(--midnight); }
+.ak-paper-stack { display: flex; height: 24px; border-radius: 6px; overflow: hidden; }
+.ak-paper-stack span {
+  display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden;
+  font-size: 0.7rem; font-weight: 700; color: #fff; white-space: nowrap;
+  background: var(--midnight); border-right: 1px solid rgba(255, 255, 255, 0.4);
+}
+.ak-paper-stack span.alt { background: var(--gold); }
+.ak-paper-stack span:last-child { border-right: 0; }
+.ak-paper-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.ak-chip {
+  font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 99px;
+  background: #f3f1ec; color: #4a5260; border: 1px solid var(--border); white-space: nowrap;
+}
+.ak-chip.warn { background: #f7ecd6; color: #8a5a00; border-color: transparent; white-space: normal; }
+.ak-q-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.ak-q-parts { font-size: 0.72rem; font-weight: 600; }
+.ak-q-sum { margin-left: auto; font-weight: 800; color: var(--midnight); }
+.ak-q-breakdown { margin: -0.2rem 0 0.5rem; font-size: 0.74rem; color: var(--muted); }
+.ak-unkeyed {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin: 0.35rem 0; padding: 0.45rem 0.65rem; border-radius: 6px;
+  background: #f7ecd6; color: #8a5a00; font-size: 0.8rem;
+}
+.ak-unkeyed .ghost { font-size: 0.75rem; padding: 0.15rem 0.55rem; }
+.ak-use-order {
+  margin: 0 0 0.45rem; font-size: 0.8rem; padding: 0.3rem 0.75rem;
+  background: var(--midnight); color: #fff; border: 1px solid var(--midnight); border-radius: 6px; cursor: pointer;
+}
+.ak-use-order:hover { background: #16304a; color: #fff; }

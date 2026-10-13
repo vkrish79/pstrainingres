@@ -45,6 +45,15 @@ export function useAssessmentAnswerKeys(blockIds) {
 
   const timers = useRef({});  // { [blockId]: timeoutId } — pending debounced saves
   const pending = useRef({}); // { [blockId]: key } — latest value awaiting write
+  // Marks typed on an auto question that has no correct answer yet. There is no
+  // row to put them on (the CHECK needs a key on an auto row), so they wait here
+  // and go in with the key when it is saved. Read through refs because the
+  // callbacks below are deliberately stable.
+  const unkeyedPoints = useRef({});
+  const keysRef = useRef(keys);
+  keysRef.current = keys;
+  const modesRef = useRef(modes);
+  modesRef.current = modes;
 
   useEffect(() => {
     const ids = (blockIds || []);
@@ -96,6 +105,8 @@ export function useAssessmentAnswerKeys(blockIds) {
     if (!(blockId in pending.current)) return;
     const key = pending.current[blockId];
     delete pending.current[blockId];
+    const waitingPoints = unkeyedPoints.current[blockId];
+    delete unkeyedPoints.current[blockId];
     // marking_mode is stated explicitly rather than left to the column default,
     // which only applies on INSERT. Upserting a key onto a row that is currently
     // manual would otherwise leave mode='manual' with a key present — the one
@@ -103,7 +114,7 @@ export function useAssessmentAnswerKeys(blockIds) {
     const run = supabase
       .from('assessment_answer_keys')
       .upsert(
-        { assessment_block_id: blockId, key, marking_mode: 'auto' },
+        { assessment_block_id: blockId, key, marking_mode: 'auto', ...(waitingPoints ? { points: waitingPoints } : {}) },
         { onConflict: 'assessment_block_id' },
       );
     withTimeout(run, SAVE_TIMEOUT_MS)
@@ -155,6 +166,11 @@ export function useAssessmentAnswerKeys(blockIds) {
     // Below 1 the CHECK would reject it and a 0-point question would count
     // toward the total while contributing nothing. Don't send those.
     if (!Number.isFinite(n) || n <= 0) return;
+    // No row yet (auto, no correct answer): hold the figure for the key write.
+    if (keysRef.current[blockId] == null && modesRef.current[blockId] !== 'manual') {
+      unkeyedPoints.current[blockId] = n;
+      return;
+    }
     const k = `pts:${blockId}`;
     pending.current[k] = n;
     if (timers.current[k]) clearTimeout(timers.current[k]);

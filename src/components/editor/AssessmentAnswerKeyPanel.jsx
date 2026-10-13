@@ -25,7 +25,9 @@ import { useCriteriaPush } from '../../hooks/useCriteriaPush.js';
 // the one that did not do the write would keep showing the old value until the
 // page was reloaded. Left optional so the hook is still created here if a caller
 // has no reason to share it.
-export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCount = 0, keysApi = null }) {
+// passMarkSet — true / false when the page knows; the paper summary flags a
+// missing pass mark because the report prints Result blank without one.
+export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCount = 0, keysApi = null, passMarkSet = null }) {
   const blockIds = useMemo(() => blocks.map(b => b.id), [blocks]);
   const ownApi = useAssessmentAnswerKeys(keysApi ? [] : blockIds);
   const { keys, points, modes, guidance, setKey, setPoints, setMode, setGuidance, clearKey, error } =
@@ -76,6 +78,22 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
     (sum, b) => sum + ((keys[b.id] != null || isManual(b.id)) ? (Number(points[b.id]) || 1) : 0), 0,
   );
 
+  // Question by question: what each is worth, and which of its parts will score
+  // nothing for anyone — an auto part with no correct answer, or a written one
+  // nobody has set to manual. Those are the parts that quietly drop a paper
+  // from 100 to 99, so they are named on their question, not just counted.
+  const worthOf = b => ((keys[b.id] != null || isManual(b.id)) ? (Number(points[b.id]) || 1) : 0);
+  const questionSums = questions.map(q => {
+    const parts = q.parts.filter(p => !isInactiveBlock(p.block) && (isScorableBlock(p.block) || isManuallyMarkable(p.block)));
+    const worth = Math.round(parts.reduce((s, p) => s + worthOf(p.block), 0) * 10) / 10;
+    const unscored = parts.filter(p => worthOf(p.block) === 0);
+    return { q, parts, worth, unscored };
+  }).filter(x => x.parts.length);
+  const unscoredAll = questionSums.flatMap(x => x.unscored.map(p => ({ label: p.label })));
+  const autoCount = markable.filter(b => !isManual(b.id) && keys[b.id] != null).length;
+  const criteriaCount = markable.filter(b => isManual(b.id) && hasCriteria(guidance[b.id])).length;
+  const totalRounded = Math.round(totalMarks * 10) / 10;
+
   if (markable.length === 0) {
     return (
       <section className="editor-card answer-key-panel">
@@ -102,6 +120,35 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
           <span className="answer-key-total">{totalMarks} mark{totalMarks === 1 ? '' : 's'} total</span>
         )}
       </button>
+
+      {/* The paper at a glance: its total, split by question to scale. */}
+      {totalMarks > 0 && (
+        <div className="ak-paper">
+          <div className="ak-paper-top">
+            <span className="muted">This paper adds up to</span>
+            <b className="num">{totalRounded} mark{totalRounded === 1 ? '' : 's'}</b>
+          </div>
+          <div className="ak-paper-stack" aria-label="Marks by question">
+            {questionSums.filter(x => x.worth > 0).map((x, i) => (
+              <span key={x.q.section.id} style={{ flex: x.worth }} className={i % 2 ? 'alt' : ''} data-tip={`${x.q.heading} · ${x.worth} marks`}>
+                Q{x.q.number} · {x.worth}
+              </span>
+            ))}
+          </div>
+          <div className="ak-paper-chips">
+            {unscoredAll.length > 0 && (
+              <span className="ak-chip warn">
+                {unscoredAll.length === 1
+                  ? `${unscoredAll[0].label} scores nothing yet`
+                  : `${unscoredAll.length} parts score nothing yet: ${unscoredAll.map(u => u.label).join(', ')}`}
+              </span>
+            )}
+            {passMarkSet === false && <span className="ak-chip warn">Pass mark not set</span>}
+            <span className="ak-chip">{manualCount} by hand · {autoCount} auto</span>
+            {criteriaCount > 0 && <span className="ak-chip">{criteriaCount} with criteria</span>}
+          </div>
+        </div>
+      )}
 
       {error && (
         <p className="answer-key-error" role="alert">
@@ -156,9 +203,23 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
               b => !isInactiveBlock(b) && (isScorableBlock(b) || isManuallyMarkable(b))
             );
             if (!secBlocks.length) return null;
+            const sum = questionSums.find(x => x.q.section.id === q.section.id);
             return (
               <div key={q.section.id} className="answer-key-section">
-                <h3 className="answer-key-section-title">{q.heading}</h3>
+                <h3 className="answer-key-section-title ak-q-head">
+                  <span>{q.heading}</span>
+                  <span className="ak-q-parts muted">{sum.parts.length} part{sum.parts.length === 1 ? '' : 's'}</span>
+                  {sum.unscored.length > 0 && (
+                    <span className="ak-chip warn">{sum.unscored.length} scor{sum.unscored.length === 1 ? 'es' : 'e'} nothing</span>
+                  )}
+                  <span className="ak-q-sum num">{sum.worth} mark{sum.worth === 1 ? '' : 's'}</span>
+                </h3>
+                {/* The question's total, built up part by part. */}
+                {sum.parts.length > 1 && (
+                  <p className="ak-q-breakdown num">
+                    {sum.parts.map(p => `(${p.letter}) ${worthOf(p.block)}`).join(' · ')} = {sum.worth}
+                  </p>
+                )}
                 {secBlocks.map(b => (
                   <KeyRow
                     key={b.id}
@@ -207,6 +268,10 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
   // A question carries marks once it will actually be marked — keyed, or set to
   // by-hand. That is the rule the total in the header uses too.
   const willBeMarked = manual || hasKey;
+  // An auto part with no correct answer yet still shows what it is worth, so
+  // it can be scored at all — and says plainly that it scores nothing until
+  // the answer is set. The figure is held and saved with the answer.
+  const unkeyedAuto = !manual && canAuto && !hasKey;
 
   return (
     <div className={`answer-key-row ${willBeMarked ? 'has-key' : ''} ${manual ? 'is-manual' : ''}`}>
@@ -256,7 +321,7 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
           </button>
         )}
 
-        {willBeMarked && (
+        {(willBeMarked || unkeyedAuto) && (
           <label
             className={`answer-key-points ${marksFromCriteria ? 'is-derived' : ''}`}
             title={marksFromCriteria
@@ -279,6 +344,16 @@ function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel
           <button type="button" className="answer-key-clear" onClick={onClear} title="Clear key">clear</button>
         )}
       </div>
+
+      {unkeyedAuto && (
+        <div className="ak-unkeyed">
+          <span>
+            No correct answer saved yet, so this part scores 0 for everyone.
+            {block.block_type === 'reorder' ? ' If the steps below are already in the right order, save them as they are.' : ' Set it below, or mark it by hand.'}
+          </span>
+          <button type="button" className="ghost" onClick={() => onMode('manual')}>Mark it by hand instead</button>
+        </div>
+      )}
 
       <div className="answer-key-control">
         {manual ? (
@@ -491,7 +566,17 @@ function ReorderKey({ block, value, onChange }) {
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
   };
+  // The list shows the authored order whether or not one is saved, and only a
+  // move used to save it — so an order written correctly first time looked set
+  // and never was. This saves what is on screen.
+  const saved = Array.isArray(value) && value.length > 0;
   return (
+    <>
+    {!saved && (
+      <button type="button" className="ak-use-order" onClick={() => onChange(order)}>
+        Use this order as the answer
+      </button>
+    )}
     <ol className="answer-key-order">
       {order.map((id, i) => (
         <li key={id} className="answer-key-order-row">
@@ -502,5 +587,6 @@ function ReorderKey({ block, value, onChange }) {
         </li>
       ))}
     </ol>
+    </>
   );
 }

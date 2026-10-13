@@ -395,6 +395,7 @@ export default function AssessmentEditorPage() {
               sections={sections.filter(s => !isDraftId(s.id))}
               blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
               unsavedCount={blocks.filter(b => isDraftId(b.id)).length}
+              passMarkSet={passMark !== ''}
             />
           </div>
           <div className="setup-pane" hidden={pane !== 'repair'}>
