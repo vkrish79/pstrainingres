@@ -197,6 +197,17 @@ export default function ExerciseResponses({
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('click', onClick); };
   }, [popover?.pinned]);
 
+  // Every hook runs before the early returns below, on every render — React
+  // needs the same hooks in the same order each time. With no questions the
+  // section is undefined and the review read simply does nothing.
+  const selectedSection = sectionsWithFillable.find(s => s.id === selectedId) || sectionsWithFillable[0];
+  const { marks: reviewMarks, loading: marksLoading } = useReviewPeopleMarks(
+    sessionId, showMarks ? selectedSection?.id : null, !!sessionId && showMarks,
+  );
+  // The participant whose answers are open full-width. Marking a long paper
+  // in a 320px column meant scrolling inside a scroll; this is the way out.
+  const [focusId, setFocusId] = useState(null);
+
   if (sectionsWithFillable.length === 0) {
     return <p className="muted">{emptyLabel}</p>;
   }
@@ -204,10 +215,6 @@ export default function ExerciseResponses({
     return <p className="muted">No participants enrolled.</p>;
   }
 
-  const selectedSection = sectionsWithFillable.find(s => s.id === selectedId) || sectionsWithFillable[0];
-  const { marks: reviewMarks, loading: marksLoading } = useReviewPeopleMarks(
-    sessionId, showMarks ? selectedSection?.id : null, !!sessionId && showMarks,
-  );
   const fillableInSection = blocks
     .filter(b => b.section_id === selectedSection.id && isFillableBlock(b))
     .sort((a, b) => a.order_index - b.order_index);
@@ -255,9 +262,6 @@ export default function ExerciseResponses({
   });
 
   const isExpanded = (pid) => defaultExpanded !== toggleSet.has(pid);
-  // The participant whose answers are open full-width. Marking a long paper
-  // in a 320px column meant scrolling inside a scroll; this is the way out.
-  const [focusId, setFocusId] = useState(null);
 
   function toggleTile(pid) {
     setToggleSet(prev => {
