@@ -18,8 +18,10 @@ export function canShareScreen() {
 
 // Ask the browser for a tab. The options steer the picker without forcing it:
 // it opens on "Chrome tab" rather than "Entire screen" (where email and chats
-// would be), leaves out the workbook tab itself, and offers "Share this tab
-// instead" so a wrong pick can be corrected from the browser's own bar.
+// would be), leaves out the workbook tab itself, offers "Share this tab
+// instead" so a wrong pick can be corrected from the browser's own bar, and
+// drops "Entire screen" altogether (Chrome/Edge; older browsers ignore it,
+// which is what the whole-screen warning in the workbook is still for).
 // Throws when the participant cancels the picker (NotAllowedError).
 export async function pickTab() {
   const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -27,6 +29,7 @@ export async function pickTab() {
     audio: false,
     selfBrowserSurface: 'exclude',
     surfaceSwitching: 'include',
+    monitorTypeSurfaces: 'exclude',
     preferCurrentTab: false,
   });
   const track = stream.getVideoTracks()[0];
