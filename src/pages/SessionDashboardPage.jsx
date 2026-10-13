@@ -839,6 +839,7 @@ export default function SessionDashboardPage() {
                 state={amx.stateOf(selected.id)}
                 frame={amx.frame}
                 history={amx.historyOf(selected.id)}
+                onBigChange={amx.setFullFrames}
                 onAsk={() => amx.ask(selected.id)}
                 onBack={() => setAmxOpen(false)}
                 onOpenAnswers={() => { setAmxOpen(false); setAnswersOpen(true); }}

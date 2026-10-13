@@ -10,7 +10,8 @@ import { supabase } from '../lib/supabase.js';
 //   hello — every 20s on every channel: "a host has the Room open" (with
 //           thumbs:false when pictures are switched off, so they stop sending,
 //           and size:'mid' while the Screens grid is open, for 640px pictures);
-//   live  — every 3s to the one person being watched: send frames;
+//   live  — every 3s to the one person being watched: send frames (size:'full'
+//           while the watch view is in theatre or full screen, for up to 1920px);
 //   ask   — please share.
 
 const HELLO_EVERY_MS = 20000;
@@ -29,6 +30,8 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
   const [available, setAvailable] = useState(null); // null until a channel answers
   const [watchingId, setWatchingId] = useState(null);
   const [frame, setFrame] = useState(null);   // { pid, img, w, h, at }
+  // The watch view is showing the picture big (theatre / full screen).
+  const [fullFrames, setFullFrames] = useState(false);
   const [, setNow] = useState(0);
   const channelsRef = useRef({});
   const historyRef = useRef({});   // pid → [{ at, img }], oldest first
@@ -71,6 +74,10 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
         remember(pid, payload.img, true);
         setFrame({ pid, img: payload.img, w: payload.w, h: payload.h, at: Date.now() });
       });
+      // The screen hasn't changed: the picture we have is still current.
+      ch.on('broadcast', { event: 'still' }, () => {
+        setFrame(f => (f && f.pid === pid ? { ...f, at: Date.now() } : f));
+      });
       ch.subscribe(st => {
         if (gone) return;
         if (st === 'SUBSCRIBED') { setAvailable(true); hello(ch); }
@@ -102,11 +109,11 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
   // The one person being watched: keep telling them, so they keep sending.
   useEffect(() => {
     if (!watchingId) { setFrame(null); return undefined; }
-    const ping = () => channelsRef.current[watchingId]?.send({ type: 'broadcast', event: 'live', payload: {} }).catch(() => {});
+    const ping = () => channelsRef.current[watchingId]?.send({ type: 'broadcast', event: 'live', payload: { size: fullFrames ? 'full' : 'std' } }).catch(() => {});
     ping();
     const t = setInterval(ping, LIVE_EVERY_MS);
     return () => clearInterval(t);
-  }, [watchingId]);
+  }, [watchingId, fullFrames]);
 
   const ask = useCallback(pid => {
     channelsRef.current[pid]?.send({ type: 'broadcast', event: 'ask', payload: {} }).catch(() => {});
@@ -137,6 +144,7 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
     ask,
     // A copy, oldest first, trimmed to the last 10 minutes.
     historyOf: pid => (historyRef.current[pid] || []).filter(x => Date.now() - x.at <= HISTORY_MS),
+    setFullFrames,
     askAll,
   };
 }

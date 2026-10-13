@@ -23,8 +23,14 @@ import { markActive } from '../hooks/useIdleSignOut.js';
 //   thumb — ~320px JPEG, only while a host has said hello in the last minute,
 //           every 5s if the screen changed, else every 30s; 640px every 3s
 //           while a host has the Screens grid open (hello size:'mid');
-//   frame — ~1280px JPEG about twice a second, only while a host is watching
-//           this person (a 'live' ping in the last 8s).
+//   frame — only while a host is watching this person (a 'live' ping in the
+//           last 8s), and only when the screen CHANGED: up to 4 a second while
+//           they type, nothing while it's still. WebP made in a Worker (JPEG
+//           where that's not possible), 1280px wide, or up to 1920px when the
+//           host is showing it big (live size:'full').
+//   still — a few bytes every 2s while watched and the screen hasn't changed,
+//           so the host's LIVE badge stays on; a full frame every 10s anyway,
+//           so a picture lost on a bad network is put right.
 // Receives: hello (a host has the Room open), live (watching me), ask (please
 // share).
 //
@@ -36,18 +42,21 @@ import { markActive } from '../hooks/useIdleSignOut.js';
 
 const Ctx = createContext(null);
 
-const TICK_MS = 500;
+const TICK_MS = 250;
 const STATE_EVERY_MS = 5000;
 const THUMB_EVERY_MS = 5000;
 const THUMB_UNCHANGED_EVERY_MS = 30000;
 const HOST_FRESH_MS = 60000;
 const LIVE_FRESH_MS = 8000;
-const FRAME_EVERY_MS = 500;
+const FRAME_EVERY_MS = 250;
+const FRAME_REFRESH_MS = 10000;
+const STILL_EVERY_MS = 2000;
 const ACTIVE_EVERY_MS = 30000;
 const THUMB = { maxW: 320, quality: 0.6, maxBytes: 40000 };
 const MID = { maxW: 640, quality: 0.6, maxBytes: 90000 };
 const MID_EVERY_MS = 3000;
-const FRAME = { maxW: 1280, quality: 0.65, maxBytes: 200000 };
+const FRAME = { maxW: 1280, quality: 0.7, maxBytes: 200000 };
+const FRAME_FULL = { maxW: 1920, quality: 0.72, maxBytes: 200000 };
 
 // { sharing, at, reason } — while sharing, `at` is refreshed with every state
 // message, so a reload leaves roughly when it was cut off.
@@ -144,9 +153,14 @@ export function AmadeusShareProvider({ children }) {
       if (!wasBig && t.bigUntil) t.thumbAt = 0;
       sendState();
     });
-    ch.on('broadcast', { event: 'live' }, () => {
-      timesRef.current.liveAt = Date.now();
-      timesRef.current.hostAt = Date.now();
+    ch.on('broadcast', { event: 'live' }, ({ payload }) => {
+      const t = timesRef.current;
+      // Newly watched: they have no picture yet, so the next tick sends one
+      // whether or not the screen changed.
+      if (Date.now() - (t.liveAt || 0) >= LIVE_FRESH_MS) t.frameSeq = undefined;
+      t.liveAt = Date.now();
+      t.hostAt = Date.now();
+      t.liveFull = payload?.size === 'full';
     });
     ch.on('broadcast', { event: 'ask' }, () => {
       if (statusRef.current === 'off') setAsked(true);
@@ -208,9 +222,25 @@ export function AmadeusShareProvider({ children }) {
     busyRef.current = true;
     try {
       const live = now - (t.liveAt || 0) < LIVE_FRESH_MS;
-      if (live && now - (t.frameAt || 0) >= FRAME_EVERY_MS) {
-        const f = await sh.grabber.grab(FRAME);
-        if (f) { t.frameAt = now; await send('frame', { img: f.img, w: f.w, h: f.h, at: now }); } else setDiag(d => ({ ...d, noPicture: (d.noPicture || 0) + 1 }));
+      if (live) {
+        // Read the paint count BEFORE making the picture: anything painted
+        // while it is being made moves the count, so the next tick sends again.
+        const seq = sh.grabber.seq();
+        const size = t.liveFull ? 'full' : 'std';
+        const changed = seq == null || seq !== t.frameSeq || size !== t.frameSize;
+        const sinceFrame = now - (t.frameAt || 0);
+        if (sinceFrame >= FRAME_EVERY_MS && (changed || sinceFrame >= FRAME_REFRESH_MS)) {
+          const f = await sh.grabber.grabFast(size === 'full' ? FRAME_FULL : FRAME);
+          if (f) {
+            t.frameAt = now; t.stillAt = now; t.frameSeq = seq; t.frameSize = size;
+            setDiag(d => ({ ...d, fmt: f.fmt, frameW: f.w, frames: (d.frames || 0) + 1 }));
+            await send('frame', { img: f.img, w: f.w, h: f.h, at: now });
+          } else setDiag(d => ({ ...d, noPicture: (d.noPicture || 0) + 1 }));
+        } else if (!changed && now - (t.stillAt || 0) >= STILL_EVERY_MS) {
+          t.stillAt = now;
+          setDiag(d => ({ ...d, stills: (d.stills || 0) + 1 }));
+          await send('still', { at: now });
+        }
       }
       const hosted = now - (t.hostAt || 0) < HOST_FRESH_MS;
       const big = now < (t.bigUntil || 0);

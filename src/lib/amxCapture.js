@@ -53,6 +53,11 @@ export function makeGrabber(track) {
   // which on a cryptic screen someone is reading is most of the time. Holding
   // the last one means a picture can be taken at any moment.
   let latest = null;
+  // How many pictures the browser has painted into the track. Tab capture only
+  // paints when the tab changes, so "the count moved since the last frame we
+  // sent" means "the screen changed" — any visible change at all, from one new
+  // cryptic line to a ticked box, with no pixel comparison to get wrong.
+  let painted = 0;
   let reading = false;
   let reader = null;
   if (typeof MediaStreamTrackProcessor !== 'undefined') {
@@ -65,6 +70,7 @@ export function makeGrabber(track) {
           if (done) break;
           if (latest) latest.close();
           latest = value;
+          painted += 1;
         }
       })().catch(() => { reading = false; });
     } catch { reader = null; reading = false; }
@@ -124,14 +130,98 @@ export function makeGrabber(track) {
     return { img: url, w, h, bytes: url.length, sig: url, sourceW: src.w, sourceH: src.h };
   }
 
+  // The paint count, or null when it can't be known (the <video> fallback),
+  // in which case every frame must be treated as changed.
+  function seq() { return reader ? painted : null; }
+
+  // A frame as WebP, made in a Worker so the 300–400 ms it takes never runs on
+  // the participant's page. Falls back to grab() (JPEG, on the page) where the
+  // browser can't make WebP off the page.
+  let webpOff = false;
+  let encoder = null;
+  async function grabFast(opts) {
+    if (!webpOff && !encoder) encoder = makeWebpEncoder();
+    if (webpOff || !encoder) { webpOff = true; const j = await grab(opts); return j && { ...j, fmt: 'jpeg' }; }
+    for (const maxW of [opts.maxW, Math.round(opts.maxW * 0.75)]) {
+      let bitmap = null;
+      let w;
+      let h;
+      try {
+        if (reader) {
+          if (!latest) return null;
+          const scale = Math.min(1, maxW / latest.displayWidth);
+          w = Math.max(1, Math.round(latest.displayWidth * scale));
+          h = Math.max(1, Math.round(latest.displayHeight * scale));
+          // A copy: the reader closes the frame it holds as soon as a newer
+          // one arrives, which can be mid-way through this.
+          const vf = latest.clone();
+          try { bitmap = await createImageBitmap(vf, { resizeWidth: w, resizeHeight: h, resizeQuality: 'medium' }); } finally { vf.close(); }
+        } else {
+          const v = ensureVideo();
+          if (!v.videoWidth) return null;
+          const scale = Math.min(1, maxW / v.videoWidth);
+          w = Math.max(1, Math.round(v.videoWidth * scale));
+          h = Math.max(1, Math.round(v.videoHeight * scale));
+          bitmap = await createImageBitmap(v, { resizeWidth: w, resizeHeight: h, resizeQuality: 'medium' });
+        }
+      } catch { if (bitmap) bitmap.close(); webpOff = true; const j = await grab(opts); return j && { ...j, fmt: 'jpeg' }; }
+      const r = await encoder.encode(bitmap, opts.quality, opts.maxBytes);
+      if (r === 'unsupported' || r === null) { webpOff = true; const j = await grab(opts); return j && { ...j, fmt: 'jpeg' }; }
+      if (r === 'too-big') continue;
+      return { img: r, w, h, bytes: r.length, fmt: 'webp' };
+    }
+    return null;
+  }
+
   function close() {
+    if (encoder) { encoder.close(); encoder = null; }
     reading = false;
     if (reader) { reader.cancel().catch(() => {}); reader = null; }
     if (latest) { latest.close(); latest = null; }
     if (video) { video.pause(); video.srcObject = null; video = null; }
   }
 
-  return { grab, close };
+  return { grab, grabFast, seq, close };
+}
+
+// One Worker that turns an ImageBitmap into a WebP data URL, stepping the
+// quality down until it fits maxBytes. Resolves the URL, 'too-big',
+// 'unsupported' (the browser makes PNG instead, or has no OffscreenCanvas), or
+// null when it doesn't answer within 3s.
+function makeWebpEncoder() {
+  if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
+  const src = `onmessage=async e=>{const{id,bitmap,quality,maxBytes}=e.data;try{
+const c=new OffscreenCanvas(bitmap.width,bitmap.height);const x=c.getContext('2d',{alpha:false});x.drawImage(bitmap,0,0);bitmap.close();
+let q=quality;const r=new FileReaderSync();
+let b=await c.convertToBlob({type:'image/webp',quality:q});
+if(b.type!=='image/webp'){postMessage({id,out:'unsupported'});return;}
+let u=r.readAsDataURL(b);
+while(u.length>maxBytes&&q>0.3){q-=0.15;b=await c.convertToBlob({type:'image/webp',quality:q});u=r.readAsDataURL(b);}
+postMessage({id,out:u.length>maxBytes?'too-big':u});
+}catch(err){postMessage({id,out:'unsupported'});}};`;
+  let worker;
+  try {
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    worker = new Worker(url);
+    URL.revokeObjectURL(url);
+  } catch { return null; }
+  let nextId = 1;
+  const waiting = new Map();
+  worker.onmessage = e => {
+    const w = waiting.get(e.data.id);
+    if (w) { waiting.delete(e.data.id); clearTimeout(w.timer); w.resolve(e.data.out); }
+  };
+  return {
+    encode(bitmap, quality, maxBytes) {
+      return new Promise(resolve => {
+        const id = nextId++;
+        const timer = setTimeout(() => { waiting.delete(id); resolve(null); }, 3000);
+        waiting.set(id, { resolve, timer });
+        worker.postMessage({ id, bitmap, quality, maxBytes }, [bitmap]);
+      });
+    },
+    close() { worker.terminate(); waiting.forEach(w => { clearTimeout(w.timer); w.resolve(null); }); waiting.clear(); },
+  };
 }
 
 // A steady tick that survives a hidden tab: setInterval inside a Worker.

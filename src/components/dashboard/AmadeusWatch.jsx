@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Block from '../blocks/Block.jsx';
 import { TONE_LABEL } from './SessionCockpit.jsx';
 import '../../styles/amadeus-watch.css';
@@ -92,10 +92,12 @@ export function AmadeusRoomControls({ sharing, of, missing = [], pictures, onPic
 }
 
 // One person's Amadeus, big, with the exercise they're on beside it.
+// The bigger ways to look (theatre, full screen) ask the participant for a
+// full-size picture through onBigChange (useAmadeusWatch's setFullFrames).
 export function AmadeusWatchPane({
   selected, state, frame, onAsk, onBack, onOpenAnswers,
   stepPeople, stepAt, stepPrev, stepNext, stepTo, selectedParticipantId,
-  section, blocks, answers, history = [],
+  section, blocks, answers, history = [], onBigChange = null,
 }) {
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -109,6 +111,74 @@ export function AmadeusWatchPane({
   const [backAt, setBackAt] = useState(null);
   useEffect(() => { setAsked(false); setBackAt(null); }, [selectedParticipantId]);
 
+  // Theatre: the answers column folds away and the picture takes the page.
+  // Remembered in this browser.
+  const [theatre, setTheatre] = useState(() => {
+    try { return localStorage.getItem('amx-theatre') === '1'; } catch { return false; }
+  });
+  const [answersOver, setAnswersOver] = useState(false);
+  function toggleTheatre() {
+    setTheatre(v => {
+      const next = !v;
+      try { localStorage.setItem('amx-theatre', next ? '1' : '0'); } catch { /* private window */ }
+      return next;
+    });
+    setAnswersOver(false);
+  }
+
+  // Full screen: the picture fills the display; a slim bar fades out after 3s
+  // without the mouse. Esc (the browser's own) leaves it.
+  const screenRef = useRef(null);
+  const [isFull, setIsFull] = useState(false);
+  const [barShown, setBarShown] = useState(true);
+  useEffect(() => {
+    const on = () => setIsFull(!!screenRef.current && document.fullscreenElement === screenRef.current);
+    document.addEventListener('fullscreenchange', on);
+    return () => document.removeEventListener('fullscreenchange', on);
+  }, []);
+  const toggleFull = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else screenRef.current?.requestFullscreen?.().catch(() => {});
+  }, []);
+  useEffect(() => {
+    function onKey(e) {
+      const tag = document.activeElement?.tagName || '';
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFull(); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleFull]);
+  useEffect(() => {
+    if (!isFull) { setBarShown(true); return undefined; }
+    let t = null;
+    const show = () => { setBarShown(true); clearTimeout(t); t = setTimeout(() => setBarShown(false), 3000); };
+    show();
+    const el = screenRef.current;
+    el?.addEventListener('mousemove', show);
+    return () => { clearTimeout(t); el?.removeEventListener('mousemove', show); };
+  }, [isFull]);
+
+  // Big = theatre or full screen: ask for the full-size picture.
+  useEffect(() => { onBigChange?.(theatre || isFull); }, [theatre, isFull, onBigChange]);
+  useEffect(() => () => onBigChange?.(false), [onBigChange]);
+
+  // Zoom: click a spot to see it at 2×, move to pan, click again to come out.
+  const [zoom, setZoom] = useState(null);   // { x, y } in % of the picture
+  useEffect(() => { setZoom(null); }, [selectedParticipantId]);
+  const zoomAt = e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)), y: Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100)) };
+  };
+  const zoomProps = {
+    // Read the position now: React clears the event's element once the
+    // handler returns, before a state updater would run.
+    onClick: e => { const at = zoomAt(e); setZoom(z => (z ? null : at)); },
+    onMouseMove: e => { if (zoom) setZoom(zoomAt(e)); },
+    style: zoom ? { '--zx': `${zoom.x}%`, '--zy': `${zoom.y}%` } : undefined,
+    'data-tip': zoom ? 'Click to zoom out' : 'Click to zoom in',
+  };
+
   const fresh = frame && Date.now() - frame.at < 4000;
   const img = frame?.img || state.thumb || null;
   const looking = backAt != null && history.length > 0;
@@ -121,7 +191,7 @@ export function AmadeusWatchPane({
   const sectionBlocks = section ? blocks.filter(b => b.section_id === section.id) : [];
 
   return (
-    <aside className="answers-pane amx-watch">
+    <aside className={`answers-pane amx-watch${theatre ? ' is-theatre' : ''}`}>
       <header className="answers-pane-header">
         <button type="button" className="ghost answers-back" onClick={onBack} title="Back to the class (Esc)">&larr; Back to the class</button>
         <div className="answers-stepper" role="group" aria-label="Step through participants">
@@ -134,6 +204,13 @@ export function AmadeusWatchPane({
         </div>
         <span className={`amx-live${fresh && !looking ? '' : ' is-wait'}`}>
           {looking ? 'LOOKING BACK' : state.status === 'paused' ? 'PAUSED' : fresh ? 'LIVE' : state.status === 'sharing' ? 'CONNECTING…' : 'NOT SHARING'}
+        </span>
+        <span className="amx-view-btns" role="group" aria-label="How big">
+          <button type="button" className={`ghost${theatre ? ' is-on' : ''}`} aria-pressed={theatre} onClick={toggleTheatre} data-tip="Picture across the page, answers folded away">Theatre</button>
+          {theatre && (
+            <button type="button" className={`ghost${answersOver ? ' is-on' : ''}`} aria-pressed={answersOver} onClick={() => setAnswersOver(v => !v)}>Answers</button>
+          )}
+          <button type="button" className="ghost" onClick={toggleFull} data-tip="Fill the screen (F) · Esc to leave">⛶ Full screen</button>
         </span>
         <button type="button" className="ghost" onClick={onOpenAnswers}>All their answers</button>
       </header>
@@ -148,9 +225,21 @@ export function AmadeusWatchPane({
         ))}
       </nav>
       <div className="amx-watch-body">
-        <div className="amx-watch-screen">
+        <div className={`amx-watch-screen${isFull ? ' is-full' : ''}`} ref={screenRef}>
+          {isFull && (
+            <div className={`amx-fs-bar${barShown ? '' : ' is-hidden'}`}>
+              <b>{selected.full_name}</b>
+              <span className={`amx-live${fresh && !looking ? '' : ' is-wait'}`}>
+                {looking ? 'LOOKING BACK' : state.status === 'paused' ? 'PAUSED' : fresh ? 'LIVE' : state.status === 'sharing' ? 'CONNECTING…' : 'NOT SHARING'}
+              </span>
+              <button type="button" onClick={() => stepTo(stepPrev)} disabled={!stepPrev} aria-label="Previous person">‹</button>
+              {stepAt >= 0 && <span>{stepAt + 1} of {stepPeople.length}</span>}
+              <button type="button" onClick={() => stepTo(stepNext)} disabled={!stepNext} aria-label="Next person">›</button>
+              <span className="amx-fs-hint">Click to zoom · Esc to leave</span>
+            </div>
+          )}
           {looking ? (
-            <div className="amx-watch-img is-back">
+            <div className={`amx-watch-img is-back${zoom ? ' is-zoom' : ''}`} {...zoomProps}>
               <img src={shown.img} alt={`${selected.full_name}'s Amadeus at ${clockOf(shown.at)}`} />
             </div>
           ) : state.status === 'off' ? (
@@ -162,7 +251,7 @@ export function AmadeusWatchPane({
               <p className="muted">A card appears in their workbook. Only you see what they share.</p>
             </div>
           ) : img ? (
-            <div className={`amx-watch-img${state.status === 'paused' ? ' is-paused' : ''}`}>
+            <div className={`amx-watch-img${state.status === 'paused' ? ' is-paused' : ''}${zoom ? ' is-zoom' : ''}`} {...zoomProps}>
               <img src={img} alt={`${selected.full_name}'s Amadeus`} />
               {state.status === 'paused' && <span className="amx-thumb-flag">Paused</span>}
             </div>
@@ -195,7 +284,7 @@ export function AmadeusWatchPane({
             </div>
           )}
         </div>
-        <div className="amx-watch-side">
+        <div className={`amx-watch-side${theatre && answersOver ? ' is-over' : ''}`}>
           <h3>{section ? section.title : 'Their answers'}</h3>
           {!section && <p className="muted">Not in the workbook right now. “All their answers” shows everything.</p>}
           {sectionBlocks.map(b => (
