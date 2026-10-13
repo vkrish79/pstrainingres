@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useReviewPeopleMarks } from '../../hooks/useAnswerReview.js';
 import { isFillableBlock, isAnswered, labelOf, inputCellsOf, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
@@ -11,7 +12,8 @@ import PrepCallout from '../PrepCallout.jsx';
 import { itemsForExercise } from '../../lib/prepAttach.js';
 import CriteriaMarkList from './CriteriaMarkList.jsx';
 import QuestionScoreStrip from './QuestionScoreStrip.jsx';
-import MarkingSlideOver from './MarkingSlideOver.jsx';
+import MarkingScreen from './MarkingScreen.jsx';
+import { answerKeyText } from '../../lib/answerKeyText.js';
 import { questionTally } from '../../lib/questionTally.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
@@ -62,10 +64,28 @@ export default function ExerciseResponses({
   // passes none and its exercises keep their own titles.
   sectionHeadings = null,
   navLabel = 'Exercises',
+  // Assessment view: (participantId, sectionId) → [{ label, content }], their
+  // pre-work for that question, shown on the marking screen.
+  prepFor = null,
 }) {
   const headingOf = sec => sectionHeadings?.[sec.id] ?? sec.title;
   // Marking happens here only on an assessment; the workbook view has no modes.
   const marking = !!answerModes;
+
+  // The marking screen lives in the link — ?mark=<person>&mq=<question>, or
+  // ?mpart=<part> — so a refresh, or a link sent to a co-marker, opens the
+  // same place.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const markPid = marking ? searchParams.get('mark') : null;
+  const markPart = marking ? searchParams.get('mpart') : null;
+  const markQ = marking ? searchParams.get('mq') : null;
+  const setMarkParams = useCallback((patch) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      for (const [k, v] of Object.entries(patch)) { if (v == null) next.delete(k); else next.set(k, v); }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
   const [showMarks, setShowMarks] = useState(() => {
     try { return localStorage.getItem('session-answer-marks') === '1'; } catch { return false; }
   });
@@ -360,6 +380,15 @@ export default function ExerciseResponses({
               {marksLoading ? '✓ Checking…' : showMarks ? '✓ Hide right/wrong' : '✓ Show right/wrong'}
             </button>
           )}
+          {marking && fillableInSection.length > 0 && (
+            <button
+              className="ghost"
+              onClick={() => setMarkParams({ mpart: fillableInSection[0].id, mark: null, mq: null })}
+              data-tip="Mark one part for the whole class, answers side by side"
+            >
+              Mark by part
+            </button>
+          )}
           <button className="ghost" onClick={expandAll} disabled={defaultExpanded && toggleSet.size === 0}>Expand all</button>
           <button className="ghost" onClick={collapseAll} disabled={!defaultExpanded && toggleSet.size === 0}>Collapse all</button>
         </div>
@@ -379,7 +408,9 @@ export default function ExerciseResponses({
               prepItems={itemsForExercise(prepBy[s.participant.id]?.[selectedSection.id]?.content, standaloneBy[s.participant.id], prepLayout, selectedSection.id)}
               expanded={isExpanded(s.participant.id)}
               onToggle={() => toggleTile(s.participant.id)}
-              onFocus={() => setFocusId(s.participant.id)}
+              onFocus={() => (marking
+                ? setMarkParams({ mark: s.participant.id, mq: selectedSection.id, mpart: null })
+                : setFocusId(s.participant.id))}
               onSaveNote={onSaveNote}
               onDeleteNote={onDeleteNote}
               showNotes={showNotes}
@@ -400,54 +431,66 @@ export default function ExerciseResponses({
         </div>
       </div>
 
-      {focusId && marking && (() => {
-        const idx = sorted.findIndex(x => x.participant.id === focusId);
-        if (idx === -1) return null;   // filtered out from under us
-        const s = sorted[idx];
-        const pid = s.participant.id;
-        const marksForP = marks ? (marks[pid] || {}) : {};
-        // The whole paper for one person: every question, its own blocks.
-        const qs = sectionsWithFillable.map(sec => {
+      {marking && (markPid || markPart) && (() => {
+        // Everyone, by name — marking covers the class whatever the tile filter.
+        const people = [...participants]
+          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', undefined, { numeric: true }))
+          .map(p => ({ id: p.id, name: p.full_name || '(unnamed)' }));
+        const nameOf = id => people.find(p => p.id === id)?.name || '';
+        const questionsAll = sectionsWithFillable.map(sec => {
           const all = blocks.filter(b => b.section_id === sec.id).sort((a, b) => a.order_index - b.order_index);
-          return {
-            id: sec.id,
-            heading: headingOf(sec),
-            narration: all.filter(b => !isFillableBlock(b)),
-            fillable: all.filter(b => isFillableBlock(b)),
-            tally: questionTally(all, answerKey || {}, answers[pid] || {}, answerPoints, answerModes, marksForP, guidance),
-          };
+          return { id: sec.id, heading: headingOf(sec), all, narration: all.filter(b => !isFillableBlock(b)), fillable: all.filter(b => isFillableBlock(b)) };
         });
+        const firstPart = questionsAll[0]?.fillable[0]?.id || null;
+        const qid = markQ && questionsAll.some(x => x.id === markQ) ? markQ : (questionsAll[0]?.id || null);
+        const marksOf = pid => (marks ? (marks[pid] || {}) : {});
+        const tallyFor = (pid, sid) => {
+          const qq = questionsAll.find(x => x.id === sid);
+          return questionTally(qq ? qq.all : [], answerKey || {}, answers[pid] || {}, answerPoints, answerModes, marksOf(pid), guidance);
+        };
+        const partChip = (pid, blockId) => {
+          const b = blocks.find(x => x.id === blockId);
+          const t = b ? questionTally([b], answerKey || {}, answers[pid] || {}, answerPoints, answerModes, marksOf(pid), guidance) : null;
+          return t?.parts[0]?.chip || null;
+        };
         return (
-          <MarkingSlideOver
-            participant={s.participant}
-            position={`${idx + 1} of ${sorted.length}`}
-            onPrev={idx > 0 ? () => setFocusId(sorted[idx - 1].participant.id) : null}
-            onNext={idx < sorted.length - 1 ? () => setFocusId(sorted[idx + 1].participant.id) : null}
-            onClose={() => setFocusId(null)}
-            questions={qs}
-            initialQuestionId={selectedSection.id}
+          <MarkingScreen
+            mode={markPart ? 'part' : 'person'}
+            onMode={m => (m === 'part'
+              ? setMarkParams({ mpart: (questionsAll.find(x => x.id === qid)?.fillable[0]?.id) || firstPart, mark: null, mq: null })
+              : setMarkParams({ mark: people[0]?.id || null, mq: qid, mpart: null }))}
+            people={people}
+            personId={markPid}
+            onPerson={pid => setMarkParams({ mark: pid })}
+            questions={questionsAll}
+            qid={qid}
+            onQuestion={sid => setMarkParams({ mq: sid })}
+            partId={markPart}
+            onPart={bid => setMarkParams({ mpart: bid })}
+            tallyFor={tallyFor}
+            partChip={partChip}
             labelOf={id => questionNumbers?.[id] || ''}
-            renderAnswers={q => (
-              <ParticipantAnswers
-                participant={s.participant}
-                blocks={q.fillable}
-                answersForP={answers[pid] || {}}
-                notesForP={notes[pid] || {}}
-                sectionNote=""
-                prepItems={[]}
+            prepFor={(pid, sid) => (prepFor ? prepFor(pid, sid) : [])}
+            onClose={() => setMarkParams({ mark: null, mq: null, mpart: null })}
+            renderPart={(pid, b, { showName, prep } = {}) => (
+              <BlockAnswer
+                split
+                block={b}
+                entry={(answers[pid] || {})[b.id]}
+                participantId={pid}
                 showNotes={false}
                 answerKey={answerKey}
                 answerPoints={answerPoints}
-                questionNumbers={questionNumbers}
+                questionNumber={questionNumbers ? questionNumbers[b.id] : null}
                 answerModes={answerModes}
-                marksForP={marksForP}
+                markForBlock={marksOf(pid)[b.id] || null}
                 onMark={onMark}
                 onComment={onComment}
-                guidance={guidance}
+                guidanceForBlock={guidance ? guidance[b.id] : null}
                 onBreakdown={onBreakdown}
-                markingIds={markingIds}
-                questionHeading={q.heading}
-                showStrip={false}
+                marking={markingIds ? markingIds.has(`${pid}:${b.id}`) : false}
+                who={showName ? nameOf(pid) : null}
+                prepValues={(prep || (prepFor ? prepFor(pid, b.section_id) : [])).map(i => i.content)}
               />
             )}
           />
@@ -774,7 +817,10 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
   );
 }
 
-function BlockAnswer({ anchorId = null, block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, onBreakdown = null, guidanceForBlock = null, marking = false, reviewMarks = null }) {
+// split — the marking screen's layout: the answer on the left, its marking on
+// the right, with the correct answer (auto parts) and, on a part that asks for
+// a PNR, the PNR they were given. who — the participant's name, on a By part row.
+function BlockAnswer({ anchorId = null, block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, onBreakdown = null, guidanceForBlock = null, marking = false, reviewMarks = null, split = false, who = null, prepValues = null }) {
   // slot → { right, trainer } for this person and block, when the trainer has
   // right/wrong turned on.
   const review = reviewMarks && reviewMarks.size
@@ -802,6 +848,82 @@ function BlockAnswer({ anchorId = null, block, entry, note, participantId, onSav
     : key != null
       ? earnedFor(block, key, value, points)
       : null;
+
+  const chip = mark && (
+        <span className={`exresp-mark exresp-mark-${mark.state}`}>
+          {mark.state === 'correct' ? '✓ Correct'
+            : mark.state === 'partial' ? '◐ Partly right'
+              : mark.state === 'wrong' ? '✗ Incorrect'
+                : mark.state === 'unmarked' ? '✋ Not marked yet' : '— Blank'}
+          {mark.state !== 'unmarked' && (
+            <span className="exresp-mark-score">
+              {Math.round(mark.earned * 10) / 10}/{mark.possible}
+            </span>
+          )}
+        </span>
+  );
+
+  if (split) {
+    // What right looks like: the key on an auto part.
+    const expected = !manual && key != null ? answerKeyText(block, key) : '';
+    // A part that asks for a PNR, against the PNR they were given.
+    const typed = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    const given = (prepValues || []).map(v => String(v).trim()).filter(Boolean);
+    const asksPnr = /\bpnr\b/i.test(baseLabel || '');
+    const pnrCheck = asksPnr && typed && given.length
+      ? (given.some(v => typed.includes(v.toUpperCase()))
+        ? { ok: true, text: `Matches the PNR they were given (${given.join(', ')})` }
+        : { ok: false, text: `They were given ${given.join(', ')}` })
+      : null;
+    return (
+      <div id={anchorId || undefined} className={`exresp-block is-split${who ? ' has-who' : ''} ${mark ? `exresp-block-${mark.state}` : ''}`}>
+        <div className="exresp-split-ans">
+          {who && <div className="exresp-split-who">{who}</div>}
+          {block.block_type === 'field' && <FieldRender label={label} value={value} review={null} />}
+          {block.block_type === 'table' && <TableRender block={block} label={label} value={value} review={null} />}
+          {isInteractiveBlock(block) && (
+            <div className={`exresp-answer ${isAnswered(block, value) ? '' : 'is-blank'}`}>
+              <div className="exresp-answer-label">{label}</div>
+              {isAnswered(block, value)
+                ? <Block block={block} value={value} onChange={() => {}} readOnly />
+                : <div className="exresp-answer-value">—</div>}
+            </div>
+          )}
+          {expected && <div className="exresp-expected">Correct answer: <b>{expected}</b></div>}
+          {pnrCheck && <div className={`exresp-pnrcheck ${pnrCheck.ok ? 'is-ok' : 'is-off'}`}>{pnrCheck.ok ? '✓ ' : '⚠ '}{pnrCheck.text}</div>}
+        </div>
+        <div className="exresp-split-mark">
+          {chip}
+          {manual && onMark && (
+            hasCriteria && onBreakdown ? (
+              <div className={`exresp-manual ${mark?.state !== 'unmarked' ? 'is-marked' : ''}`}>
+                <CriteriaMarkList
+                  guidance={criteria}
+                  breakdown={markForBlock?.breakdown || null}
+                  busy={marking}
+                  onChange={b => onBreakdown(participantId, block.id, b, criteria)}
+                  onCommentChange={b => onBreakdown(participantId, block.id, b, criteria)}
+                />
+                {markForBlock?.marked_by_name && <span className="exresp-mark-by">by {markForBlock.marked_by_name}</span>}
+              </div>
+            ) : (
+              <ManualMarkControls
+                points={points}
+                awarded={markForBlock?.awarded}
+                comment={markForBlock?.comment || ''}
+                markedBy={markForBlock?.marked_by_name}
+                busy={marking}
+                onAward={n => onMark(participantId, block.id, n)}
+                onClear={() => onMark(participantId, block.id, null)}
+                onComment={onComment ? text => onComment(participantId, block.id, text) : null}
+              />
+            )
+          )}
+          {!manual && !mark && <span className="muted exresp-split-none">Not marked: no correct answer set in the Scorecard.</span>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id={anchorId || undefined} className={`exresp-block ${mark ? `exresp-block-${mark.state}` : ''}`}>

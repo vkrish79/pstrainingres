@@ -2,6 +2,7 @@ import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentR
 import { SkeletonTable } from '../Skeleton.jsx';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
 import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
+import { useSessionAssessmentPrep } from '../../hooks/useSessionAssessmentPrep.js';
 import { resolveMarking } from '../../lib/markingCriteria.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
@@ -27,6 +28,8 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
   // a session that hasn't started is marked against the PROGRAM's criteria,
   // which a vendor trainer has no policy to read directly.
   const { guidance, points: criteriaPoints, error: criteriaError } = useSessionCriteria(sessionId);
+  // Each participant's pre-work by question, for the marking screen.
+  const { prepFor } = useSessionAssessmentPrep(sessionId, assessmentId);
 
   if (!assessmentId) {
     return <div className="muted" style={{ padding: '1rem' }}>This session has no attached assessment.</div>;
@@ -110,6 +113,7 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
         questionNumbers={labelByBlockId}
         sectionHeadings={sectionHeadings}
         navLabel="Questions"
+        prepFor={prepFor}
       />
     </>
   );

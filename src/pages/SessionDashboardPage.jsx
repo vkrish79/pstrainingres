@@ -81,7 +81,15 @@ export default function SessionDashboardPage() {
   const [helpError, setHelpError] = useState('');
 
 
-  const [view, setView] = useState('participants'); // 'participants' | 'exercise' | 'practice' | 'assessment' | 'quiz' | 'poll'
+  // A marking link (?mark= / ?mpart=, see ExerciseResponses) opens straight
+  // onto the Assessment tab, where the marking screen lives.
+  const [view, setView] = useState(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.has('mark') || sp.has('mpart')) return 'assessment';
+    } catch { /* no window */ }
+    return 'participants';
+  }); // 'participants' | 'exercise' | 'practice' | 'assessment' | 'quiz' | 'poll'
   const [assessmentSubView, setAssessmentSubView] = useState('responses'); // 'responses' | 'preview'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -162,7 +170,7 @@ export default function SessionDashboardPage() {
       const typing = t && (t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'
         || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|color|file)$/i.test(t.type)));
       if (typing) return;
-      if (document.querySelector('.modal-backdrop.visible, .materials-drawer.open, .kebab-menu, .idle-signout, .prep-editor.open, .amx-wall-full, .mso')) return;
+      if (document.querySelector('.modal-backdrop.visible, .materials-drawer.open, .kebab-menu, .idle-signout, .prep-editor.open, .amx-wall-full, .mk-screen')) return;
       if (k.reading && e.key === 'ArrowRight' && k.next) { e.preventDefault(); k.step(k.next); return; }
       if (k.reading && e.key === 'ArrowLeft' && k.prev) { e.preventDefault(); k.step(k.prev); return; }
       if (k.reading && e.key === 'Escape') { e.preventDefault(); k.back(); return; }

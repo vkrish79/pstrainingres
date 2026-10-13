@@ -3700,51 +3700,104 @@
 .qss-chip.is-auto { box-shadow: inset 0 -2px 0 var(--midnight); }
 .qss-chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 
-/* The slide-over: fixed on the right, same entrance as the library panels. */
-.mso-backdrop { position: fixed; inset: 0; background: rgba(15, 22, 38, 0.28); z-index: 80; }
-.mso {
-  position: fixed; top: 0; right: 0; bottom: 0;
-  width: min(720px, 100vw);
-  background: var(--card, #fff);
-  box-shadow: -12px 0 32px rgba(15, 22, 38, 0.16);
-  z-index: 81;
-  display: grid; grid-template-rows: auto auto 1fr auto;
-  animation: mso-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+
+
+/* ===== The marking screen (MarkingScreen.jsx) =====
+   Full screen over the app, its own header. Light buttons restate their hover
+   background: index.css paints every button midnight on hover. */
+.mk-screen {
+  position: fixed; inset: 0; z-index: 90; background: var(--bg, #f8f7f4);
+  display: grid; grid-template-rows: auto 1fr;
 }
-@keyframes mso-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
-@media (prefers-reduced-motion: reduce) { .mso { animation: none; } }
-.mso-head { padding: 0.8rem 1rem 0.6rem; border-bottom: 1px solid var(--border); display: grid; gap: 0.35rem; }
-.mso-head-row { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
-.mso-head h2 { margin: 0; font-size: 1.05rem; color: var(--midnight); }
-.mso-pos { font-size: 0.78rem; }
-.mso-head .ghost.btn-sm, .mso-head .icon-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 28px; min-width: 32px; padding: 0 0.5rem; border-radius: 6px; line-height: 1;
+.mk-head {
+  display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;
+  padding: 0.6rem 1.1rem; background: var(--card); border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(15, 22, 38, 0.05);
 }
-.mso-x { font-size: 1.25rem; border: 1px solid transparent; }
-.mso-total { margin-left: auto; font-size: 0.82rem; color: var(--muted); }
-.mso-total b { font-size: 1.2rem; color: var(--midnight); }
-.mso-bar { height: 5px; border-radius: 3px; background: #eceae4; overflow: hidden; }
-.mso-bar > i { display: block; height: 100%; background: var(--gold); transition: width 0.3s; }
-.mso-bar.is-done > i { background: #6dbf85; }
-.mso-sub { font-size: 0.75rem; }
-.mso-tabs { display: flex; overflow-x: auto; border-bottom: 1px solid var(--border); }
-.mso-tab {
-  flex: 1 0 auto; display: grid; justify-items: center; gap: 0.05rem;
-  padding: 0.45rem 0.7rem; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
-  background: transparent; color: var(--muted); font: inherit; font-size: 0.72rem; cursor: pointer;
+.mk-back { border: 0; background: none; color: var(--muted); font: inherit; font-size: 0.82rem; cursor: pointer; padding: 0.2rem 0.3rem; }
+.mk-back:hover { background: none; color: var(--midnight); }
+.mk-mode { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.mk-mode button { border: 0; border-radius: 0; background: var(--card); color: var(--muted); font: inherit; font-size: 0.8rem; font-weight: 700; padding: 0.3rem 0.8rem; cursor: pointer; }
+.mk-mode button:hover { background: var(--bg); color: var(--midnight); }
+.mk-mode button.active, .mk-mode button.active:hover { background: var(--midnight); color: #fff; }
+.mk-who { display: inline-flex; align-items: center; gap: 0.45rem; margin-left: 0.4rem; }
+.mk-who select { min-width: 10rem; font-weight: 700; color: var(--midnight); }
+.mk-who b { color: var(--midnight); font-size: 1rem; }
+.mk-pos { font-size: 0.76rem; color: var(--muted); white-space: nowrap; }
+.mk-head .ghost.btn-sm { height: 30px; min-width: 32px; padding: 0 0.5rem; }
+.mk-next { background: var(--midnight); color: #fff; border: 1px solid var(--midnight); border-radius: 7px; font: inherit; font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.85rem; cursor: pointer; }
+.mk-next:hover:not(:disabled) { background: #16304a; color: #fff; }
+.mk-next:disabled { opacity: 0.5; cursor: default; }
+.mk-total { margin-left: auto; display: grid; text-align: right; }
+.mk-total b { font-size: 1.35rem; line-height: 1.1; color: var(--midnight); }
+.mk-total span { font-size: 0.74rem; color: var(--muted); }
+
+.mk-cols { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; }
+.mk-rail { background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; padding: 0.6rem 0; }
+.mk-rail-h { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0.2rem 0.95rem 0.5rem; }
+.mk-rq, .mk-rp {
+  width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 0.05rem 0.5rem; text-align: left;
+  padding: 0.5rem 0.95rem; border: 0; border-left: 3px solid transparent; border-radius: 0;
+  background: transparent; color: var(--text); font: inherit; cursor: pointer;
 }
-.mso-tab:hover { background: #f6f3ec; color: var(--muted); }
-.mso-tab.active, .mso-tab.active:hover { border-bottom-color: var(--gold); background: #faf4e6; }
-.mso-tab b { font-size: 0.86rem; color: var(--midnight); }
-.mso-tab-q { font-weight: 700; }
-.mso-tab-done { color: #2a7a3d; }
-.mso-tab-left { color: #8a5a00; }
-.mso-body { overflow-y: auto; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.8rem; }
-.mso-scenario { border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.8rem; background: #fafaf8; }
-.mso-scenario summary { cursor: pointer; font-weight: 700; color: var(--midnight); font-size: 0.85rem; }
-.mso-scenario-body { margin-top: 0.5rem; font-size: 0.9rem; }
-.mso-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
-  padding: 0.6rem 1rem; border-top: 1px solid var(--border); font-size: 0.8rem;
+.mk-rq:hover, .mk-rp:hover { background: #eef3f8; color: var(--text); }
+.mk-rq.on, .mk-rp.on, .mk-rq.on:hover, .mk-rp.on:hover { background: #eef3f8; border-left-color: var(--midnight); }
+.mk-rq b { color: var(--midnight); font-size: 0.86rem; }
+.mk-rq-s { font-weight: 800; color: var(--midnight); font-size: 0.84rem; }
+.mk-rq small, .mk-rp small { font-size: 0.72rem; }
+.mk-rq small { grid-column: 1 / -1; }
+.mk-rail small.is-left { color: #a65c00; font-weight: 700; }
+.mk-rail small.is-done { color: #2a7a3d; font-weight: 700; }
+.mk-rail-foot { display: flex; justify-content: space-between; margin: 0.5rem 0.95rem 0; padding-top: 0.5rem; border-top: 1px solid var(--border); font-weight: 800; color: var(--midnight); font-size: 0.84rem; }
+.mk-rgroup { display: grid; padding-bottom: 0.3rem; }
+.mk-rgroup-h { font-size: 0.78rem; font-weight: 700; color: var(--midnight); padding: 0.45rem 0.95rem 0.15rem; }
+.mk-rp { padding: 0.3rem 0.95rem 0.3rem 1.4rem; font-size: 0.82rem; }
+
+.mk-body { overflow-y: auto; padding: 1rem 1.3rem 2.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.mk-qtop { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.mk-qtop h3 { margin: 0; font-size: 1.1rem; color: var(--midnight); }
+.mk-qtop .muted { font-size: 0.8rem; }
+.mk-qsum { margin-left: auto; font-weight: 800; color: var(--midnight); font-size: 1.05rem; }
+.mk-qsum small { font-weight: 600; color: var(--muted); font-size: 0.78rem; }
+.mk-scen { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.85rem; }
+.mk-scen summary { cursor: pointer; font-weight: 700; color: var(--midnight); font-size: 0.85rem; }
+.mk-scen-body { margin-top: 0.5rem; font-size: 0.9rem; }
+.mk-prep {
+  display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap;
+  background: #f4ecf7; border-left: 3px solid #8a5fb8; border-radius: 0 6px 6px 0; padding: 0.45rem 0.8rem;
 }
+.mk-prep-h { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8a5fb8; }
+.mk-prep-v { font-weight: 800; letter-spacing: 0.03em; color: #2a2f36; }
+.mk-prep-v small { font-weight: 600; color: #6b4a92; margin-right: 0.3rem; letter-spacing: 0; }
+.mk-row { scroll-margin-top: 1rem; }
+
+/* One part: the answer on the left, its marking on the right. */
+.exresp-block.is-split {
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 0;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0; overflow: hidden;
+}
+.exresp-block.is-split.exresp-block-unmarked { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.exresp-split-ans { padding: 0.8rem 0.95rem; border-right: 1px solid var(--border); display: grid; gap: 0.45rem; align-content: start; min-width: 0; }
+.exresp-split-mark { padding: 0.8rem 0.95rem; display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
+.exresp-split-who { font-weight: 800; color: var(--midnight); font-size: 0.95rem; }
+.exresp-split-ans .exresp-answer-value { font-size: 0.98rem; font-weight: 700; }
+.exresp-split-none { font-size: 0.8rem; }
+.exresp-expected { font-size: 0.8rem; color: var(--muted); }
+.exresp-expected b { color: #2a7a3d; }
+.exresp-pnrcheck { font-size: 0.8rem; padding: 0.3rem 0.55rem; border-radius: 6px; }
+.exresp-pnrcheck.is-ok { background: #e8f5ec; color: #2a7a3d; }
+.exresp-pnrcheck.is-off { background: #fff4e0; color: #8a5a00; }
+/* Criteria on the marking screen: the "how to mark" note in full, readable. */
+.exresp-split-mark .cm-note { display: block; font-size: 0.8rem; color: var(--text); white-space: normal; margin-top: 0.1rem; line-height: 1.4; }
+.exresp-split-mark .cm-name { font-size: 0.86rem; }
+
+@media (max-width: 900px) {
+  .mk-cols { grid-template-columns: minmax(0, 1fr); }
+  .mk-rail { display: none; }
+  .exresp-block.is-split { grid-template-columns: minmax(0, 1fr); }
+  .exresp-split-ans { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+
+/* By part: the question is stated once above the rows. */
+.mk-partq { margin: 0; font-weight: 600; color: var(--midnight); font-size: 0.95rem; max-width: none; }
+.exresp-block.is-split.has-who .exresp-answer-label { display: none; }
