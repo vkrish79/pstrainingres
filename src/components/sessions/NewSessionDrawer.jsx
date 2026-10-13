@@ -66,7 +66,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   // `open &&` matters because this drawer is kept mounted behind the session
   // page: without it, a mounted-but-closed re-sit drawer would query on every
   // session page load for a form nobody has asked for.
-  const { candidates, passMark, loading: candidatesLoading } = useResitCandidates(
+  const { candidates, passMark, possible: candidatesPossible, loading: candidatesLoading } = useResitCandidates(
     open && isResit ? ofSessionId : null,
   );
 
@@ -298,6 +298,9 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
           ofSessionId,
           name: name.trim() || `Re-sit — ${src?.name ?? ''}`.trim(),
           startsAt, endsAt, people,
+          // What the paper was out of, so each person's first attempt is saved
+          // with the same score the list (and the Report) shows.
+          possible: candidatesPossible,
         }),
       );
       setBusy(false);

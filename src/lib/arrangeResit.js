@@ -16,7 +16,10 @@ import { supabase } from './supabase.js';
 // than hidden: a trainer who sees "the session exists, these two people are not
 // in it" can finish by hand, where a silent rollback attempt could delete a
 // session somebody had already started using.
-export async function arrangeResit({ ofSessionId, name, startsAt, endsAt, people, swaps = null }) {
+// people[] carry the Report's score (useResitCandidates): earned + unmarked,
+// and `possible` is what the paper is out of. They are saved as each person's
+// first attempt. Without them the database falls back to its old hand-marks sum.
+export async function arrangeResit({ ofSessionId, name, startsAt, endsAt, people, swaps = null, possible = null }) {
   // 1 ── the session and its paper
   const { data: newSessionId, error: rpcErr } = await supabase.rpc('create_resit_session', {
     p_of_session_id: ofSessionId,
@@ -73,10 +76,13 @@ export async function arrangeResit({ ofSessionId, name, startsAt, endsAt, people
   for (const p of people) {
     const newId = byUsername.get(String(p.username).toLowerCase());
     if (!newId) { failures.push({ name: p.name, why: 'no account was created for them' }); continue; }
+    const scored = Number.isFinite(possible) && possible > 0
+      && Number.isFinite(p.earned) && Number.isInteger(p.unmarked);
     const { error: linkErr } = await supabase.rpc('link_resit_participant', {
       p_resit_session_id: newSessionId,
       p_resit_participant_id: newId,
       p_prior_participant_id: p.id,
+      ...(scored ? { p_earned: p.earned, p_possible: possible, p_unmarked: p.unmarked } : {}),
     });
     if (linkErr) failures.push({ name: p.name, why: linkErr.message });
     else enrolled.push(p.name);
