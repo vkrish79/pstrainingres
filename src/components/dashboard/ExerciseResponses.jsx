@@ -10,6 +10,9 @@ import NoteRow from './NoteRow.jsx';
 import PrepCallout from '../PrepCallout.jsx';
 import { itemsForExercise } from '../../lib/prepAttach.js';
 import CriteriaMarkList from './CriteriaMarkList.jsx';
+import QuestionScoreStrip from './QuestionScoreStrip.jsx';
+import MarkingSlideOver from './MarkingSlideOver.jsx';
+import { questionTally } from '../../lib/questionTally.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 // Layout: sidebar nav (one row per exercise, with cohort progress) → tile grid
@@ -53,7 +56,16 @@ export default function ExerciseResponses({
   // Set when the heat board sends a trainer here from a cell or a heading.
   initialSectionId = null,
   initialParticipantId = null,
+  // Assessment view only. { [sectionId]: heading } is the paper's own numbering
+  // (buildQuestions): a question added from the bank keeps the title it had
+  // there, so the stored "Question 4" can be the first question. The workbook
+  // passes none and its exercises keep their own titles.
+  sectionHeadings = null,
+  navLabel = 'Exercises',
 }) {
+  const headingOf = sec => sectionHeadings?.[sec.id] ?? sec.title;
+  // Marking happens here only on an assessment; the workbook view has no modes.
+  const marking = !!answerModes;
   const [showMarks, setShowMarks] = useState(() => {
     try { return localStorage.getItem('session-answer-marks') === '1'; } catch { return false; }
   });
@@ -80,6 +92,27 @@ export default function ExerciseResponses({
         return { ...sec, _stats: { pct, answered, totalSlots, participantsDone, blocksCount: sBlocks.length } };
       });
   }, [sections, blocks, participants, answers]);
+
+  // What each question is worth and how many people it is fully marked for.
+  const markingBySection = useMemo(() => {
+    if (!marking) return null;
+    const out = {};
+    for (const sec of sectionsWithFillable) {
+      const sBlocks = blocks.filter(b => b.section_id === sec.id);
+      let worth = 0;
+      let done = 0;
+      participants.forEach((p, i) => {
+        const t = questionTally(sBlocks, answerKey || {}, answers[p.id] || {}, answerPoints, answerModes, marks?.[p.id] || {}, guidance);
+        if (i === 0) worth = t.possible;
+        if (t.parts.length && t.complete) done += 1;
+      });
+      out[sec.id] = { worth, done };
+    }
+    return out;
+  }, [marking, sectionsWithFillable, blocks, participants, answers, answerKey, answerPoints, answerModes, marks, guidance]);
+  const paperWorth = markingBySection
+    ? Math.round(Object.values(markingBySection).reduce((s, m) => s + m.worth, 0) * 10) / 10
+    : 0;
 
   const [selectedId, setSelectedId] = useState(
     (initialSectionId && sectionsWithFillable.some(s => s.id === initialSectionId) ? initialSectionId : null)
@@ -230,18 +263,22 @@ export default function ExerciseResponses({
       <div className="exresp-mobile-nav">
         <select className="form-input" value={selectedSection.id} onChange={e => setSelectedId(e.target.value)}>
           {sectionsWithFillable.map(sec => (
-            <option key={sec.id} value={sec.id}>{sec.title} — {sec._stats.pct}%</option>
+            <option key={sec.id} value={sec.id}>{headingOf(sec)} — {sec._stats.pct}%</option>
           ))}
         </select>
       </div>
 
       <aside className="exresp-sidebar">
-        <div className="exresp-sidebar-head">Exercises</div>
+        <div className="exresp-sidebar-head">{navLabel}{marking && paperWorth > 0 ? ` · ${paperWorth} marks` : ''}</div>
         <ul className="exresp-sidebar-list">
           {sectionsWithFillable.map(sec => {
             const isActive = sec.id === selectedSection.id;
             const { pct, participantsDone } = sec._stats;
-            const barClass = pct === 0 ? 'none' : pct === 100 ? 'full' : 'partial';
+            // On an assessment the bar is MARKING progress — how many people
+            // this question is finished for — and the figure is its worth.
+            const m = markingBySection?.[sec.id];
+            const barPct = m ? (participants.length ? Math.round((m.done / participants.length) * 100) : 0) : pct;
+            const barClass = barPct === 0 ? 'none' : barPct === 100 ? 'full' : 'partial';
             const here = liveBySection[sec.id] || [];
             return (
               <li key={sec.id}>
@@ -250,13 +287,17 @@ export default function ExerciseResponses({
                   onClick={() => setSelectedId(sec.id)}
                 >
                   <div className="exresp-sidebar-row">
-                    <span className="exresp-sidebar-title">{sec.title}</span>
-                    <span className="exresp-sidebar-pct">{pct}%</span>
+                    <span className="exresp-sidebar-title">{headingOf(sec)}</span>
+                    <span className="exresp-sidebar-pct">{m ? `${m.worth} marks` : `${pct}%`}</span>
                   </div>
-                  <div className={`exresp-sidebar-bar ${barClass}`}>
-                    <div className="exresp-sidebar-bar-fill" style={{ width: `${pct}%` }} />
+                  <div className={`exresp-sidebar-bar ${barClass}${m ? ' is-marking' : ''}`}>
+                    <div className="exresp-sidebar-bar-fill" style={{ width: `${barPct}%` }} />
                   </div>
-                  <div className="exresp-sidebar-meta">{participantsDone}/{participants.length} done</div>
+                  <div className="exresp-sidebar-meta">
+                    {m
+                      ? <>{m.done} of {participants.length} marked<span className="exresp-sidebar-meta-r">{pct}% answered</span></>
+                      : <>{participantsDone}/{participants.length} done</>}
+                  </div>
                 </button>
                 {/* Sibling of the select button (not nested) so it can be its
                     own focusable, clickable control — invalid as a button-in-a-
@@ -283,7 +324,7 @@ export default function ExerciseResponses({
       </aside>
 
       <div className="exresp-main">
-        <h3 className="exresp-main-title">{selectedSection.title}</h3>
+        <h3 className="exresp-main-title">{headingOf(selectedSection)}</h3>
 
         <div className="exresp-toolbar">
           <input
@@ -353,12 +394,67 @@ export default function ExerciseResponses({
               guidance={guidance}
               onBreakdown={onBreakdown}
               markingIds={markingIds}
+              questionHeading={marking ? headingOf(selectedSection) : null}
             />
           ))}
         </div>
       </div>
 
-      {focusId && (() => {
+      {focusId && marking && (() => {
+        const idx = sorted.findIndex(x => x.participant.id === focusId);
+        if (idx === -1) return null;   // filtered out from under us
+        const s = sorted[idx];
+        const pid = s.participant.id;
+        const marksForP = marks ? (marks[pid] || {}) : {};
+        // The whole paper for one person: every question, its own blocks.
+        const qs = sectionsWithFillable.map(sec => {
+          const all = blocks.filter(b => b.section_id === sec.id).sort((a, b) => a.order_index - b.order_index);
+          return {
+            id: sec.id,
+            heading: headingOf(sec),
+            narration: all.filter(b => !isFillableBlock(b)),
+            fillable: all.filter(b => isFillableBlock(b)),
+            tally: questionTally(all, answerKey || {}, answers[pid] || {}, answerPoints, answerModes, marksForP, guidance),
+          };
+        });
+        return (
+          <MarkingSlideOver
+            participant={s.participant}
+            position={`${idx + 1} of ${sorted.length}`}
+            onPrev={idx > 0 ? () => setFocusId(sorted[idx - 1].participant.id) : null}
+            onNext={idx < sorted.length - 1 ? () => setFocusId(sorted[idx + 1].participant.id) : null}
+            onClose={() => setFocusId(null)}
+            questions={qs}
+            initialQuestionId={selectedSection.id}
+            labelOf={id => questionNumbers?.[id] || ''}
+            renderAnswers={q => (
+              <ParticipantAnswers
+                participant={s.participant}
+                blocks={q.fillable}
+                answersForP={answers[pid] || {}}
+                notesForP={notes[pid] || {}}
+                sectionNote=""
+                prepItems={[]}
+                showNotes={false}
+                answerKey={answerKey}
+                answerPoints={answerPoints}
+                questionNumbers={questionNumbers}
+                answerModes={answerModes}
+                marksForP={marksForP}
+                onMark={onMark}
+                onComment={onComment}
+                guidance={guidance}
+                onBreakdown={onBreakdown}
+                markingIds={markingIds}
+                questionHeading={q.heading}
+                showStrip={false}
+              />
+            )}
+          />
+        );
+      })()}
+
+      {focusId && !marking && (() => {
         const idx = sorted.findIndex(x => x.participant.id === focusId);
         if (idx === -1) return null;   // filtered out from under us
         const s = sorted[idx];
@@ -510,7 +606,7 @@ function ParticipantFocus({
   );
 }
 
-function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepItems, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, guidance = null, onBreakdown = null, hands = null, reviewMarks = null }) {
+function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, prepItems, expanded, onToggle, onFocus = null, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumbers = null, answerModes = null, marksForP = null, onMark = null, onComment = null, markingIds = null, guidance = null, onBreakdown = null, hands = null, reviewMarks = null, questionHeading = null }) {
   const { participant, answered, total, lastTs, flaggedCount, noteCount } = stat;
   // Their raised hand, if any. Only the assessment view passes these — on the
   // workbook the hands already show on the Room tiles.
@@ -525,6 +621,12 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
     ? scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP, guidance)
     : null;
   const scoreClass = score == null ? '' : score.pct === 100 ? 'full' : score.pct === 0 ? 'none' : 'partial';
+  // While marking, the pill shows the same running figure as the question's
+  // score strip — criteria judged so far included — and says "so far" until
+  // every part has a mark. Otherwise the two would disagree on one screen.
+  const tally = answerModes
+    ? questionTally(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP, guidance)
+    : null;
 
   return (
     <div id={`exresp-tile-${participant.id}`} className={`exresp-tile ${expanded ? 'expanded' : 'collapsed'} ${flaggedCount > 0 ? 'has-flag' : ''} ${hand ? 'has-hand' : ''}`}>
@@ -546,7 +648,17 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
         </div>
         <div className="exresp-tile-head-right">
           <span className="exresp-tile-meta">{lastLabel}</span>
-          {score && score.possible > 0 && (
+          {tally && tally.possible > 0 && (
+            <span
+              className={`exresp-score-pill ${tally.complete ? (tally.soFar >= tally.possible ? 'full' : tally.soFar === 0 ? 'none' : 'partial') : 'is-interim'}`}
+              title={tally.complete
+                ? `${tally.soFar} of ${tally.possible} marks`
+                : `${tally.soFar} of ${tally.possible} marks so far — ${tally.left} part${tally.left === 1 ? '' : 's'} still to mark, so this is not the final score`}
+            >
+              {tally.soFar}/{tally.possible} marks{tally.complete ? ` · ${Math.round((tally.soFar / tally.possible) * 100)}%` : ' so far'}
+            </span>
+          )}
+          {!tally && score && score.possible > 0 && (
             <span
               className={`exresp-score-pill ${scoreClass}`}
               title={score.unmarked
@@ -559,9 +671,9 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
           {/* A percentage with marking outstanding is an interim figure. Say so
               on the tile rather than only in a tooltip — otherwise a half-marked
               paper reads as a finished, poor one. */}
-          {score && score.unmarked > 0 && (
-            <span className="exresp-unmarked-pill" title="Questions marked by hand that nobody has judged yet">
-              ✋ {score.unmarked} to mark
+          {(tally ? tally.left : score?.unmarked) > 0 && (
+            <span className="exresp-unmarked-pill" title="Parts marked by hand that are not finished yet">
+              ✋ {tally ? tally.left : score.unmarked} to mark
             </span>
           )}
           <span className={`exresp-progress-pill ${progressClass}`}>{answered} / {total} ({pct}%)</span>
@@ -601,6 +713,7 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
             guidance={guidance}
             onBreakdown={onBreakdown}
             markingIds={markingIds}
+            questionHeading={questionHeading}
           />
         </div>
       )}
@@ -611,9 +724,20 @@ function ParticipantTile({ stat, blocks, answersForP, notesForP, sectionNote, pr
 // One participant's answers for the selected exercise. Rendered inside the
 // tile, and again in the expanded view — same component, so a mark awarded in
 // either place is the same control with the same rules.
-function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepItems, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, reviewMarks = null }) {
+function ParticipantAnswers({ participant, blocks, answersForP, notesForP, sectionNote, prepItems, onSaveNote, onDeleteNote, showNotes, answerKey, answerPoints, questionNumbers, answerModes, marksForP, onMark, onComment, markingIds, guidance = null, onBreakdown = null, reviewMarks = null, questionHeading = null, showStrip = true }) {
+  const tally = answerModes && showStrip
+    ? questionTally(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marksForP, guidance)
+    : null;
   return (
     <>
+          {tally && tally.parts.length > 0 && (
+            <QuestionScoreStrip
+              heading={questionHeading}
+              tally={tally}
+              labelOf={id => questionNumbers?.[id] || ''}
+              anchorOf={id => `exresp-b-${participant.id}-${id}`}
+            />
+          )}
           <PrepCallout heading="Prep" items={prepItems} />
           {sectionNote && (
             <div className="participant-note-readonly">
@@ -624,6 +748,7 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
           {blocks.map(b => (
             <BlockAnswer
               key={b.id}
+              anchorId={`exresp-b-${participant.id}-${b.id}`}
               block={b}
               entry={answersForP[b.id]}
               note={notesForP[b.id]}
@@ -649,7 +774,7 @@ function ParticipantAnswers({ participant, blocks, answersForP, notesForP, secti
   );
 }
 
-function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, onBreakdown = null, guidanceForBlock = null, marking = false, reviewMarks = null }) {
+function BlockAnswer({ anchorId = null, block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, onBreakdown = null, guidanceForBlock = null, marking = false, reviewMarks = null }) {
   // slot → { right, trainer } for this person and block, when the trainer has
   // right/wrong turned on.
   const review = reviewMarks && reviewMarks.size
@@ -679,7 +804,7 @@ function BlockAnswer({ block, entry, note, participantId, onSaveNote, onDeleteNo
       : null;
 
   return (
-    <div className={`exresp-block ${mark ? `exresp-block-${mark.state}` : ''}`}>
+    <div id={anchorId || undefined} className={`exresp-block ${mark ? `exresp-block-${mark.state}` : ''}`}>
       {mark && (
         <span className={`exresp-mark exresp-mark-${mark.state}`}>
           {mark.state === 'correct' ? '✓ Correct'

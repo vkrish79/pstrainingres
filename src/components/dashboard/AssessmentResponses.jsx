@@ -41,7 +41,11 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
   // Question labels — "3", or "3(b)" for a part of a multi-part question. Read
   // from the same builder the editor and the participant's paper use, so
   // "question 3(b)" means one thing on all three screens.
-  const { labelByBlockId } = buildQuestions(sections, liveBlocks);
+  const { labelByBlockId, questions } = buildQuestions(sections, liveBlocks);
+  // The paper's own question headings, by position. The stored section title is
+  // whatever it was called where it came from — a question added from the bank
+  // keeps "Question 4" even when it is the first — so it is never shown here.
+  const sectionHeadings = Object.fromEntries(questions.map(q => [q.section.id, q.heading]));
 
   // null clears the mark (back to "not marked yet", which is not the same as
   // awarding zero); a number awards it.
@@ -104,6 +108,8 @@ export default function AssessmentResponses({ sessionId, assessmentId, participa
         showNotes={false}
         emptyLabel="No questions in this assessment yet."
         questionNumbers={labelByBlockId}
+        sectionHeadings={sectionHeadings}
+        navLabel="Questions"
       />
     </>
   );
