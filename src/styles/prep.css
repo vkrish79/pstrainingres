@@ -489,3 +489,16 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
   .prep-panel .prep-tile.prep-tile-flash { animation: none; box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.55); }
 }
 
+
+/* Assessment: a question's row in the drawer goes to that question, and the
+   one on screen is marked. The workbook's rows are plain headings. */
+.prep-modal-go {
+  all: unset; box-sizing: border-box; width: 100%; cursor: pointer;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  font: inherit; color: inherit;
+}
+.prep-modal-go:hover { background: transparent; color: #5f3f85; }
+.prep-modal-go:focus-visible { outline: 2px solid #8a5fb8; outline-offset: 2px; border-radius: 4px; }
+.prep-modal-go-hint { font-size: 0.7rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.prep-modal-item.is-current { border-color: #8a5fb8; background: #f4ecf7; }
+.prep-modal-item.is-current .prep-modal-go-hint { color: #8a5fb8; }

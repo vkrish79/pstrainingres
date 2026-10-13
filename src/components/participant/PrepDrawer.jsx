@@ -22,7 +22,10 @@ const EMPTY_EXPECTED = { sectionIds: new Set(), labels: [], attached: {}, ownLab
 // mid-animation.
 const SLIDE_MS = 300;
 
-export default function PrepDrawer({ open, onClose, sections, prep, standalone = [], expected = EMPTY_EXPECTED, className = '' }) {
+// onGo / currentId (optional, the assessment): each question's row becomes a
+// button that goes to that question, and the one on screen is highlighted. The
+// workbook passes neither and its rows stay plain.
+export default function PrepDrawer({ open, onClose, sections, prep, standalone = [], expected = EMPTY_EXPECTED, className = '', onGo = null, currentId = null }) {
   const expectedSections = expected?.sectionIds || EMPTY_EXPECTED.sectionIds;
   const expectedLabels = expected?.labels || EMPTY_EXPECTED.labels;
   const attached = expected?.attached || EMPTY_EXPECTED.attached;
@@ -105,9 +108,17 @@ export default function PrepDrawer({ open, onClose, sections, prep, standalone =
               // its column, so a PNR and an EMD number can be told apart.
               const labelled = values.length > 1;
               const anyFilled = values.some(filled);
+              const isCurrent = currentId === s.id;
               return (
-                <div key={s.id} className={`prep-modal-item ${anyFilled ? '' : 'prep-modal-item--pending'}`}>
-                  <h4>{s.title}</h4>
+                <div key={s.id} className={`prep-modal-item ${anyFilled ? '' : 'prep-modal-item--pending'}${isCurrent ? ' is-current' : ''}`}>
+                  {onGo ? (
+                    <h4>
+                      <button type="button" className="prep-modal-go" onClick={() => onGo(s.id)} aria-current={isCurrent || undefined}>
+                        {s.title}
+                        <span className="prep-modal-go-hint">{isCurrent ? 'on screen' : 'go to it ›'}</span>
+                      </button>
+                    </h4>
+                  ) : <h4>{s.title}</h4>}
                   {values.map(v => (
                     <div key={v.key} className="prep-modal-value">
                       {labelled && <span className="prep-modal-value-label">{v.label || 'Prep'}</span>}

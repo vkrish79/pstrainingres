@@ -5,13 +5,14 @@
 // what is still unanswered.
 //
 // `current` is 'start' | 'review' | a page index.
-export default function AssessmentQuestionNav({ paper, progress, overall, current, onGo }) {
+// navRef — optional; the page pins the Pre-work drawer to this rail's top.
+export default function AssessmentQuestionNav({ paper, progress, overall, current, onGo, navRef = null }) {
   const { start, pages } = paper;
   const unanswered = pages.filter(p => !p.withdrawn && (progress[p.id]?.answered || 0) < (progress[p.id]?.total || 0)).length;
   let lastChapter = null;
 
   return (
-    <aside className="exresp-sidebar wb-rail question-nav exam-nav" aria-label="Questions">
+    <aside ref={navRef} className="exresp-sidebar wb-rail question-nav exam-nav" aria-label="Questions">
       <div className="exresp-sidebar-head exam-nav-head">
         <div className="exam-nav-cap">
           <span>Questions</span>

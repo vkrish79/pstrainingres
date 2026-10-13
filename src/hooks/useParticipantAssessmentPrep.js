@@ -11,6 +11,9 @@ import { attachedHeadersBySection, splitGeneralPrep } from '../lib/prepAttach.js
 //   attached[section_id] = [{ label, content }]   — general prep shown WITH that
 //                                                   question (template show_with)
 //   ownLabels[section_id] = header                — the question's own column
+//   expectedIds = Set(section_id)                  — questions the template gives
+//                                                   prep to, stocked yet or not, so
+//                                                   the drawer can say "not assigned yet"
 //
 // Mirrors the shape of useParticipantPrep so the same callout components can
 // render workbook + assessment prep without per-kind branches.
@@ -19,6 +22,7 @@ export function useParticipantAssessmentPrep(sessionId, participantId, assessmen
   const [standalone, setStandalone] = useState([]);
   const [attached, setAttached] = useState({});   // { [cloneSectionId]: [{ label, content }] }
   const [ownLabels, setOwnLabels] = useState({}); // { [cloneSectionId]: header }
+  const [expectedIds, setExpectedIds] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,9 +58,11 @@ export function useParticipantAssessmentPrep(sessionId, participantId, assessmen
         if (s.template_section_id) tplSecIdToCloneSecId[s.template_section_id] = s.id;
       });
       const labels = {};
+      const expected = new Set();
       for (const item of template) {
         const header = item?.header;
         if (!header) continue;
+        if (item.section_id && tplSecIdToCloneSecId[item.section_id]) expected.add(tplSecIdToCloneSecId[item.section_id]);
         const content = payload[header];
         if (!content || !String(content).trim()) continue;
         const cloneSecId = item.section_id ? tplSecIdToCloneSecId[item.section_id] : null;
@@ -76,10 +82,11 @@ export function useParticipantAssessmentPrep(sessionId, participantId, assessmen
       setStandalone(general);
       setAttached(bySection);
       setOwnLabels(labels);
+      setExpectedIds(expected);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [sessionId, participantId, assessmentCloneId]);
 
-  return { prep, standalone, attached, ownLabels, loading };
+  return { prep, standalone, attached, ownLabels, expectedIds, loading };
 }

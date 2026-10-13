@@ -271,3 +271,41 @@
 .exam-done-actions { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.2rem; }
 .exam-done-actions .exam-next { text-decoration: none; }
 .exam-bar-finished { color: #9fd9b4; font-weight: 600; }
+
+/* ── pre-work on the paper ────────────────────────────────────────────────
+   The button sits beside "Call the trainer" and opens the workbook's Prep
+   drawer. Purple like every prep box, so it reads as the same thing. A light
+   button restates its background on hover: index.css fills every button
+   midnight on hover, and that rule wins otherwise. */
+.exam-prep-btn {
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  background: #f4ecf7;
+  color: #5f3f85;
+  border: 1px solid #f4ecf7;
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.exam-bar .exam-prep-btn:hover { background: #ebdff2; color: #5f3f85; }
+.exam-bar .exam-prep-btn.is-open { background: #8a5fb8; border-color: #8a5fb8; color: #fff; }
+.exam-bar .exam-prep-btn.is-open:hover { background: #7a50a8; color: #fff; }
+.exam-prep-count {
+  background: #8a5fb8; color: #fff; border-radius: 99px;
+  padding: 0 0.45rem; font-size: 0.72rem; line-height: 1.5;
+}
+.exam-prep-btn.is-open .exam-prep-count { background: #fff; color: #5f3f85; }
+
+/* The canvas makes room for the drawer, as the workbook's does. */
+@media (min-width: 900px) {
+  .exam .assessment-body { transition: margin-right 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
+  body.prep-drawer-pushed .exam .assessment-body { margin-right: min(230px, 100vw); }
+}
+
+/* The first screen's list: question, then value, one line each. */
+.exam-prep-summary .participant-prep-callout-key { font-size: 0.8rem; }
+.exam-prep-summary .participant-prep-callout-value { font-weight: 700; letter-spacing: 0.03em; }

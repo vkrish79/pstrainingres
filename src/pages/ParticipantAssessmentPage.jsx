@@ -16,6 +16,8 @@ import AssessmentQuestionNav from '../components/participant/AssessmentQuestionN
 import TopBar from '../components/TopBar.jsx';
 import SaveFailedBar from '../components/participant/SaveFailedBar.jsx';
 import PrepCallout from '../components/PrepCallout.jsx';
+import PrepDrawer from '../components/participant/PrepDrawer.jsx';
+import { usePrepDrawerAnchor } from '../hooks/usePrepDrawerAnchor.js';
 import { calloutItems } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -33,7 +35,7 @@ export default function ParticipantAssessmentPage() {
   // would send them to a page that immediately bounces them back.
   const isResit = session?.kind === 'resit';
   const {
-    prep: sectionPrep, standalone: standalonePrep, attached: attachedPrep, ownLabels: prepOwnLabels,
+    prep: sectionPrep, standalone: standalonePrep, attached: attachedPrep, ownLabels: prepOwnLabels, expectedIds: prepExpectedIds,
   } = useParticipantAssessmentPrep(session?.id, authSession?.user.id, session?.assessment_id);
   // General prep shown with a question still belongs in the locked view's list —
   // that list is all general prep, wherever it is shown once the paper opens.
@@ -114,6 +116,40 @@ export default function ParticipantAssessmentPage() {
     });
   }
   const page = typeof current === 'number' ? paper.pages[current] || null : null;
+
+  // Pre-work drawer — the workbook's, listing each question's prep under the
+  // paper's own question numbers. Never the stored section title: a question
+  // added from the bank keeps the title it had there ("Question 4" sitting
+  // first), which is exactly what buildQuestions' heading corrects.
+  const [prepOpen, setPrepOpen] = useState(false);
+  const navRef = useRef(null);
+  const prepBtnRef = useRef(null);
+  usePrepDrawerAnchor(prepOpen, navRef, prepBtnRef);
+  useEffect(() => {
+    if (!prepOpen) return undefined;
+    const onKey = e => { if (e.key === 'Escape') setPrepOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [prepOpen]);
+  const prepSections = useMemo(
+    () => qList.map(q => ({ id: q.section.id, title: q.heading })),
+    [qList],
+  );
+  // General prep shown WITH a question goes back in as general items plus the
+  // map of where each goes — the shape the drawer already sorts for the workbook.
+  const drawerStandalone = useMemo(
+    () => [...standalonePrep, ...Object.values(attachedPrep).flat()],
+    [standalonePrep, attachedPrep],
+  );
+  const prepExpected = useMemo(() => {
+    const attached = {};
+    for (const [sec, items] of Object.entries(attachedPrep)) attached[sec] = items.map(i => i.label);
+    return { sectionIds: prepExpectedIds || new Set(), labels: [], attached, ownLabels: prepOwnLabels };
+  }, [prepExpectedIds, prepOwnLabels, attachedPrep]);
+  // Values that have arrived, counted the way the drawer counts them.
+  const prepCount = Object.values(sectionPrep).filter(p => String(p?.content ?? '').trim()).length
+    + drawerStandalone.length;
+  const hasPrep = prepCount > 0 || (prepExpectedIds?.size || 0) > 0;
 
   // "I've finished" (P1). Answers save as they are typed, so finishing locks
   // nothing — it is the participant's own "that's me done", and it tells the
@@ -295,6 +331,18 @@ export default function ParticipantAssessmentPage() {
               )}
             </p>
           </div>
+          {hasPrep && (
+            <button
+              ref={prepBtnRef}
+              type="button"
+              className={`exam-prep-btn${prepOpen ? ' is-open' : ''}`}
+              onClick={() => setPrepOpen(o => !o)}
+              aria-expanded={prepOpen}
+              data-tip={prepOpen ? 'Hide your pre-work' : 'Pre-work from your trainer'}
+            >
+              🎯 Pre-work{prepCount > 0 && <b className="exam-prep-count">{prepCount}</b>}
+            </button>
+          )}
           {/* Only once the paper is open: before that the assessment is locked
               and this page never renders the exam bar at all. */}
           <button
@@ -338,6 +386,7 @@ export default function ParticipantAssessmentPage() {
 
         <div className="assessment-body">
           <AssessmentQuestionNav
+            navRef={navRef}
             paper={paper}
             progress={qProgress}
             overall={overall}
@@ -355,7 +404,7 @@ export default function ParticipantAssessmentPage() {
                   {remainingLabel != null && !expired ? ` · ${remainingLabel} left` : ''}.
                   Your answers save as you type — there is nothing to submit.
                 </p>
-                <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} attachedPrep={attachedPrep} ownLabels={prepOwnLabels} />
+                <PrepSummary questions={qList} sectionPrep={sectionPrep} standalonePrep={standalonePrep} attachedPrep={attachedPrep} ownLabels={prepOwnLabels} />
                 {paper.start.map(q => <ReadingSection key={q.section.id} q={q} />)}
                 <div className="exam-pager">
                   <span />
@@ -373,7 +422,7 @@ export default function ParticipantAssessmentPage() {
                 {page.chapter && <div className="exam-eyebrow">{page.chapter}</div>}
                 <div className="exam-count">Question {page.index + 1} of {paper.pages.length}</div>
                 {page.index === 0 && paper.start.length === 0 && (
-                  <PrepCallouts sections={sections} sectionPrep={sectionPrep} standalonePrep={standalonePrep} attachedPrep={attachedPrep} ownLabels={prepOwnLabels} />
+                  <PrepSummary questions={qList} sectionPrep={sectionPrep} standalonePrep={standalonePrep} attachedPrep={attachedPrep} ownLabels={prepOwnLabels} />
                 )}
                 {page.reading.map(q => <ReadingSection key={q.section.id} q={q} />)}
                 <div className="question-number">
@@ -385,6 +434,15 @@ export default function ParticipantAssessmentPage() {
                 {/* A withdrawn question arrives with none of its blocks — the read
                     policy withholds them. The trainer's internal reason is NOT
                     shown here; only that it was withdrawn. */}
+                {/* This question's own prep, on its own page. It used to be
+                    shown only on the first screen, unnamed, so a participant on
+                    question 3 had to go back and guess which PNR was theirs. */}
+                {!page.withdrawn && (
+                  <PrepCallout
+                    heading="Your pre-work for this question"
+                    items={calloutItems(sectionPrep[page.id]?.content, prepOwnLabels[page.id], attachedPrep[page.id])}
+                  />
+                )}
                 {page.withdrawn && (
                   <p className="question-withdrawn-note">
                     Withdrawn by your trainer — you don't need to answer this one, and it
@@ -509,6 +567,22 @@ export default function ParticipantAssessmentPage() {
           </div>
         </div>
       </main>
+      {hasPrep && (
+        <PrepDrawer
+          open={prepOpen}
+          onClose={() => setPrepOpen(false)}
+          sections={prepSections}
+          prep={sectionPrep}
+          standalone={drawerStandalone}
+          expected={prepExpected}
+          className="prep-drawer--track-page"
+          currentId={page?.id || null}
+          onGo={id => {
+            const target = paper.pages.find(p => p.id === id);
+            if (target) goTo(target.index);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -523,28 +597,34 @@ function ReadingSection({ q }) {
   );
 }
 
-// Trainer pre-work, shown once on the first screen. A question's box holds its
-// own value and any general prep shown with it (components/PrepCallout.jsx).
-function PrepCallouts({ sections, sectionPrep, standalonePrep, attachedPrep = {}, ownLabels = {} }) {
+// Everything the trainer gave them, once, on the first screen: one line per
+// value, named by the question it belongs to (the paper's own numbering), then
+// any general prep by its column. Each question's values are shown again on
+// that question's page, and the Pre-work drawer has them all.
+function PrepSummary({ questions, sectionPrep, standalonePrep, attachedPrep = {}, ownLabels = {} }) {
+  const lines = [];
+  for (const q of questions) {
+    const items = calloutItems(sectionPrep[q.section.id]?.content, ownLabels[q.section.id], attachedPrep[q.section.id]);
+    items.forEach((it, i) => lines.push({
+      key: `${q.section.id}-${i}`,
+      // A second value on one question is told apart by its column.
+      label: items.length > 1 && it.label ? `${q.heading} · ${it.label}` : q.heading,
+      content: it.content,
+    }));
+  }
+  for (const s of standalonePrep) lines.push({ key: `g-${s.id}`, label: s.label, content: s.content });
+  if (!lines.length) return null;
   return (
-    <>
-      {standalonePrep.length > 0 && (
-        <section className="assessment-prep-panel">
-          <h3 className="materials-list-title">🎯 Your assessment prep</h3>
-          {standalonePrep.map(s => (
-            <div key={s.id} className="participant-prep-callout">
-              <span className="participant-prep-callout-label">{s.label}</span>
-              {s.content}
-            </div>
-          ))}
-        </section>
-      )}
-      {sections.map(sec => (
-        <PrepCallout
-          key={sec.id}
-          items={calloutItems(sectionPrep[sec.id]?.content, ownLabels[sec.id], attachedPrep[sec.id])}
-        />
-      ))}
-    </>
+    <div className="participant-prep-callout exam-prep-summary">
+      <span className="participant-prep-callout-label">Your pre-work</span>
+      <div className="participant-prep-callout-lines">
+        {lines.map(l => (
+          <div className="participant-prep-callout-line" key={l.key}>
+            <span className="participant-prep-callout-key">{l.label}</span>
+            <span className="participant-prep-callout-value">{l.content}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
