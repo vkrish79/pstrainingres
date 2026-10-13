@@ -470,8 +470,12 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
                                   {c.name}{c.deactivated ? ' · dropped out' : ''}
                                 </span>
                                 <span className={`resit-people-score${c.failed === true ? ' is-fail' : ''}`}>
+                                  {/* Scored exactly as the Report scores it. While any
+                                      question still waits for a person there is no
+                                      verdict, only the figure so far. */}
                                   {c.pct == null ? 'not marked'
-                                    : `${c.pct}%${c.failed === true ? ' · failed' : c.failed === false ? ' · passed' : ''}`}
+                                    : c.unmarked > 0 ? `${c.pct}% so far · ${c.unmarked} still to mark`
+                                      : `${c.pct}%${c.failed === true ? ' · failed' : c.failed === false ? ' · passed' : ''}`}
                                 </span>
                               </label>
                             </li>
