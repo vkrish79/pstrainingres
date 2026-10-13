@@ -24,7 +24,10 @@ import {
 // same nine-criterion shape, so retyping it for every paper is wasted work.
 // Offered, never applied automatically: it is a starting point to edit, and a
 // trainer who wants something else should not have to clear a table first.
-export default function MarkingCriteriaEditor({ guidance, onChange, starter = null }) {
+// wide — on the Scorecard screen there is room for the note, and OC-style
+// notes run to several sentences ("deduct 1 mark for each incorrect tax…"), so
+// it becomes a box that wraps instead of one clipped line.
+export default function MarkingCriteriaEditor({ guidance, onChange, starter = null, wide = false }) {
   const g = normaliseGuidance(guidance);
   const total = criteriaTotal(g);
   const hasAny = g.criteria.length > 0;
@@ -58,7 +61,7 @@ export default function MarkingCriteriaEditor({ guidance, onChange, starter = nu
   // questions in a paper, every row this costs is paid thirty times. The
   // placeholders name the columns and the total sits on the button row.
   return (
-    <div className="mc-editor">
+    <div className={`mc-editor${wide ? ' is-wide' : ''}`}>
       {(
         <div className="mc-table-wrap">
           <table className="mc-table">
@@ -87,14 +90,25 @@ export default function MarkingCriteriaEditor({ guidance, onChange, starter = nu
                     />
                   </td>
                   <td>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={c.note}
-                      placeholder="optional — e.g. 1 for each name"
-                      aria-label={`Note for ${c.label || 'this criterion'}`}
-                      onChange={e => onChange(updateCriterion(g, c.id, { note: e.target.value }))}
-                    />
+                    {wide ? (
+                      <textarea
+                        className="form-input mc-note-wide"
+                        rows={Math.min(5, Math.max(1, Math.ceil((c.note || '').length / 60)))}
+                        value={c.note}
+                        placeholder="How to mark — optional, e.g. 1 for each name"
+                        aria-label={`How to mark ${c.label || 'this criterion'}`}
+                        onChange={e => onChange(updateCriterion(g, c.id, { note: e.target.value }))}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={c.note}
+                        placeholder="optional — e.g. 1 for each name"
+                        aria-label={`Note for ${c.label || 'this criterion'}`}
+                        onChange={e => onChange(updateCriterion(g, c.id, { note: e.target.value }))}
+                      />
+                    )}
                   </td>
                   <td>
                     <button

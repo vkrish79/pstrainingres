@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
@@ -66,6 +66,18 @@ export default function AssessmentEditorPage() {
   const [withdrawBusy, setWithdrawBusy] = useState(null);
   const [withdrawErr, setWithdrawErr] = useState({});
   const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
+  // Questions or Scorecard. The Scorecard is a screen of its own — it outgrew
+  // the setup slide-over — and the link remembers which one you were on.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get('view') === 'scorecard' ? 'scorecard' : 'questions';
+  const setView = useCallback((v) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (v === 'scorecard') next.set('view', 'scorecard'); else next.delete('view');
+      return next;
+    }, { replace: true });
+    window.scrollTo({ top: 0 });
+  }, [setSearchParams]);
   // Which setup panel the drawer shows; null = closed.
   const [pane, setPane] = useState(null);
   const closePane = useCallback(() => setPane(null), []);
@@ -240,7 +252,6 @@ export default function AssessmentEditorPage() {
   const PANES = {
     details: 'Details',
     prep: 'Prep template',
-    scorecard: 'Scorecard',
     repair: 'Answer boxes to fix',
     bank: 'Bank updates',
     organise: 'Organise questions',
@@ -255,7 +266,7 @@ export default function AssessmentEditorPage() {
   return (
     <>
       <TopBar />
-      <main className={`page editor wbe-page ${showPreview ? 'with-preview' : ''}`}>
+      <main className={`page editor wbe-page ${showPreview && view === 'questions' ? 'with-preview' : ''}`}>
         <QuestionEditorHead
           backTo="/trainer/assessments"
           backLabel="← Assessments"
@@ -293,9 +304,15 @@ export default function AssessmentEditorPage() {
                 : `${totalSections} reviewed`}
             </button>
           )}
-          <button type="button" className="wbe-chip wbe-preview-toggle" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>
-            {showPreview ? '◧ Hide preview' : '◨ Show preview'}
-          </button>
+          <span className="qe-view-switch" role="group" aria-label="Editor view">
+            <button type="button" className={view === 'questions' ? 'active' : ''} aria-pressed={view === 'questions'} onClick={() => setView('questions')}>Questions</button>
+            <button type="button" className={view === 'scorecard' ? 'active' : ''} aria-pressed={view === 'scorecard'} onClick={() => setView('scorecard')}>Scorecard</button>
+          </span>
+          {view === 'questions' && (
+            <button type="button" className="wbe-chip wbe-preview-toggle" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>
+              {showPreview ? '◧ Hide preview' : '◨ Show preview'}
+            </button>
+          )}
         </QuestionEditorHead>
 
         {confirmDelete && (
@@ -320,7 +337,7 @@ export default function AssessmentEditorPage() {
           >
             {prepCount == null ? 'Prep' : `Prep · ${prepCount} of ${qCount}`}
           </button>
-          <button type="button" className={`qe-chip${scoreClass}`} onClick={() => setPane('scorecard')}>
+          <button type="button" className={`qe-chip${scoreClass}${view === 'scorecard' ? ' is-current' : ''}`} onClick={() => setView('scorecard')}>
             {keysApi.error
               ? 'Answer keys aren’t saving'
               : scoreKnown ? `Scorecard · ${setUp} of ${markable.length} set up` : 'Scorecard'}
@@ -387,17 +404,6 @@ export default function AssessmentEditorPage() {
           <div className="setup-pane" hidden={pane !== 'prep'}>
             <AssessmentPrepPanel assessment={assessment} sections={sections.filter(s => !isDraftId(s.id))} allSections={sections} profile={profile} onTemplate={setPrepTemplate} />
           </div>
-          <div className="setup-pane" hidden={pane !== 'scorecard'}>
-            {/* Answer keys address a block's database id, so a question that
-                only exists in the draft has nothing to key yet. */}
-            <AssessmentAnswerKeyPanel
-              keysApi={keysApi}
-              sections={sections.filter(s => !isDraftId(s.id))}
-              blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
-              unsavedCount={blocks.filter(b => isDraftId(b.id)).length}
-              passMarkSet={passMark !== ''}
-            />
-          </div>
           <div className="setup-pane" hidden={pane !== 'repair'}>
             {/* Saved blocks only: a draft block is written whole on Save anyway. */}
             <PlaceholderRepair
@@ -428,7 +434,22 @@ export default function AssessmentEditorPage() {
           </div>
         </SetupDrawer>
 
-        <div className="assessment-editor-body">
+        {view === 'scorecard' && (
+          /* Answer keys address a block's database id, so a question that only
+             exists in the draft has nothing to key yet. */
+          <AssessmentAnswerKeyPanel
+            keysApi={keysApi}
+            sections={sections.filter(s => !isDraftId(s.id))}
+            blocks={blocks.filter(b => !isDraftId(b.id) && !isDraftId(b.section_id))}
+            unsavedCount={blocks.filter(b => isDraftId(b.id)).length}
+            passMarkSet={passMark !== ''}
+            passMark={passMark}
+            onPassMarkChange={setPassMarkDraft}
+            onPassMarkCommit={commitPassMark}
+          />
+        )}
+
+        <div className="assessment-editor-body" hidden={view !== 'questions'}>
           <QuestionNav questions={qList} onJump={jumpToQuestion} />
           <div className="assessment-editor-main">
             {/* There is deliberately no "renumber questions" button. An auto

@@ -1,38 +1,57 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import '../../styles/interactive.css';
+import '../../styles/editor/scorecard.css';
 import { useAssessmentAnswerKeys } from '../../hooks/useAssessmentAnswerKeys.js';
 import { isScorableBlock, isManuallyMarkable, isInactiveBlock } from '../../lib/assessmentScoring.js';
 import { labelOf, inputCellsOf } from '../../lib/blockHelpers.js';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
-import { hasCriteria } from '../../lib/markingCriteria.js';
+import { addCriterion, criteriaTotal, hasCriteria, normaliseGuidance } from '../../lib/markingCriteria.js';
 import { isPnrQuestion, starterGuidance, starterCriteriaTotal } from '../../lib/pnrQuestion.js';
 import MarkingCriteriaEditor from './MarkingCriteriaEditor.jsx';
 import CriteriaPushModal from './CriteriaPushModal.jsx';
 import { useCriteriaPush } from '../../hooks/useCriteriaPush.js';
 
-// Answer-key entry for an assessment template. Lists every auto-scorable
-// question (single-choice, multi-select, short text, table cells) with a
-// control to set the correct answer. Saves to assessment_answer_keys. Long-text
-// questions are not listed (never auto-scored). Trainer-only — participants
-// never read these keys.
+// The Scorecard: how every part of an assessment is marked, on a screen of its
+// own in the assessment editor (Questions | Scorecard). It used to live in the
+// setup slide-over, where a part's label, its Auto/Manual switch, its marks and
+// its criteria shared ~740px — question text was cut to a letter and marking
+// notes were clipped mid-word.
+//
+// Layout: a band with the paper total, its split by question, warnings and the
+// pass mark; a rail of questions with their sums (and the paper total, which
+// stays in view); and each question as a table, one row per part. A part's
+// criteria or answer open under its row at full width.
+//
+// Saves exactly as before — every control writes through the page's ONE shared
+// useAssessmentAnswerKeys instance (keysApi). It MUST be shared: the correct
+// answer is also marked on the question itself in the editor, and two instances
+// would each hold their own copy of the keys, the one that did not write going
+// stale. Left optional so the hook is still created here if a caller has no
+// reason to share it.
+//
 // unsavedCount — questions added but not yet saved. A key is stored against a
-// block's database id, so a block that exists only in the editor's draft has
-// nothing to attach one to. Rather than offer a control that would fail, those
-// are left out and the panel says how many and why.
-// keysApi — the shared useAssessmentAnswerKeys instance, supplied by the page.
-// It MUST be shared: the correct answer is now marked on the question itself, so
-// two independent instances would each hold their own copy of the same keys and
-// the one that did not do the write would keep showing the old value until the
-// page was reloaded. Left optional so the hook is still created here if a caller
-// has no reason to share it.
-// passMarkSet — true / false when the page knows; the paper summary flags a
-// missing pass mark because the report prints Result blank without one.
-export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCount = 0, keysApi = null, passMarkSet = null }) {
+// block's database id, so a draft block has nothing to attach one to; those are
+// left out and the screen says how many and why.
+// passMark / onPassMarkChange / onPassMarkCommit — the page's pass mark field,
+// edited in the band. passMarkSet false flags a missing one (the report prints
+// Result blank without it).
+export default function AssessmentAnswerKeyPanel({
+  sections, blocks, unsavedCount = 0, keysApi = null, passMarkSet = null,
+  passMark = null, onPassMarkChange = null, onPassMarkCommit = null,
+}) {
   const blockIds = useMemo(() => blocks.map(b => b.id), [blocks]);
   const ownApi = useAssessmentAnswerKeys(keysApi ? [] : blockIds);
   const { keys, points, modes, guidance, setKey, setPoints, setMode, setGuidance, clearKey, error } =
     keysApi || ownApi;
-  const [open, setOpen] = useState(false);
+
+  // Which parts have their criteria / answer opened under the row.
+  const [openParts, setOpenParts] = useState(() => new Set());
+  const toggle = id => setOpenParts(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const openPart = id => setOpenParts(prev => new Set(prev).add(id));
 
   // Offering the push is held back until the scorecard has ACTUALLY been
   // changed in this sitting. Saves are debounced per keystroke, so a dialog
@@ -50,17 +69,15 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
     setGuidance(blockId, g);
   }
 
-  // Grouped by question, so the key rows sit under the same headings and
-  // letters the editor and the paper show.
-  const { questions, partLabelByBlockId } = useMemo(
+  // Grouped by question, so the rows sit under the same headings and letters
+  // the editor and the paper show.
+  const { questions, labelByBlockId } = useMemo(
     () => buildQuestions(sections, blocks),
     [sections, blocks]
   );
 
-  // Every question that can carry marks at all — auto-scorable OR markable by
-  // hand. long_text appears here for the first time: auto-marking refuses it
-  // because no machine can judge an essay, which is exactly why manual marking
-  // exists. Withdrawn questions are left out; they are not in the paper.
+  // Every part that can carry marks at all — auto-scorable OR markable by
+  // hand. Withdrawn questions are left out; they are not in the paper.
   const markable = useMemo(
     () => blocks.filter(b => !isInactiveBlock(b) && (isScorableBlock(b) || isManuallyMarkable(b))),
     [blocks]
@@ -71,63 +88,59 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
   const setUpCount = markable.filter(b => keys[b.id] != null || isManual(b.id)).length;
   const manualCount = markable.filter(b => isManual(b.id)).length;
 
-  // What the whole assessment is out of. A question counts only once it will be
-  // marked — an unkeyed auto question is worth nothing, because nothing decides
-  // whether it is right.
-  const totalMarks = markable.reduce(
-    (sum, b) => sum + ((keys[b.id] != null || isManual(b.id)) ? (Number(points[b.id]) || 1) : 0), 0,
-  );
-
-  // Question by question: what each is worth, and which of its parts will score
-  // nothing for anyone — an auto part with no correct answer, or a written one
-  // nobody has set to manual. Those are the parts that quietly drop a paper
-  // from 100 to 99, so they are named on their question, not just counted.
+  // A part counts only once it will be marked — an unkeyed auto part is worth
+  // nothing, because nothing decides whether it is right.
   const worthOf = b => ((keys[b.id] != null || isManual(b.id)) ? (Number(points[b.id]) || 1) : 0);
+  const totalMarks = Math.round(markable.reduce((s, b) => s + worthOf(b), 0) * 10) / 10;
+
+  // Question by question: what each is worth, and which of its parts score
+  // nothing for anyone — the parts that quietly drop a paper from 100 to 99.
   const questionSums = questions.map(q => {
     const parts = q.parts.filter(p => !isInactiveBlock(p.block) && (isScorableBlock(p.block) || isManuallyMarkable(p.block)));
     const worth = Math.round(parts.reduce((s, p) => s + worthOf(p.block), 0) * 10) / 10;
     const unscored = parts.filter(p => worthOf(p.block) === 0);
-    return { q, parts, worth, unscored };
+    const withCriteria = parts.filter(p => isManual(p.block.id) && hasCriteria(guidance[p.block.id])).length;
+    return { q, parts, worth, unscored, withCriteria };
   }).filter(x => x.parts.length);
-  const unscoredAll = questionSums.flatMap(x => x.unscored.map(p => ({ label: p.label })));
+  const unscoredAll = questionSums.flatMap(x => x.unscored.map(p => ({ id: p.block.id, sectionId: x.q.section.id, label: p.label })));
   const autoCount = markable.filter(b => !isManual(b.id) && keys[b.id] != null).length;
   const criteriaCount = markable.filter(b => isManual(b.id) && hasCriteria(guidance[b.id])).length;
-  const totalRounded = Math.round(totalMarks * 10) / 10;
+
+  // Every part that already has criteria — what "Copy criteria from…" offers.
+  const criteriaSources = questionSums.flatMap(x => x.parts
+    .filter(p => isManual(p.block.id) && hasCriteria(guidance[p.block.id]))
+    .map(p => ({ id: p.block.id, label: labelByBlockId[p.block.id], title: labelOf(p.block), guidance: normaliseGuidance(guidance[p.block.id]) })));
+
+  function jumpTo(sectionId, blockId = null) {
+    if (blockId) openPart(blockId);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(blockId ? `sc-part-${blockId}` : `sc-q-${sectionId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   if (markable.length === 0) {
     return (
-      <section className="editor-card answer-key-panel">
-        <div className="answer-key-head">
-          <h2>🎯 Scorecard</h2>
-          <span className="muted">No answerable questions yet — add one and it will appear here to be marked.</span>
-        </div>
+      <section className="sc-screen">
+        <p className="sc-empty muted">No answerable questions yet — add one in Questions and it will appear here to be marked.</p>
       </section>
     );
   }
 
-  return (
-    <section className="editor-card answer-key-panel">
-      <button type="button" className="answer-key-head answer-key-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <span className="answer-key-chevron" aria-hidden>{open ? '▾' : '▸'}</span>
-        <h2>🎯 Scorecard</h2>
-        <span className={`answer-key-count ${setUpCount === markable.length ? 'full' : setUpCount === 0 ? 'none' : 'partial'}`}>
-          {setUpCount}/{markable.length} set up
-        </span>
-        {manualCount > 0 && (
-          <span className="answer-key-manualcount">✋ {manualCount} manual</span>
-        )}
-        {totalMarks > 0 && (
-          <span className="answer-key-total">{totalMarks} mark{totalMarks === 1 ? '' : 's'} total</span>
-        )}
-      </button>
+  const passPct = Number(passMark);
+  const passHint = passMark === '' || passMark == null || !Number.isFinite(passPct)
+    ? 'Not set — the report leaves Result blank.'
+    : `${passPct}% of ${totalMarks} = ${Math.round(totalMarks * passPct) / 100} marks`;
 
+  return (
+    <section className="sc-screen">
       {/* The paper at a glance: its total, split by question to scale. */}
-      {totalMarks > 0 && (
-        <div className="ak-paper">
-          <div className="ak-paper-top">
-            <span className="muted">This paper adds up to</span>
-            <b className="num">{totalRounded} mark{totalRounded === 1 ? '' : 's'}</b>
-          </div>
+      <div className="sc-band">
+        <div className="sc-band-total">
+          <b className="num">{totalMarks}</b>
+          <span>mark{totalMarks === 1 ? '' : 's'} in this paper</span>
+        </div>
+        <div className="sc-band-mid">
           <div className="ak-paper-stack" aria-label="Marks by question">
             {questionSums.filter(x => x.worth > 0).map((x, i) => (
               <span key={x.q.section.id} style={{ flex: x.worth }} className={i % 2 ? 'alt' : ''} data-tip={`${x.q.heading} · ${x.worth} marks`}>
@@ -136,19 +149,40 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
             ))}
           </div>
           <div className="ak-paper-chips">
-            {unscoredAll.length > 0 && (
-              <span className="ak-chip warn">
-                {unscoredAll.length === 1
-                  ? `${unscoredAll[0].label} scores nothing yet`
-                  : `${unscoredAll.length} parts score nothing yet: ${unscoredAll.map(u => u.label).join(', ')}`}
-              </span>
-            )}
+            {unscoredAll.map(u => (
+              <button key={u.id} type="button" className="ak-chip warn sc-chip-link" onClick={() => jumpTo(u.sectionId, u.id)}>
+                {u.label} scores nothing yet
+              </button>
+            ))}
             {passMarkSet === false && <span className="ak-chip warn">Pass mark not set</span>}
             <span className="ak-chip">{manualCount} by hand · {autoCount} auto</span>
             {criteriaCount > 0 && <span className="ak-chip">{criteriaCount} with criteria</span>}
+            <span className={`ak-chip${setUpCount === markable.length ? '' : ' warn'}`}>{setUpCount} of {markable.length} set up</span>
           </div>
         </div>
-      )}
+        {onPassMarkChange && (
+          <div className="sc-pass">
+            <label htmlFor="sc-pass-input">Pass mark</label>
+            <span className="sc-pass-box">
+              <input
+                id="sc-pass-input"
+                className="form-input"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={passMark ?? ''}
+                placeholder="—"
+                onChange={e => onPassMarkChange(e.target.value)}
+                onBlur={() => onPassMarkCommit?.()}
+                onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+              />
+              %
+            </span>
+            <span className="sc-pass-hint">{passHint}</span>
+          </div>
+        )}
+      </div>
 
       {error && (
         <p className="answer-key-error" role="alert">
@@ -172,7 +206,6 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
           </button>
         </div>
       )}
-
       {pushOpen && (
         <CriteriaPushModal
           eligible={eligible}
@@ -183,67 +216,90 @@ export default function AssessmentAnswerKeyPanel({ sections, blocks, unsavedCoun
         />
       )}
 
-      {open && (
-        <div className="answer-key-body">
-          <p className="ce-hint">
-            Set the correct answer for each objective question. Matching is case-insensitive.
-            Leave blank to skip a question (it won't be auto-marked). Marks default to 1;
-            questions with several parts award them proportionally, so 3 of 4 pairs right on a
-            4-mark question scores 3.
-          </p>
-          {unsavedCount > 0 && (
-            <p className="ce-hint answer-key-unsaved">
-              {unsavedCount} new question{unsavedCount === 1 ? ' is' : 's are'} not listed yet —
-              keys attach to a saved question. Press <strong>Save changes</strong> above and
-              {unsavedCount === 1 ? ' it' : ' they'} will appear here.
-            </p>
-          )}
-          {questions.map(q => {
-            const secBlocks = q.blocks.filter(
-              b => !isInactiveBlock(b) && (isScorableBlock(b) || isManuallyMarkable(b))
-            );
-            if (!secBlocks.length) return null;
-            const sum = questionSums.find(x => x.q.section.id === q.section.id);
-            return (
-              <div key={q.section.id} className="answer-key-section">
-                <h3 className="answer-key-section-title ak-q-head">
-                  <span>{q.heading}</span>
-                  <span className="ak-q-parts muted">{sum.parts.length} part{sum.parts.length === 1 ? '' : 's'}</span>
-                  {sum.unscored.length > 0 && (
-                    <span className="ak-chip warn">{sum.unscored.length} scor{sum.unscored.length === 1 ? 'es' : 'e'} nothing</span>
-                  )}
-                  <span className="ak-q-sum num">{sum.worth} mark{sum.worth === 1 ? '' : 's'}</span>
-                </h3>
-                {/* The question's total, built up part by part. */}
-                {sum.parts.length > 1 && (
-                  <p className="ak-q-breakdown num">
-                    {sum.parts.map(p => `(${p.letter}) ${worthOf(p.block)}`).join(' · ')} = {sum.worth}
-                  </p>
-                )}
-                {secBlocks.map(b => (
-                  <KeyRow
-                    key={b.id}
-                    block={b}
-                    partLabel={partLabelByBlockId[b.id] ?? null}
-                    value={keys[b.id]}
-                    points={points[b.id]}
-                    mode={isManual(b.id) ? 'manual' : 'auto'}
-                    canAuto={isScorableBlock(b)}
-                    guidance={guidance[b.id]}
-                    onChange={k => setKey(b.id, k)}
-                    onPoints={p => setPoints(b.id, p)}
-                    onMode={m => setMode(b.id, m)}
-                    onGuidance={g => handleGuidance(b.id, g)}
-                    onClear={() => clearKey(b.id)}
-                  />
-                ))}
-              </div>
-            );
-          })}
-        </div>
+      {unsavedCount > 0 && (
+        <p className="ce-hint answer-key-unsaved">
+          {unsavedCount} new question{unsavedCount === 1 ? ' is' : 's are'} not listed yet —
+          marks attach to a saved question. Press <strong>Save changes</strong> above and
+          {unsavedCount === 1 ? ' it' : ' they'} will appear here.
+        </p>
       )}
+
+      <div className="sc-cols">
+        <nav className="sc-rail" aria-label="Questions">
+          <div className="sc-rail-h">Questions</div>
+          {questionSums.map(x => (
+            <button key={x.q.section.id} type="button" className="sc-rq" onClick={() => jumpTo(x.q.section.id)}>
+              <b>{x.q.heading}</b>
+              <span className="sc-rq-sum num">{x.worth}</span>
+              {x.unscored.length > 0
+                ? <small className="is-warn">{x.unscored.length} part{x.unscored.length === 1 ? '' : 's'} score{x.unscored.length === 1 ? 's' : ''} nothing</small>
+                : <small>{x.parts.length} part{x.parts.length === 1 ? '' : 's'}{x.withCriteria ? ` · ${x.withCriteria} with criteria` : ''}</small>}
+            </button>
+          ))}
+          <div className="sc-rail-foot"><span>Paper</span><span className="num">{totalMarks}</span></div>
+        </nav>
+
+        <div className="sc-main">
+          {questionSums.map(x => (
+            <section key={x.q.section.id} id={`sc-q-${x.q.section.id}`} className="sc-q">
+              <header className="sc-q-head">
+                <h3>{x.q.heading}</h3>
+                <span className="sc-q-stem">{stemOf(x.q)}</span>
+                {x.unscored.length > 0 && (
+                  <span className="ak-chip warn">{x.unscored.length} part{x.unscored.length === 1 ? '' : 's'} score{x.unscored.length === 1 ? 's' : ''} nothing</span>
+                )}
+                <span className="sc-q-sum num">{x.worth} mark{x.worth === 1 ? '' : 's'}</span>
+              </header>
+              <table className="sc-parts">
+                <thead>
+                  <tr><th>Part</th><th>Question</th><th>Type</th><th>Marked</th><th className="r">Marks</th><th>Correct answer / how it’s marked</th></tr>
+                </thead>
+                <tbody>
+                  {x.parts.map(p => (
+                    <PartRow
+                      key={p.block.id}
+                      block={p.block}
+                      letter={x.parts.length > 1 ? `(${p.letter})` : ''}
+                      value={keys[p.block.id]}
+                      points={points[p.block.id]}
+                      manual={isManual(p.block.id)}
+                      guidance={guidance[p.block.id]}
+                      open={openParts.has(p.block.id)}
+                      onToggle={() => toggle(p.block.id)}
+                      onOpen={() => openPart(p.block.id)}
+                      onChange={k => setKey(p.block.id, k)}
+                      onPoints={v => setPoints(p.block.id, v)}
+                      onMode={m => setMode(p.block.id, m)}
+                      onGuidance={g => handleGuidance(p.block.id, g)}
+                      onClear={() => clearKey(p.block.id)}
+                      copySources={criteriaSources.filter(s => s.id !== p.block.id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ))}
+        </div>
+      </div>
     </section>
   );
+}
+
+// The question's opening words — the scenario a marker recognises it by.
+function stemOf(q) {
+  const prose = (q.narration || []).find(b => b.block_type === 'prose');
+  const raw = prose?.config?.html || prose?.config?.text || '';
+  const text = String(raw).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.length > 110 ? `${text.slice(0, 110).trimEnd()}…` : text;
+}
+
+const TYPE_NAMES = {
+  short_text: 'Short text', long_text: 'Written answer', choice: 'Choice', check_group: 'Tick boxes',
+  table: 'Table', fill_blank: 'Fill the blanks', card_sort: 'Card sort', match_pairs: 'Match pairs', reorder: 'Reorder',
+};
+function typeOf(block) {
+  if (block.block_type === 'field') return TYPE_NAMES[block.config?.input_type] || 'Answer box';
+  return TYPE_NAMES[block.block_type] || 'Answer';
 }
 
 // The types whose correct answer is marked on the question itself. The
@@ -256,152 +312,137 @@ function inlineAnswered(block) {
   return t === 'choice' || t === 'check_group' || t === 'short_text';
 }
 
-function KeyRow({ block, value, points, mode = 'auto', canAuto = true, partLabel = null, guidance = null, onChange, onPoints, onMode, onGuidance, onClear }) {
-  const label = labelOf(block);
-  const manual = mode === 'manual';
-  const hasKey = value != null;
-  // Once a question has criteria, its marks ARE their sum. The box still shows
-  // the figure — it is the number the instructor marks against — but it stops
-  // being editable, because editing it would put the question's total and its
-  // own criteria into disagreement with no way to tell which was meant.
+// One part: a row, and — when opened — its criteria or answer at full width
+// beneath it.
+function PartRow({
+  block, letter, value, points, manual, guidance, open, onToggle, onOpen,
+  onChange, onPoints, onMode, onGuidance, onClear, copySources,
+}) {
+  const canAuto = isScorableBlock(block);
+  const hasKey = value != null && !(Array.isArray(value) && value.length === 0);
+  // Once a part has criteria, its marks ARE their sum: shown, not editable,
+  // or the part's total and its own criteria could disagree.
   const marksFromCriteria = manual && hasCriteria(guidance);
-  // A question carries marks once it will actually be marked — keyed, or set to
-  // by-hand. That is the rule the total in the header uses too.
-  const willBeMarked = manual || hasKey;
-  // An auto part with no correct answer yet still shows what it is worth, so
-  // it can be scored at all — and says plainly that it scores nothing until
-  // the answer is set. The figure is held and saved with the answer.
+  const nCriteria = normaliseGuidance(guidance).criteria.length;
+  // An auto part with no correct answer still shows what it is worth — the
+  // figure is held and saved with the answer — and says it scores nothing yet.
   const unkeyedAuto = !manual && canAuto && !hasKey;
+  // A written answer nobody has set to manual: not marked at all.
+  const unmarkedWritten = !manual && !canAuto;
+  const warn = unkeyedAuto || unmarkedWritten;
+  const inline = inlineAnswered(block);
+  // Inline-answered auto parts have nothing to open: their answer is set on
+  // the question in the editor.
+  const canOpen = manual || (!inline && canAuto);
 
   return (
-    <div className={`answer-key-row ${willBeMarked ? 'has-key' : ''} ${manual ? 'is-manual' : ''}`}>
-      <div className="answer-key-q">
-        {/* The sub-question letter, when the question has more than one part —
-            without it, two rows under "Question 3" are indistinguishable. */}
-        {partLabel && <span className="answer-key-part">{partLabel}</span>}
-        <span className="answer-key-q-label">{label}</span>
-
-        {/* Auto or manual. Long-text questions cannot be auto-marked at all,
-            so they are shown as manual with no choice to make rather than
-            being offered a switch that only has one working position. */}
-        {canAuto ? (
-          <div className="mark-mode" role="group" aria-label="How this question is marked">
-            <button
-              type="button"
-              className={`mark-mode-btn ${!manual ? 'active' : ''}`}
-              onClick={() => { if (manual) onMode('auto'); }}
-              title="Compare the answer against a correct answer you set"
-            >
-              Auto
-            </button>
-            <button
-              type="button"
-              className={`mark-mode-btn ${manual ? 'active' : ''}`}
-              onClick={() => { if (!manual) onMode('manual'); }}
-              title="You award the marks yourself when you see the answer"
-            >
-              Manual
-            </button>
-          </div>
-        ) : manual ? (
-          <span className="mark-mode-fixed" title="A written answer can only be judged by a person">
-            ✋ Manual
-          </span>
-        ) : (
-          /* A written answer has no automatic option, but it is not marked
-             until someone says it should be — otherwise it would silently sit
-             in the paper worth nothing. One click sets it up. */
-          <button
-            type="button"
-            className="ghost mark-mode-enable"
-            onClick={() => onMode('manual')}
-            title="A written answer can only be judged by a person"
-          >
-            + Mark this manually
-          </button>
-        )}
-
-        {(willBeMarked || unkeyedAuto) && (
-          <label
-            className={`answer-key-points ${marksFromCriteria ? 'is-derived' : ''}`}
-            title={marksFromCriteria
-              ? 'Adds up from the criteria below'
-              : 'What this question is worth'}
-          >
+    <Fragment>
+      <tr id={`sc-part-${block.id}`} className={`sc-part${warn ? ' is-warn' : ''}${open ? ' is-open' : ''}`}>
+        <td className="sc-pl">{letter}</td>
+        <td className="sc-pq">{labelOf(block) || <span className="muted">{typeOf(block)}</span>}</td>
+        <td className="sc-pt">{typeOf(block)}</td>
+        <td>
+          {canAuto ? (
+            <div className="mark-mode" role="group" aria-label="How this part is marked">
+              <button type="button" className={`mark-mode-btn ${!manual ? 'active' : ''}`} onClick={() => { if (manual) onMode('auto'); }} data-tip="Compare the answer against a correct answer you set">Auto</button>
+              <button type="button" className={`mark-mode-btn ${manual ? 'active' : ''}`} onClick={() => { if (!manual) onMode('manual'); }} data-tip="You award the marks yourself when you see the answer">Manual</button>
+            </div>
+          ) : manual ? (
+            <span className="mark-mode-fixed" data-tip="A written answer can only be judged by a person">✋ Manual</span>
+          ) : (
+            <button type="button" className="ghost mark-mode-enable" onClick={() => onMode('manual')}>+ Mark by hand</button>
+          )}
+        </td>
+        <td className="r">
+          {!unmarkedWritten && (
             <input
               type="number"
               min="0.5"
               step="0.5"
-              className="form-input"
+              className={`form-input sc-marks${marksFromCriteria ? ' is-derived' : ''}`}
               value={points ?? 1}
               readOnly={marksFromCriteria}
+              aria-label={marksFromCriteria ? 'Marks — adds up from the criteria' : 'What this part is worth'}
+              data-tip={marksFromCriteria ? 'Adds up from the criteria' : 'What this part is worth'}
               onChange={e => { if (!marksFromCriteria) onPoints(e.target.value); }}
             />
-            <span>mark{Number(points ?? 1) === 1 ? '' : 's'}</span>
-          </label>
-        )}
-        {!manual && hasKey && (
-          <button type="button" className="answer-key-clear" onClick={onClear} title="Clear key">clear</button>
-        )}
-      </div>
-
-      {unkeyedAuto && (
-        <div className="ak-unkeyed">
-          <span>
-            No correct answer saved yet, so this part scores 0 for everyone.
-            {block.block_type === 'reorder' ? ' If the steps below are already in the right order, save them as they are.' : ' Set it below, or mark it by hand.'}
-          </span>
-          <button type="button" className="ghost" onClick={() => onMode('manual')}>Mark it by hand instead</button>
-        </div>
-      )}
-
-      <div className="answer-key-control">
-        {manual ? (
-          <div className="mark-manual-wrap">
-            {/* Once a question has criteria this sentence is both redundant and
-                wrong — the marks are awarded criterion by criterion, not as one
-                figure — so it gives way to the criteria themselves. */}
-            {!marksFromCriteria && (
-              <p className="mark-manual-note">
-                Marked by hand, up to {points ?? 1} mark
-                {Number(points ?? 1) === 1 ? '' : 's'}, on{' '}
-                <strong>📝 Assessment → Live responses</strong>.
-              </p>
-            )}
-            <MarkingCriteriaEditor
-              guidance={guidance}
-              onChange={onGuidance}
-              starter={isPnrQuestion(block)
-                ? { label: 'ARDW scheme', guidance: starterGuidance(), total: starterCriteriaTotal() }
-                : null}
-            />
-          </div>
-        ) : inlineAnswered(block) ? (
-          /* The correct answer for these types is marked ON THE QUESTION now, in
-             its own editor. Showing an editable copy here as well would be two
-             controls writing one value, and whichever you did not touch would
-             look stale. So this is a read-only echo: the scorecard still answers
-             "which questions have no answer yet" at a glance, which is the thing
-             it is genuinely good for. */
-          <div className="answer-key-echo">
-            {value == null || (Array.isArray(value) && value.length === 0) ? (
-              <span className="answer-key-echo-none">No correct answer set</span>
+          )}
+        </td>
+        <td className="sc-pa">
+          {manual ? (
+            nCriteria > 0
+              ? <>{nCriteria} criteri{nCriteria === 1 ? 'on' : 'a'} · <button type="button" className="sc-link" onClick={onToggle}>{open ? 'hide' : 'show'}</button></>
+              : <>Whole part · <button type="button" className="sc-link" onClick={onToggle}>{open ? 'hide' : 'add criteria'}</button></>
+          ) : unmarkedWritten ? (
+            <>Not marked — a written answer can’t be checked automatically.</>
+          ) : inline ? (
+            hasKey
+              ? <>Answer: <b>{Array.isArray(value) ? value.join(' + ') : String(value)}</b> · set on the question</>
+              : <>No correct answer, so it scores 0 · set it on the question, or mark it by hand</>
+          ) : hasKey ? (
+            <>Answer set · <button type="button" className="sc-link" onClick={onToggle}>{open ? 'hide' : 'show'}</button>{' '}
+              <button type="button" className="sc-link" onClick={onClear}>clear</button></>
+          ) : (
+            <>{block.block_type === 'reorder' ? 'No order saved' : 'No answer saved'}, so it scores 0 · <button type="button" className="sc-link" onClick={onOpen}>{block.block_type === 'reorder' ? 'set the order' : 'set the answer'}</button></>
+          )}
+        </td>
+      </tr>
+      {open && canOpen && (
+        <tr className="sc-part-open">
+          <td />
+          <td colSpan={5}>
+            {manual ? (
+              <>
+                <MarkingCriteriaEditor
+                  guidance={guidance}
+                  onChange={onGuidance}
+                  wide
+                  starter={isPnrQuestion(block)
+                    ? { label: 'ARDW scheme', guidance: starterGuidance(), total: starterCriteriaTotal() }
+                    : null}
+                />
+                {copySources.length > 0 && <CopyCriteria sources={copySources} guidance={guidance} onCopy={onGuidance} />}
+              </>
             ) : (
-              <span className="answer-key-echo-val">
-                {Array.isArray(value) ? value.join(' + ') : String(value)}
-              </span>
+              <KeyControl block={block} value={value} onChange={onChange} />
             )}
-            <span className="muted">— set on the question, in Edit</span>
-          </div>
-        ) : canAuto ? (
-          <KeyControl block={block} value={value} onChange={onChange} />
-        ) : (
-          <p className="mark-manual-note muted">
-            Not marked. A written answer can't be checked automatically, so it
-            scores nothing until you set it to manual marking.
-          </p>
-        )}
-      </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  );
+}
+
+// "Copy criteria from…": every other part that has criteria, each with its
+// criteria named. Picking one ADDS its criteria to this part's (new ids, so a
+// participant's breakdown can never match a copied row to an old verdict), all
+// of them editable afterwards.
+function CopyCriteria({ sources, guidance, onCopy }) {
+  const [open, setOpen] = useState(false);
+  function copy(src) {
+    let g = normaliseGuidance(guidance);
+    for (const c of src.guidance.criteria) g = addCriterion(g, { label: c.label, marks: c.marks, note: c.note });
+    onCopy(g);
+    setOpen(false);
+  }
+  return (
+    <div className="sc-copy">
+      <button type="button" className="ghost" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        Copy criteria from…
+      </button>
+      {open && (
+        <ul className="sc-copy-list">
+          {sources.map(s => (
+            <li key={s.id}>
+              <button type="button" onClick={() => copy(s)}>
+                <b>{s.label}</b>
+                <span className="sc-copy-what">{s.title ? `${s.title} · ` : ''}{s.guidance.criteria.map(c => c.label || 'Untitled').join(', ')}</span>
+                <span className="num sc-copy-m">{criteriaTotal(s.guidance)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

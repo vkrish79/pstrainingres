@@ -1,0 +1,126 @@
+/* The Scorecard screen (AssessmentAnswerKeyPanel.jsx) in the assessment
+   editor: band → rail + one table per question. Light buttons restate their
+   hover background — index.css paints every button midnight on hover. */
+
+.assessment-editor-body[hidden] { display: none; }
+
+/* Questions | Scorecard, in the editor header. */
+.qe-view-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.qe-view-switch button {
+  border: 0; border-radius: 0; background: var(--card); color: var(--muted);
+  font: inherit; font-size: 0.8rem; font-weight: 700; padding: 0.3rem 0.85rem; cursor: pointer;
+}
+.qe-view-switch button:hover { background: var(--bg); color: var(--midnight); }
+.qe-view-switch button.active, .qe-view-switch button.active:hover { background: var(--midnight); color: #fff; }
+.qe-setup .qe-chip.is-current { border-color: var(--midnight); box-shadow: inset 0 0 0 1px var(--midnight); }
+
+.sc-screen { display: grid; gap: 0.8rem; }
+.sc-empty { padding: 1.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+
+.sc-band {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 1.2rem; align-items: center;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1rem;
+}
+.sc-band-total b { display: block; font-size: 1.8rem; line-height: 1.1; color: var(--midnight); }
+.sc-band-total span { font-size: 0.75rem; color: var(--muted); }
+.sc-band-mid { display: grid; gap: 0.45rem; min-width: 0; }
+.sc-band .ak-paper-stack { height: 28px; }
+.sc-chip-link { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; font-family: inherit; }
+.sc-chip-link:hover { background: #f1dfbc; color: #8a5a00; }
+.sc-pass { display: grid; gap: 0.15rem; justify-items: end; text-align: right; }
+.sc-pass label { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+.sc-pass-box { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700; color: var(--midnight); }
+.sc-pass-box input { width: 4.2rem; text-align: center; font-weight: 800; padding: 0.25rem 0.4rem; }
+.sc-pass-hint { font-size: 0.72rem; color: var(--muted); }
+
+.sc-cols { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 1rem; align-items: start; }
+.sc-rail {
+  position: sticky; top: calc(var(--topbar-h, 61px) + 5.4rem);
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0;
+  display: grid; max-height: calc(100vh - var(--topbar-h, 61px) - 6.5rem); overflow-y: auto;
+}
+.sc-rail-h { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0.25rem 0.9rem 0.45rem; }
+.sc-rq {
+  display: grid; grid-template-columns: 1fr auto; gap: 0.05rem 0.5rem; text-align: left;
+  padding: 0.5rem 0.9rem; border: 0; border-left: 3px solid transparent; border-radius: 0;
+  background: transparent; color: var(--text); font: inherit; cursor: pointer;
+}
+.sc-rq:hover { background: #eef3f8; color: var(--text); border-left-color: var(--midnight); }
+.sc-rq b { color: var(--midnight); font-size: 0.86rem; }
+.sc-rq-sum { font-weight: 800; color: var(--midnight); font-size: 0.86rem; }
+.sc-rq small { grid-column: 1 / -1; font-size: 0.72rem; color: var(--muted); }
+.sc-rq small.is-warn { color: #a65c00; font-weight: 700; }
+.sc-rail-foot {
+  display: flex; justify-content: space-between; margin: 0.4rem 0.9rem 0; padding-top: 0.5rem;
+  border-top: 1px solid var(--border); font-weight: 800; color: var(--midnight); font-size: 0.85rem;
+}
+
+.sc-main { display: grid; gap: 1rem; min-width: 0; }
+.sc-q {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  scroll-margin-top: calc(var(--topbar-h, 61px) + 5.4rem);
+}
+.sc-q-head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--border); }
+.sc-q-head h3 { margin: 0; font-size: 1rem; color: var(--midnight); }
+.sc-q-stem { font-size: 0.8rem; color: var(--muted); min-width: 0; flex: 1 1 280px; }
+.sc-q-sum { margin-left: auto; font-weight: 800; color: var(--midnight); white-space: nowrap; }
+
+.sc-parts { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.sc-parts th {
+  text-align: left; font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;
+  color: var(--muted); background: #f7f6f2; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.sc-parts td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.sc-parts tbody tr:last-child td { border-bottom: 0; }
+.sc-parts .r { text-align: right; }
+.sc-part { scroll-margin-top: calc(var(--topbar-h, 61px) + 6rem); }
+.sc-pl { font-weight: 800; color: var(--muted); width: 2.6rem; white-space: nowrap; }
+.sc-pq { color: var(--text); min-width: 16rem; }
+.sc-pt { color: var(--muted); font-size: 0.76rem; white-space: nowrap; }
+.sc-pa { color: var(--muted); font-size: 0.8rem; min-width: 14rem; }
+.sc-pa b { color: var(--midnight); }
+.sc-marks { width: 4.4rem; text-align: center; font-weight: 800; padding: 0.2rem 0.3rem; }
+.sc-marks.is-derived { border-style: dashed; color: var(--muted); background: transparent; }
+.sc-part.is-warn td { background: #fff4e0; }
+.sc-part.is-warn .sc-pa { color: #a65c00; }
+.sc-part.is-open td { background: #fbf6ea; }
+.sc-part-open td { background: #fbf6ea; padding-top: 0.2rem; padding-bottom: 0.8rem; }
+.sc-link {
+  border: 0; background: none; padding: 0; font: inherit; font-weight: 700; cursor: pointer;
+  color: var(--midnight); text-decoration: underline; text-underline-offset: 2px;
+}
+.sc-link:hover { background: none; color: var(--gold); }
+.sc-parts .mark-mode { white-space: nowrap; }
+
+/* Criteria at full width: the note wraps. */
+.mc-editor.is-wide { max-width: none; }
+.mc-editor.is-wide .mc-table { width: 100%; }
+
+.mc-note-wide { width: 100%; min-height: 2.1rem; resize: vertical; line-height: 1.4; font-family: inherit; field-sizing: content; max-height: 9rem; }
+
+.sc-copy { margin-top: 0.5rem; display: grid; gap: 0.4rem; justify-items: start; }
+.sc-copy-list { list-style: none; margin: 0; padding: 0.35rem; display: grid; gap: 0.3rem; width: min(100%, 720px); background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 22px rgba(15, 22, 38, 0.1); }
+.sc-copy-list button {
+  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.6rem; align-items: baseline; text-align: left;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; font-size: 0.82rem; padding: 0.4rem 0.6rem; cursor: pointer;
+}
+.sc-copy-list button:hover { background: #eef3f8; color: var(--text); border-color: var(--midnight); }
+.sc-copy-list b { color: var(--midnight); }
+.sc-copy-what { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-copy-m { font-weight: 800; color: var(--midnight); }
+
+@media (max-width: 1000px) {
+  .sc-band { grid-template-columns: 1fr; }
+  .sc-pass { justify-items: start; text-align: left; }
+  .sc-cols { grid-template-columns: minmax(0, 1fr); }
+  .sc-rail { display: none; }
+  .sc-q { overflow-x: auto; }
+}
+
+/* Wide criteria: fixed columns so the note takes what is left, rather than the
+   browser handing the spare width to the marks column. */
+.mc-editor.is-wide .mc-table { table-layout: fixed; min-width: 0; }
+.mc-editor.is-wide .mc-table td:nth-child(1) { width: 24%; }
+.mc-editor.is-wide .mc-table td:nth-child(2) { width: 5.5rem; }
+.mc-editor.is-wide .mc-table td:nth-child(4) { width: 2.4rem; }
+.sc-copy .ghost { font-size: 0.74rem; padding: 0.22rem 0.6rem; }
