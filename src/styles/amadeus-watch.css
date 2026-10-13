@@ -13,6 +13,51 @@
   white-space: nowrap;
 }
 .amx-share:hover:not(:disabled) { background: #2a5078; border-color: #2a5078; }
+/* The share dropped without them stopping it. */
+.amx-share.is-again { box-shadow: 0 0 0 3px #f0c46a; }
+
+/* While Chrome's share dialog is open: which tab to pick. Pinned to the
+   bottom so the dialog (top of the window) never covers it. */
+.amx-pick {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.75rem;
+  max-width: calc(100vw - 32px);
+  background: #1e3c5a;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  box-shadow: 0 8px 28px rgba(16, 38, 59, 0.3);
+}
+.amx-pick-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #ffffff;
+  color: #202124;
+  border-radius: 6px;
+  padding: 0.3rem 0.65rem;
+  font: 0.9rem 'Segoe UI', Roboto, Arial, sans-serif;
+}
+.amx-pick-ic {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #0b3b8c;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
 .amx-pill {
   display: inline-flex;
   align-items: center;
@@ -70,8 +115,9 @@
   padding: 8px 10px;
   max-width: 360px;
   overflow-wrap: anywhere;
-  pointer-events: none;
 }
+.amx-diag-x { float: right; margin: -4px -6px 0 8px; border: 0; background: transparent; color: #d9e6f2; font-size: 14px; line-height: 1; padding: 0 4px; cursor: pointer; }
+.amx-diag-x:hover:not(:disabled) { background: transparent; color: #ffffff; }
 
 /* ── trainer: thumbnails ── */
 .amx-thumb {
@@ -87,6 +133,9 @@
 .amx-thumb.is-hand { height: 70px; width: 124px; flex: none; }
 .amx-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
 .amx-thumb.is-none { display: grid; place-items: center; font-size: 0.72rem; color: #8a96a3; text-align: center; padding: 0 0.4rem; }
+.amx-thumb.is-off b, .amx-sq-img.is-empty b { display: block; color: #b0473a; font-weight: 600; }
+.amx-thumb-how { display: block; font-size: 0.68rem; color: #8a96a3; }
+.amx-sq-img.is-empty > span { text-align: center; }
 .amx-thumb.is-paused img { filter: grayscale(1) blur(2px); opacity: 0.5; }
 .amx-thumb-age {
   position: absolute; right: 4px; bottom: 3px;
@@ -103,6 +152,7 @@
 .amx-room { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .amx-room-count { font-size: 0.82rem; color: #4b5a6a; white-space: nowrap; }
 .amx-room-count b { color: #1e3c5a; }
+.amx-room-missing { font-size: 0.82rem; color: #b0473a; max-width: 26rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .amx-room-pics { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: #4b5a6a; cursor: pointer; }
 
 /* ── trainer: Selected card + hands ── */

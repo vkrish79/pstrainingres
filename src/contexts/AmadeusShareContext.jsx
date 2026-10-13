@@ -27,6 +27,12 @@ import { markActive } from '../hooks/useIdleSignOut.js';
 //           this person (a 'live' ping in the last 8s).
 // Receives: hello (a host has the Room open), live (watching me), ask (please
 // share).
+//
+// THE LAST SHARE. How the most recent share ended is kept in this browser
+// (localStorage, per session and account), so it survives a reload or a
+// sign-out. Anything but their own Stop button counts as a drop, and the
+// workbook offers "Share again". It also rides on the 'off' state, so the
+// trainer's tile can say "Stopped 3 min ago" rather than just "Not sharing".
 
 const Ctx = createContext(null);
 
@@ -43,6 +49,26 @@ const MID = { maxW: 640, quality: 0.6, maxBytes: 90000 };
 const MID_EVERY_MS = 3000;
 const FRAME = { maxW: 1280, quality: 0.65, maxBytes: 200000 };
 
+// { sharing, at, reason } — while sharing, `at` is refreshed with every state
+// message, so a reload leaves roughly when it was cut off.
+// reason: stopped (their Stop) | ended (tab closed, or Chrome's own Stop) |
+// reload (the workbook went while sharing) | signout | restart (re-picking).
+// Only today's counts: a class runs for weeks, and yesterday's share is not
+// something to pick up again this morning.
+function lastKey(sessionId, uid) { return `amx-last:${sessionId}:${uid}`; }
+function readLast(sessionId, uid) {
+  try {
+    const v = JSON.parse(localStorage.getItem(lastKey(sessionId, uid)) || 'null');
+    if (!v?.at || new Date(v.at).toDateString() !== new Date().toDateString()) return null;
+    // Still marked sharing means this page was never told it ended.
+    return v.sharing ? { sharing: false, at: v.at, reason: 'reload' } : v;
+  } catch { return null; }
+}
+function writeLast(sessionId, uid, v) {
+  if (!sessionId || !uid) return;
+  try { localStorage.setItem(lastKey(sessionId, uid), JSON.stringify(v)); } catch { /* the tile just says less */ }
+}
+
 export function AmadeusShareProvider({ children }) {
   const { session: authSession } = useAuth();
   const uid = authSession?.user?.id || null;
@@ -53,12 +79,19 @@ export function AmadeusShareProvider({ children }) {
   const [asked, setAsked] = useState(false);
   const [error, setError] = useState('');
   const [diag, setDiag] = useState({ label: '', sent: 0, failed: 0, lastBytes: 0, lastKind: '', lastAck: '', tickGapMax: 0 });
+  const [last, setLast] = useState(null);   // how the last share ended (see THE LAST SHARE)
 
   const channelRef = useRef(null);
   const shareRef = useRef(null);   // { stream, track, grabber, stopTicker }
   const statusRef = useRef('off');
   const timesRef = useRef({});     // hostAt, liveAt, stateAt, thumbAt, frameAt, activeAt, lastSig, lastTick
   const busyRef = useRef(false);
+  const lastRef = useRef(null);
+  const idsRef = useRef({ sessionId: null, uid: null });
+  idsRef.current = { sessionId, uid };
+  // The session and account a running share belongs to. Signing out clears
+  // uid before the share is stopped, so the record is written to these.
+  const shareIdsRef = useRef(null);
 
   const setStatusBoth = useCallback(s => { statusRef.current = s; setStatus(s); }, []);
 
@@ -79,9 +112,22 @@ export function AmadeusShareProvider({ children }) {
   }, []);
 
   const sendState = useCallback(() => {
-    timesRef.current.stateAt = Date.now();
-    return send('state', { status: statusRef.current, surface: shareRef.current?.surface || null, at: Date.now() });
+    const now = Date.now();
+    timesRef.current.stateAt = now;
+    const on = statusRef.current === 'sharing' || statusRef.current === 'paused';
+    const ids = shareIdsRef.current || idsRef.current;
+    if (on) writeLast(ids.sessionId, ids.uid, { sharing: true, at: now });
+    return send('state', { status: statusRef.current, surface: shareRef.current?.surface || null, at: now, last: on ? null : lastRef.current });
   }, [send]);
+
+  // Pick up how the last share in this session ended, e.g. after a reload.
+  useEffect(() => {
+    if (shareRef.current) return;
+    const l = sessionId && uid ? readLast(sessionId, uid) : null;
+    if (l) writeLast(sessionId, uid, l);
+    lastRef.current = l;
+    setLast(l);
+  }, [sessionId, uid]);
 
   // ── the private channel: joined while there is a session to share into ──
   useEffect(() => {
@@ -118,13 +164,21 @@ export function AmadeusShareProvider({ children }) {
     };
   }, [uid, sessionId, sendState]);
 
-  const stop = useCallback(() => {
+  // reason: see THE LAST SHARE. The Stop button passes its click event, which
+  // is the deliberate 'stopped'.
+  const stop = useCallback(reason => {
     const sh = shareRef.current;
     shareRef.current = null;
     if (sh) {
       sh.stopTicker();
       sh.grabber.close();
       sh.stream.getTracks().forEach(t => t.stop());
+      const l = { sharing: false, at: Date.now(), reason: typeof reason === 'string' ? reason : 'stopped' };
+      const ids = shareIdsRef.current || idsRef.current;
+      writeLast(ids.sessionId, ids.uid, l);
+      shareIdsRef.current = null;
+      lastRef.current = l;
+      setLast(l);
     }
     setSurface(null);
     setStatusBoth('off');
@@ -194,10 +248,11 @@ export function AmadeusShareProvider({ children }) {
     }
     const grabber = makeGrabber(picked.track);
     // Chrome's own "Stop sharing" bar, or the shared tab being closed.
-    picked.track.addEventListener('ended', () => { if (shareRef.current?.track === picked.track) stop(); });
+    picked.track.addEventListener('ended', () => { if (shareRef.current?.track === picked.track) stop('ended'); });
     // A new share sends its first thumbnail at once rather than after 5s.
     Object.assign(timesRef.current, { thumbAt: 0, thumbSentAt: 0, lastSig: null, lastTick: 0, activeAt: 0 });
     shareRef.current = { ...picked, grabber, stopTicker: makeTicker(TICK_MS, () => { tick(); }) };
+    shareIdsRef.current = { ...idsRef.current };
     setSurface(picked.surface);
     setDiag(d => ({ ...d, label: picked.label, tickGapMax: 0 }));
     setStatusBoth('sharing');
@@ -208,11 +263,13 @@ export function AmadeusShareProvider({ children }) {
   const resume = useCallback(() => { if (shareRef.current) { timesRef.current.thumbAt = 0; timesRef.current.lastSig = null; setStatusBoth('sharing'); sendState(); } }, [setStatusBoth, sendState]);
 
   // Signing out, or another account, ends it.
-  useEffect(() => () => { if (shareRef.current) stop(); }, [uid, stop]);
+  useEffect(() => () => { if (shareRef.current) stop('signout'); }, [uid, stop]);
   useEffect(() => { if (!uid) setSessionId(null); }, [uid]);
 
   const value = {
     available, status, surface, asked, error, diag,
+    // Their share ended without them stopping it: offer "Share again".
+    dropped: status === 'off' && !!last && last.reason !== 'stopped',
     start, pause, resume, stop,
     dismissAsk: () => setAsked(false),
     clearError: () => setError(''),

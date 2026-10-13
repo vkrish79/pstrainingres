@@ -59,7 +59,7 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
     for (const pid of ids) {
       const ch = supabase.channel(`amx:${sessionId}:${pid}`, { config: { private: true } });
       ch.on('broadcast', { event: 'state' }, ({ payload }) => {
-        setPeople(p => ({ ...p, [pid]: { ...p[pid], status: payload?.status || 'off', surface: payload?.surface || null, at: Date.now() } }));
+        setPeople(p => ({ ...p, [pid]: { ...p[pid], status: payload?.status || 'off', surface: payload?.surface || null, last: payload?.last || null, at: Date.now() } }));
       });
       ch.on('broadcast', { event: 'thumb' }, ({ payload }) => {
         if (!payload?.img) return;
@@ -115,11 +115,17 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
     for (const ch of Object.values(channelsRef.current)) ch.send({ type: 'broadcast', event: 'ask', payload: {} }).catch(() => {});
   }, []);
 
-  // What the Room shows for one person: 'sharing' | 'paused' | 'off'.
+  // What the Room shows for one person: 'sharing' | 'paused' | 'off'. When
+  // off, `last` says how their last share ended ({ at, reason }), or is null
+  // for "not sharing yet". A page that went quiet mid-share ended it at the
+  // last word we had ('gone').
   const stateOf = useCallback(pid => {
     const p = people[pid];
-    if (!p || !p.at || Date.now() - p.at > STATE_STALE_MS) return { status: 'off' };
-    return { status: p.status === 'sharing' || p.status === 'paused' ? p.status : 'off', surface: p.surface, thumb: p.status === 'sharing' || p.status === 'paused' ? p.thumb : null, thumbAt: p.thumbAt };
+    if (!p || !p.at) return { status: 'off', last: null };
+    const on = p.status === 'sharing' || p.status === 'paused';
+    if (Date.now() - p.at > STATE_STALE_MS) return { status: 'off', last: on ? { at: p.at, reason: 'gone' } : p.last || null };
+    if (!on) return { status: 'off', last: p.last || null };
+    return { status: p.status, surface: p.surface, thumb: p.thumb, thumbAt: p.thumbAt };
   }, [people]);
 
   return {

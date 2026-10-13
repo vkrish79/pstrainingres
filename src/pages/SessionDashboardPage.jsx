@@ -582,7 +582,7 @@ export default function SessionDashboardPage() {
         const st = amx.stateOf(selectedPerson.id);
         return (
           <div className="amx-card">
-            {st.status !== 'off' && <AmadeusThumb state={st} size="card" />}
+            <AmadeusThumb state={st} size="card" />
             <div className="amx-card-actions">
               {st.status !== 'off'
                 ? <button type="button" className="amx-watch-btn" onClick={() => openAmadeus(selectedPerson.id)}>▶ Watch Amadeus</button>
@@ -731,6 +731,7 @@ export default function SessionDashboardPage() {
                     <AmadeusRoomControls
                       sharing={participants.filter(p => !p.deactivated_at && amx.stateOf(p.id).status !== 'off').length}
                       of={participants.filter(p => !p.deactivated_at).length}
+                      missing={participants.filter(p => !p.deactivated_at && amx.stateOf(p.id).status === 'off').map(p => p.full_name || '(unnamed)')}
                       pictures={amxPictures}
                       onPictures={setAmxPictures}
                       onAskAll={amx.askAll}

@@ -20,10 +20,31 @@ function agoOf(at) {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)} min ${s % 60}s`;
 }
 
-// state: { status: 'sharing' | 'paused' | 'off', thumb, thumbAt }
+// Why someone isn't sharing, from how their last share ended (useAmadeusWatch).
+const ENDED_HOW = {
+  stopped: 'they clicked Stop',
+  ended: 'tab closed or stopped in Chrome',
+  reload: 'workbook reloaded',
+  signout: 'signed out',
+  restart: 'picking a tab again',
+  gone: 'workbook closed',
+};
+export function notSharingText(last) {
+  if (!last?.at) return { head: 'Not sharing yet', how: '' };
+  const m = Math.floor(Math.max(0, Date.now() - last.at) / 60000);
+  const ago = m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''} ago`;
+  return { head: `Stopped ${ago}`, how: ENDED_HOW[last.reason] || '' };
+}
+
+// state: { status: 'sharing' | 'paused' | 'off', thumb, thumbAt, last }
 export function AmadeusThumb({ state, size = 'tile' }) {
   if (state.status === 'off') {
-    return <span className={`amx-thumb is-none is-${size}`}>Not sharing Amadeus</span>;
+    const t = notSharingText(state.last);
+    return (
+      <span className={`amx-thumb is-none is-off is-${size}`}>
+        <span><b>{t.head}</b>{t.how && <span className="amx-thumb-how">{t.how}</span>}</span>
+      </span>
+    );
   }
   if (!state.thumb) {
     return <span className={`amx-thumb is-none is-${size}`}>{state.status === 'paused' ? 'Paused' : 'Sharing · picture on its way'}</span>;
@@ -39,7 +60,8 @@ export function AmadeusThumb({ state, size = 'tile' }) {
 }
 
 // Above the class: how many are sharing, ask everyone, pictures on/off.
-export function AmadeusRoomControls({ sharing, of, pictures, onPictures, onAskAll }) {
+// missing: names of everyone not sharing (paused people are sharing).
+export function AmadeusRoomControls({ sharing, of, missing = [], pictures, onPictures, onAskAll }) {
   const [asked, setAsked] = useState(false);
   useEffect(() => {
     if (!asked) return undefined;
@@ -51,6 +73,11 @@ export function AmadeusRoomControls({ sharing, of, pictures, onPictures, onAskAl
       <span className="amx-room-count" data-tip="Participants sharing their ARD Web tab">
         🖥 Sharing <b>{sharing}</b> of {of}
       </span>
+      {missing.length > 0 && sharing > 0 && (
+        <span className="amx-room-missing" data-tip={missing.join(', ')}>
+          Not sharing: {missing.slice(0, 3).join(', ')}{missing.length > 3 ? ` +${missing.length - 3} more` : ''}
+        </span>
+      )}
       {sharing < of && (
         <button type="button" className="ghost amx-room-ask" onClick={() => { onAskAll(); setAsked(true); }}
           data-tip="Shows a “please share” card in everyone's workbook">
@@ -235,7 +262,7 @@ export function AmadeusWall({ people, stateOf, onOpen, onAsk, size, onSize, full
             </div>
             {st.status === 'off' ? (
               <div className="amx-sq-img is-empty">
-                <span>Not sharing</span>
+                {(() => { const t = notSharingText(st.last); return <span><b>{t.head}</b>{t.how && <span className="amx-thumb-how">{t.how}</span>}</span>; })()}
                 <button type="button" className="ghost" disabled={asked[x.id]}
                   onClick={() => { onAsk(x.id); setAsked(a => ({ ...a, [x.id]: true })); }}>
                   {asked[x.id] ? 'Asked ✓' : 'Ask to share'}

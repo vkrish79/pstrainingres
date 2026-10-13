@@ -4,13 +4,16 @@ import '../../styles/amadeus-watch.css';
 
 // Watch Amadeus, in the participant's workbook. See AmadeusShareContext.
 
+// The Amadeus tab's title as Chrome lists it in the share dialog.
+const AMADEUS_TAB = 'Amadeus Altéa Reservation Desktop';
+
 // In the action bar: a button while not sharing, a status pill while sharing.
 // Absent entirely when sharing isn't available here (SQL not applied, or a
 // browser without screen sharing).
 export function AmadeusShareButton() {
   const amx = useAmadeusShare();
   if (!amx?.available) return null;
-  const { status, start, pause, resume, stop } = amx;
+  const { status, dropped, start, pause, resume, stop } = amx;
 
   if (status === 'sharing' || status === 'paused') {
     const paused = status === 'paused';
@@ -27,9 +30,9 @@ export function AmadeusShareButton() {
     );
   }
   return (
-    <button type="button" className="amx-share" onClick={start} disabled={status === 'starting'}
-      data-tip="Let your trainer see your ARD Web tab while you work">
-      🖥 {status === 'starting' ? 'Pick the ARD Web tab…' : 'Share my Amadeus'}
+    <button type="button" className={`amx-share${dropped ? ' is-again' : ''}`} onClick={start} disabled={status === 'starting'}
+      data-tip={dropped ? 'Your Amadeus share stopped. Share it again' : 'Let your trainer see your Amadeus tab while you work'}>
+      🖥 {status === 'starting' ? 'Pick the Amadeus tab…' : dropped ? 'Share again' : 'Share my Amadeus'}
     </button>
   );
 }
@@ -43,12 +46,22 @@ export function AmadeusShareNotices() {
   const [noted, setNoted] = useState(() => {
     try { return localStorage.getItem(NOTED_KEY) === '1'; } catch { return true; }
   });
-  const [showDiag] = useState(() => {
-    try { return /[?&]amxdiag\b/.test(window.location.search) || localStorage.getItem('amx-diag') === '1'; } catch { return false; }
+  // The testing readout: ?amxdiag=1 turns it on (and it stays on in this
+  // browser); ?amxdiag=0 or its × turns it off for good.
+  const [showDiag, setShowDiag] = useState(() => {
+    try {
+      const m = /[?&]amxdiag(?:=([^&]*))?/.exec(window.location.search);
+      if (m && m[1] === '0') { localStorage.removeItem('amx-diag'); return false; }
+      return !!m || localStorage.getItem('amx-diag') === '1';
+    } catch { return false; }
   });
   useEffect(() => {
     if (showDiag) { try { localStorage.setItem('amx-diag', '1'); } catch { /* fine */ } }
   }, [showDiag]);
+  function hideDiag() {
+    setShowDiag(false);
+    try { localStorage.removeItem('amx-diag'); } catch { /* fine */ }
+  }
 
   if (!amx) return null;
   const { available, status, surface, asked, error, diag, start, stop, dismissAsk, clearError } = amx;
@@ -76,7 +89,13 @@ export function AmadeusShareNotices() {
       {sharing && surface === 'monitor' && (
         <div className="amx-warn no-print" role="alert">
           <span>⚠ You're sharing your <strong>whole screen</strong>, so your trainer can see everything on it, not only Amadeus.</span>
-          <button type="button" className="amx-ghost" onClick={() => { stop(); start(); }}>Share just the ARD Web tab</button>
+          <button type="button" className="amx-ghost" onClick={() => { stop('restart'); start(); }}>Share just the Amadeus tab</button>
+        </div>
+      )}
+      {status === 'starting' && (
+        <div className="amx-pick no-print" role="status">
+          <span>Pick this tab, then click <strong>Share</strong>:</span>
+          <span className="amx-pick-tab"><span className="amx-pick-ic" aria-hidden="true">a</span>{AMADEUS_TAB}</span>
         </div>
       )}
       {sharing && !noted && (
@@ -89,7 +108,8 @@ export function AmadeusShareNotices() {
         <p className="error no-print">{error} <button type="button" className="amx-ghost" onClick={clearError}>Dismiss</button></p>
       )}
       {showDiag && (
-        <div className="amx-diag no-print" aria-hidden="true">
+        <div className="amx-diag no-print">
+          <button type="button" className="amx-diag-x" onClick={hideDiag} aria-label="Hide the readout" data-tip="Hide this readout">×</button>
           <b>amx</b> channel {available ? 'ok' : 'no'} · {status} · surface {surface || '–'}<br />
           label “{diag.label || '–'}”<br />
           sent {diag.sent} · failed {diag.failed} · last {diag.lastKind || '–'} {diag.lastBytes ? `${Math.round(diag.lastBytes / 1024)} KB` : ''} ({diag.lastAck || '–'})<br />
