@@ -192,3 +192,16 @@
   .an-xl-list { border-right: 0; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 4px; }
   .an-xl-list li { flex: 1 1 140px; }
 }
+
+/* Course feedback tab: the end-of-day pulse across classes (A4). */
+.an-feedback { overflow-x: auto; }
+.an-feedback-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.an-feedback-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #7d8a97; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
+.an-feedback-table td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.an-feedback-table .num { font-variant-numeric: tabular-nums; }
+.an-feedback-name { display: block; font-weight: 600; }
+.an-feedback-score { display: grid; grid-template-columns: minmax(80px, 160px) auto; gap: 0.5rem; align-items: center; }
+.an-feedback .pulse-bar { height: 8px; background: #eceae5; border-radius: 999px; overflow: hidden; }
+.an-feedback .pulse-bar i { display: block; height: 100%; }
+.an-feedback .pulse-bar.ok i { background: #2f7a52; } .an-feedback .pulse-bar.mid i { background: #c28b2c; } .an-feedback .pulse-bar.poor i { background: #c2503c; }
+.an-feedback-empty { padding: 1rem 0; }

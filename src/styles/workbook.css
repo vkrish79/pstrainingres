@@ -669,3 +669,33 @@ button.pab-chip { cursor: pointer; }
   background: #fff; color: var(--midnight); border: 1px solid var(--border); border-radius: 999px;
 }
 .conf-change:hover { background: #fff; color: var(--midnight); border-color: var(--midnight); }
+
+/* ── End-of-day pulse (A4) ─────────────────────────────────────────── */
+.pulse-card {
+  margin: 0 0 1rem; padding: 0.9rem 1rem; display: grid; gap: 0.7rem;
+  background: #fff; border: 1px solid var(--gold); border-radius: 12px;
+}
+.pulse-card.is-folded, .pulse-card.is-sent {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  padding: 0.55rem 0.9rem; font-size: 0.9rem; background: var(--bg); border-color: var(--border);
+}
+.pulse-card.is-sent { color: #2e7d32; }
+.pulse-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; align-items: baseline; }
+.pulse-private, .pulse-ends, .pulse-optional { font-size: 0.8rem; color: var(--muted); font-weight: 400; }
+.pulse-q { display: grid; gap: 0.35rem; }
+.pulse-label { font-weight: 600; font-size: 0.9rem; }
+.pulse-scale { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.pulse-chip {
+  min-width: 2.4rem; padding: 0.4rem 0.8rem; font-size: 0.85rem;
+  background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 999px;
+}
+.pulse-chip:hover { background: #fbf8f1; color: var(--text); border-color: var(--gold); }
+.pulse-chip.is-on, .pulse-chip.is-on:hover { background: var(--midnight); color: #fff; border-color: var(--midnight); }
+.pulse-word { max-width: 18rem; }
+.pulse-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.pulse-later, .pulse-open {
+  background: #fff; color: var(--midnight); border: 1px solid var(--border); padding: 0.45rem 0.9rem; font-size: 0.85rem;
+}
+.pulse-later:hover, .pulse-open:hover { background: #fff; color: var(--midnight); border-color: var(--midnight); }
+.pulse-open { margin-left: auto; padding: 0.3rem 0.8rem; }
+.pulse-send { padding: 0.45rem 1.1rem; font-size: 0.85rem; }

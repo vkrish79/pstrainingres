@@ -3837,3 +3837,17 @@
 /* By part: the question is stated once above the rows. */
 .mk-partq { margin: 0; font-weight: 600; color: var(--midnight); font-size: 0.95rem; max-width: none; }
 .exresp-block.is-split.has-who .exresp-answer-label { display: none; }
+
+/* ── End-of-day pulse (A4), cockpit rail card ──────────────────────── */
+.pulse-cockpit { display: grid; gap: 0.5rem; }
+.pulse-cockpit-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.pulse-cockpit-head .cockpit-card-title { margin: 0; }
+.pulse-cockpit-now { margin: 0; font-size: 0.85rem; }
+.pulse-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.pulse-days li { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 0.2rem 0.5rem; align-items: center; font-size: 0.78rem; }
+.pulse-day-n { color: #6c7a88; }
+.pulse-bar { height: 8px; background: #eceae5; border-radius: 999px; overflow: hidden; }
+.pulse-bar i { display: block; height: 100%; background: var(--gold); }
+.pulse-bar.ok i { background: #2f7a52; } .pulse-bar.mid i { background: #c28b2c; } .pulse-bar.poor i { background: #c2503c; }
+.pulse-day-v { font-variant-numeric: tabular-nums; color: #4b5a6a; white-space: nowrap; }
+.pulse-words { grid-column: 2 / -1; color: var(--gold-dark); font-weight: 600; }

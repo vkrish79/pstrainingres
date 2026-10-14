@@ -35,6 +35,8 @@ import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import PrepCallout from '../components/PrepCallout.jsx';
 import ConfidenceStrip from '../components/participant/ConfidenceStrip.jsx';
+import DayPulseCard from '../components/participant/DayPulseCard.jsx';
+import { useDayPulse } from '../hooks/useDayPulse.js';
 import { calloutItems, splitGeneralPrep } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -84,6 +86,8 @@ export default function ParticipantWorkbookPage() {
   const help = useHelpRequests(session?.id, { mine: true, selfId: authSession?.user.id });
   // "How did that exercise go?" — shown at the end of each finished exercise.
   const confidence = useExerciseConfidence(session?.id, { mine: true, selfId: authSession?.user.id });
+  // The end-of-day pulse, once the trainer asks (A4). Workbook only, never the assessment.
+  const pulse = useDayPulse(session?.id, { mine: true });
   const handUp = help.mineOpen;
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpError, setHelpError] = useState('');
@@ -517,6 +521,8 @@ export default function ParticipantWorkbookPage() {
             </div>
           </div>
         )}
+
+        <DayPulseCard latest={pulse.latest} onAnswer={pulse.answer} />
 
         <div className="exresp-layout">
           <div className="exresp-mobile-nav">

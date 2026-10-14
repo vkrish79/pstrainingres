@@ -19,6 +19,7 @@ import AnalyticsOverview from '../components/analytics/AnalyticsOverview.jsx';
 import AnalyticsHeatBoard from '../components/analytics/AnalyticsHeatBoard.jsx';
 import AnalyticsDotPlot from '../components/analytics/AnalyticsDotPlot.jsx';
 import AnalyticsPeople from '../components/analytics/AnalyticsPeople.jsx';
+import AnalyticsFeedback from '../components/analytics/AnalyticsFeedback.jsx';
 import AnalyticsGlance from '../components/analytics/AnalyticsGlance.jsx';
 import AnalyticsExportDialog from '../components/analytics/AnalyticsExportDialog.jsx';
 import '../styles/dashboard.css';
@@ -38,6 +39,7 @@ const TABS = [
   { id: 'cohorts', label: 'Cohorts' },
   { id: 'assess', label: 'Assessments' },
   { id: 'people', label: 'People' },
+  { id: 'feedback', label: 'Course feedback' },
 ];
 
 export default function AnalyticsPage() {
@@ -149,6 +151,7 @@ export default function AnalyticsPage() {
                 {tab === 'cohorts' && <AnalyticsHeatBoard sessions={filtered} />}
                 {tab === 'assess' && <AnalyticsDotPlot sessions={filtered} />}
                 {tab === 'people' && <AnalyticsPeople sessions={filtered} />}
+                {tab === 'feedback' && <AnalyticsFeedback sinceDays={range.days} />}
               </div>
 
               <AnalyticsGlance sessions={filtered} h={h} />

@@ -8,6 +8,8 @@ import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { useExerciseConfidence, confidenceByExercise } from '../hooks/useExerciseConfidence.js';
 import { useStuckRadar } from '../hooks/useStuckRadar.js';
 import { writeSpotlight } from '../hooks/useSessionFocus.js';
+import { useDayPulse } from '../hooks/useDayPulse.js';
+import DayPulseCockpit from '../components/dashboard/DayPulseCockpit.jsx';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
@@ -84,6 +86,8 @@ export default function SessionDashboardPage() {
   const [helpError, setHelpError] = useState('');
   // "How did that exercise go?" taps, live (engagement rec 1).
   const confidence = useExerciseConfidence(id);
+  // End-of-day pulse (A4): totals per asked day.
+  const pulse = useDayPulse(id);
 
 
   // A marking link (?mark= / ?mpart=, see ExerciseResponses) opens straight
@@ -911,6 +915,9 @@ export default function SessionDashboardPage() {
               stuckGroups={radar.groups}
               lost={lostRecently}
               onSpotlight={g => writeSpotlight(id, authSession?.user.id, { id: g.sectionId, title: g.title })}
+              pulseCard={paperOnly || session?.closed_at ? null : (
+                <DayPulseCockpit pulse={pulse} startsAt={session?.starts_at} endsAt={session?.ends_at} active={activeIds.size} />
+              )}
               materialsCount={materialsLoading ? 0 : (materials?.length || 0)}
               onOpenMaterials={() => setMaterialsOpen(true)}
               onPick={(pid) => { setAnswersOpen(false); setAmxOpen(false); setSelectedParticipantId(pid); }}
