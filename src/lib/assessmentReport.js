@@ -65,10 +65,12 @@ export function answerTextOf(block, value) {
 
 // One participant's report.
 //
-// Returns { participant, username, score, errors[], unmarked[] } where
+// Returns { participant, username, score, errors[], unmarked[], rows[] } where
 //   score    — the scoreBlocks total, so the figure matches the tile exactly
 //   errors   — questions that lost marks, in paper order
 //   unmarked — manual questions still awaiting judgement, in paper order
+//   rows     — every scored question, full marks included (question statistics
+//              for the bank are built from these, lib/itemStats.js)
 export function buildParticipantReport({
   participant, blocks, answers, answerKey, answerPoints, answerModes, marksForP, labelByBlockId,
   guidance = null,
@@ -78,6 +80,7 @@ export function buildParticipantReport({
 
   const errors = [];
   const unmarked = [];
+  const rows = [];
 
   for (const block of blocks) {
     if (!isFillableBlock(block)) continue;
@@ -123,6 +126,7 @@ export function buildParticipantReport({
       answerText: answerTextOf(block, value),
     };
 
+    rows.push(row);
     if (result.state === 'unmarked') unmarked.push(row);
     else if ((result.earned || 0) < points) errors.push(row);
   }
@@ -133,6 +137,7 @@ export function buildParticipantReport({
     score: scoreBlocks(blocks, answerKey || {}, answersForP, answerPoints, answerModes, marks, guidance),
     errors,
     unmarked,
+    rows,
   };
 }
 

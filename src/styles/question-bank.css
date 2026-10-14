@@ -254,3 +254,11 @@
 .qb-mini:hover { background: #fff; border-color: var(--qasr); color: var(--midnight); }
 .qb-seg button:hover { background: rgba(255, 255, 255, 0.55); color: var(--midnight); }
 .qb-seg button.is-on:hover { background: #fff; color: var(--midnight); }
+
+/* How a question has worked in real classes (A2). */
+.qb-stat { font-size: 0.76rem; color: #2f7a52; background: #e3f1e9; border-radius: 999px; padding: 0.05rem 0.5rem; white-space: nowrap; }
+.qb-stat.is-thin { color: #6c7a88; background: #f1eee7; }
+.qb-stat-panel { margin-top: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 8px; background: #f8f7f4; border: 1px solid var(--border); display: grid; gap: 0.35rem; font-size: 0.86rem; }
+.qb-stat-figs { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; }
+.qb-stat-src, .qb-stat-note { margin: 0; font-size: 0.8rem; color: #6c7a88; }
+.qb-stat-note { margin-top: 0.6rem; }

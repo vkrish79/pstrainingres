@@ -5,6 +5,8 @@ import Block from './blocks/Block.jsx';
 import { useBankQuestions } from '../hooks/useBankQuestions.js';
 import { questionKeyState } from '../lib/bankQuestions.js';
 import { questionTypeKeys, typeGlyph, typeLabel } from '../lib/questionTypeLabels.js';
+import { useBankItemStats } from '../hooks/useBankItemStats.js';
+import { itemVerdict, MIN_ANSWERS } from '../lib/itemStats.js';
 import '../styles/question-bank.css';
 
 // Reading a question bank.
@@ -20,6 +22,8 @@ import '../styles/question-bank.css';
 // a question the way the room will meet it.
 export default function BankQuestionBrowser({ bank, onBack }) {
   const { loading, error, sections, blocks, keys, usage } = useBankQuestions(bank?.id);
+  // How each question has worked in real classes (A2), recorded at close.
+  const itemStats = useBankItemStats(bank?.id);
 
   const [find, setFind] = useState('');
   const [topic, setTopic] = useState('');
@@ -218,6 +222,7 @@ export default function BankQuestionBrowser({ bank, onBack }) {
                     {q.topics.map(t => <span key={t} className="qb-topic">{t}</span>)}
                     {q.state === 'unkeyed' && <span className="qb-pill is-bad">unkeyed</span>}
                     {q.state === 'hand' && <span className="qb-pill is-hand">by hand</span>}
+                    <ItemStatChip stat={itemStats[q.section.id]} />
                     <span className="qb-used">
                       {q.used
                         ? <>in <b>{q.used}</b> paper{q.used === 1 ? '' : 's'}</>
@@ -258,6 +263,7 @@ export default function BankQuestionBrowser({ bank, onBack }) {
                       No correct answer set, so a paper taking this question cannot mark it.
                     </p>
                   )}
+                  <ItemStatPanel stat={itemStats[q.section.id]} />
                   <div className="qb-row-acts">
                     <Link to={`/trainer/question-bank/${bank?.id}`} className="qb-open">Open editor</Link>
                     <span className="qb-why">Opens the bank editor at the top.</span>
@@ -269,5 +275,49 @@ export default function BankQuestionBrowser({ bank, onBack }) {
         })}
       </div>
     </>
+  );
+}
+
+// How a question has worked in real classes (A2), on its row: the share of
+// marks people earned, and a flag once there are enough answers to judge.
+const SEPARATES = { yes: 'Separates strong from weak', weakly: 'Separates a little', no: "Doesn't separate", reversed: 'Strong people do worse' };
+const FLAG = { check: 'Check the key or wording', easy: 'Too easy?', hard: 'Very hard' };
+
+function ItemStatChip({ stat }) {
+  if (!stat || !stat.scored) return null;
+  const v = itemVerdict(stat);
+  return (
+    <>
+      <span className={`qb-stat${v.enough ? '' : ' is-thin'}`}>
+        <b>{Math.round(stat.facility * 100)}%</b> of marks · {stat.scored} answer{stat.scored === 1 ? '' : 's'}
+      </span>
+      {v.flag && <span className={`qb-pill ${v.flag === 'check' ? 'is-bad' : 'is-hand'}`}>{FLAG[v.flag]}</span>}
+    </>
+  );
+}
+
+function ItemStatPanel({ stat }) {
+  if (!stat || !stat.scored) {
+    return <p className="qb-stat-note">Not sat in a closed class yet. Figures appear here after the first class that took it is closed.</p>;
+  }
+  const v = itemVerdict(stat);
+  const last = stat.last_recorded ? new Date(stat.last_recorded).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+  return (
+    <div className="qb-stat-panel">
+      <div className="qb-stat-figs">
+        <span><b>{Math.round(stat.facility * 100)}%</b> of the marks earned on average</span>
+        {v.separates && (
+          <span>
+            <b>{SEPARATES[v.separates]}</b>
+            {' '}(top third {Math.round(stat.top_frac * 100)}%, bottom third {Math.round(stat.bottom_frac * 100)}%)
+          </span>
+        )}
+      </div>
+      <p className="qb-stat-src">
+        From {stat.classes} class{stat.classes === 1 ? '' : 'es'}, {stat.scored} marked answer{stat.scored === 1 ? '' : 's'}{last ? ` · last recorded ${last}` : ''}.
+        {!v.enough && <> Too few to judge yet: flags appear from {MIN_ANSWERS} answers.</>}
+        {v.flag === 'check' && <> People who did well overall scored lower here than people who struggled. That usually means a wrong key or confusing wording.</>}
+      </p>
+    </div>
   );
 }

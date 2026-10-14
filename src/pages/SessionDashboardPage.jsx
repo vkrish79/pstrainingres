@@ -5,6 +5,7 @@ import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useHelpRequests } from '../hooks/useHelpRequests.js';
+import { supabase } from '../lib/supabase.js';
 import { useExerciseConfidence, confidenceByExercise } from '../hooks/useExerciseConfidence.js';
 import { useStuckRadar } from '../hooks/useStuckRadar.js';
 import { writeSpotlight } from '../hooks/useSessionFocus.js';
@@ -125,6 +126,7 @@ export default function SessionDashboardPage() {
     requestAnimationFrame(() => requestAnimationFrame(() => setArrangingResit(true)));
   }
   const [closeError, setCloseError] = useState('');
+  const [itemStatsFailed, setItemStatsFailed] = useState(false);
   const [confirmDeleteSession, setConfirmDeleteSession] = useState(false);
   const [deleteSessionError, setDeleteSessionError] = useState('');
   const [confirmReset, setConfirmReset] = useState(null);
@@ -384,10 +386,23 @@ export default function SessionDashboardPage() {
     );
   }
 
+  // A2: the question statistics for the bank are recorded BEFORE closing,
+  // because close-session deletes the answers they are made from. If that
+  // fails the modal stays open and offers to close without them.
   async function doClose(check) {
     setBusy(true);
     setCloseError('');
-    const { error: err } = await runBusy('Closing session…', () => closeSession(check));
+    const { item_stats: items = [], ...rest } = check;
+    if (items.length) {
+      const { error: sErr } = await runBusy('Recording question statistics…', () => supabase.rpc('record_item_stats', { p_session_id: id, p_rows: items }));
+      if (sErr) {
+        setBusy(false);
+        setItemStatsFailed(true);
+        setCloseError(`The question statistics for the bank couldn't be saved (${sErr.message}).`);
+        return;
+      }
+    }
+    const { error: err } = await runBusy('Closing session…', () => closeSession(rest));
     setBusy(false);
     if (err) { setCloseError(err.message); return; } // keep the modal open to show it
     setConfirmClose(false);
@@ -1014,8 +1029,9 @@ export default function SessionDashboardPage() {
           answers={answers}
           busy={busy}
           error={closeError}
+          itemStatsFailed={itemStatsFailed}
           onConfirm={doClose}
-          onCancel={() => setConfirmClose(false)}
+          onCancel={() => { setConfirmClose(false); setCloseError(''); setItemStatsFailed(false); }}
         />
       )}
       {deactivating && (() => {

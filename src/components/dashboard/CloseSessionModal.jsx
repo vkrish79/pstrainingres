@@ -6,6 +6,7 @@ import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
 import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
 import { buildCohortReport } from '../../lib/assessmentReport.js';
 import { isInactiveBlock } from '../../lib/assessmentScoring.js';
+import { itemStatsFromCohort } from '../../lib/itemStats.js';
 import { isFillableBlock, isAnswered, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 
 // The bar every active participant must clear on EVERY exercise before a
@@ -39,6 +40,10 @@ export function exercisesBelow(sections, blocks, answersForP) {
 // participants the answers belong to.
 export default function CloseSessionModal({
   session, sections, blocks, participants, answers, busy, error, onConfirm, onCancel,
+  // The question statistics for the bank could not be recorded (A2). Closing
+  // deletes what they are made from, so the trainer chooses: try again, or
+  // close without them.
+  itemStatsFailed = false,
 }) {
   useBodyScrollLock(true);
   useEffect(() => {
@@ -84,7 +89,10 @@ export default function CloseSessionModal({
 
   // Scored by buildCohortReport — the same call the Report tab makes — so the
   // figure recorded at close is the figure the trainer last saw on screen.
-  const asmtResults = useMemo(() => {
+  // Also the question statistics for the bank (A2), from the same cohort, so
+  // they can never disagree with the Report. Re-sits are left out: a second
+  // sitting would count the same people twice.
+  const asmtScored = useMemo(() => {
     if (!hasAssessment || asmtLoading || asmtFailed) return null;
     const liveBlocks = asmt.blocks.filter(b => !isInactiveBlock(b));
     const cohort = buildCohortReport({
@@ -98,7 +106,7 @@ export default function CloseSessionModal({
       marks,
       guidance,
     });
-    return cohort.reports.map(r => {
+    const results = cohort.reports.map(r => {
       const forP = asmt.answers[r.participant.id] || {};
       const marksForP = marks[r.participant.id] || {};
       return {
@@ -115,19 +123,29 @@ export default function CloseSessionModal({
         result: resultOf(r.score, passMark, r.unmarked.length),
       };
     });
-  }, [hasAssessment, asmtLoading, asmtFailed, asmt.sections, asmt.blocks, asmt.answers,
+    const items = session?.kind === 'resit' ? [] : itemStatsFromCohort({
+      reports: cohort.reports,
+      sections: asmt.sections,
+      blocks: liveBlocks,
+      satIds: new Set(results.filter(x => x.sat).map(x => x.participant_id)),
+    });
+    return { results, items };
+  }, [session?.kind, hasAssessment, asmtLoading, asmtFailed, asmt.sections, asmt.blocks, asmt.answers,
     asmt.answerKey, asmt.answerPoints, asmt.answerModes, participants, marks, passMark,
     guidance, criteriaPoints]);
 
+  const asmtResults = asmtScored?.results || null;
   const activeResults = (asmtResults || []).filter(r => !r.deactivated);
   const sat = activeResults.filter(r => r.sat);
   const stillToMark = sat.filter(r => r.unmarked > 0).length;
 
   const canClose = !busy && missing.length === 0 && !asmtLoading;
 
-  function confirm() {
+  function confirm({ skipItemStats = false } = {}) {
     if (!canClose) return;
     onConfirm({
+      // Recorded by the page before close-session runs; never sent to it.
+      item_stats: skipItemStats ? [] : (asmtScored?.items || []),
       progress_check: active.map(p => {
         const row = shortfalls.find(r => r.participant.id === p.id);
         return {
@@ -241,11 +259,22 @@ export default function CloseSessionModal({
 
           <p className="muted">This can’t be undone. The session moves to your Closed sessions archive.</p>
           {error && <p className="error">{error}</p>}
+          {itemStatsFailed && !busy && (
+            <p className="muted close-item-stats-note">
+              Closing deletes the answers these statistics are made from, so they can't be added later.
+              Try again, or close without them. The class's results are recorded either way.
+            </p>
+          )}
         </div>
         <footer className="modal-foot">
           <button className="ghost" onClick={onCancel} disabled={busy}>Cancel</button>
-          <button className="danger" onClick={confirm} disabled={!canClose}>
-            {busy ? 'Closing…' : 'Yes, close session'}
+          {itemStatsFailed && (
+            <button className="ghost" onClick={() => confirm({ skipItemStats: true })} disabled={!canClose}>
+              Close without question statistics
+            </button>
+          )}
+          <button className="danger" onClick={() => confirm()} disabled={!canClose}>
+            {busy ? 'Closing…' : itemStatsFailed ? 'Try again and close' : 'Yes, close session'}
           </button>
           {missing.length > 0 && !busy && (
             <span className="muted close-check-gate">
