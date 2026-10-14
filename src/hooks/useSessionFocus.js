@@ -17,6 +17,27 @@ import { supabase } from '../lib/supabase.js';
 // Participants detect a hard snap by a CHANGE in snap_at (not its magnitude),
 // which is clock-skew-proof; see ParticipantWorkbookPage for the jump-once
 // logic that seeds from the loaded value so joining mid-session doesn't yank.
+// The spotlight write on its own, for a screen that wants to set the spotlight
+// without subscribing to it (the cockpit's "Spotlight it" on a stuck exercise;
+// the channel name here is fixed per session, so the hook must not be mounted
+// twice on one page).
+export async function writeSpotlight(sessionId, selfId, section, { hard = false } = {}) {
+  const now = new Date().toISOString();
+  const row = {
+    session_id: sessionId,
+    section_id: section.id,
+    section_title: section.title,
+    set_by: selfId,
+    set_at: now,
+  };
+  // Bump snap_at only on a hard snap, to the SAME timestamp as set_at — so
+  // `snap_at === set_at` is a reliable "this focus came from a snap" flag.
+  // Omitting it on a soft spotlight leaves the existing value intact (upsert
+  // only writes provided columns), so a prior snap doesn't re-fire.
+  if (hard) row.snap_at = now;
+  return supabase.from('session_focus').upsert(row, { onConflict: 'session_id' });
+}
+
 export function useSessionFocus(sessionId, selfId) {
   const [focus, setFocus] = useState(null);
 
@@ -45,22 +66,9 @@ export function useSessionFocus(sessionId, selfId) {
     return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [sessionId]);
 
-  async function spotlight(section, { hard = false } = {}) {
+  async function spotlight(section, opts) {
     if (!sessionId || !section) return;
-    const now = new Date().toISOString();
-    const row = {
-      session_id: sessionId,
-      section_id: section.id,
-      section_title: section.title,
-      set_by: selfId,
-      set_at: now,
-    };
-    // Bump snap_at only on a hard snap, to the SAME timestamp as set_at — so
-    // `snap_at === set_at` is a reliable "this focus came from a snap" flag.
-    // Omitting it on a soft spotlight leaves the existing value intact (upsert
-    // only writes provided columns), so a prior snap doesn't re-fire.
-    if (hard) row.snap_at = now;
-    await supabase.from('session_focus').upsert(row, { onConflict: 'session_id' });
+    await writeSpotlight(sessionId, selfId, section, opts);
   }
 
   async function clear() {

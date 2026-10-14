@@ -57,7 +57,9 @@ export function useSessionCursor(sessionId, { selfId, track = false, sectionId =
     (async () => {
       const { data } = await supabase
         .from('participant_cursor')
-        .select('participant_id, section_id, section_title, moved_at, last_seen')
+        // '*' rather than a list, so on_since (D2, stuck radar) arrives once
+        // its SQL is applied and nothing breaks before it is.
+        .select('*')
         .eq('session_id', sessionId);
       if (cancelled) return;
       const map = {};

@@ -637,3 +637,35 @@ button.pab-chip { cursor: pointer; }
   font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--midnight, #1f2a44);
 }
 .wb-back-all.wb-back-all:hover { background: none; text-decoration: underline; color: var(--midnight, #1f2a44); }
+
+/* ── "How did that exercise go?" (engagement rec 1) ──────────────────
+   At the end of a finished exercise. Gold edge while unanswered, one quiet
+   line once answered. Light buttons restate their background on :hover —
+   the global button:hover in index.css would otherwise fill them navy. */
+.conf-strip {
+  margin-top: 1rem; padding: 0.85rem 1rem; display: grid; gap: 0.6rem;
+  background: #fff; border: 1px solid var(--gold); border-radius: 12px;
+}
+.conf-strip.is-done {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  border-color: var(--border); background: var(--bg); padding: 0.55rem 0.85rem; font-size: 0.9rem;
+}
+.conf-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; align-items: baseline; }
+.conf-private { font-size: 0.8rem; color: var(--muted); }
+.conf-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.conf-choice {
+  display: grid; justify-items: center; gap: 0.15rem; padding: 0.6rem 0.4rem;
+  background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+  font-weight: 600; font-size: 0.88rem; cursor: pointer;
+}
+.conf-choice:hover { background: #fbf8f1; color: var(--text); border-color: var(--gold); }
+.conf-choice.is-on { background: #fbf8f1; border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+.conf-glyph { font-size: 1.35rem; line-height: 1; }
+.conf-note { width: 100%; }
+.conf-hint { margin: 0; font-size: 0.8rem; color: var(--gold-dark); font-weight: 600; }
+.conf-error { margin: 0; }
+.conf-change {
+  margin-left: auto; padding: 0.25rem 0.75rem; font-size: 0.8rem;
+  background: #fff; color: var(--midnight); border: 1px solid var(--border); border-radius: 999px;
+}
+.conf-change:hover { background: #fff; color: var(--midnight); border-color: var(--midnight); }

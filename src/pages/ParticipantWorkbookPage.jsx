@@ -9,6 +9,7 @@ import { useParticipantPrep } from '../hooks/useParticipantPrep.js';
 import { useProgramMaterials } from '../hooks/useProgramMaterials.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useHelpRequests } from '../hooks/useHelpRequests.js';
+import { useExerciseConfidence } from '../hooks/useExerciseConfidence.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { useLiveTakeover } from '../hooks/useLiveTakeover.js';
 import { usePrepDrawerAnchor } from '../hooks/usePrepDrawerAnchor.js';
@@ -33,6 +34,7 @@ import PollParticipant, { PollThanks } from '../components/poll/PollParticipant.
 import PrepDrawer from '../components/participant/PrepDrawer.jsx';
 import TopBar from '../components/TopBar.jsx';
 import PrepCallout from '../components/PrepCallout.jsx';
+import ConfidenceStrip from '../components/participant/ConfidenceStrip.jsx';
 import { calloutItems, splitGeneralPrep } from '../lib/prepAttach.js';
 import '../styles/dashboard.css';
 import '../styles/workbook.css';
@@ -80,6 +82,8 @@ export default function ParticipantWorkbookPage() {
   // Raise hand. Private: only this person and the trainer running the session
   // can see the ask.
   const help = useHelpRequests(session?.id, { mine: true, selfId: authSession?.user.id });
+  // "How did that exercise go?" — shown at the end of each finished exercise.
+  const confidence = useExerciseConfidence(session?.id, { mine: true, selfId: authSession?.user.id });
   const handUp = help.mineOpen;
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpError, setHelpError] = useState('');
@@ -598,6 +602,15 @@ export default function ParticipantWorkbookPage() {
                       marks={reviews[sec.id] ? marksForBlock(reviewMarks, b.id) : null}
                     />
                   ))}
+                  {/* Once the last box is filled: one private tap for the trainer. */}
+                  {!isGroup && statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100 && (
+                    <ConfidenceStrip
+                      key={`conf-${sec.id}`}
+                      title={sec.title}
+                      mine={confidence.mineBySection[sec.id]}
+                      onSet={(level, note) => confidence.setLevel(sec.id, level, note)}
+                    />
+                  )}
                   {/* Print-only: render participant note inline as formatted
                       HTML (the drawer textarea is screen-only). */}
                   {noteText && (

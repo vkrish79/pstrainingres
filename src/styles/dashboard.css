@@ -2576,6 +2576,15 @@
 .cockpit-dot.tone-bad { background: #c2503c; }
 .cockpit-dot.tone-warn { background: #c98a1c; }
 .cockpit-dot.tone-off { background: #9aa4ae; }
+/* D2 stuck: a hollow amber ring (on it a long time, not idle); lost: the
+   confidence tap's red. */
+.cockpit-dot.tone-stuck { background: #fff; box-shadow: inset 0 0 0 2px #c98a1c; }
+.cockpit-dot.tone-lost { background: #c2503c; box-shadow: 0 0 0 2px #f6e1dc; }
+.cockpit-stuck-group {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; justify-content: space-between;
+  margin: 0 0 0.5rem; padding: 0.5rem 0.65rem; border-radius: 8px;
+  background: #fff3e0; border: 1px dashed #ffb74d; font-size: 0.82rem;
+}
 
 .cockpit-materials {
   display: flex;
@@ -2799,6 +2808,33 @@
 }
 .heat-board .heat-cell:hover { filter: brightness(0.96); box-shadow: inset 0 0 0 1px rgba(30, 60, 90, 0.35); }
 .heat-board .heat-cell.is-here { box-shadow: inset 0 0 0 2px var(--midnight); }
+
+/* "How did that exercise go?": a corner dot on the cell, counts under the
+   average, and a recap line above the board. Lost red, not sure amber, got
+   it green — the app's arb-* traffic light. */
+.heat-board { --arb-good: #2f7a52; --arb-mixed: #c28b2c; --arb-mixed-bg: #f7ecd6; --arb-poor: #c2503c; }
+.heat-board .heat-cell { position: relative; }
+.heat-conf {
+  position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%;
+  box-shadow: 0 0 0 1.5px #fff;
+}
+.heat-conf.is-lost, .heat-conf-counts .is-lost, .heat-legend-conf b.is-lost { background: var(--arb-poor); }
+.heat-conf.is-unsure, .heat-conf-counts .is-unsure, .heat-legend-conf b.is-unsure { background: var(--arb-mixed); }
+.heat-conf.is-got, .heat-conf-counts .is-got, .heat-legend-conf b.is-got { background: var(--arb-good); }
+.heat-conf-counts {
+  text-align: center; padding-top: 0.3rem !important;
+  font-size: 0.66rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; color: #6c7a88;
+}
+.heat-conf-counts span { display: inline-block; min-width: 1.1rem; margin: 0 1px; padding: 0 3px; border-radius: 4px; color: #fff; }
+.heat-conf-counts.is-recap { box-shadow: inset 0 -2px 0 var(--arb-poor); }
+.heat-legend-conf b { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 0.2rem 0 0.35rem; vertical-align: middle; }
+.heat-recaps { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 0.4rem; }
+.heat-recaps li {
+  display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: baseline;
+  background: var(--arb-mixed-bg); border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.85rem;
+}
+.heat-recap-flag { color: var(--arb-poor); font-weight: 700; }
+.heat-recap-notes { color: var(--gold-dark); font-weight: 600; font-size: 0.8rem; }
 
 .heat-avg-label { font-size: 0.78rem; font-weight: 600; color: #7d8a97; padding: 0.4rem 0.4rem 0 0.2rem !important; }
 .heat-avg {

@@ -207,13 +207,25 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
 // the bottom of the screen.
 const OFFLINE_FOLD = 3;
 
-export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, onOpenMaterials, onPick, paperOnly = false }) {
+// stuck / stuckGroups — useStuckRadar (D2): on one exercise far longer than the
+//   class usually takes. lost — said "Lost" on an exercise recently (the
+//   confidence tap). onSpotlight(group) — spotlight an exercise several people
+//   are stuck on. A person appears once: hand first, then stuck, lost, behind,
+//   quiet, offline.
+export function CockpitRail({
+  stats, selectedCard, hands = [], materialsCount, onOpenMaterials, onPick, paperOnly = false,
+  stuck = [], stuckGroups = [], lost = [], onSpotlight, pulseCard = null,
+}) {
   const { behind, quiet, offline, pace } = stats;
   const [showOffline, setShowOffline] = useState(false);
   const fold = offline.length > OFFLINE_FOLD && !showOffline;
   // A raised hand outranks everything the numbers can infer: the person has
   // said so themselves. First come, first shown.
   const handIds = new Set(hands.map(x => x.id));
+  const seen = new Set(handIds);
+  const once = list => list.filter(p => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+  const stuckShown = once(stuck);
+  const lostShown = once(lost);
   const alerts = [
     ...hands.map(x => ({
       tone: 'help',
@@ -222,8 +234,10 @@ export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, o
         ? `${x.hand.acknowledged_by_name || 'Someone'} is on the way · ${ago(x.hand.raised_at)}`
         : `Asked for help ${ago(x.hand.raised_at)}${x.hand.section_title ? ` · ${x.hand.section_title}` : ''}`,
     })),
-    ...behind.filter(p => !handIds.has(p.id)).map(p => ({ tone: 'bad', p, why: `${pace - p.answered} behind class pace` })),
-    ...quiet.filter(p => !handIds.has(p.id)).map(p => ({ tone: 'warn', p, why: p.lastActive ? `No answer or move for ${ago(p.lastActive).replace(' ago', '')}` : 'Online, nothing answered yet' })),
+    ...stuckShown.map(p => ({ tone: 'stuck', p, why: `On ${p.sectionTitle} for ${p.minutes} min · most took ${p.usualMinutes}` })),
+    ...lostShown.map(p => ({ tone: 'lost', p, why: `Said lost on ${p.sectionTitle}${p.note ? ` · “${p.note}”` : ''}` })),
+    ...once(behind).map(p => ({ tone: 'bad', p, why: `${pace - p.answered} behind class pace` })),
+    ...once(quiet).map(p => ({ tone: 'warn', p, why: p.lastActive ? `No answer or move for ${ago(p.lastActive).replace(' ago', '')}` : 'Online, nothing answered yet' })),
     ...(fold ? [] : offline.map(p => ({ tone: 'off', p, why: `Offline · last answer ${ago(p.lastTs)}` }))),
   ];
 
@@ -232,6 +246,12 @@ export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, o
       {selectedCard}
       <section className="cockpit-card">
         <h3 className="cockpit-card-title">Needs you</h3>
+        {stuckGroups.map(g => (
+          <div key={g.sectionId} className="cockpit-stuck-group" role="status">
+            <span><strong>{g.people.length} on {g.title}</strong> longer than usual. Probably the exercise, not the people.</span>
+            {onSpotlight && <button type="button" className="ghost btn-sm" onClick={() => onSpotlight(g)}>Spotlight it</button>}
+          </div>
+        ))}
         {alerts.length === 0 && !fold ? (
           <p className="cockpit-empty">Nobody has asked for help, and nobody is behind or quiet.</p>
         ) : (
@@ -269,6 +289,8 @@ export function CockpitRail({ stats, selectedCard, hands = [], materialsCount, o
           </ul>
         )}
       </section>
+
+      {pulseCard}
 
       {/* Handouts belong to a workbook. A paper-only re-sit has none, and the
           user was explicit that a re-sit needs no workbook or other materials. */}

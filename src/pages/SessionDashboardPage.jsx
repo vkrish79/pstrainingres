@@ -5,6 +5,9 @@ import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useHelpRequests } from '../hooks/useHelpRequests.js';
+import { useExerciseConfidence, confidenceByExercise } from '../hooks/useExerciseConfidence.js';
+import { useStuckRadar } from '../hooks/useStuckRadar.js';
+import { writeSpotlight } from '../hooks/useSessionFocus.js';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
 import { useSessionPrep } from '../hooks/useSessionPrep.js';
@@ -79,6 +82,8 @@ export default function SessionDashboardPage() {
   // Raised hands, live. Each is also shown on that person wherever they appear.
   const help = useHelpRequests(id);
   const [helpError, setHelpError] = useState('');
+  // "How did that exercise go?" taps, live (engagement rec 1).
+  const confidence = useExerciseConfidence(id);
 
 
   // A marking link (?mark= / ?mpart=, see ExerciseResponses) opens straight
@@ -275,6 +280,8 @@ export default function SessionDashboardPage() {
   // Progress and live presence per participant; see useRoomPresence.
   const { totalFillable, progressFor, presenceFor, onlineCount, liveBySection, isOnline } =
     useRoomPresence({ participants, cursors, answers, blocks, sections });
+  // Who's stuck, quietly (D2). Above the early returns: it is a hook.
+  const radar = useStuckRadar({ sessionId: id, cursors, participants, isOnline, enabled: !paperOnly });
 
   async function doDelete(pid) {
     setBusy(true);
@@ -520,6 +527,19 @@ export default function SessionDashboardPage() {
     };
   }
   const roomPeople = participants.map(roomPerson);
+
+  // Who said "Lost" in the last 45 minutes (the confidence tap).
+  const activeIds = new Set(participants.filter(p => !p.deactivated_at).map(p => p.id));
+  const confByExercise = confidenceByExercise(confidence.rows, activeIds);
+  const lostRecently = confidence.rows
+    .filter(r => r.level === 'lost' && activeIds.has(r.participant_id)
+      && Date.now() - new Date(r.updated_at).getTime() < 45 * 60000)
+    .map(r => ({
+      id: r.participant_id,
+      name: participants.find(p => p.id === r.participant_id)?.full_name || '(unnamed)',
+      sectionTitle: sections.find(s => s.id === r.section_id)?.title || 'an exercise',
+      note: r.note,
+    }));
 
   // Four ways to show the Room. By exercise used to be a tab of its own; it is
   // the same class read one exercise at a time, so it lives with the others.
@@ -800,6 +820,7 @@ export default function SessionDashboardPage() {
               {participants.length > 0 && roomView === 'heat' && (
                 <HeatBoard
                   hands={help.byParticipant}
+                  confidence={{ byParticipant: confidence.byParticipant, byExercise: confByExercise }}
                   sections={sections}
                   blocks={blocks}
                   participants={participants}
@@ -886,6 +907,10 @@ export default function SessionDashboardPage() {
               selectedCard={selected ? selectedCard : null}
               hands={roomPeople.filter(x => x.hand).sort((a, b) => a.hand.raised_at.localeCompare(b.hand.raised_at))}
               stats={cockpit}
+              stuck={radar.stuck}
+              stuckGroups={radar.groups}
+              lost={lostRecently}
+              onSpotlight={g => writeSpotlight(id, authSession?.user.id, { id: g.sectionId, title: g.title })}
               materialsCount={materialsLoading ? 0 : (materials?.length || 0)}
               onOpenMaterials={() => setMaterialsOpen(true)}
               onPick={(pid) => { setAnswersOpen(false); setAmxOpen(false); setSelectedParticipantId(pid); }}
