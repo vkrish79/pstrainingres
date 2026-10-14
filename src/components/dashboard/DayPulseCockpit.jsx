@@ -8,6 +8,7 @@ import { sessionDay } from '../../lib/sessionPace.js';
 //   pulse  — useDayPulse(sessionId) (trainer mode)
 //   active — how many are still in the class (the "of N")
 export default function DayPulseCockpit({ pulse, startsAt, endsAt, active }) {
+  if (pulse.unavailable) return null;
   const day = sessionDay(startsAt, endsAt);
   const today = day && !day.before && !day.after ? day.n : null;
   const asked = pulse.days || [];

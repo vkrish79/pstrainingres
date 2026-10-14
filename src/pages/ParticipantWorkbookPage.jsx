@@ -623,7 +623,7 @@ export default function ParticipantWorkbookPage() {
                   {/* Once the last box is filled: one private tap for the trainer.
                       Open only when finished just now; already answered shows
                       the one quiet line; anything else stays out of the way. */}
-                  {!isGroup && statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100
+                  {!isGroup && !confidence.unavailable && statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100
                     && (finishedNow.has(sec.id) || confidence.mineBySection[sec.id]) && (
                     <ConfidenceStrip
                       key={`conf-${sec.id}`}

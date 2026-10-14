@@ -24,6 +24,9 @@ export function useDayPulse(sessionId, { mine = false, enabled = true } = {}) {
   const [days, setDays] = useState([]);        // trainer: pulse_summary rows
   const [latest, setLatest] = useState(null);  // participant: { day_no, asked_at, answered }
   const [error, setError] = useState('');
+  // The database side is not there yet (SQL not applied): the trainer's card
+  // hides rather than offering a button that can only fail.
+  const [unavailable, setUnavailable] = useState(false);
   const seq = useRef(0);
 
   const reload = useCallback(async () => {
@@ -31,7 +34,11 @@ export function useDayPulse(sessionId, { mine = false, enabled = true } = {}) {
     const n = ++seq.current;
     const { data, error: e } = await supabase.rpc(mine ? 'pulse_mine' : 'pulse_summary', { p_session_id: sessionId });
     if (n !== seq.current) return;
-    if (e) return; // not applied yet, or offline: keep what we had
+    if (e) {
+      if (isMissing(e)) setUnavailable(true);
+      return; // offline: keep what we had
+    }
+    setUnavailable(false);
     if (mine) setLatest(data?.[0] || null);
     else setDays(data || []);
   }, [sessionId, mine, enabled]);
@@ -54,7 +61,9 @@ export function useDayPulse(sessionId, { mine = false, enabled = true } = {}) {
 
   const ask = useCallback(async (dayNo) => {
     const { error: e } = await supabase.rpc('pulse_ask', { p_session_id: sessionId, p_day_no: dayNo });
-    if (e) setError(e.message); else setError('');
+    if (e && isMissing(e)) { setUnavailable(true); setError(''); }
+    else if (e) setError(`Couldn't ask just now: ${e.message}`);
+    else setError('');
     await reload();
     return { error: e };
   }, [sessionId, reload]);
@@ -67,5 +76,11 @@ export function useDayPulse(sessionId, { mine = false, enabled = true } = {}) {
     return { error: e };
   }, [sessionId]);
 
-  return { days, latest, error, ask, answer, reload };
+  return { days, latest, error, unavailable, ask, answer, reload };
+}
+
+// PostgREST / Postgres for "no such function or table".
+function isMissing(e) {
+  return ['PGRST202', 'PGRST205', '42883', '42P01'].includes(e?.code)
+    || /could not find the (function|table)/i.test(e?.message || '');
 }

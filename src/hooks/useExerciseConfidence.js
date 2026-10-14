@@ -22,6 +22,9 @@ export const LEVEL_BY_ID = Object.fromEntries(LEVELS.map(l => [l.id, l]));
 export function useExerciseConfidence(sessionId, { mine = false, selfId = null } = {}) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
+  // The table is not there yet (SQL not applied): the strip hides instead of
+  // offering a tap that can only fail.
+  const [unavailable, setUnavailable] = useState(false);
   const seq = useRef(0);
 
   const reload = useCallback(async () => {
@@ -36,7 +39,13 @@ export function useExerciseConfidence(sessionId, { mine = false, selfId = null }
     if (n !== seq.current) return;
     // Before the SQL is applied the table does not exist; that is "no taps",
     // not an error worth a red line on the cockpit.
-    if (e) { setError(e.code === '42P01' || /does not exist|schema cache/i.test(e.message) ? '' : e.message); return; }
+    if (e) {
+      const missing = ['42P01', 'PGRST205'].includes(e.code) || /does not exist|could not find the table/i.test(e.message);
+      if (missing) setUnavailable(true);
+      setError(missing ? '' : e.message);
+      return;
+    }
+    setUnavailable(false);
     setError('');
     setRows(data || []);
   }, [sessionId, mine, selfId]);
@@ -91,7 +100,7 @@ export function useExerciseConfidence(sessionId, { mine = false, selfId = null }
     if (mine) mineBySection[r.section_id] = r;
     (byParticipant[r.participant_id] ||= {})[r.section_id] = r;
   }
-  return { rows, mineBySection, byParticipant, error, setLevel, reload };
+  return { rows, mineBySection, byParticipant, error, unavailable, setLevel, reload };
 }
 
 // Per exercise, for the trainer: counts by level, the notes grouped when they

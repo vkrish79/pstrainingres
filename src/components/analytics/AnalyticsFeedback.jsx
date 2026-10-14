@@ -18,7 +18,10 @@ export default function AnalyticsFeedback({ sinceDays }) {
       const from = sinceDays ? new Date(Date.now() - sinceDays * 86400000).toISOString() : null;
       const { data, error: e } = await supabase.rpc('pulse_overview', { p_from: from, p_to: null });
       if (cancelled) return;
-      if (e) { setError(e.message); setRows([]); return; }
+      if (e) {
+        const missing = ['PGRST202', '42883'].includes(e.code) || /could not find the function/i.test(e.message || '');
+        setError(missing ? 'missing' : e.message); setRows([]); return;
+      }
       setError('');
       setRows(data || []);
     })();
@@ -26,6 +29,9 @@ export default function AnalyticsFeedback({ sinceDays }) {
   }, [sinceDays]);
 
   if (rows === null) return <p className="an-muted-sm">Loading course feedback…</p>;
+  if (error === 'missing') {
+    return <p className="an-muted-sm an-feedback-empty">Course feedback isn't switched on yet. It needs a one-time database step (the day-pulse SQL).</p>;
+  }
   if (error) return <p className="error">Couldn't load course feedback: {error}</p>;
   if (rows.length === 0) {
     return (
