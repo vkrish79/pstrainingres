@@ -96,8 +96,11 @@ export function useParticipantAssessment(userId, sessionId = null) {
         const map = {};
         const at = {};
         (ans || []).forEach(a => { map[a.assessment_block_id] = a.value; at[a.assessment_block_id] = a.updated_at; });
-        // Put back anything typed on this laptop that never reached the server.
-        const back = restorable(queueKey('assessment', sess.id, userId), map, at, new Set((blks || []).map(b => b.id)));
+        // Put back anything typed on this laptop that never reached the server —
+        // unless the paper's time is up: the server would refuse it, and the
+        // save bar is hidden after the deadline, so it would only look saved.
+        const timeUp = sess.assessment_deadline_at && new Date(sess.assessment_deadline_at).getTime() < Date.now();
+        const back = timeUp ? {} : restorable(queueKey('assessment', sess.id, userId), map, at, new Set((blks || []).map(b => b.id)));
         Object.assign(map, back);
         toResendRef.current = back;
 

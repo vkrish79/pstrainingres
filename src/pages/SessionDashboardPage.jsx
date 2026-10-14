@@ -395,7 +395,12 @@ export default function SessionDashboardPage() {
     const { item_stats: items = [], ...rest } = check;
     if (items.length) {
       const { error: sErr } = await runBusy('Recording question statistics…', () => supabase.rpc('record_item_stats', { p_session_id: id, p_rows: items }));
-      if (sErr) {
+      // The function not existing yet (its SQL not applied) is not a reason to
+      // stop a close: there is simply nowhere to record them. Only a real
+      // failure asks the trainer to choose.
+      const notThere = sErr && (sErr.code === 'PGRST202' || sErr.code === '42883'
+        || /could not find the function|does not exist/i.test(sErr.message || ''));
+      if (sErr && !notThere) {
         setBusy(false);
         setItemStatsFailed(true);
         setCloseError(`The question statistics for the bank couldn't be saved (${sErr.message}).`);

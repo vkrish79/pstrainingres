@@ -299,6 +299,18 @@ export default function ParticipantWorkbookPage() {
     [sectionStats],
   );
   const justCompleted = useJustCompleted(sectionStats);
+  // Exercises finished during THIS visit. "How did that exercise go?" opens
+  // only for these: it is asked at the moment of finishing, never as a stack
+  // of cards over everything finished on earlier days. justCompleted lets go
+  // after its animation, so this keeps hold until the page is left.
+  const [finishedNow, setFinishedNow] = useState(() => new Set());
+  useEffect(() => {
+    if (!justCompleted.size) return;
+    setFinishedNow(prev => {
+      if ([...justCompleted].every(id => prev.has(id))) return prev;
+      return new Set([...prev, ...justCompleted]);
+    });
+  }, [justCompleted]);
 
 
   // If a section is deleted while we're viewing it, fall back to "All".
@@ -608,8 +620,11 @@ export default function ParticipantWorkbookPage() {
                       marks={reviews[sec.id] ? marksForBlock(reviewMarks, b.id) : null}
                     />
                   ))}
-                  {/* Once the last box is filled: one private tap for the trainer. */}
-                  {!isGroup && statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100 && (
+                  {/* Once the last box is filled: one private tap for the trainer.
+                      Open only when finished just now; already answered shows
+                      the one quiet line; anything else stays out of the way. */}
+                  {!isGroup && statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100
+                    && (finishedNow.has(sec.id) || confidence.mineBySection[sec.id]) && (
                     <ConfidenceStrip
                       key={`conf-${sec.id}`}
                       title={sec.title}
