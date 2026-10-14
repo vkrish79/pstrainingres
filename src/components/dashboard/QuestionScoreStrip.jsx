@@ -8,11 +8,35 @@
 //
 // labelOf(blockId) → "1(a)"; anchorOf(blockId) → the element id of that part's
 // answer, so a chip takes you to it.
-export default function QuestionScoreStrip({ heading = null, tally, labelOf, anchorOf }) {
+//
+// chipsOnly — just the chips, for a Live responses row header, where the total
+// already sits in the row's own pill. onJump replaces the scroll, so a row can
+// open itself before going to the part.
+export default function QuestionScoreStrip({ heading = null, tally, labelOf, anchorOf, chipsOnly = false, onJump = null }) {
   function jump(blockId) {
+    if (onJump) { onJump(blockId); return; }
     const el = document.getElementById(anchorOf(blockId));
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+
+  const chips = (
+    <div className="qss-chips">
+      {tally.parts.map(p => (
+        <button
+          key={p.blockId}
+          type="button"
+          className={`qss-chip is-${p.chip}${p.auto ? ' is-auto' : ''}`}
+          onClick={() => jump(p.blockId)}
+          data-tip={p.auto ? 'Marked automatically' : p.chip === 'open' ? 'Still to mark' : 'Marked by hand'}
+        >
+          <span className="qss-chip-l">{labelOf(p.blockId)}</span>
+          <b className="num">{p.chip === 'open' && !p.of ? '—' : Math.round(p.earned * 10) / 10}/{p.possible}</b>
+          {p.chip === 'open' && p.of > 0 && <span className="qss-chip-sub">{p.done} of {p.of}</span>}
+        </button>
+      ))}
+    </div>
+  );
+  if (chipsOnly) return chips;
 
   return (
     <div className={`qss ${tally.complete ? 'is-final' : ''}`}>
@@ -23,21 +47,7 @@ export default function QuestionScoreStrip({ heading = null, tally, labelOf, anc
           <small>{tally.complete ? ` of ${tally.possible}` : ` so far, of ${tally.possible}`}</small>
         </span>
       </div>
-      <div className="qss-chips">
-        {tally.parts.map(p => (
-          <button
-            key={p.blockId}
-            type="button"
-            className={`qss-chip is-${p.chip}${p.auto ? ' is-auto' : ''}`}
-            onClick={() => jump(p.blockId)}
-            data-tip={p.auto ? 'Marked automatically' : p.chip === 'open' ? 'Still to mark' : 'Marked by hand'}
-          >
-            <span className="qss-chip-l">{labelOf(p.blockId)}</span>
-            <b className="num">{p.chip === 'open' && !p.of ? '—' : Math.round(p.earned * 10) / 10}/{p.possible}</b>
-            {p.chip === 'open' && p.of > 0 && <span className="qss-chip-sub">{p.done} of {p.of}</span>}
-          </button>
-        ))}
-      </div>
+      {chips}
     </div>
   );
 }

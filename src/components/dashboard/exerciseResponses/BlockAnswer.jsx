@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { isAnswered, labelOf, inputCellsOf } from '../../../lib/blockHelpers.js';
 import { isInteractiveBlock } from '../../../lib/interactiveBlocks.js';
 import { earnedFor, pointsFor, manualResultFor } from '../../../lib/assessmentScoring.js';
@@ -12,7 +13,11 @@ import ManualMarkControls from './ManualMarkControls.jsx';
 // split — the marking screen's layout: the answer on the left, its marking on
 // the right, with the correct answer (auto parts) and, on a part that asks for
 // a PNR, the PNR they were given. who — the participant's name, on a By part row.
-export default function BlockAnswer({ anchorId = null, block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, onBreakdown = null, guidanceForBlock = null, marking = false, reviewMarks = null, split = false, who = null, prepValues = null }) {
+// quietBlank — a part marked by hand with no answer and no mark yet is one line
+// ("No answer yet · Mark it") rather than a full set of controls; the Live
+// responses rows use it. foldComment — see ManualMarkControls.
+export default function BlockAnswer({ anchorId = null, block, entry, note, participantId, onSaveNote, onDeleteNote, showNotes = true, answerKey = null, answerPoints = null, questionNumber = null, answerModes = null, markForBlock = null, onMark = null, onComment = null, onBreakdown = null, guidanceForBlock = null, marking = false, reviewMarks = null, split = false, who = null, prepValues = null, quietBlank = false, foldComment = false }) {
+  const [markBlank, setMarkBlank] = useState(false);
   // slot → { right, trainer } for this person and block, when the trainer has
   // right/wrong turned on.
   const review = reviewMarks && reviewMarks.size
@@ -67,6 +72,17 @@ export default function BlockAnswer({ anchorId = null, block, entry, note, parti
         ? { ok: true, text: `Matches the PNR they were given (${given.join(', ')})` }
         : { ok: false, text: `They were given ${given.join(', ')}` })
       : null;
+    // Still counts as "to mark": a blank paper is finished by awarding 0, so
+    // the controls are one click away rather than gone.
+    if (quietBlank && manual && onMark && !markForBlock && !isAnswered(block, value) && !markBlank) {
+      return (
+        <div id={anchorId || undefined} className="exresp-block is-split is-quiet">
+          <span className="exresp-quiet-label">{label}</span>
+          <span className="exresp-quiet-none">No answer yet</span>
+          <button type="button" className="exresp-quiet-mark" onClick={() => setMarkBlank(true)}>Mark it</button>
+        </div>
+      );
+    }
     return (
       <div id={anchorId || undefined} className={`exresp-block is-split${who ? ' has-who' : ''} ${mark ? `exresp-block-${mark.state}` : ''}`}>
         <div className="exresp-split-ans">
@@ -108,6 +124,7 @@ export default function BlockAnswer({ anchorId = null, block, entry, note, parti
                 onAward={n => onMark(participantId, block.id, n)}
                 onClear={() => onMark(participantId, block.id, null)}
                 onComment={onComment ? text => onComment(participantId, block.id, text) : null}
+                foldComment={foldComment}
               />
             )
           )}

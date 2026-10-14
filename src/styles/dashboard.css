@@ -3851,3 +3851,75 @@
 .pulse-bar.ok i { background: #2f7a52; } .pulse-bar.mid i { background: #c28b2c; } .pulse-bar.poor i { background: #c2503c; }
 .pulse-day-v { font-variant-numeric: tabular-nums; color: #4b5a6a; white-space: nowrap; }
 .pulse-words { grid-column: 2 / -1; color: var(--gold-dark); font-weight: 600; }
+
+/* ===== Live responses on an assessment: one full-width row per person =====
+   (ParticipantTile rows). The head is name | part chips | score; the open row
+   is the paper in the marking screen's answer | marking layout, at full height
+   — no scroll inside the row. Light buttons restate their hover background:
+   index.css paints every button midnight on hover. */
+.exresp-tiles.is-rows { display: flex; flex-direction: column; align-items: stretch; gap: 0.5rem; container-type: inline-size; }
+.exresp-tile.is-row { scroll-margin-top: 84px; }
+.exresp-tile.is-row.collapsed { background: var(--card); }
+.exresp-tile-head.is-row-head {
+  display: grid; grid-template-columns: minmax(110px, 160px) minmax(0, 1fr) auto auto;
+  align-items: center; gap: 0.6rem; padding: 0 0.4rem 0 0 !important; cursor: pointer;
+}
+.exresp-tile-head.is-row-head .exresp-tile-headbtn { padding: 0.4rem 0.3rem 0.4rem 0.75rem; }
+.exresp-tile-head.is-row-head .exresp-tile-headbtn:hover { background: transparent; }
+.exresp-tile-head.is-row-head .exresp-tile-expand { align-self: center; margin: 0; }
+.exresp-tile-head.is-row-head .exresp-tile-head-right { flex: 0 0 auto; flex-wrap: nowrap; }
+.exresp-row-who { display: grid; min-width: 0; }
+.exresp-row-who .exresp-tile-name { font-weight: 700; }
+.exresp-row-sub { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.exresp-row-chips { min-width: 0; overflow-x: auto; padding: 0.3rem 0; }
+.exresp-row-chips .qss-chips { flex-wrap: nowrap; gap: 0.2rem; }
+.exresp-row-chips .qss-chip { min-width: 2.2rem; padding: 0.15rem 0.2rem; flex: 0 0 auto; }
+/* Two lines, not three: "0 of 7" criteria is on the marking screen and in the
+   open row; in the header it only made every row taller. */
+.exresp-row-chips .qss-chip-sub { display: none; }
+
+.exresp-tile.is-row .exresp-tile-body { max-height: none; overflow: visible; padding: 0.85rem 1rem 1rem; gap: 0.6rem; background: var(--bg, #f8f7f4); }
+/* The question reads as a sentence here, and the answer as the main thing. */
+.exresp-tile.is-row .exresp-split-ans .exresp-answer-label {
+  text-transform: none; letter-spacing: 0; font-size: 0.86rem; color: var(--midnight); font-weight: 600;
+}
+.exresp-tile.is-row .exresp-split-ans .exresp-answer-value { font-size: 1.02rem; }
+.exresp-tile.is-row .exresp-block.is-split { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+
+/* A part nobody answered and nobody has marked: one line. */
+.exresp-block.is-split.is-quiet {
+  display: flex; flex-direction: row; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.5rem 0.95rem; border-style: dashed; text-align: left; background: var(--card);
+}
+.exresp-quiet-label { font-size: 0.86rem; font-weight: 600; color: var(--midnight); flex: 1 1 auto; min-width: 0; }
+.exresp-quiet-none { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+.exresp-quiet-mark, .exresp-quiet-mark:hover:not(:disabled) {
+  background: var(--card); color: var(--midnight); border: 1px solid var(--border);
+  border-radius: 6px; font: inherit; font-size: 0.76rem; font-weight: 600; padding: 0.2rem 0.6rem; cursor: pointer;
+}
+.exresp-quiet-mark:hover:not(:disabled) { border-color: var(--midnight); }
+
+.exresp-mark-addcomment, .exresp-mark-addcomment:hover:not(:disabled) {
+  flex: 1 0 100%; text-align: left; background: transparent; border: 0; padding: 0.1rem 0;
+  color: var(--midnight); font: inherit; font-size: 0.76rem; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+
+.exresp-next { background: var(--midnight); color: #fff; border: 1px solid var(--midnight); border-radius: 7px; font: inherit; font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.85rem; cursor: pointer; }
+.exresp-next:hover:not(:disabled) { background: #16304a; color: #fff; }
+.exresp-next:disabled { opacity: 0.5; cursor: default; }
+
+/* By the list's own width, not the window's: beside the question nav on a
+   1024px laptop the list is narrower than a phone in landscape. The chips drop
+   to a line of their own before they would have to scroll. */
+@container (max-width: 700px) {
+  .exresp-tile-head.is-row-head { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .exresp-row-chips { grid-column: 1 / -1; grid-row: 2; padding: 0 0.85rem 0.5rem; }
+}
+@container (max-width: 640px) {
+  .exresp-tile.is-row .exresp-block.is-split { grid-template-columns: minmax(0, 1fr); }
+  .exresp-tile.is-row .exresp-split-ans { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+
+/* Five controls on the assessment's toolbar: a narrower search keeps
+   Next to mark on the same line on a 1280 laptop. */
+.exresp-toolbar.is-marking .exresp-search { min-width: 140px; }

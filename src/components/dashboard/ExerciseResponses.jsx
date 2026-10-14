@@ -134,7 +134,9 @@ export default function ExerciseResponses({
   const [sortBy, setSortBy] = useState('name');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'incomplete' | 'done' | 'flagged'
   const [query, setQuery] = useState('');
-  const [defaultExpanded, setDefaultExpanded] = useState(participants.length <= AUTO_COLLAPSE_THRESHOLD);
+  // On an assessment the rows start closed and open one at a time: each open
+  // row is a whole paper.
+  const [defaultExpanded, setDefaultExpanded] = useState(!marking && participants.length <= AUTO_COLLAPSE_THRESHOLD);
   const [toggleSet, setToggleSet] = useState(() => new Set());
   // "Who's here" popover: { sectionId, x, y, pinned }. Hover shows it
   // transiently; clicking the badge pins it open (and interactive). Names are
@@ -207,6 +209,16 @@ export default function ExerciseResponses({
   // The participant whose answers are open full-width. Marking a long paper
   // in a 320px column meant scrolling inside a scroll; this is the way out.
   const [focusId, setFocusId] = useState(null);
+  // The row just opened on an assessment, brought to the top once drawn — the
+  // row closing above it would otherwise move it off screen.
+  const [scrollPid, setScrollPid] = useState(null);
+  useEffect(() => {
+    if (!scrollPid) return;
+    requestAnimationFrame(() => {
+      document.getElementById(`exresp-tile-${scrollPid}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    setScrollPid(null);
+  }, [scrollPid]);
 
   if (sectionsWithFillable.length === 0) {
     return <p className="muted">{emptyLabel}</p>;
@@ -264,6 +276,13 @@ export default function ExerciseResponses({
   const isExpanded = (pid) => defaultExpanded !== toggleSet.has(pid);
 
   function toggleTile(pid) {
+    if (marking) {
+      const opening = !toggleSet.has(pid);
+      setDefaultExpanded(false);
+      setToggleSet(opening ? new Set([pid]) : new Set());
+      if (opening) setScrollPid(pid);
+      return;
+    }
     setToggleSet(prev => {
       const next = new Set(prev);
       if (next.has(pid)) next.delete(pid); else next.add(pid);
@@ -274,6 +293,19 @@ export default function ExerciseResponses({
   function collapseAll() { setDefaultExpanded(false); setToggleSet(new Set()); }
 
   const flaggedTotal = stats.filter(s => s.flaggedCount > 0).length;
+
+  // Next to mark: the first person after the open row, in the list's order,
+  // with a part still to mark on this question. Wraps round.
+  const leftFor = pid => questionTally(fillableInSection, answerKey || {}, answers[pid] || {}, answerPoints, answerModes, marks?.[pid] || {}, guidance).left;
+  const nextToMark = (() => {
+    if (!marking || sorted.length === 0) return null;
+    const openIdx = sorted.findIndex(x => toggleSet.has(x.participant.id));
+    for (let i = 1; i <= sorted.length; i += 1) {
+      const s = sorted[(openIdx + i + sorted.length) % sorted.length];
+      if (s.participant.id !== sorted[openIdx]?.participant.id && leftFor(s.participant.id) > 0) return s.participant.id;
+    }
+    return null;
+  })();
 
   return (
     <div className="exresp-layout">
@@ -343,11 +375,11 @@ export default function ExerciseResponses({
       <div className="exresp-main">
         <h3 className="exresp-main-title">{headingOf(selectedSection)}</h3>
 
-        <div className="exresp-toolbar">
+        <div className={`exresp-toolbar${marking ? ' is-marking' : ''}`}>
           <input
             className="form-input exresp-search"
             type="search"
-            placeholder="Search participants…"
+            placeholder={marking ? 'Search names…' : 'Search participants…'}
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
@@ -386,16 +418,30 @@ export default function ExerciseResponses({
               Mark by part
             </button>
           )}
-          <button className="ghost" onClick={expandAll} disabled={defaultExpanded && toggleSet.size === 0}>Expand all</button>
-          <button className="ghost" onClick={collapseAll} disabled={!defaultExpanded && toggleSet.size === 0}>Collapse all</button>
+          {marking ? (
+            <button
+              className="exresp-next"
+              onClick={() => toggleTile(nextToMark)}
+              disabled={!nextToMark}
+              data-tip={nextToMark ? 'Open the next person with parts of this question still to mark' : 'Nothing left to mark on this question'}
+            >
+              Next to mark →
+            </button>
+          ) : (
+            <>
+              <button className="ghost" onClick={expandAll} disabled={defaultExpanded && toggleSet.size === 0}>Expand all</button>
+              <button className="ghost" onClick={collapseAll} disabled={!defaultExpanded && toggleSet.size === 0}>Collapse all</button>
+            </>
+          )}
         </div>
 
         {sorted.length === 0 && <p className="muted">No participants match the current filter.</p>}
 
-        <div className="exresp-tiles">
+        <div className={`exresp-tiles${marking ? ' is-rows' : ''}`}>
           {sorted.map(s => (
             <ParticipantTile
               key={s.participant.id}
+              rows={marking}
               stat={s}
               blocks={fillableInSection}
               answersForP={answers[s.participant.id] || {}}
