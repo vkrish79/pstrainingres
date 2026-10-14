@@ -38,3 +38,8 @@ verify_jwt = true
 [functions.request-password-reset]
 verify_jwt = false
 
+
+# Question bank: embeds questions with the built-in gte-small model and
+# searches by meaning ("Already in the bank"). Trainer tier, checked inside.
+[functions.bank-similar]
+verify_jwt = true

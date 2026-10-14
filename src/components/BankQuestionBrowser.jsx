@@ -7,6 +7,7 @@ import { questionKeyState } from '../lib/bankQuestions.js';
 import { questionTypeKeys, typeGlyph, typeLabel } from '../lib/questionTypeLabels.js';
 import { useBankItemStats } from '../hooks/useBankItemStats.js';
 import { itemVerdict, MIN_ANSWERS } from '../lib/itemStats.js';
+import { useBankSimilar, NEAR_COPY } from '../hooks/useBankSimilar.js';
 import '../styles/question-bank.css';
 
 // Reading a question bank.
@@ -31,6 +32,25 @@ export default function BankQuestionBrowser({ bank, onBack }) {
   const [open, setOpen] = useState(() => new Set());
   const [focusIdx, setFocusIdx] = useState(-1);
   const listRef = useRef(null);
+  // Questions that read alike, and search by meaning (T2).
+  const similar = useBankSimilar(bank?.id);
+  const searchBank = similar.search;
+  const [byMeaning, setByMeaning] = useState(false);
+  const [meaning, setMeaning] = useState(null); // { [sectionId]: similarity } for the current search
+  const [meaningErr, setMeaningErr] = useState('');
+  useEffect(() => {
+    const q = find.trim();
+    if (!byMeaning || q.length < 3) { setMeaning(null); setMeaningErr(''); return undefined; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const { results, error: e } = await searchBank(q);
+      if (cancelled) return;
+      if (e) { setMeaningErr("Search by meaning isn't available right now."); setMeaning(null); return; }
+      setMeaningErr('');
+      setMeaning(Object.fromEntries(results.map(r => [r.section_id, r.similarity])));
+    }, 450);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [byMeaning, find, searchBank]);
 
   const blocksBySection = useMemo(() => {
     const m = new Map();
@@ -64,6 +84,14 @@ export default function BankQuestionBrowser({ bank, onBack }) {
 
   const shown = useMemo(() => {
     const needle = find.trim().toLowerCase();
+    // By meaning: the closest questions first, words or not. Anything well
+    // below the best match is left out so the list stays short.
+    if (byMeaning && meaning) {
+      const best = Math.max(0, ...Object.values(meaning));
+      return questions
+        .filter(q => (!topic || q.topics.includes(topic)) && meaning[q.section.id] != null && meaning[q.section.id] >= best - 0.08)
+        .sort((a, b) => meaning[b.section.id] - meaning[a.section.id]);
+    }
     return questions.filter(q => {
       if (topic && !q.topics.includes(topic)) return false;
       if (!needle) return true;
@@ -79,7 +107,7 @@ export default function BankQuestionBrowser({ bank, onBack }) {
       ].join(' ').toLowerCase();
       return hay.includes(needle);
     });
-  }, [questions, topic, find]);
+  }, [questions, topic, find, byMeaning, meaning]);
 
   // The focused row is an index into the SHOWN list, so anything that shortens
   // that list has to drop it or the next arrow key jumps somewhere arbitrary.
@@ -149,10 +177,17 @@ export default function BankQuestionBrowser({ bank, onBack }) {
         </div>
 
         <div className="qb-bar-right">
+          <span className="qb-seg" role="group" aria-label="Find by">
+            <button type="button" className={byMeaning ? '' : 'is-on'} aria-pressed={!byMeaning} onClick={() => setByMeaning(false)}>By wording</button>
+            <button type="button" className={byMeaning ? 'is-on' : ''} aria-pressed={byMeaning} onClick={() => setByMeaning(true)} disabled={similar.unavailable}
+              data-tip={similar.unavailable ? "Search by meaning isn't set up yet" : 'Finds questions that mean the same, even in other words'}>
+              By meaning
+            </button>
+          </span>
           <input
             type="search"
             className="form-input qb-find"
-            placeholder="Find a question…"
+            placeholder={byMeaning ? 'Describe the question…' : 'Find a question…'}
             aria-label="Find a question"
             value={find}
             onChange={e => setFind(e.target.value)}
@@ -186,6 +221,7 @@ export default function BankQuestionBrowser({ bank, onBack }) {
         </div>
       </div>
 
+      {meaningErr && <p className="error">{meaningErr}</p>}
       {loading && <SkeletonLines rows={5} label="Loading questions…" />}
       {error && <p className="error">{error}</p>}
 
@@ -212,7 +248,12 @@ export default function BankQuestionBrowser({ bank, onBack }) {
               >
                 <span className="qb-num">{i + 1}</span>
                 <span className="qb-meta">
-                  <span className="qb-title">{q.section.title || 'Untitled question'}</span>
+                  <span className="qb-title">
+                    {q.section.title || 'Untitled question'}
+                    {byMeaning && meaning?.[q.section.id] != null && (
+                      <span className="qb-match">{Math.round(meaning[q.section.id] * 100)}% match</span>
+                    )}
+                  </span>
                   <span className="qb-tags">
                     {q.types.map(k => (
                       <span key={k} className="qb-type">
@@ -263,6 +304,11 @@ export default function BankQuestionBrowser({ bank, onBack }) {
                       No correct answer set, so a paper taking this question cannot mark it.
                     </p>
                   )}
+                  <SimilarList
+                    list={similar.pairs[q.section.id]}
+                    titleOf={id => questions.find(x => x.section.id === id)?.section.title}
+                    onOpen={id => setOpen(prev => new Set(prev).add(id))}
+                  />
                   <ItemStatPanel stat={itemStats[q.section.id]} />
                   <div className="qb-row-acts">
                     <Link to={`/trainer/question-bank/${bank?.id}`} className="qb-open">Open editor</Link>
@@ -319,5 +365,20 @@ function ItemStatPanel({ stat }) {
         {v.flag === 'check' && <> People who did well overall scored lower here than people who struggled. That usually means a wrong key or confusing wording.</>}
       </p>
     </div>
+  );
+}
+
+// "Similar in this bank" (T2): the closest other questions by meaning.
+function SimilarList({ list, titleOf, onOpen }) {
+  if (!list?.length) return null;
+  return (
+    <p className="qb-similar">
+      <span className="qb-similar-h">Similar in this bank:</span>
+      {list.map(x => (
+        <button key={x.other_id} type="button" className="qb-similar-q" onClick={() => onOpen(x.other_id)}>
+          {titleOf(x.other_id) || 'a question'} <span className="qb-similar-n">{x.similarity >= NEAR_COPY ? 'nearly the same' : `${Math.round(x.similarity * 100)}%`}</span>
+        </button>
+      ))}
+    </p>
   );
 }

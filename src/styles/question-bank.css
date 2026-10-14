@@ -262,3 +262,15 @@
 .qb-stat-figs { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; }
 .qb-stat-src, .qb-stat-note { margin: 0; font-size: 0.8rem; color: #6c7a88; }
 .qb-stat-note { margin-top: 0.6rem; }
+
+/* "Already in the bank" (T2): match % in a meaning search, similar questions. */
+.qb-match { margin-left: 0.5rem; font-size: 0.72rem; font-weight: 700; color: var(--gold-dark); background: #f5efe2; border-radius: 999px; padding: 0.05rem 0.45rem; vertical-align: middle; }
+.qb-similar { margin: 0.6rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; font-size: 0.82rem; }
+.qb-similar-h { color: #6c7a88; font-weight: 600; }
+.qb-similar-q { padding: 0.15rem 0.6rem; font-size: 0.8rem; font-weight: 600; background: #fff3e0; color: #a65c00; border: 1px solid #ffd59e; border-radius: 999px; }
+.qb-similar-q:hover { background: #ffe8c2; color: #a65c00; }
+.qb-similar-n { font-weight: 400; margin-left: 0.2rem; }
+.q-similar { margin: 0.4rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; font-size: 0.8rem; }
+.q-similar-h { color: #a65c00; font-weight: 700; }
+.q-similar-q { padding: 0.1rem 0.55rem; background: #fff3e0; border: 1px solid #ffd59e; border-radius: 999px; color: #a65c00; font-weight: 600; }
+.q-similar-n { font-weight: 400; }

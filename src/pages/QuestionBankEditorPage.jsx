@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SkeletonPage } from '../components/Skeleton.jsx';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
 import { useAssessmentDraft, isDraftId } from '../hooks/useAssessmentDraft.js';
 import { useAssessmentAnswerKeys } from '../hooks/useAssessmentAnswerKeys.js';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
+import SimilarInBank from '../components/editor/SimilarInBank.jsx';
+import { useBankSimilar } from '../hooks/useBankSimilar.js';
 import QuestionTopics from '../components/editor/QuestionTopics.jsx';
 import TopBar from '../components/TopBar.jsx';
 import QuestionEditorHead, { DraftSaveError } from '../components/editor/QuestionEditorHead.jsx';
@@ -39,6 +41,21 @@ export default function QuestionBankEditorPage() {
 
   const draft = useAssessmentDraft({ sections: savedSections, blocks: savedBlocks, reload, saves });
   const { sections, blocks } = draft;
+
+  // "Already in the bank" (T2): questions here that read alike. Re-checked a
+  // few seconds after the wording changes (only changed questions re-embed).
+  const similar = useBankSimilar(id);
+  const refreshSimilar = similar.refresh;
+  const wordingKey = useMemo(
+    () => blocks.filter(b => !isDraftId(b.id)).map(b => `${b.id}:${JSON.stringify(b.config)}`).join('|'),
+    [blocks],
+  );
+  const firstWording = useRef(true);
+  useEffect(() => {
+    if (firstWording.current) { firstWording.current = false; return undefined; }
+    const t = setTimeout(refreshSimilar, 4000);
+    return () => clearTimeout(t);
+  }, [wordingKey, refreshSimilar]);
 
   // A bank holds the correct ANSWER and nothing else — no marks, no marking
   // criteria — so there is no scorecard panel on this page at all. The answer is
@@ -219,12 +236,18 @@ export default function QuestionBankEditorPage() {
                 Topics can be added once this question is saved.
               </p>
             ) : (
-              <QuestionTopics
-                sectionId={q.section.id}
-                tags={tagsById[q.section.id] || []}
-                known={knownTags}
-                onWrote={(id, next) => setTagsById(prev => ({ ...prev, [id]: next }))}
-              />
+              <>
+                <QuestionTopics
+                  sectionId={q.section.id}
+                  tags={tagsById[q.section.id] || []}
+                  known={knownTags}
+                  onWrote={(id, next) => setTagsById(prev => ({ ...prev, [id]: next }))}
+                />
+                <SimilarInBank
+                  list={similar.pairs[q.section.id]}
+                  titleOf={sid => sections.find(s => s.id === sid)?.title}
+                />
+              </>
             )
           )}
         />
