@@ -10,6 +10,7 @@ import { mixedWording } from '../../lib/tableCells.js';
 // carries the number, so only the letter is worth repeating.
 export default function BlockListItem({ block, onSave, onDelete, onDuplicate, onMoveUp, onMoveDown, onMoveTo, onLocate, isFirst, isLast, canEdit = true, questionNumber = null, partLabel = null, headExtra = null, inactive = false, onToggleInactive = null, answerKey = undefined, canSetAnswer = false }) {
   const [editing, setEditing] = useState(false);
+  const [saveError, setSaveError] = useState(null);
   const [confirmDel, setConfirmDel] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -39,10 +40,34 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
     };
   }, [menuOpen]);
 
+  // The form closes only on a save that landed. A failed one keeps it open
+  // with what was typed still in it; closing it showed the old wording and
+  // the edit was gone.
   async function handleSave(patch) {
-    await onSave(block.id, patch);
+    setSaveError(null);
+    let res;
+    try {
+      res = await onSave(block.id, patch);
+    } catch (err) {
+      res = { error: err };
+    }
+    if (res?.error) {
+      setSaveError(res.error.message || String(res.error));
+      return;
+    }
     setEditing(false);
   }
+
+  function closeForm() {
+    setSaveError(null);
+    setEditing(false);
+  }
+
+  const saveErrorNote = saveError && (
+    <p className="error block-save-error" role="alert">
+      Not saved — {saveError}. Your edit is still here: save again, or Cancel to drop it.
+    </p>
+  );
 
   return (
     <div className={`block-row${inactive ? ' block-row-withdrawn' : ''}`}>
@@ -171,21 +196,23 @@ export default function BlockListItem({ block, onSave, onDelete, onDuplicate, on
           widths does not fit the editor column, where the fifth column of a
           real itinerary table fell off the edge. */}
       {canEdit && editing && block.block_type === 'table' && (
-        <TableWidePanel title={previewOf(block)} onClose={() => setEditing(false)}>
+        <TableWidePanel title={previewOf(block)} onClose={closeForm}>
+          {saveErrorNote}
           <BlockForm
             block={block}
             onSave={handleSave}
-            onCancel={() => setEditing(false)}
+            onCancel={closeForm}
             answerKey={answerKey}
             canSetAnswer={canSetAnswer}
           />
         </TableWidePanel>
       )}
+      {canEdit && editing && block.block_type !== 'table' && saveErrorNote}
       {canEdit && editing && block.block_type !== 'table' && (
         <BlockForm
           block={block}
           onSave={handleSave}
-          onCancel={() => setEditing(false)}
+          onCancel={closeForm}
           answerKey={answerKey}
           canSetAnswer={canSetAnswer}
         />

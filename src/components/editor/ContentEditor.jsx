@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import '../../styles/workbook.css';
 import '../../styles/editor.css';
 import { useSignedWorkbookHtml } from '../../lib/workbookImages.js';
@@ -44,10 +44,45 @@ export default function ContentEditor({ sections, blocks, onSaveBlock }) {
 // Exported so the trainer copy (TrainerPracticeView) can drop it into its own
 // layout behind an Edit toggle, sharing one editing UI with the editor page.
 export function EditableBlock({ block, onSave }) {
-  if (block.block_type === 'prose') return <ProseEdit block={block} onSave={onSave} />;
-  if (block.block_type === 'field') return <FieldEdit block={block} onSave={onSave} />;
-  if (block.block_type === 'table') return <TableEdit block={block} onSave={onSave} />;
+  const save = useQueuedConfigSave(block, onSave);
+  if (block.block_type === 'prose') return <ProseEdit block={block} save={save} />;
+  if (block.block_type === 'field') return <FieldEdit block={block} save={save} />;
+  if (block.block_type === 'table') return <TableEdit block={block} save={save} />;
   return null;
+}
+
+// Every save sends the WHOLE config, so two saves in one block must not each
+// be built from the config as last rendered: save a label, then an option
+// before the first reply re-renders, and the second save put the old label
+// back. Edits are queued per block instead, and each is applied — as a
+// change, `config => newConfig` — to the config the previous save left.
+// A failed save is dropped from that base, so the edits behind it do not
+// carry it to the database after the field has shown the old wording again.
+function useQueuedConfigSave(block, onSave) {
+  const base = useRef(block.config || {});
+  const queue = useRef(Promise.resolve());
+  const pending = useRef(0);
+  // Idle: the block as rendered is the truth (it may have changed elsewhere).
+  if (pending.current === 0) base.current = block.config || {};
+
+  return (change) => {
+    pending.current += 1;
+    const run = queue.current
+      .then(async () => {
+        const next = change(base.current);
+        let res;
+        try {
+          res = await onSave(next);
+        } catch (err) {
+          res = { error: err };
+        }
+        if (!res?.error) base.current = res?.data?.config ?? next;
+        return res;
+      })
+      .finally(() => { pending.current -= 1; });
+    queue.current = run.catch(() => {});
+    return run;
+  };
 }
 
 // Prose stores HTML and is typed into where it stands (InlineProse), saved
@@ -55,15 +90,15 @@ export function EditableBlock({ block, onSave }) {
 // would not come back unchanged — a link, a styled paragraph — is the one
 // exception: clicking it opens the editing panel on its HTML tab, so editing
 // one sentence can never strip formatting nobody saw.
-function ProseEdit({ block, onSave }) {
+function ProseEdit({ block, save }) {
   const html = block.config?.html || '';
   if (canEditAsText(html)) {
-    return <InlineProse html={html} onSave={next => onSave({ ...block.config, html: next })} />;
+    return <InlineProse html={html} onSave={next => save(c => ({ ...c, html: next }))} />;
   }
-  return <ProsePanelEdit block={block} onSave={onSave} />;
+  return <ProsePanelEdit block={block} save={save} />;
 }
 
-function ProsePanelEdit({ block, onSave }) {
+function ProsePanelEdit({ block, save }) {
   const html = block.config?.html || '';
   const [editing, setEditing] = useState(false);
   // Display only: the signed URLs never reach the saved block.
@@ -75,7 +110,7 @@ function ProsePanelEdit({ block, onSave }) {
         <RichProseEditor
           html={html}
           onSave={async (next) => {
-            if (next !== html) await onSave({ ...block.config, html: next });
+            if (next !== html) await save(c => ({ ...c, html: next }));
             setEditing(false);
           }}
           onCancel={() => setEditing(false)}
@@ -96,11 +131,11 @@ function ProsePanelEdit({ block, onSave }) {
   );
 }
 
-function FieldEdit({ block, onSave }) {
+function FieldEdit({ block, save }) {
   const cfg = block.config || {};
   const { label, input_type, options } = cfg;
-  const saveLabel = v => onSave({ ...cfg, label: v });
-  const saveOpt = (i, v) => onSave({ ...cfg, options: (options || []).map((o, idx) => (idx === i ? v : o)) });
+  const saveLabel = v => save(c => ({ ...c, label: v }));
+  const saveOpt = (i, v) => save(c => ({ ...c, options: (c.options || []).map((o, idx) => (idx === i ? v : o)) }));
 
   // short_text / long_text — editable label + a locked answer placeholder.
   if (input_type === 'short_text' || input_type === 'long_text') {
@@ -128,30 +163,30 @@ function FieldEdit({ block, onSave }) {
   );
 }
 
-function TableEdit({ block, onSave }) {
+function TableEdit({ block, save }) {
   const cfg = block.config || {};
   const headers = Array.isArray(cfg.headers) ? cfg.headers : null;
   const rows = Array.isArray(cfg.rows) ? cfg.rows : [];
 
-  const saveCaption = v => {
-    const next = { ...cfg };
+  const saveCaption = v => save(c => {
+    const next = { ...c };
     if (v.trim()) next.caption = v; else delete next.caption;
-    onSave(next);
-  };
-  const saveHeader = (i, v) => onSave({ ...cfg, headers: headers.map((h, idx) => (idx === i ? v : h)) });
-  const saveCell = (ri, ci, v) => onSave({
-    ...cfg,
-    rows: rows.map((row, r) => (r === ri ? row.map((cell, c) => (c === ci ? { ...cell, text: v } : cell)) : row)),
+    return next;
   });
+  const saveHeader = (i, v) => save(c => ({ ...c, headers: (c.headers || []).map((h, idx) => (idx === i ? v : h)) }));
+  const saveCell = (ri, ci, v) => save(c => ({
+    ...c,
+    rows: (c.rows || []).map((row, r) => (r === ri ? row.map((cell, j) => (j === ci ? { ...cell, text: v } : cell)) : row)),
+  }));
   // Wording around answer boxes. Each run of text between boxes is edited on
   // its own and the boxes are drawn as boxes, fixed, so an edit can never add
   // or drop one and orphan a participant's answer from it.
-  const saveMixedPart = (ri, ci, k, v) => onSave({
-    ...cfg,
-    rows: rows.map((row, r) => (r === ri ? row.map((c, j) => (j === ci
-      ? { ...c, parts: (c.parts || []).map((p, i) => (i === k ? { ...p, text: v } : p)) }
-      : c)) : row)),
-  });
+  const saveMixedPart = (ri, ci, k, v) => save(c => ({
+    ...c,
+    rows: (c.rows || []).map((row, r) => (r === ri ? row.map((cell, j) => (j === ci
+      ? { ...cell, parts: (cell.parts || []).map((p, i) => (i === k ? { ...p, text: v } : p)) }
+      : cell)) : row)),
+  }));
 
   return (
     <div className="wb-table-wrap">
