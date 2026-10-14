@@ -44,7 +44,7 @@ import '../styles/answer-review-marks.css';
 export default function ParticipantWorkbookPage() {
   const navigate = useNavigate();
   const { session: authSession, profile } = useAuth();
-  const { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, failures, retryFailed, saveAnswer, recentlyUpdated } =
+  const { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, failures, retryFailed, sentNotice, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
 
@@ -466,6 +466,7 @@ export default function ParticipantWorkbookPage() {
           blocks={blocks}
           sections={sections}
           retryFailed={retryFailed}
+          sentNotice={sentNotice}
         />
 
         {helpError && <p className="error no-print">{helpError}</p>}

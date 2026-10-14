@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { classifySaveError } from '../lib/saveErrors.js';
+import { queueKey, restorable } from '../lib/answerQueue.js';
+import { useQueuedSaves } from './useQueuedSaves.js';
 
-const SAVE_DEBOUNCE_MS = 600;
 const RECENT_UPDATE_MS = 5000;
 
 // The one load error with a known cause; the page words it for a participant.
@@ -19,15 +19,12 @@ export function useWorkbook(userId) {
   // blockId -> when this participant last saved it. Drives "Continue where you
   // stopped" in the workbook header.
   const [savedAt, setSavedAt] = useState({});
-  const [savingMap, setSavingMap] = useState({});
-  // Why each failed answer failed ({ kind, retry }, lib/saveErrors.js), so the
-  // page can say something truer than "Save failed" and only offer a retry
-  // that can work. Cleared per answer by its next successful save.
-  const [failures, setFailures] = useState({});
   const [recentlyUpdated, setRecentlyUpdated] = useState({}); // blockId -> timestamp
 
-  const timersRef = useRef({});
   const badgeTimersRef = useRef({});
+  // Answers typed before a reload that never reached the server; sent once
+  // the session is loaded (see the effect below the load).
+  const toResendRef = useRef({});
 
   useEffect(() => {
     if (!userId) return;
@@ -86,6 +83,10 @@ export function useWorkbook(userId) {
         const map = {};
         const at = {};
         (ans || []).forEach(a => { map[a.block_id] = a.value; at[a.block_id] = a.updated_at; });
+        // Put back anything typed on this laptop that never reached the server.
+        const back = restorable(queueKey('workbook', sess.id, userId), map, at, new Set((blks || []).map(b => b.id)));
+        Object.assign(map, back);
+        toResendRef.current = back;
 
         if (cancelled) return;
         setSession(sess);
@@ -174,47 +175,35 @@ export function useWorkbook(userId) {
     return () => { supabase.removeChannel(channel); };
   }, [session?.id]);
 
-  const saveAnswer = useCallback((blockId, value) => {
-    setAnswers(prev => ({ ...prev, [blockId]: value }));
-    setSavingMap(prev => ({ ...prev, [blockId]: 'saving' }));
-
-    if (timersRef.current[blockId]) clearTimeout(timersRef.current[blockId]);
-    timersRef.current[blockId] = setTimeout(async () => {
-      const { error: upErr } = await supabase
-        .from('answers')
-        .upsert(
-          { session_id: session.id, participant_id: userId, block_id: blockId, value },
-          { onConflict: 'session_id,participant_id,block_id' }
-        );
-      setSavingMap(prev => ({ ...prev, [blockId]: upErr ? 'error' : 'saved' }));
-      setFailures(prev => {
-        if (upErr) return { ...prev, [blockId]: classifySaveError(upErr) };
-        if (!(blockId in prev)) return prev;
-        const next = { ...prev };
-        delete next[blockId];
-        return next;
-      });
-      if (!upErr) setSavedAt(prev => ({ ...prev, [blockId]: new Date().toISOString() }));
-    }, SAVE_DEBOUNCE_MS);
-  }, [session, userId]);
-
-  // Send every retryable failed answer again, with what is on screen NOW (the
-  // participant may have changed it since). Refused ones are left alone.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
   const answersRef = useRef(answers);
   answersRef.current = answers;
-  const failuresRef = useRef(failures);
-  failuresRef.current = failures;
-  const retryFailed = useCallback(() => {
-    for (const [blockId, f] of Object.entries(failuresRef.current)) {
-      if (f.retry) saveAnswer(blockId, answersRef.current[blockId]);
-    }
-  }, [saveAnswer]);
+  const { save, savingMap, failures, retryFailed, sentNotice } = useQueuedSaves({
+    storageKey: queueKey('workbook', session?.id, userId),
+    send: (blockId, value) => supabase
+      .from('answers')
+      .upsert(
+        { session_id: sessionRef.current.id, participant_id: userId, block_id: blockId, value },
+        { onConflict: 'session_id,participant_id,block_id' }
+      ),
+    currentValue: blockId => answersRef.current[blockId],
+    // Drives "Continue where you stopped".
+    onSaved: blockId => setSavedAt(prev => ({ ...prev, [blockId]: new Date().toISOString() })),
+  });
 
-  // Back online: try again without being asked.
+  const saveAnswer = useCallback((blockId, value) => {
+    setAnswers(prev => ({ ...prev, [blockId]: value }));
+    save(blockId, value);
+  }, [save]);
+
+  // Resend what was restored from this laptop once the session is known.
   useEffect(() => {
-    window.addEventListener('online', retryFailed);
-    return () => window.removeEventListener('online', retryFailed);
-  }, [retryFailed]);
+    if (!session?.id) return;
+    const back = toResendRef.current;
+    toResendRef.current = {};
+    for (const [blockId, value] of Object.entries(back)) save(blockId, value);
+  }, [session?.id, save]);
 
-  return { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, failures, retryFailed, saveAnswer, recentlyUpdated };
+  return { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, failures, retryFailed, sentNotice, saveAnswer, recentlyUpdated };
 }

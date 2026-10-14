@@ -611,6 +611,11 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   background: var(--midnight); color: #fff; border: 0;
 }
 .save-failed-bar .sfb-retry:hover { background: var(--midnight-hover); }
+/* Waiting to send (kept on this laptop) reads amber, not red: nothing is lost. */
+.save-failed-bar.is-waiting { background: #fffaf2; border-color: #ffd59e; }
+.save-failed-bar.is-waiting .sfb-head { color: #a65c00; }
+.save-failed-bar.is-sent { background: #f2f9f4; border-color: #b9dfbb; }
+.save-failed-bar.is-sent .sfb-head { color: #2e7d32; }
 
 /* ChangePasswordPage — the password rules, ticked as they are met. */
 .auth-card .auth-checks {

@@ -12,7 +12,7 @@ export default function WorkbookActionsBar({
   setNotesOpen, prepOpen, setPrepOpen, prepBtnRef, prepCount,
   materials, materialsLoading, setMaterialsOpen, onOpenAssessment,
   handUp, helpBusy, toggleHelp, printWorkbook,
-  failures, blocks, sections, retryFailed,
+  failures, blocks, sections, retryFailed, sentNotice,
 }) {
   const actionsBarRef = useRef(null);
   // Publish the sticky actions-bar height as --page-actions-h so the exercise
@@ -113,7 +113,7 @@ export default function WorkbookActionsBar({
           { label: 'Print / Download PDF', glyph: '↓', onClick: printWorkbook },
         ]}
       />
-      <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} where="workbook" />
+      <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} sentNotice={sentNotice} where="workbook" />
     </div>
   );
 }

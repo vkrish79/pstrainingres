@@ -29,7 +29,7 @@ export default function ParticipantAssessmentPage() {
   const [searchParams] = useSearchParams();
   const sessionIdParam = searchParams.get('session');
   const {
-    loading, error, session, assessment, sections, blocks, answers, savingMap, failures, retryFailed, saveAnswer, recentlyUpdated,
+    loading, error, session, assessment, sections, blocks, answers, savingMap, failures, retryFailed, sentNotice, saveAnswer, recentlyUpdated,
   } = useParticipantAssessment(authSession?.user.id, sessionIdParam);
   // A paper-only re-sit has no workbook, so every "back to the workbook" here
   // would send them to a page that immediately bounces them back.
@@ -370,7 +370,7 @@ export default function ParticipantAssessmentPage() {
               </>
             )}
           </div>
-          {!expired && <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} where="assessment" nameOf={id => (labelByBlockId[id] ? `question ${labelByBlockId[id]}` : null)} />}
+          {!expired && <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} sentNotice={sentNotice} where="assessment" nameOf={id => (labelByBlockId[id] ? `question ${labelByBlockId[id]}` : null)} />}
         </section>
 
         {helpError && <p className="exam-hand-error" role="alert">{helpError}</p>}

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { classifySaveError } from '../lib/saveErrors.js';
+import { queueKey, restorable } from '../lib/answerQueue.js';
+import { useQueuedSaves } from './useQueuedSaves.js';
 
-const SAVE_DEBOUNCE_MS = 600;
 const RECENT_UPDATE_MS = 5000;
 
 // Mirrors useWorkbook for the assessment surface: loads the cloned assessment +
@@ -21,11 +21,6 @@ export function useParticipantAssessment(userId, sessionId = null) {
   const [sections, setSections] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [answers, setAnswers] = useState({});
-  const [savingMap, setSavingMap] = useState({});
-  // Why each failed answer failed ({ kind, retry }, lib/saveErrors.js), so the
-  // page can say something truer than "Save failed" and only offer a retry
-  // that can work. Cleared per answer by its next successful save.
-  const [failures, setFailures] = useState({});
   const [recentlyUpdated, setRecentlyUpdated] = useState({});
   // Bumped when the trainer unlocks the paper while this page is open, so the
   // locked notice turns into the paper without a refresh.
@@ -33,8 +28,9 @@ export function useParticipantAssessment(userId, sessionId = null) {
   const unlockedRef = useRef(false);
   useEffect(() => { unlockedRef.current = !!session?.assessment_unlocked_at; }, [session?.assessment_unlocked_at]);
 
-  const timersRef = useRef({});
   const badgeTimersRef = useRef({});
+  // Answers typed before a reload that never reached the server.
+  const toResendRef = useRef({});
 
   useEffect(() => {
     if (!userId) return;
@@ -90,7 +86,7 @@ export function useParticipantAssessment(userId, sessionId = null) {
             ? supabase.from('assessment_blocks').select('*').in('section_id', sectionIds).order('order_index')
             : Promise.resolve({ data: [], error: null }),
           supabase.from('assessment_answers')
-            .select('assessment_block_id, value')
+            .select('assessment_block_id, value, updated_at')
             .eq('session_id', sess.id)
             .eq('participant_id', userId),
         ]);
@@ -98,7 +94,12 @@ export function useParticipantAssessment(userId, sessionId = null) {
         if (e5) throw e5;
 
         const map = {};
-        (ans || []).forEach(a => { map[a.assessment_block_id] = a.value; });
+        const at = {};
+        (ans || []).forEach(a => { map[a.assessment_block_id] = a.value; at[a.assessment_block_id] = a.updated_at; });
+        // Put back anything typed on this laptop that never reached the server.
+        const back = restorable(queueKey('assessment', sess.id, userId), map, at, new Set((blks || []).map(b => b.id)));
+        Object.assign(map, back);
+        toResendRef.current = back;
 
         if (cancelled) return;
         setSession(sess);
@@ -191,46 +192,33 @@ export function useParticipantAssessment(userId, sessionId = null) {
     return () => { supabase.removeChannel(channel); };
   }, [session?.id]);
 
-  const saveAnswer = useCallback((blockId, value) => {
-    setAnswers(prev => ({ ...prev, [blockId]: value }));
-    setSavingMap(prev => ({ ...prev, [blockId]: 'saving' }));
-
-    if (timersRef.current[blockId]) clearTimeout(timersRef.current[blockId]);
-    timersRef.current[blockId] = setTimeout(async () => {
-      const { error: upErr } = await supabase
-        .from('assessment_answers')
-        .upsert(
-          { session_id: session.id, participant_id: userId, assessment_block_id: blockId, value },
-          { onConflict: 'session_id,participant_id,assessment_block_id' }
-        );
-      setSavingMap(prev => ({ ...prev, [blockId]: upErr ? 'error' : 'saved' }));
-      setFailures(prev => {
-        if (upErr) return { ...prev, [blockId]: classifySaveError(upErr) };
-        if (!(blockId in prev)) return prev;
-        const next = { ...prev };
-        delete next[blockId];
-        return next;
-      });
-    }, SAVE_DEBOUNCE_MS);
-  }, [session, userId]);
-
-  // Send every retryable failed answer again, with what is on screen NOW (the
-  // participant may have changed it since). Refused ones are left alone.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
   const answersRef = useRef(answers);
   answersRef.current = answers;
-  const failuresRef = useRef(failures);
-  failuresRef.current = failures;
-  const retryFailed = useCallback(() => {
-    for (const [blockId, f] of Object.entries(failuresRef.current)) {
-      if (f.retry) saveAnswer(blockId, answersRef.current[blockId]);
-    }
-  }, [saveAnswer]);
+  const { save, savingMap, failures, retryFailed, sentNotice } = useQueuedSaves({
+    storageKey: queueKey('assessment', session?.id, userId),
+    send: (blockId, value) => supabase
+      .from('assessment_answers')
+      .upsert(
+        { session_id: sessionRef.current.id, participant_id: userId, assessment_block_id: blockId, value },
+        { onConflict: 'session_id,participant_id,assessment_block_id' }
+      ),
+    currentValue: blockId => answersRef.current[blockId],
+  });
 
-  // Back online: try again without being asked.
+  const saveAnswer = useCallback((blockId, value) => {
+    setAnswers(prev => ({ ...prev, [blockId]: value }));
+    save(blockId, value);
+  }, [save]);
+
+  // Resend what was restored from this laptop once the session is known.
   useEffect(() => {
-    window.addEventListener('online', retryFailed);
-    return () => window.removeEventListener('online', retryFailed);
-  }, [retryFailed]);
+    if (!session?.id) return;
+    const back = toResendRef.current;
+    toResendRef.current = {};
+    for (const [blockId, value] of Object.entries(back)) save(blockId, value);
+  }, [session?.id, save]);
 
-  return { loading, error, session, assessment, sections, blocks, answers, savingMap, failures, retryFailed, saveAnswer, recentlyUpdated };
+  return { loading, error, session, assessment, sections, blocks, answers, savingMap, failures, retryFailed, sentNotice, saveAnswer, recentlyUpdated };
 }
