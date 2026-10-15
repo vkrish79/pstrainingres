@@ -64,12 +64,12 @@ export default function ParticipantTile({ rows = false, stat, blocks, answersFor
           carries "✋ N to mark" on its right-hand side, and two unrelated
           hands on one row would be read as one. */}
       {hand && (
-        <span className="exresp-needs-you" title={hand.acknowledged_at ? 'You said you’re coming over' : 'Asked for help'}>
+        <span className="exresp-needs-you" data-tip={hand.acknowledged_at ? 'You said you’re coming over' : 'Asked for help'}>
           {hand.acknowledged_at ? 'you’re going' : 'needs you'}
         </span>
       )}
-      {flaggedCount > 0 && <span className="exresp-flag-badge" title={`${flaggedCount} flagged`}>🚩 {flaggedCount}</span>}
-      {noteCount > 0 && <span className="exresp-note-badge" title={`${noteCount} note${noteCount === 1 ? '' : 's'}`}>💬 {noteCount}</span>}
+      {flaggedCount > 0 && <span className="exresp-flag-badge" data-tip={`${flaggedCount} flagged`}>🚩 {flaggedCount}</span>}
+      {noteCount > 0 && <span className="exresp-note-badge" data-tip={`${noteCount} note${noteCount === 1 ? '' : 's'}`}>💬 {noteCount}</span>}
     </div>
   );
   const right = (
@@ -78,7 +78,7 @@ export default function ParticipantTile({ rows = false, stat, blocks, answersFor
       {tally && tally.possible > 0 && (
         <span
           className={`exresp-score-pill ${tally.complete ? (tally.soFar >= tally.possible ? 'full' : tally.soFar === 0 ? 'none' : 'partial') : 'is-interim'}`}
-          title={tally.complete
+          data-tip={tally.complete
             ? `${tally.soFar} of ${tally.possible} marks${qNum ? ` on Question ${qNum}, not the whole assessment` : ''}`
             : `${tally.soFar} of ${tally.possible} marks so far — ${tally.left} part${tally.left === 1 ? '' : 's'} still to mark, so this is not the final score`}
         >
@@ -90,7 +90,7 @@ export default function ParticipantTile({ rows = false, stat, blocks, answersFor
       {!tally && score && score.possible > 0 && (
         <span
           className={`exresp-score-pill ${scoreClass}`}
-          title={score.unmarked
+          data-tip={score.unmarked
             ? `${score.earned} of ${score.possible} marks so far — ${score.unmarked} question${score.unmarked === 1 ? '' : 's'} still to mark by hand, so this is not the final score`
             : `${score.earned} of ${score.possible} marks across ${score.marked} marked question${score.marked === 1 ? '' : 's'}`}
         >
@@ -101,7 +101,7 @@ export default function ParticipantTile({ rows = false, stat, blocks, answersFor
           on the tile rather than only in a tooltip — otherwise a half-marked
           paper reads as a finished, poor one. */}
       {(tally ? tally.left : score?.unmarked) > 0 && (
-        <span className="exresp-unmarked-pill" title="Parts marked by hand that are not finished yet">
+        <span className="exresp-unmarked-pill" data-tip="Parts marked by hand that are not finished yet">
           ✋ {tally ? tally.left : score.unmarked} to mark
         </span>
       )}
@@ -145,7 +145,7 @@ export default function ParticipantTile({ rows = false, stat, blocks, answersFor
           type="button"
           className="exresp-tile-expand"
           onClick={onFocus}
-          title={`Open ${participant.full_name || 'this participant'}'s answers in a full-width view`}
+          data-tip={`Open ${participant.full_name || 'this participant'}'s answers in a full-width view`}
           aria-label={`Expand ${participant.full_name || 'participant'}'s answers`}
         >⤢</button>
       )}
