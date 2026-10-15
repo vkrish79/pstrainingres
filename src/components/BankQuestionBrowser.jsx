@@ -7,8 +7,11 @@ import { questionKeyState } from '../lib/bankQuestions.js';
 import { questionTypeKeys, typeGlyph, typeLabel } from '../lib/questionTypeLabels.js';
 import { useBankItemStats } from '../hooks/useBankItemStats.js';
 import { itemVerdict, MIN_ANSWERS } from '../lib/itemStats.js';
-import { useBankSimilar, NEAR_COPY } from '../hooks/useBankSimilar.js';
+import { useBankSimilar } from '../hooks/useBankSimilar.js';
 import '../styles/question-bank.css';
+
+// Search by meaning lists this many, closest first.
+const MEANING_SHOWN = 5;
 
 // Reading a question bank.
 //
@@ -84,13 +87,14 @@ export default function BankQuestionBrowser({ bank, onBack }) {
 
   const shown = useMemo(() => {
     const needle = find.trim().toLowerCase();
-    // By meaning: the closest questions first, words or not. Anything well
-    // below the best match is left out so the list stays short.
+    // By meaning: the few closest questions, best first, words or not. The
+    // scores only rank — the model rates any two questions about the same
+    // system as fairly close — so no figure is shown, just the order.
     if (byMeaning && meaning) {
-      const best = Math.max(0, ...Object.values(meaning));
       return questions
-        .filter(q => (!topic || q.topics.includes(topic)) && meaning[q.section.id] != null && meaning[q.section.id] >= best - 0.08)
-        .sort((a, b) => meaning[b.section.id] - meaning[a.section.id]);
+        .filter(q => (!topic || q.topics.includes(topic)) && meaning[q.section.id] != null)
+        .sort((a, b) => meaning[b.section.id] - meaning[a.section.id])
+        .slice(0, MEANING_SHOWN);
     }
     return questions.filter(q => {
       if (topic && !q.topics.includes(topic)) return false;
@@ -250,8 +254,8 @@ export default function BankQuestionBrowser({ bank, onBack }) {
                 <span className="qb-meta">
                   <span className="qb-title">
                     {q.section.title || 'Untitled question'}
-                    {byMeaning && meaning?.[q.section.id] != null && (
-                      <span className="qb-match">{Math.round(meaning[q.section.id] * 100)}% match</span>
+                    {byMeaning && meaning?.[q.section.id] != null && i === 0 && (
+                      <span className="qb-match">closest</span>
                     )}
                   </span>
                   <span className="qb-tags">
@@ -376,7 +380,7 @@ function SimilarList({ list, titleOf, onOpen }) {
       <span className="qb-similar-h">Similar in this bank:</span>
       {list.map(x => (
         <button key={x.other_id} type="button" className="qb-similar-q" onClick={() => onOpen(x.other_id)}>
-          {titleOf(x.other_id) || 'a question'} <span className="qb-similar-n">{x.similarity >= NEAR_COPY ? 'nearly the same' : `${Math.round(x.similarity * 100)}%`}</span>
+          {titleOf(x.other_id) || 'a question'} <span className="qb-similar-n">{x.near ? 'nearly the same' : 'similar'}</span>
         </button>
       ))}
     </p>

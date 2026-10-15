@@ -2,18 +2,30 @@
 //
 // Embeds question-bank questions with Supabase's built-in gte-small model
 // (Supabase.ai, inside the edge runtime: no outside AI provider, no key) and
-// searches them by meaning. Trainer tier only.
+// compares them by meaning. Trainer tier only.
 //
 // Body:
 //   { action: 'refresh', bank_id }
 //       Re-embeds every question in the bank whose text changed since it was
-//       last embedded, and drops vectors of questions that no longer exist.
-//       Returns { embedded, unchanged, total }.
+//       last embedded, drops vectors of questions that no longer exist, and
+//       returns the pairs that read alike:
+//       { embedded, unchanged, total, pairs: [{ section_id, other_id, similarity, near }] }
 //   { action: 'search', bank_id, text, limit? }
-//       Embeds `text` and returns the closest questions: { results: [{ section_id, similarity }] }.
+//       Embeds `text` and returns the bank's questions closest to it, best
+//       first: { results: [{ section_id, similarity }] }.
 //
-// Vectors live in bank_question_embeddings (no direct access for anyone);
-// similar pairs are read by the browser through bank_similar_pairs().
+// Vectors live in bank_question_embeddings (no direct access for anyone).
+//
+// Tuned on the ADRW bank (.verify/_t2-live.mjs; offline copy of the model in
+// the T2 calibration notes). Two things matter more than anything else:
+//   1. What is embedded. Only wording that says what the question is about:
+//      topics and the scenario/question lines. Form plumbing (input types,
+//      card numbers, names, e-mails) and lines most of the bank shares ("Enter
+//      the PNR provided by the instructor") are left out.
+//   2. Centring. gte-small scores any two questions about the same system
+//      0.85–0.99, whatever they ask. Taking the bank's average vector away from
+//      each one leaves what is particular to it, and real look-alikes then
+//      stand well clear of the rest (refund pair 0.79 and 0.28 vs ≤ 0.10).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -26,21 +38,42 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const TRAINER_TIER = ['super_admin', 'super_trainer', 'vendor_manager', 'vendor_trainer', 'trainer'];
-// gte-small reads at most 512 tokens; ~1,800 characters keeps well inside it.
-const MAX_CHARS = 1800;
+// gte-small reads at most 512 tokens; the cleaned text of a long question
+// fits well inside this.
+const MAX_CHARS = 1200;
+// Centring needs enough questions for the average to mean anything; with two
+// it would make them exact opposites.
+const CENTRE_FROM = 5;
+// Cut-offs, per scale. Centred: unrelated pairs sat at ≤ 0.10, the refund
+// trio at 0.28–0.79. Raw (small banks): unrelated up to 0.93, trio 0.95–0.99.
+const CUTS = {
+  centred: { similar: 0.2, near: 0.6 },
+  raw: { similar: 0.94, near: 0.97 },
+};
+const PER_QUESTION = 3;
 
 function jsonRes(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-// Every piece of wording in a block's settings: labels, prompts, options,
-// table cells. Ids, sizes and flags are left out.
-const SKIP_KEYS = /(^id$|Id$|_id$|^kind$|^type$|width|height|align|color|colour|grid|span|order|index)/i;
+// ── What gets embedded ──────────────────────────────────────────────────────
+const SKIP_KEYS = /(^id$|Id$|_id$|^kind$|^type$|input_type|width|height|align|color|colour|grid|span|order|index|style|answer|correct|points)/i;
+const clean = (s: string) => s.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+
+// A line worth embedding: real words — not a config value, code, number,
+// e-mail, or a name/place/heading in capitals.
+function wordy(s: string) {
+  if (/^[a-z0-9]+(_[a-z0-9]+)+$/i.test(s)) return false;
+  if (/\S+@\S+\.\S+/.test(s)) return false;
+  if ((s.match(/[A-Za-z]{3,}/g) || []).length < 3) return false;
+  if (!/\b[a-z]{4,}\b/.test(s)) return false;
+  return (s.match(/\d/g) || []).length * 3 < s.length;
+}
 function collectText(v: unknown, out: string[], key = '') {
   if (v == null || SKIP_KEYS.test(key)) return;
   if (typeof v === 'string') {
-    const s = v.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim();
-    if (s.length > 1 && !/^[0-9a-f-]{36}$/i.test(s)) out.push(s);
+    const s = clean(v);
+    if (wordy(s)) out.push(s);
   } else if (Array.isArray(v)) {
     for (const x of v) collectText(x, out, key);
   } else if (typeof v === 'object') {
@@ -48,6 +81,37 @@ function collectText(v: unknown, out: string[], key = '') {
   }
 }
 
+type Sec = { id: string; title: string | null; tags: string[] | null };
+type Blk = { section_id: string; config: unknown };
+
+// One text per question. A line is kept only if it has a word that fewer
+// than half the bank's questions use, so shared instructions drop out.
+function buildTexts(secs: Sec[], blocks: Blk[]): Record<string, string> {
+  const lines = new Map<string, string[]>();
+  for (const s of secs) {
+    const out: string[] = [];
+    for (const b of blocks) if (b.section_id === s.id) collectText(b.config, out);
+    lines.set(s.id, [...new Set(out)]);
+  }
+  const common = secs.length >= 4 ? Math.ceil(secs.length / 2) : Infinity;
+  const df = new Map<string, number>();
+  for (const ls of lines.values()) {
+    for (const w of new Set(ls.join(' ').toLowerCase().match(/[a-z]{4,}/g) || [])) df.set(w, (df.get(w) || 0) + 1);
+  }
+  const telling = (l: string) => (l.toLowerCase().match(/[a-z]{4,}/g) || []).some(w => (df.get(w) || 0) < common);
+  const texts: Record<string, string> = {};
+  for (const s of secs) {
+    const parts: string[] = [];
+    if (Array.isArray(s.tags) && s.tags.length) parts.push(`Topic: ${s.tags.join(', ')}.`);
+    // The title is usually "Question 4" and says nothing; topics do.
+    if (s.title && !/^\s*question\s*\d+\s*$/i.test(s.title)) parts.push(s.title);
+    for (const l of lines.get(s.id) || []) if (telling(l)) parts.push(l);
+    texts[s.id] = parts.join('\n').slice(0, MAX_CHARS);
+  }
+  return texts;
+}
+
+// ── Vectors ─────────────────────────────────────────────────────────────────
 async function sha256(s: string) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -59,6 +123,31 @@ async function embed(text: string): Promise<number[]> {
   const out = await session.run(text.slice(0, MAX_CHARS), { mean_pool: true, normalize: true });
   return Array.from(out as ArrayLike<number>);
 }
+
+const dot = (a: number[], b: number[]) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
+const unit = (a: number[]) => { const n = Math.sqrt(dot(a, a)) || 1; return a.map(x => x / n); };
+
+// The bank's vectors, centred when there are enough of them. `centre(v)`
+// puts a search vector on the same footing.
+// deno-lint-ignore no-explicit-any
+async function bankSpace(admin: any, bankId: string) {
+  const { data, error } = await admin.from('bank_question_embeddings').select('section_id, embedding').eq('bank_id', bankId);
+  if (error) throw new Error(error.message);
+  const rows = (data || []).map((r: { section_id: string; embedding: string | number[] }) => ({
+    id: r.section_id,
+    v: typeof r.embedding === 'string' ? JSON.parse(r.embedding) as number[] : r.embedding,
+  }));
+  const scale: 'centred' | 'raw' = rows.length >= CENTRE_FROM ? 'centred' : 'raw';
+  let centre = (v: number[]) => v;
+  if (scale === 'centred') {
+    const mean = new Array(rows[0].v.length).fill(0);
+    for (const r of rows) for (let i = 0; i < mean.length; i++) mean[i] += r.v[i] / rows.length;
+    centre = (v: number[]) => unit(v.map((x, i) => x - mean[i]));
+  }
+  return { scale, centre, rows: rows.map((r: { id: string; v: number[] }) => ({ id: r.id, v: centre(r.v) })) };
+}
+
+const round = (x: number) => Math.round(x * 1000) / 1000;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -89,13 +178,14 @@ Deno.serve(async (req: Request) => {
     if (body.action === 'search') {
       const text = String(body.text || '').trim();
       if (text.length < 2) return jsonRes(200, { results: [] });
-      const vec = await embed(text);
-      // The caller's own client: bank_search checks the CALLER is trainer tier.
-      const { data, error } = await userClient.rpc('bank_search', {
-        p_bank_id: bankId, p_embedding: JSON.stringify(vec), p_limit: Math.min(Math.max(body.limit || 20, 1), 50),
-      });
-      if (error) return jsonRes(500, { error: error.message });
-      return jsonRes(200, { results: data || [] });
+      const [q, space] = await Promise.all([embed(text), bankSpace(admin, bankId)]);
+      const qv = space.centre(q);
+      const limit = Math.min(Math.max(body.limit || 20, 1), 50);
+      const results = space.rows
+        .map((r: { id: string; v: number[] }) => ({ section_id: r.id, similarity: round(dot(qv, r.v)) }))
+        .sort((a: { similarity: number }, b: { similarity: number }) => b.similarity - a.similarity)
+        .slice(0, limit);
+      return jsonRes(200, { results, scale: space.scale });
     }
 
     if (body.action === 'refresh') {
@@ -112,15 +202,15 @@ Deno.serve(async (req: Request) => {
         : { data: [] };
       const hashOf = Object.fromEntries((have || []).map(h => [h.section_id, h.text_hash]));
 
+      // Which lines count depends on the whole bank, so adding a question can
+      // re-embed others. Fine at bank sizes; unchanged texts are skipped.
+      const texts = buildTexts((secs || []) as Sec[], (blocks || []) as Blk[]);
       let embedded = 0; let unchanged = 0;
+      const keep = new Set<string>();
       for (const s of secs || []) {
-        const parts: string[] = [];
-        // The title is usually "Question 4" and says nothing; topics do.
-        if (s.title && !/^\s*question\s*\d+\s*$/i.test(s.title)) parts.push(s.title);
-        if (Array.isArray(s.tags) && s.tags.length) parts.push(s.tags.join(', '));
-        for (const b of (blocks || []).filter(x => x.section_id === s.id)) collectText(b.config, parts);
-        const text = parts.join('\n').slice(0, MAX_CHARS);
-        if (!text.trim()) continue;
+        const text = texts[s.id];
+        if (!text?.trim()) continue;
+        keep.add(s.id);
         const h = await sha256(text);
         if (hashOf[s.id] === h) { unchanged++; continue; }
         const vec = await embed(text);
@@ -130,11 +220,26 @@ Deno.serve(async (req: Request) => {
         if (wErr) return jsonRes(500, { error: wErr.message });
         embedded++;
       }
-      // Questions deleted from the bank cascade away with their section; this
-      // catches a question MOVED to another assessment.
-      const gone = Object.keys(hashOf).filter(id => !ids.includes(id));
+      // A question moved to another assessment, or emptied of wording.
+      const gone = Object.keys(hashOf).filter(id => !keep.has(id));
       if (gone.length) await admin.from('bank_question_embeddings').delete().in('section_id', gone);
-      return jsonRes(200, { embedded, unchanged, total: (secs || []).length });
+
+      // Pairs: up to three closest per question, above the cut-off.
+      const space = await bankSpace(admin, bankId);
+      const cut = CUTS[space.scale];
+      const pairs: { section_id: string; other_id: string; similarity: number; near: boolean }[] = [];
+      for (const a of space.rows) {
+        space.rows
+          .filter((b: { id: string }) => b.id !== a.id)
+          .map((b: { id: string; v: number[] }) => ({ other_id: b.id, similarity: dot(a.v, b.v) }))
+          .filter((x: { similarity: number }) => x.similarity >= cut.similar)
+          .sort((x: { similarity: number }, y: { similarity: number }) => y.similarity - x.similarity)
+          .slice(0, PER_QUESTION)
+          .forEach((x: { other_id: string; similarity: number }) => pairs.push({
+            section_id: a.id, other_id: x.other_id, similarity: round(x.similarity), near: x.similarity >= cut.near,
+          }));
+      }
+      return jsonRes(200, { embedded, unchanged, total: (secs || []).length, scale: space.scale, pairs });
     }
 
     return jsonRes(400, { error: "action must be 'refresh' or 'search'" });
