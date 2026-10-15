@@ -11,7 +11,9 @@ const CIRC = 2 * Math.PI * R;
 // (the trainer going over an exercise) — it used to be a full-width bar of its
 // own under the actions bar. When they last saved lives in the actions bar,
 // beside the live save status, not here.
-export default function WorkbookHeader({ workbook, session, progress, resume, onContinue, aside = null }) {
+// `noWorkbook` — the class has its workbook switched off (Session features):
+// the session's name heads the page and there is no ring to fill.
+export default function WorkbookHeader({ workbook, session, progress, resume, onContinue, aside = null, noWorkbook = false }) {
   const pct = progress.total ? Math.round((progress.filled / progress.total) * 100) : 0;
   const day = sessionDay(session?.starts_at, session?.ends_at);
   const trainer = session?.trainer?.full_name;
@@ -25,7 +27,7 @@ export default function WorkbookHeader({ workbook, session, progress, resume, on
 
   return (
     <section className="wbh">
-      <svg
+      {!noWorkbook && <svg
         className="wbh-ring"
         viewBox="0 0 40 40"
         role="img"
@@ -40,21 +42,21 @@ export default function WorkbookHeader({ workbook, session, progress, resume, on
           transform="rotate(-90 20 20)"
         />
         <text x="20" y="23.3" textAnchor="middle" className="wbh-ring-text">{allDone ? '✓' : `${pct}%`}</text>
-      </svg>
+      </svg>}
 
       <div className="wbh-text">
         <h1>
-          {workbook.title}
+          {noWorkbook ? session?.name : workbook.title}
           {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
         </h1>
         <p className="wbh-facts">
-          {session?.name && <span>{session.name}</span>}
+          {session?.name && !noWorkbook && <span>{session.name}</span>}
           {facts.map(f => <span key={f}>{f}</span>)}
           {progress.total > 0 && (
             <span className="wbh-count">{progress.filled} / {progress.total} answered</span>
           )}
         </p>
-        {workbook.description && <p className="wbh-desc">{workbook.description}</p>}
+        {!noWorkbook && workbook.description && <p className="wbh-desc">{workbook.description}</p>}
       </div>
 
       {(aside || progress.total > 0) && (

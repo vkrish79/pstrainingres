@@ -5,7 +5,10 @@ import { SessionDayLabel, CockpitClock } from './SessionCockpit.jsx';
 // The session dashboard's title, the line under it (dates, trainer, join
 // link), the tabs, and the clock. `children` is the right-hand actions (the
 // trainer change and ⋯), which belong to the page.
-export default function SessionCockpitHeader({ session, joinUrl, joinCopied, onCopyJoin, view, setView, paperOnly, children }) {
+// `on` — the class's feature flags (lib/sessionFeatures.js). A tab for a
+// feature the class has switched off is not shown; the reasoning below for
+// "always shown" is about a class that USES the feature but has none yet.
+export default function SessionCockpitHeader({ session, joinUrl, joinCopied, onCopyJoin, view, setView, paperOnly, on = {}, children }) {
   return (
     <>
       {/* ONE ROW, then the tabs. The old hero stacked Back, the title, the
@@ -59,12 +62,18 @@ export default function SessionCockpitHeader({ session, joinUrl, joinCopied, onC
                 program had an assessment has no other way to get one. The tab
                 that disappears when there is nothing in it is the tab you cannot
                 use to put something in it. */}
-            <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
+            {on.assessment !== false && (
+              <button className={`view-tab ${view === 'assessment' ? 'active' : ''}`} onClick={() => setView('assessment')}>Assessment</button>
+            )}
             {/* Always shown, unlike Assessment: a quiz is attached from this very
                 tab, so hiding it until one exists would hide the only way in. */}
-            <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
+            {on.quiz !== false && (
+              <button className={`view-tab ${view === 'quiz' ? 'active' : ''}`} onClick={() => setView('quiz')}>Quiz</button>
+            )}
             {/* Same reasoning: a poll is asked from this tab, so it is always here. */}
-            <button className={`view-tab ${view === 'poll' ? 'active' : ''}`} onClick={() => setView('poll')}>Polls</button>
+            {on.polls !== false && (
+              <button className={`view-tab ${view === 'poll' ? 'active' : ''}`} onClick={() => setView('poll')}>Polls</button>
+            )}
           </div>
           <div className="page-hero-actions">
             <SessionDayLabel startsAt={session?.starts_at} endsAt={session?.ends_at} />

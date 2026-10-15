@@ -46,6 +46,8 @@ const DRAW_MSG = {
 export default function TrainerPracticeView({
   sessionId, trainerId, prepEnabled = false,
   participants = [], participantAnswers = {}, liveBySection = {},
+  // Session features (lib/sessionFeatures.js): a class can switch these off.
+  spotlightOn = true, reviewOn = true,
 }) {
   const {
     loading, error, sections, blocks, answers, saveAnswer, updateBlockConfig,
@@ -281,6 +283,7 @@ export default function TrainerPracticeView({
       <div className="presenter-bar" ref={barRef}>
         <span className="presenter-bar-label">Class</span>
         <span className="presenter-bar-group" role="group" aria-label="Class controls">
+        {spotlightOn && (<>
         <button
           className={`ghost ${focus?.section_id && focus.section_id === selectedSection?.id ? 'active' : ''}`}
           onClick={() => selectedSection && spotlight(selectedSection)}
@@ -297,12 +300,15 @@ export default function TrainerPracticeView({
         >
           ⚡ Snap here
         </button>
+        </>)}
+        {reviewOn && (
         <button
           className={`ghost ${selectedSection && reviews[selectedSection.id]?.status === 'open' ? 'active' : ''}`}
           onClick={() => {
             if (!selectedSection) return;
             // Spotlight it too: that is the banner participants already know.
-            spotlight(selectedSection);
+            // Not in a class that has switched the spotlight off.
+            if (spotlightOn) spotlight(selectedSection);
             setReviewSectionId(selectedSection.id);
           }}
           disabled={!selectedSection || monitorOpen || editMode}
@@ -310,6 +316,7 @@ export default function TrainerPracticeView({
         >
           🗣 Go over answers
         </button>
+        )}
         <button
           className={`ghost ${monitorOpen ? 'active' : ''}`}
           onClick={openMonitor}

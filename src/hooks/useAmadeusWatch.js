@@ -136,7 +136,9 @@ export function useAmadeusWatch(sessionId, participantIds, { enabled = true, thu
   }, [people]);
 
   return {
-    available: available === true,
+    // `enabled` too: a class that switches screen share off mid-session keeps
+    // the last answer in state, and that must not keep the Screens view up.
+    available: enabled && available === true,
     stateOf,
     watchingId,
     watch: setWatchingId,

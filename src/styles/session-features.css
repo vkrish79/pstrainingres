@@ -1,0 +1,46 @@
+/* "What this class uses" — the tick list in the New session drawer and the
+   cockpit's Session features panel (SessionFeaturesList.jsx). */
+.sf {
+  margin: 1rem 0 0; padding: 0.9rem 1rem; min-width: 0;
+  border: 1px solid #e3ded3; border-radius: 10px;
+  display: grid; gap: 0.75rem;
+}
+.sf--new { border-color: var(--gold); }
+.sf-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.sf-title { float: left; padding: 0; font-size: 0.98rem; font-weight: 700; color: var(--midnight); }
+.sf-count { font-size: 0.78rem; color: #6f7b88; font-variant-numeric: tabular-nums; }
+.sf-group { display: grid; gap: 2px; }
+.sf-group-title { margin: 0.2rem 0 0.15rem; font-size: 0.7rem; letter-spacing: 0.07em; text-transform: uppercase; color: #6f7b88; }
+.sf-links { display: flex; gap: 0.9rem; font-size: 0.78rem; margin-bottom: 0.15rem; }
+/* Text links, not buttons: restate the background in :hover, or the global
+   button:hover paints them midnight. */
+.sf-links button,
+.sf-links button:hover:where(:not(:disabled)) {
+  background: none; border: 0; padding: 0; font-size: inherit;
+  color: var(--gold-dark); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.sf-item {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 0.65rem; align-items: start;
+  padding: 0.45rem 0.4rem; border-radius: 6px; cursor: pointer;
+}
+.sf-item:hover { background: #f6efe0; }
+.sf-item input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--midnight); }
+.sf-name { font-weight: 600; font-size: 0.9rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.sf-desc { grid-column: 2; font-size: 0.78rem; color: #6f7b88; line-height: 1.45; }
+.sf-item.is-na { cursor: default; }
+.sf-item.is-na:hover { background: none; }
+.sf-item.is-na .sf-name { color: #a9b1ba; }
+.sf-pill { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #f6efe0; color: var(--gold-dark); }
+.sf-pill.is-grey { background: none; border: 1px solid #e3ded3; color: #6f7b88; }
+.sf-pill.is-kept { background: none; border: 1px solid #2f7a52; color: #2f7a52; }
+.sf-warn {
+  margin: 0; font-size: 0.8rem; line-height: 1.45; padding: 0.45rem 0.65rem;
+  border-left: 3px solid #c28b2c; background: #f6efe0; border-radius: 0 6px 6px 0;
+}
+.sf-summary { margin: 0; font-size: 0.8rem; line-height: 1.5; background: #f6efe0; border-radius: 8px; padding: 0.55rem 0.7rem; }
+.sf-summary strong { color: var(--midnight); }
+
+/* The cockpit panel: a slide-over like the New session drawer. */
+.sf-panel-note { margin: 0.35rem 0 0; color: #6f7b88; font-size: 0.84rem; line-height: 1.5; }
+.sf-panel-error { margin: 0.5rem 0 0; }

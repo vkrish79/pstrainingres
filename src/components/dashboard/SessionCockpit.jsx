@@ -150,7 +150,9 @@ function names(list) {
 // a workbook (pace, behind pace, quiet reads "no move to another exercise"), and
 // a paper-only session has none, so they would each sit at 0/0 saying nothing.
 // Online and the assessment gauge are the two that still mean something.
-export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssessment, paperOnly = false }) {
+// `resit` words the hint for a paper; a class that only switched its workbook
+// off (Session features) is paperOnly without sitting a paper.
+export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssessment, paperOnly = false, resit = paperOnly }) {
   const { active, pace, behind, quiet, online } = stats;
 
   return (
@@ -161,7 +163,7 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
           <div className="cockpit-gauge-label">Online</div>
           <div className="cockpit-gauge-value">{online.length}<small> / {active.length}</small></div>
           <div className="cockpit-gauge-hint">
-            {dropouts > 0 ? `${dropouts} dropped out` : (paperOnly ? 'sitting the paper now' : 'in the workbook now')}
+            {dropouts > 0 ? `${dropouts} dropped out` : (resit ? 'sitting the paper now' : paperOnly ? 'in the class now' : 'in the workbook now')}
           </div>
         </div>
       </div>

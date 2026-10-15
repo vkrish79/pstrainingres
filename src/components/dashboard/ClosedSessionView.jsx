@@ -8,6 +8,8 @@ import ClosedAssessmentReport from './ClosedAssessmentReport.jsx';
 import PrepCallout from '../PrepCallout.jsx';
 import { useSessionPrepLayout } from '../../hooks/useSessionPrepLayout.js';
 import { itemsForExercise, splitGeneralPrep } from '../../lib/prepAttach.js';
+import { useSessionFeatures } from '../../hooks/useSessionFeatures.js';
+import { offNames } from '../../lib/sessionFeatures.js';
 
 // Read-only summary view rendered when sessions.closed_at is set. Driven
 // entirely by sessions.closed_summary (the snapshot saved at close time)
@@ -28,6 +30,9 @@ export default function ClosedSessionView({ snapshot, liveAssessmentId = null, o
   // live, keyed by the class's copy; if that copy is gone the prep simply lays
   // out as it always did — general prep as Pre-work, each exercise its own.
   const prepLayout = useSessionPrepLayout(session?.id);
+  // Features the class had switched off (Session features), named once.
+  const { off: featuresOff } = useSessionFeatures(session?.id);
+  const notUsed = offNames(featuresOff);
 
   // Snapshots store block.type, but blockHelpers (isFillableBlock/isAnswered/
   // labelOf) read block.block_type. Alias both so the helpers work — without
@@ -280,6 +285,11 @@ export default function ClosedSessionView({ snapshot, liveAssessmentId = null, o
             <div className="stat-card"><div className="stat-icon">✎</div><div><div className="stat-num">{justifiedCount}</div><div className="stat-label">Closed under 50%</div></div></div>
           )}
         </div>
+
+        {/* So a blank section is not read as nobody answering. */}
+        {notUsed.length > 0 && (
+          <p className="closed-not-used">Not used in this class: {notUsed.join(', ')}.</p>
+        )}
 
         {assessment && (
           <ClosedAssessmentResults

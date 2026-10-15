@@ -7,8 +7,10 @@ import { AmadeusShareButton } from './AmadeusShare.jsx';
 
 // The sticky bar under the workbook header: save state, the reading drawers,
 // the assessment chip, raise hand, and ⋯.
+//   on — the class's feature flags (lib/sessionFeatures.js); a feature the
+//        class has switched off has no button here. Missing = all on.
 export default function WorkbookActionsBar({
-  session, overallStatus, lastSavedAt, notedSections, totalNoteWords,
+  session, on = {}, overallStatus, lastSavedAt, notedSections, totalNoteWords,
   setNotesOpen, prepOpen, setPrepOpen, prepBtnRef, prepCount,
   materials, materialsLoading, setMaterialsOpen, onOpenAssessment,
   handUp, helpBusy, toggleHelp, printWorkbook,
@@ -33,13 +35,16 @@ export default function WorkbookActionsBar({
     };
   }, []);
 
+  const has = key => on[key] !== false;
+  const workbook = has('workbook');
+
   return (
     <div className="participant-actions-bar no-print" ref={actionsBarRef}>
       {/* One spot for "is my work safe": the live status while a save is in
           flight or has failed, otherwise when they last saved. */}
       {/* A failure is not shown here any more: it gets the full-width
           SaveFailedBar below, which says why and whether to try again. */}
-      {overallStatus === 'saving' ? (
+      {!workbook ? null : overallStatus === 'saving' ? (
         <span className="wb-save-indicator saving" role="status">Saving…</span>
       ) : overallStatus !== 'error' && lastSavedAt ? (
         <span className="wb-save-indicator saved">✓ Last saved {whenStopped(lastSavedAt)}</span>
@@ -48,7 +53,7 @@ export default function WorkbookActionsBar({
           its state; asking for help is the one strong button; printing is
           occasional, so it lives behind ⋯. */}
       <div className="pab-group" role="group" aria-label="Your reading">
-        <button
+        {workbook && <button
           type="button"
           className="pab-seg"
           onClick={() => setNotesOpen(true)}
@@ -57,11 +62,11 @@ export default function WorkbookActionsBar({
             : 'Your notes (press N)'}
         >
           📝 Notes{notedSections > 0 && <span className="pab-count">{notedSections}</span>}
-        </button>
+        </button>}
         {/* Toggles. It used to only ever open, so pressing it again while
             the drawer was already open did nothing — and nothing about the
             button said the drawer was open in the first place. */}
-        <button
+        {has('prep') && <button
           type="button"
           ref={prepBtnRef}
           className={`pab-seg${prepOpen ? ' is-on' : ''}`}
@@ -70,14 +75,14 @@ export default function WorkbookActionsBar({
           data-tip={prepOpen ? 'Hide your pre-work' : 'Pre-work from your trainer'}
         >
           🎯 Prep{prepCount > 0 && <span className="pab-count">{prepCount}</span>}
-        </button>
+        </button>}
         {/* Only when this program HAS handouts. A button that opens an empty
             drawer is a promise of something to read that does not exist, and
             most programs carry none.
             `!materialsLoading` matters as much as the count: without it the
             button pops into a row the participant may already be reaching
             for, moving the buttons after it out from under the cursor. */}
-        {!materialsLoading && materials.length > 0 && (
+        {has('materials') && !materialsLoading && materials.length > 0 && (
           <button
             type="button"
             className="pab-seg"
@@ -88,15 +93,15 @@ export default function WorkbookActionsBar({
           </button>
         )}
       </div>
-      {session?.assessment_id && (
+      {session?.assessment_id && has('assessment') && (
         <AssessmentChip
           unlockedAt={session.assessment_unlocked_at}
           deadlineAt={session.assessment_deadline_at}
           onOpen={onOpenAssessment}
         />
       )}
-      <AmadeusShareButton />
-      <button
+      {has('amadeus') && <AmadeusShareButton />}
+      {has('hand') && <button
         type="button"
         className={`help-hand${handUp ? ' is-up' : ''}`}
         onClick={toggleHelp}
@@ -105,14 +110,14 @@ export default function WorkbookActionsBar({
         data-tip={handUp ? 'Put your hand down' : 'Ask your trainer for help — only they will see it'}
       >
         {handUp ? '✋ Help asked · Cancel' : '✋ Ask for help'}
-      </button>
-      <KebabMenu
+      </button>}
+      {workbook && <KebabMenu
         label="More"
         className="pab-more"
         items={[
           { label: 'Print / Download PDF', glyph: '↓', onClick: printWorkbook },
         ]}
-      />
+      />}
       <SaveFailedBar failures={failures} blocks={blocks} sections={sections} onRetry={retryFailed} sentNotice={sentNotice} where="workbook" />
     </div>
   );

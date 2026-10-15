@@ -10,6 +10,8 @@ import { useExerciseConfidence, confidenceByExercise } from '../hooks/useExercis
 import { useStuckRadar } from '../hooks/useStuckRadar.js';
 import { writeSpotlight } from '../hooks/useSessionFocus.js';
 import { useDayPulse } from '../hooks/useDayPulse.js';
+import { useSessionFeatures } from '../hooks/useSessionFeatures.js';
+import SessionFeaturesPanel from '../components/dashboard/SessionFeaturesPanel.jsx';
 import DayPulseCockpit from '../components/dashboard/DayPulseCockpit.jsx';
 import { useSessionNotes } from '../hooks/useSessionNotes.js';
 import { useSessionParticipantNotes } from '../hooks/useSessionParticipantNotes.js';
@@ -60,12 +62,21 @@ export default function SessionDashboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const {
-    loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled, programAssessment, attachProgramAssessment,
+    loading, error, session, workbook, sections, blocks, participants, answers, assessmentStarted, prepEnabled: prepTemplated, programAssessment, attachProgramAssessment,
     setParticipantDeactivated, participantHasProgress, addSessionParticipants, resetParticipantPassword, deleteParticipant, allocateSessionPrep, setSessionTrainer, updateSessionDates, closeSession, deleteSession, setAssessmentUnlocked, extendAssessmentDeadline,
   } = useSessionDashboard(id);
   // A re-sit is a paper-only session: no workbook, so nothing measured against
   // one has anything to say here.
   const paperOnly = session?.kind === 'resit';
+  // What this class uses (lib/sessionFeatures.js). Everything on until the SQL
+  // is applied and something is switched off. A class with its workbook off is
+  // treated like a paper-only re-sit everywhere the workbook is read.
+  const features = useSessionFeatures(id);
+  const on = features.on;
+  const noWorkbook = paperOnly || !on.workbook;
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  // Prep shows when the workbook has a prep template AND the class uses it.
+  const prepEnabled = prepTemplated && on.prep;
   // A re-sit needs a paper to copy, and a session that is still OPEN: closing
   // deletes the participant accounts the first attempt is read from, which is
   // the same rule create_resit_session enforces. A re-sit of a re-sit is not a
@@ -181,7 +192,7 @@ export default function SessionDashboardPage() {
       const typing = t && (t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'
         || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|color|file)$/i.test(t.type)));
       if (typing) return;
-      if (document.querySelector('.modal-backdrop.visible, .materials-drawer.open, .kebab-menu, .idle-signout, .prep-editor.open, .amx-wall-full, .mk-screen')) return;
+      if (document.querySelector('.modal-backdrop.visible, .materials-drawer.open, .kebab-menu, .idle-signout, .prep-editor.open, .amx-wall-full, .mk-screen, .session-drawer.open')) return;
       if (k.reading && e.key === 'ArrowRight' && k.next) { e.preventDefault(); k.step(k.next); return; }
       if (k.reading && e.key === 'ArrowLeft' && k.prev) { e.preventDefault(); k.step(k.prev); return; }
       if (k.reading && e.key === 'Escape') { e.preventDefault(); k.back(); return; }
@@ -211,8 +222,14 @@ export default function SessionDashboardPage() {
   // regular session can land on a board this session cannot draw. Fall back
   // rather than render an empty one with no obvious way out.
   useEffect(() => {
-    if (paperOnly && (roomView === 'heat' || roomView === 'exercise')) setRoomView('tiles');
-  }, [paperOnly, roomView]);
+    if (noWorkbook && (roomView === 'heat' || roomView === 'exercise')) setRoomView('tiles');
+  }, [noWorkbook, roomView]);
+  // Same for a tab whose feature has just been switched off.
+  useEffect(() => {
+    const gone = (view === 'practice' && noWorkbook) || (view === 'quiz' && !on.quiz)
+      || (view === 'poll' && !on.polls) || (view === 'assessment' && !on.assessment);
+    if (gone) setView('participants');
+  }, [view, noWorkbook, on.quiz, on.polls, on.assessment]);
 
   // Watch Amadeus: each participant can share their ARD Web tab. Pictures on
   // the tiles (switchable, remembered per browser), a Screens grid of
@@ -237,7 +254,7 @@ export default function SessionDashboardPage() {
   // it needs pictures even if they're switched off for the tiles.
   const wallOn = view === 'participants' && roomView === 'screens' && !answersOpen && !amxOpen;
   const amx = useAmadeusWatch(id, participants.filter(p => !p.deactivated_at).map(p => p.id), {
-    enabled: session?.kind !== 'resit' && !session?.closed_at,
+    enabled: session?.kind !== 'resit' && !session?.closed_at && on.amadeus,
     thumbs: amxPictures || wallOn,
     big: wallOn,
   });
@@ -287,7 +304,7 @@ export default function SessionDashboardPage() {
   const { totalFillable, progressFor, presenceFor, onlineCount, liveBySection, isOnline } =
     useRoomPresence({ participants, cursors, answers, blocks, sections });
   // Who's stuck, quietly (D2). Above the early returns: it is a hook.
-  const radar = useStuckRadar({ sessionId: id, cursors, participants, isOnline, enabled: !paperOnly });
+  const radar = useStuckRadar({ sessionId: id, cursors, participants, isOnline, enabled: !noWorkbook });
 
   async function doDelete(pid) {
     setBusy(true);
@@ -574,8 +591,8 @@ export default function SessionDashboardPage() {
       {/* Both of these read the workbook -- the board is heat per exercise, and
           By exercise is one exercise at a time. A paper-only session has none,
           so they are not offered. Tiles and Table still say who is here. */}
-      {!paperOnly && <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>}
-      {!paperOnly && <button type="button" aria-pressed={roomView === 'exercise'} onClick={() => { setExerciseJump(null); setRoomView('exercise'); }}>By exercise</button>}
+      {!noWorkbook && <button type="button" aria-pressed={roomView === 'heat'} onClick={() => setRoomView('heat')}>Heat board</button>}
+      {!noWorkbook && <button type="button" aria-pressed={roomView === 'exercise'} onClick={() => { setExerciseJump(null); setRoomView('exercise'); }}>By exercise</button>}
       {/* Everyone's shared Amadeus at once. Only once sharing is available here. */}
       {amx.available && <button type="button" aria-pressed={roomView === 'screens'} onClick={() => setRoomView('screens')}>Screens</button>}
     </div>
@@ -657,7 +674,8 @@ export default function SessionDashboardPage() {
           onCopyJoin={copyJoinUrl}
           view={view}
           setView={setView}
-          paperOnly={paperOnly}
+          paperOnly={noWorkbook}
+          on={on}
         >
           {/* Who is delivering is on the line under the title; changing it
               is a ⋯ item. A permanent "Trainer: X  Change" here cost ~190px
@@ -689,6 +707,11 @@ export default function SessionDashboardPage() {
                 glyph: '↻',
                 onClick: openResitDrawer,
               },
+              features.available && !paperOnly && !session?.closed_at && {
+                label: 'Session features…',
+                glyph: '☑',
+                onClick: () => setFeaturesOpen(true),
+              },
               prepEnabled && {
                 label: 'Manage prep',
                 glyph: '▤',
@@ -715,12 +738,13 @@ export default function SessionDashboardPage() {
             in the panel beside the roster now, in the same drawer participants
             use. */}
         <CockpitGauges
-          paperOnly={paperOnly}
+          paperOnly={noWorkbook}
+          resit={paperOnly}
           stats={cockpit}
           total={totalFillable}
           dropouts={dropoutCount}
           assessment={{
-            id: session?.assessment_id || null,
+            id: on.assessment ? (session?.assessment_id || null) : null,
             unlockedAt: session?.assessment_unlocked_at,
             deadlineAt: session?.assessment_deadline_at,
             started: participants.filter(p => !p.deactivated_at && (assessmentStarted.has(p.id) || p.assessment_finished_at)).length,
@@ -734,7 +758,7 @@ export default function SessionDashboardPage() {
             The hook has always run at page level; until now only Room rendered
             what it returned, so a hand raised while the trainer was in the
             workbook went unnoticed by everyone except the person waiting. */}
-        <HandsBar
+        {on.hand && <HandsBar
           hands={help.open}
           participants={participants}
           error={helpError || help.error}
@@ -751,7 +775,7 @@ export default function SessionDashboardPage() {
             const { error: e } = await help.resolve(reqId);
             if (e) setHelpError(e.message);
           }}
-        />
+        />}
         <HelpedToasts pending={help.pendingHelped} participants={participants} onUndo={help.undoResolve} />
 
 
@@ -844,7 +868,7 @@ export default function SessionDashboardPage() {
               {participants.length > 0 && roomView === 'heat' && (
                 <HeatBoard
                   hands={help.byParticipant}
-                  confidence={{ byParticipant: confidence.byParticipant, byExercise: confByExercise }}
+                  confidence={on.confidence ? { byParticipant: confidence.byParticipant, byExercise: confByExercise } : null}
                   sections={sections}
                   blocks={blocks}
                   participants={participants}
@@ -933,12 +957,12 @@ export default function SessionDashboardPage() {
               stats={cockpit}
               stuck={radar.stuck}
               stuckGroups={radar.groups}
-              lost={lostRecently}
-              onSpotlight={g => writeSpotlight(id, authSession?.user.id, { id: g.sectionId, title: g.title })}
-              pulseCard={paperOnly || session?.closed_at ? null : (
+              lost={on.confidence ? lostRecently : []}
+              onSpotlight={on.spotlight ? (g => writeSpotlight(id, authSession?.user.id, { id: g.sectionId, title: g.title })) : undefined}
+              pulseCard={paperOnly || !on.pulse || session?.closed_at ? null : (
                 <DayPulseCockpit pulse={pulse} startsAt={session?.starts_at} endsAt={session?.ends_at} active={activeIds.size} />
               )}
-              materialsCount={materialsLoading ? 0 : (materials?.length || 0)}
+              materialsCount={materialsLoading || !on.materials ? 0 : (materials?.length || 0)}
               onOpenMaterials={() => setMaterialsOpen(true)}
               onPick={(pid) => { setAnswersOpen(false); setAmxOpen(false); setSelectedParticipantId(pid); }}
             />
@@ -981,6 +1005,8 @@ export default function SessionDashboardPage() {
             participants={participants}
             participantAnswers={answers}
             liveBySection={liveBySection}
+            spotlightOn={on.spotlight}
+            reviewOn={on.review}
           />
         )}
 
@@ -1005,10 +1031,26 @@ export default function SessionDashboardPage() {
         {view === 'quiz' && <SessionQuizzes sessionId={id} joinCode={session?.join_code} />}
         {view === 'poll' && <SessionPolls sessionId={id} />}
       </main>
+      <SessionFeaturesPanel
+        open={featuresOpen}
+        onClose={() => setFeaturesOpen(false)}
+        sessionId={id}
+        features={features}
+        facts={{
+          workbookTitle: workbook?.title || '',
+          hasPrep: prepTemplated,
+          materialsCount: materialsLoading ? undefined : (materials?.length || 0),
+          assessmentTitle: programAssessment?.title || '',
+        }}
+        kept={{
+          workbook: Object.keys(answers).length ? 'Has answers, kept' : '',
+          confidence: confidence.rows.length ? 'Has taps, kept' : '',
+        }}
+      />
       {/* Not mounted at all on a paper-only session: its opener is hidden, so
           the drawer would only ever be unreachable markup carrying handouts
           this session does not have. */}
-      {!paperOnly && <MaterialsDrawer
+      {!paperOnly && on.materials && <MaterialsDrawer
         open={materialsOpen}
         onClose={() => setMaterialsOpen(false)}
         materials={materials}
@@ -1028,7 +1070,9 @@ export default function SessionDashboardPage() {
       {confirmClose && (
         <CloseSessionModal
           session={session}
-          sections={sections}
+          // A class that never used its workbook has every person at 0%;
+          // asking for an under-50% reason for each of them would block close.
+          sections={noWorkbook ? [] : sections}
           blocks={blocks}
           participants={participants}
           answers={answers}

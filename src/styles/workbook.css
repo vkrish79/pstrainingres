@@ -699,3 +699,12 @@ button.pab-chip { cursor: pointer; }
 .pulse-later:hover, .pulse-open:hover { background: #fff; color: var(--midnight); border-color: var(--midnight); }
 .pulse-open { margin-left: auto; padding: 0.3rem 0.8rem; }
 .pulse-send { padding: 0.45rem 1.1rem; font-size: 0.85rem; }
+
+/* A class with its workbook switched off (Session features): one quiet card
+   where the exercises would be. Quizzes and polls take the screen from here. */
+.wb-no-workbook {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 2rem; margin-top: 1rem; text-align: center;
+}
+.wb-no-workbook h2 { margin: 0 0 0.4rem; font-size: 1.15rem; color: var(--midnight); }
+.wb-no-workbook p { margin: 0; color: #6f7b88; }

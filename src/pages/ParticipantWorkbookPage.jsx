@@ -13,7 +13,8 @@ import { useExerciseConfidence } from '../hooks/useExerciseConfidence.js';
 import { useSessionFocus } from '../hooks/useSessionFocus.js';
 import { useLiveTakeover } from '../hooks/useLiveTakeover.js';
 import { usePrepDrawerAnchor } from '../hooks/usePrepDrawerAnchor.js';
-import { useAmadeusShareSession } from '../contexts/AmadeusShareContext.jsx';
+import { useAmadeusShareSession, useAmadeusShare } from '../contexts/AmadeusShareContext.jsx';
+import { useSessionFeatures } from '../hooks/useSessionFeatures.js';
 import { AmadeusShareNotices } from '../components/participant/AmadeusShare.jsx';
 import { useSessionReviews, useMyReviewMarks } from '../hooks/useAnswerReview.js';
 import { marksForBlock } from '../components/blocks/ReviewMark.jsx';
@@ -51,6 +52,17 @@ export default function ParticipantWorkbookPage() {
   const { loading, error, session, workbook, sections, blocks, answers, savedAt, savingMap, failures, retryFailed, sentNotice, saveAnswer, recentlyUpdated } =
     useWorkbook(authSession?.user.id);
   const { notes: sectionNotes, saveNote } = useParticipantNotes(session?.id, authSession?.user.id);
+  // What this class uses (lib/sessionFeatures.js), live: the trainer can
+  // switch a feature off mid-class and it leaves this screen without a reload.
+  const { on, ready: featuresReady } = useSessionFeatures(session?.id);
+  // Screen share switched off while this person is sharing: stop it, rather
+  // than keep sending pictures to a cockpit that no longer shows them.
+  const amxShare = useAmadeusShare();
+  const amxSharing = amxShare?.status === 'sharing' || amxShare?.status === 'paused';
+  useEffect(() => {
+    if (!on.amadeus && amxSharing) amxShare.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on.amadeus, amxSharing]);
 
   // A running quiz, a live poll, or a poll's thanks screen takes the whole
   // screen; see useLiveTakeover.
@@ -74,7 +86,8 @@ export default function ParticipantWorkbookPage() {
   const sectionRefs = useRef({}); // sectionId -> DOM node
   const sidebarRef = useRef(null);
   const prepBtnRef = useRef(null);
-  useSessionCursor(session?.id, {
+  // No workbook on screen, no exercise to report being on.
+  useSessionCursor(featuresReady && on.workbook ? session?.id : null, {
     selfId: authSession?.user.id,
     track: true,
     sectionId: currentSectionId,
@@ -151,25 +164,25 @@ export default function ParticipantWorkbookPage() {
       return;
     }
     // Force-jump once per hard snap: snap_at changed AND points at a section.
-    if (focus.section_id && focus.snap_at && focus.snap_at !== lastSnapRef.current) {
+    if (on.spotlight && focus.section_id && focus.snap_at && focus.snap_at !== lastSnapRef.current) {
       lastSnapRef.current = focus.snap_at;
       setSelectedSectionId(focus.section_id);
       setSpotlightDismissedAt(focus.set_at); // already moved → no soft banner
     }
-  }, [focus]);
+  }, [focus, on.spotlight]);
 
   // Going over answers with the class: which exercises have been, and this
   // participant's own marks on them (never anyone else's answers).
   const reviews = useSessionReviews(session?.id);
   const reviewMarks = useMyReviewMarks(session?.id, reviews, answers);
   const liveReviewSectionId = useMemo(
-    () => Object.keys(reviews).find(id => reviews[id].status === 'open') || null,
-    [reviews],
+    () => (on.review ? Object.keys(reviews).find(id => reviews[id].status === 'open') || null : null),
+    [reviews, on.review],
   );
 
   // The review banner already says where the trainer is; a spotlight on the
   // same exercise would be a second banner saying the same thing.
-  const showSpotlight = !!focus?.section_id && focus.set_at !== spotlightDismissedAt
+  const showSpotlight = on.spotlight && !!focus?.section_id && focus.set_at !== spotlightDismissedAt
     && focus.section_id !== liveReviewSectionId;
 
   // Counted the same way the drawer's "4 of 5 ready" counts, so the button and
@@ -357,7 +370,7 @@ export default function ParticipantWorkbookPage() {
   // participant who reloads mid-quiz must land back in it rather than in a
   // workbook the room has moved on from. The dismiss check lives in quizRunId
   // itself, above.
-  if (quizRunId) {
+  if (quizRunId && on.quiz) {
     return <QuizParticipant runId={quizRunId} onDismiss={dismissQuiz} />;
   }
 
@@ -372,14 +385,18 @@ export default function ParticipantWorkbookPage() {
   // NOT sticky, unlike the quiz. A quiz is held until the participant closes it
   // so they see their score; a poll has no final screen of their own, so when
   // the trainer takes it down they should be back in their workbook at once.
-  if (activePoll) {
+  if (activePoll && on.polls) {
     return <PollParticipant run={activePoll} secondsLeft={pollSecondsLeft} onRefresh={refreshPoll} />;
   }
-  if (pollThanks) {
+  if (pollThanks && on.polls) {
     return <PollThanks voted={pollThanks.voted} onDone={dismissPollThanks} />;
   }
 
-  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
+  // Also wait for what the class uses, so a class without a workbook never
+  // flashes one first. A resit or a load error has no session features to wait on.
+  if (loading || (session && session.kind !== 'resit' && !error && !featuresReady)) {
+    return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading workbook…" /></>;
+  }
 
   // A paper-only re-sit has no workbook, so this page has nothing to be. Send
   // them to the paper instead — which is still locked until the trainer opens
@@ -420,6 +437,80 @@ export default function ParticipantWorkbookPage() {
     ? sections
     : sections.filter(s => s.id === selectedSectionId);
 
+  const actionsBar = (
+    <WorkbookActionsBar
+      session={session}
+      on={on}
+      overallStatus={overallStatus}
+      lastSavedAt={lastSavedAt}
+      notedSections={notedSections}
+      totalNoteWords={totalNoteWords}
+      setNotesOpen={setNotesOpen}
+      prepOpen={prepOpen}
+      setPrepOpen={setPrepOpen}
+      prepBtnRef={prepBtnRef}
+      prepCount={prepCount}
+      materials={materials}
+      materialsLoading={materialsLoading}
+      setMaterialsOpen={setMaterialsOpen}
+      onOpenAssessment={() => navigate(`/assessment?session=${session.id}`)}
+      handUp={handUp}
+      helpBusy={helpBusy}
+      toggleHelp={toggleHelp}
+      printWorkbook={printWorkbook}
+      failures={failures}
+      blocks={blocks}
+      sections={sections}
+      retryFailed={retryFailed}
+      sentNotice={sentNotice}
+    />
+  );
+  // The hand's state, shown under the bar on both layouts.
+  const handNotices = on.hand && (
+    <>
+      {helpError && <p className="error no-print">{helpError}</p>}
+      {handUp && (
+        <div className={`help-banner no-print${handUp.acknowledged_at ? ' is-coming' : ''}`} role="status">
+          {handUp.acknowledged_at
+            ? <>👋 <strong>{handUp.acknowledged_by_name || 'Your trainer'} is coming over.</strong> Carry on — your answers are saved.</>
+            : <>✋ <strong>Your trainer can see you've asked for help.</strong> Only they can see it. Carry on while you wait.</>}
+        </div>
+      )}
+    </>
+  );
+  const materialsDrawer = on.materials && (
+    <MaterialsDrawer
+      open={materialsOpen}
+      onClose={() => setMaterialsOpen(false)}
+      materials={materials}
+      signedUrlFor={materialUrlFor}
+      loading={materialsLoading}
+    />
+  );
+
+  // A class with no workbook (switched off in Session features): the same
+  // header and bar, and the room's live moments, without exercises. Quizzes
+  // and polls still take the screen from here, above.
+  if (!on.workbook) {
+    return (
+      <>
+        <TopBar />
+        <main className="page workbook">
+          <WorkbookHeader workbook={workbook} session={session} progress={{ total: 0, filled: 0, pct: 0 }} resume={null} onContinue={() => {}} noWorkbook />
+          {actionsBar}
+          {handNotices}
+          {on.amadeus && <AmadeusShareNotices />}
+          {on.pulse && <DayPulseCard latest={pulse.latest} onAnswer={pulse.answer} />}
+          <section className="wb-no-workbook">
+            <h2>Nothing to fill in for this class</h2>
+            <p>Keep this page open. When your trainer starts a quiz or a poll, it appears here.</p>
+          </section>
+        </main>
+        {materialsDrawer}
+      </>
+    );
+  }
+
   return (
     <>
       <TopBar />
@@ -453,7 +544,7 @@ export default function ParticipantWorkbookPage() {
           <WorkbookDoneCard
             sessionId={session?.id}
             exerciseCount={sectionStats.filter(st => st.kind !== 'group' && st.total > 0).length}
-            assessment={session?.assessment_id ? {
+            assessment={session?.assessment_id && on.assessment ? {
               id: session.assessment_id,
               unlockedAt: session.assessment_unlocked_at,
               deadlineAt: session.assessment_deadline_at,
@@ -463,42 +554,11 @@ export default function ParticipantWorkbookPage() {
           />
         )}
 
-        <WorkbookActionsBar
-          session={session}
-          overallStatus={overallStatus}
-          lastSavedAt={lastSavedAt}
-          notedSections={notedSections}
-          totalNoteWords={totalNoteWords}
-          setNotesOpen={setNotesOpen}
-          prepOpen={prepOpen}
-          setPrepOpen={setPrepOpen}
-          prepBtnRef={prepBtnRef}
-          prepCount={prepCount}
-          materials={materials}
-          materialsLoading={materialsLoading}
-          setMaterialsOpen={setMaterialsOpen}
-          onOpenAssessment={() => navigate(`/assessment?session=${session.id}`)}
-          handUp={handUp}
-          helpBusy={helpBusy}
-          toggleHelp={toggleHelp}
-          printWorkbook={printWorkbook}
-          failures={failures}
-          blocks={blocks}
-          sections={sections}
-          retryFailed={retryFailed}
-          sentNotice={sentNotice}
-        />
+        {actionsBar}
 
-        {helpError && <p className="error no-print">{helpError}</p>}
-        {handUp && (
-          <div className={`help-banner no-print${handUp.acknowledged_at ? ' is-coming' : ''}`} role="status">
-            {handUp.acknowledged_at
-              ? <>👋 <strong>{handUp.acknowledged_by_name || 'Your trainer'} is coming over.</strong> Carry on — your answers are saved.</>
-              : <>✋ <strong>Your trainer can see you've asked for help.</strong> Only they can see it. Carry on while you wait.</>}
-          </div>
-        )}
-        <AmadeusShareNotices />
-        {!handUp && handMovedOn && (
+        {handNotices}
+        {on.amadeus && <AmadeusShareNotices />}
+        {on.hand && !handUp && handMovedOn && (
           // A toast, not a banner in the flow: it fires because they scrolled
           // DOWN, so anything up at the actions bar is already off screen.
           <div className="hand-toast no-print" role="status">
@@ -534,7 +594,7 @@ export default function ParticipantWorkbookPage() {
           </div>
         )}
 
-        <DayPulseCard latest={pulse.latest} onAnswer={pulse.answer} />
+        {on.pulse && <DayPulseCard latest={pulse.latest} onAnswer={pulse.answer} />}
 
         <div className="exresp-layout">
           <div className="exresp-mobile-nav">
@@ -600,16 +660,18 @@ export default function ParticipantWorkbookPage() {
                       {statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100 && (
                         <span className="wb-section-done" aria-label="Exercise complete">✓</span>
                       )}
-                      {reviews[sec.id] && (
+                      {on.review && reviews[sec.id] && (
                         <span className={`rv-section-tag${reviews[sec.id].status === 'open' ? ' is-live' : ''}`}>
                           {reviews[sec.id].status === 'open' ? 'Being gone over now' : 'Gone over with the class'}
                         </span>
                       )}
                     </h2>
                   )}
-                  <PrepCallout
-                    items={calloutItems(prepText, expectedPrep?.ownLabels?.[sec.id], prepWithExercise[sec.id])}
-                  />
+                  {on.prep && (
+                    <PrepCallout
+                      items={calloutItems(prepText, expectedPrep?.ownLabels?.[sec.id], prepWithExercise[sec.id])}
+                    />
+                  )}
                   {blocks.filter(b => b.section_id === sec.id).map(b => (
                     <Block
                       key={b.id}
@@ -617,13 +679,13 @@ export default function ParticipantWorkbookPage() {
                       value={answers[b.id]}
                       onChange={v => saveAnswer(b.id, v)}
                       recentlyUpdated={!!recentlyUpdated[b.id]}
-                      marks={reviews[sec.id] ? marksForBlock(reviewMarks, b.id) : null}
+                      marks={on.review && reviews[sec.id] ? marksForBlock(reviewMarks, b.id) : null}
                     />
                   ))}
                   {/* Once the last box is filled: one private tap for the trainer.
                       Open only when finished just now; already answered shows
                       the one quiet line; anything else stays out of the way. */}
-                  {!isGroup && !confidence.unavailable && statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100
+                  {on.confidence && !isGroup && !confidence.unavailable && statById[sec.id]?.total > 0 && statById[sec.id]?.pct === 100
                     && (finishedNow.has(sec.id) || confidence.mineBySection[sec.id]) && (
                     <ConfidenceStrip
                       key={`conf-${sec.id}`}
@@ -649,13 +711,7 @@ export default function ParticipantWorkbookPage() {
           </div>
         </div>
       </main>
-      <MaterialsDrawer
-        open={materialsOpen}
-        onClose={() => setMaterialsOpen(false)}
-        materials={materials}
-        signedUrlFor={materialUrlFor}
-        loading={materialsLoading}
-      />
+      {materialsDrawer}
 
       <NotesDrawer
         open={notesOpen}
@@ -665,7 +721,7 @@ export default function ParticipantWorkbookPage() {
         saveNote={saveNote}
         currentSectionId={selectedSectionId === ALL_KEY ? (currentSectionId || sections[0]?.id) : selectedSectionId}
       />
-      <PrepDrawer
+      {on.prep && <PrepDrawer
         open={prepOpen}
         onClose={() => setPrepOpen(false)}
         sections={sections}
@@ -673,7 +729,7 @@ export default function ParticipantWorkbookPage() {
         standalone={standalonePrep}
         expected={expectedPrep}
         className="prep-drawer--track-page"
-      />
+      />}
     </>
   );
 }

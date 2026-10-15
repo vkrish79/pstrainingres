@@ -3923,3 +3923,6 @@
 /* Five controls on the assessment's toolbar: a narrower search keeps
    Next to mark on the same line on a 1280 laptop. */
 .exresp-toolbar.is-marking .exresp-search { min-width: 140px; }
+
+/* Closed report: the features this class had switched off (Session features). */
+.closed-not-used { margin: 0 0 1rem; font-size: 0.85rem; color: #6f7b88; }

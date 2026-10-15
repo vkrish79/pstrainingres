@@ -10,6 +10,7 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { isSuperTrainerOrAbove, isVendorManagerOrAbove, ROLES } from '../../lib/roles.js';
 import { useResitCandidates } from '../../hooks/useResitCandidates.js';
 import { arrangeResit } from '../../lib/arrangeResit.js';
+import SessionFeaturesList from './SessionFeaturesList.jsx';
 import '../../styles/editor.css';
 import '../../styles/session-drawer.css';
 
@@ -144,6 +145,43 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
     }
   }, [trainerOptions, trainerId, isSuper]);
 
+  // What this class uses. Everything on unless ticked off. Shown only once the
+  // database has the features_off column — before the SQL is applied there is
+  // nowhere to keep the choice, so the form stays as it was.
+  const [featuresOff, setFeaturesOff] = useState([]);
+  const [featuresReady, setFeaturesReady] = useState(false);
+  const [programFacts, setProgramFacts] = useState({});
+  // Set when the session was made but its features failed to save, so the
+  // error can offer the way in instead of a dead end.
+  const [madeSessionId, setMadeSessionId] = useState(null);
+  useEffect(() => {
+    if (!open || featuresReady) return;
+    supabase.from('sessions').select('features_off').limit(1)
+      .then(({ error: e }) => { if (!e) setFeaturesReady(true); });
+  }, [open, featuresReady]);
+  // What the picked program brings, to word the list and grey out what it
+  // lacks (no prep template, no handouts).
+  useEffect(() => {
+    if (!open || !programId || !featuresReady) return undefined;
+    let cancelled = false;
+    setProgramFacts({});
+    (async () => {
+      const [{ data: wb }, { data: asmt }, { count: mats }] = await Promise.all([
+        supabase.from('workbooks').select('title, prep_template').eq('program_id', programId).eq('is_template', true).limit(1),
+        supabase.from('assessments').select('title').eq('program_id', programId).eq('is_template', true).limit(1),
+        supabase.from('program_materials').select('id', { count: 'exact', head: true }).eq('program_id', programId),
+      ]);
+      if (cancelled) return;
+      setProgramFacts({
+        workbookTitle: wb?.[0]?.title || '',
+        hasPrep: wb?.[0] ? Array.isArray(wb[0].prep_template) && wb[0].prep_template.length > 0 : undefined,
+        materialsCount: typeof mats === 'number' ? mats : undefined,
+        assessmentTitle: asmt?.[0]?.title || '',
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [open, programId, featuresReady]);
+
   // Opened from a program ("New class from this", ?program=<id>): start on
   // that program, once the published list has arrived and only if it is in
   // it — a draft or a stale link falls back to the default.
@@ -159,6 +197,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
   // opened, and the discard prompt would fire on an untouched form.
   const dirty = Boolean(
     name.trim() || startsAt || endsAt || cityCode || vendorId || trainerId || !superSelfDeliver
+    || featuresOff.length
   );
 
   // Reset on close so the next open is a clean form rather than the last
@@ -179,6 +218,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
       setPicked(new Set());
       setVendorId(''); setTrainerId(''); setSuperSelfDeliver(true);
       setError(''); setConfirmDiscard(false); setCredentials(null);
+      setFeaturesOff([]); setMadeSessionId(null);
     }, ms + 80);
     return () => clearTimeout(t);
   }, [open]);
@@ -350,8 +390,21 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
         }
       )
     );
+    if (rpcErr) { setBusy(false); setError(rpcErr.message); return; }
+    // Everything on is the stored default (NULL), so only a class with
+    // something ticked off needs the second call.
+    if (featuresReady && featuresOff.length) {
+      const { error: fErr } = await supabase.rpc('set_session_features', {
+        p_session_id: newSessionId, p_off: featuresOff,
+      });
+      if (fErr) {
+        setBusy(false);
+        setMadeSessionId(newSessionId);
+        setError(`The session was created, but what it uses was not saved (${fErr.message}). Everything is on for now — change it from the session's ⋮ menu → Session features.`);
+        return;
+      }
+    }
     setBusy(false);
-    if (rpcErr) { setError(rpcErr.message); return; }
     navigate(`/trainer/sessions/${newSessionId}`);
   }
 
@@ -649,10 +702,24 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
                 placeholder="AUH"
               />
             )}
+            {featuresReady && (
+              <SessionFeaturesList
+                off={featuresOff}
+                onChange={setFeaturesOff}
+                facts={programFacts}
+                idPrefix="ns-feat"
+                isNew
+              />
+            )}
             </>
             )}
 
-            {error && <p className="error">{error}</p>}
+            {error && (
+              <p className="error">
+                {error}
+                {madeSessionId && <> <Link to={`/trainer/sessions/${madeSessionId}`}>Open the session</Link></>}
+              </p>
+            )}
           </form>
           )}
         </div>
