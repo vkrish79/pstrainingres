@@ -72,8 +72,26 @@
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border, #e5e2dc);
 }
+.report-names-trainer { gap: 0.5rem 1.5rem; }
+.report-names-field { display: flex; align-items: center; gap: 0.5rem; }
 .report-names-trainer label { font-weight: 600; font-size: 0.9rem; }
 .report-names-trainer .form-input { width: 12rem; padding: 0.35rem 0.5rem; }
+.report-names-trainer .report-names-wide { width: 16rem; }
+.report-names-trainer .report-names-title { width: 24rem; max-width: 100%; }
+.report-names-reset {
+  background: var(--card, #fff);
+  color: var(--text, #1a1a1a);
+  border: 1px solid var(--border, #e5e2dc);
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+}
+/* index.css fills every button midnight on hover; restate the light look. */
+.report-names-reset:hover { background: #f3efe5; color: var(--text, #1a1a1a); }
+.report-names-table .report-names-pick { width: 2rem; text-align: center; }
+.report-names-pick input { width: 1rem; height: 1rem; cursor: pointer; accent-color: var(--ld-midnight); }
+.report-names-table tr.is-out .report-names-app { text-decoration: line-through; }
+.report-names-table tr.is-out td:not(.report-names-pick) { opacity: 0.45; }
 .report-names-scroll { overflow-x: auto; margin-top: 0.6rem; }
 .report-names-table { width: 100%; border-collapse: collapse; min-width: 40rem; }
 .report-names-table th {

@@ -75,7 +75,9 @@ export function AssessmentReportView({
   passMark, loading, error, notice, recorded = null, recordedNote = null, closed = false,
 }) {
   const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
-  const [selectedId, setSelectedId] = useState('');
+  // Participants left OFF this printout, keyed by id. Everyone is in until
+  // ticked out, so a fresh tab prints the whole class as it always did.
+  const [excluded, setExcluded] = useState({});
   // Real names, job titles and staff numbers, keyed by participant id. Held
   // here and NOWHERE else: no table, no browser storage. Participants are
   // enrolled under pseudonyms (trainee1, trainee2…) on purpose, and these
@@ -85,6 +87,13 @@ export function AssessmentReportView({
   // The facilitator's staff №, entered once for every sheet. Same rule as
   // `ids`: on the printout only, never stored.
   const [trainerStaff, setTrainerStaff] = useState('');
+  // The GRP header's other hand-filled cells. Same rule: printout only.
+  const [team, setTeam] = useState('');
+  const [assessmentNo, setAssessmentNo] = useState('');
+  // Program title starts as the session's own and can be reworded for this
+  // printout. null = untouched, so it follows the session if that loads late.
+  const [programTitle, setProgramTitle] = useState(null);
+  const defaultTitle = session?.program?.title || session?.name || '';
 
   const cohort = useMemo(() => {
     if (recorded) {
@@ -108,10 +117,9 @@ export function AssessmentReportView({
   if (error) return <div className="error" style={{ padding: '1rem' }}>{error}</div>;
   const marksError = notice;
 
-  const chosen = cohort.reports.find(r => r.participant.id === selectedId) || cohort.reports[0] || null;
-  const outstanding = scope === 'individual'
-    ? (chosen?.unmarked.length || 0)
-    : cohort.totalUnmarked;
+  const included = cohort.reports.filter(r => !excluded[r.participant.id]);
+  const outstanding = included.reduce((n, r) => n + r.unmarked.length, 0);
+  const header = { trainerStaff, team, assessmentNo, programTitle: programTitle ?? defaultTitle };
 
   return (
     <div className="assessment-report">
@@ -123,34 +131,18 @@ export function AssessmentReportView({
           <label className={`report-scope-opt ${scope === 'cohort' ? 'active' : ''}`}>
             <input type="radio" name="report-scope" checked={scope === 'cohort'} onChange={() => setScope('cohort')} />
             Group (GRP)
-            <span className="muted"> — {cohort.reports.length} participant{cohort.reports.length === 1 ? '' : 's'}, one file</span>
+            <span className="muted"> — {included.length} participant{included.length === 1 ? '' : 's'}, one sheet</span>
           </label>
           {!recorded && (
             <label className={`report-scope-opt ${scope === 'individual' ? 'active' : ''}`}>
               <input type="radio" name="report-scope" checked={scope === 'individual'} onChange={() => setScope('individual')} />
               Individual (IND)
+              <span className="muted"> — {included.length} sheet{included.length === 1 ? '' : 's'}, one per person</span>
             </label>
-          )}
-          {scope === 'individual' && (
-            <select
-              className="form-input report-picker"
-              value={chosen?.participant.id || ''}
-              onChange={e => setSelectedId(e.target.value)}
-            >
-              {cohort.reports.map(r => {
-                const real = ids[r.participant.id]?.name?.trim();
-                const app = r.participant.full_name || '(unnamed)';
-                return (
-                  <option key={r.participant.id} value={r.participant.id}>
-                    {real ? `${real} (${app})` : app}
-                  </option>
-                );
-              })}
-            </select>
           )}
         </div>
         <div className="report-actions">
-          <button type="button" className="primary" onClick={() => window.print()} disabled={cohort.reports.length === 0}>
+          <button type="button" className="primary" onClick={() => window.print()} disabled={included.length === 0}>
             ↓ Print / Download PDF
           </button>
         </div>
@@ -164,6 +156,16 @@ export function AssessmentReportView({
           trainerName={session?.trainer?.full_name}
           trainerStaff={trainerStaff}
           setTrainerStaff={setTrainerStaff}
+          team={team}
+          setTeam={setTeam}
+          assessmentNo={assessmentNo}
+          setAssessmentNo={setAssessmentNo}
+          programTitle={programTitle ?? defaultTitle}
+          setProgramTitle={setProgramTitle}
+          titleEdited={programTitle != null && programTitle !== defaultTitle}
+          showGroupFields={scope === 'cohort'}
+          excluded={excluded}
+          setExcluded={setExcluded}
         />
       )}
 
@@ -201,23 +203,29 @@ export function AssessmentReportView({
         <p className="muted">No participants enrolled, so there is nothing to report on.</p>
       )}
 
-      {scope === 'cohort' && cohort.reports.length > 0 && (
-        <GroupReport session={session} cohort={cohort} passMark={passMark} ids={ids} trainerStaff={trainerStaff} />
+      {cohort.reports.length > 0 && included.length === 0 && (
+        <p className="muted no-print">Nobody is ticked to print. Tick at least one person above.</p>
       )}
 
-      {scope === 'individual' && chosen && (
-        <IndividualReport session={session} report={chosen} passMark={passMark} ids={ids} trainerStaff={trainerStaff} />
+      {scope === 'cohort' && included.length > 0 && (
+        <GroupReport session={session} reports={included} passMark={passMark} ids={ids} header={header} />
       )}
+
+      {/* One sheet per ticked person; .report-page breaks the page after
+          each, so a single print gives every individual report at once. */}
+      {scope === 'individual' && included.map(r => (
+        <IndividualReport key={r.participant.id} session={session} report={r} passMark={passMark} ids={ids} header={header} />
+      ))}
     </div>
   );
 }
 
 // ── L&D Training Report (GRP) ───────────────────────────────────────────────
-function GroupReport({ session, cohort, passMark, ids, trainerStaff }) {
+function GroupReport({ session, reports, passMark, ids, header }) {
   // The source document rules 16 rows whether or not they are used, so the
   // sheet looks the same however many people sat the paper.
   const MIN_ROWS = 16;
-  const rows = [...cohort.reports];
+  const rows = reports;
   const blanks = Math.max(0, MIN_ROWS - rows.length);
 
   return (
@@ -227,19 +235,19 @@ function GroupReport({ session, cohort, passMark, ids, trainerStaff }) {
       <table className="ld-meta">
         <tbody>
           <tr>
-            <th>Team &amp; Location</th><td className="fill-in" />
+            <th>Team &amp; Location</th><TypedCell value={header.team} />
             <th className="narrow">City</th><td>{session?.city_code || <span className="fill-in-inline" />}</td>
           </tr>
           <tr>
-            <th>Program Title</th><td colSpan={3}>{session?.program?.title || session?.name || ''}</td>
+            <th>Program Title</th><TypedCell colSpan={3} value={header.programTitle} />
           </tr>
           <tr>
             <th>Dates &amp; Assessment №</th><td>{formatRange(session?.starts_at, session?.ends_at)}</td>
-            <th className="narrow">№</th><td className="fill-in" />
+            <th className="narrow">№</th><TypedCell value={header.assessmentNo} />
           </tr>
           <tr>
             <th>Facilitator &amp; Staff №</th><td>{session?.trainer?.full_name || ''}</td>
-            <th className="narrow">№</th><TypedCell value={trainerStaff} />
+            <th className="narrow">№</th><TypedCell value={header.trainerStaff} />
           </tr>
         </tbody>
       </table>
@@ -289,7 +297,7 @@ function GroupReport({ session, cohort, passMark, ids, trainerStaff }) {
 }
 
 // ── L&D Training Report (IND) ───────────────────────────────────────────────
-function IndividualReport({ session, report, passMark, ids, trainerStaff }) {
+function IndividualReport({ session, report, passMark, ids, header }) {
   const verdict = resultOf(report.score, passMark, report.unmarked.length);
   const real = ids[report.participant.id] || {};
 
@@ -309,14 +317,14 @@ function IndividualReport({ session, report, passMark, ids, trainerStaff }) {
           <tr>
             <th>Program Title &amp; Date</th>
             <td colSpan={3}>
-              {session?.program?.title || session?.name || ''}
+              {header.programTitle.trim()}
               {' — '}
               {formatRange(session?.starts_at, session?.ends_at)}
             </td>
           </tr>
           <tr>
             <th>Facilitator &amp; Staff №</th><td>{session?.trainer?.full_name || ''}</td>
-            <th className="narrow">№:</th><TypedCell value={trainerStaff} />
+            <th className="narrow">№:</th><TypedCell value={header.trainerStaff} />
           </tr>
           <tr>
             <th>Assessment Score</th>
@@ -420,8 +428,18 @@ function splitRows(text) {
   return text.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map(line => line.split('\t'));
 }
 
-function PrintNames({ reports, ids, setIds, trainerName, trainerStaff, setTrainerStaff }) {
+function PrintNames({
+  reports, ids, setIds, trainerName, trainerStaff, setTrainerStaff,
+  team, setTeam, assessmentNo, setAssessmentNo, programTitle, setProgramTitle, titleEdited,
+  showGroupFields, excluded, setExcluded,
+}) {
   const [pasted, setPasted] = useState(null);
+  const includedCount = reports.filter(r => !excluded[r.participant.id]).length;
+  const allIn = includedCount === reports.length;
+
+  function toggleAll() {
+    setExcluded(allIn ? Object.fromEntries(reports.map(r => [r.participant.id, true])) : {});
+  }
 
   function setField(id, key, value) {
     setIds(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
@@ -462,27 +480,91 @@ function PrintNames({ reports, ids, setIds, trainerName, trainerStaff, setTraine
           Not saved. Shown on this report only, and cleared when you leave the Report tab.
         </span>
       </div>
-      {/* Once per printout, not per row: it goes on every sheet's
-          "Facilitator & Staff №" line. */}
+      {/* Once per printout, not per row: the sheet header's hand-filled
+          cells. Team and Assessment № exist only on the group sheet, so they
+          show only when that is what will print. */}
       <div className="report-names-trainer">
-        <label htmlFor="print-trainer-staff">
-          Facilitator staff ID{trainerName ? <span className="muted"> — {trainerName}</span> : null}
-        </label>
-        <input
-          type="text"
-          className="form-input"
-          id="print-trainer-staff"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="Staff ID"
-          value={trainerStaff}
-          onChange={e => setTrainerStaff(e.target.value)}
-        />
+        {/* Both sheets carry it, so it shows in either mode. */}
+        <div className="report-names-field">
+          <label htmlFor="print-program-title">Program Title</label>
+          <input
+            type="text"
+            className="form-input report-names-title"
+            id="print-program-title"
+            autoComplete="off"
+            value={programTitle}
+            onChange={e => setProgramTitle(e.target.value)}
+          />
+          {titleEdited && (
+            <button
+              type="button"
+              className="report-names-reset"
+              data-tip="Back to the session's program title"
+              onClick={() => setProgramTitle(null)}
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        {showGroupFields && (
+          <>
+            <div className="report-names-field">
+              <label htmlFor="print-team">Team &amp; Location</label>
+              <input
+                type="text"
+                className="form-input report-names-wide"
+                id="print-team"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Team & location"
+                value={team}
+                onChange={e => setTeam(e.target.value)}
+              />
+            </div>
+            <div className="report-names-field">
+              <label htmlFor="print-assessment-no">Assessment №</label>
+              <input
+                type="text"
+                className="form-input"
+                id="print-assessment-no"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Assessment №"
+                value={assessmentNo}
+                onChange={e => setAssessmentNo(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+        <div className="report-names-field">
+          <label htmlFor="print-trainer-staff">
+            Facilitator staff ID{trainerName ? <span className="muted"> — {trainerName}</span> : null}
+          </label>
+          <input
+            type="text"
+            className="form-input"
+            id="print-trainer-staff"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Staff ID"
+            value={trainerStaff}
+            onChange={e => setTrainerStaff(e.target.value)}
+          />
+        </div>
       </div>
       <div className="report-names-scroll">
         <table className="report-names-table">
           <thead>
             <tr>
+              <th className="report-names-pick">
+                <input
+                  type="checkbox"
+                  aria-label={allIn ? 'Leave everyone off' : 'Include everyone'}
+                  checked={allIn}
+                  ref={el => { if (el) el.indeterminate = includedCount > 0 && !allIn; }}
+                  onChange={toggleAll}
+                />
+              </th>
               <th>Name in the app</th>
               {NAME_FIELDS.map(f => <th key={f.key}>{f.label}</th>)}
             </tr>
@@ -490,8 +572,21 @@ function PrintNames({ reports, ids, setIds, trainerName, trainerStaff, setTraine
           <tbody>
             {reports.map((r, i) => {
               const id = r.participant.id;
+              const out = !!excluded[id];
               return (
-                <tr key={id}>
+                <tr key={id} className={out ? 'is-out' : undefined}>
+                  <td className="report-names-pick">
+                    <input
+                      type="checkbox"
+                      aria-label={`Include ${r.participant.full_name || 'participant'} in this report`}
+                      checked={!out}
+                      onChange={() => setExcluded(prev => {
+                        const next = { ...prev };
+                        if (out) delete next[id]; else next[id] = true;
+                        return next;
+                      })}
+                    />
+                  </td>
                   <td className="report-names-app">{r.participant.full_name || '(unnamed)'}</td>
                   {NAME_FIELDS.map(f => (
                     <td key={f.key}>
@@ -519,12 +614,12 @@ function PrintNames({ reports, ids, setIds, trainerName, trainerStaff, setTraine
         <span className="muted">
           Paste from Excel: copy the name, job title and staff ID columns from your own sheet, in
           trainee order, and paste into the first Actual name box. {filled} of {reports.length} named;
-          anyone left blank prints under their app name.
+          anyone left blank prints under their app name. {includedCount} of {reports.length} ticked to print.
         </span>
         <button
           type="button"
-          onClick={() => { setIds({}); setTrainerStaff(''); setPasted(null); }}
-          disabled={Object.keys(ids).length === 0 && !trainerStaff}
+          onClick={() => { setIds({}); setTrainerStaff(''); setTeam(''); setAssessmentNo(''); setProgramTitle(null); setPasted(null); }}
+          disabled={Object.keys(ids).length === 0 && !trainerStaff && !team && !assessmentNo && !titleEdited}
         >
           Clear all
         </button>

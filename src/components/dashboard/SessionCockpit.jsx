@@ -156,7 +156,9 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
   const { active, pace, behind, quiet, online } = stats;
 
   return (
-    <section className="cockpit-gauges" aria-label="Class at a glance">
+    // no-print: these are the live class, not part of anything printed from
+    // under them (the L&D report prints from the Assessment tab).
+    <section className="cockpit-gauges no-print" aria-label="Class at a glance">
       <div className="cockpit-gauge">
         <Ring frac={active.length ? online.length / active.length : 0} tone="ok" />
         <div>

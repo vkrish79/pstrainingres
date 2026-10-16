@@ -19,8 +19,9 @@ export default function SessionCockpitHeader({ session, joinUrl, joinCopied, onC
           below, where it sits with the rest of the room's state. */}
       {/* The class's name is the page's title, above the bar rather than
           squeezed into it — which is also what gives the bar room for the
-          tabs and controls on one line. */}
-      <header className="cockpit-page-title">
+          tabs and controls on one line. Screen only: a printed L&D report
+          carries its own masthead, and the class name is not part of it. */}
+      <header className="cockpit-page-title no-print">
         <h1>{session?.name}</h1>
         {session?.session_type?.name && <span className="type-tag inline">{session.session_type.name}</span>}
         {session?.city_code && <span className="city-tag inline">{session.city_code}</span>}
