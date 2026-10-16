@@ -28,11 +28,14 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* No rubber-band at the page's ends. Chrome on a Windows touchpad bounces the
-   page when you scroll past the top, and the sticky app bar travels with it
-   while the fixed left rail does not — so the bar visibly peels down off the
-   top of the screen. Scrolling inside panels is unaffected. */
-html, body { overscroll-behavior-y: none; }
+/* No rubber-band at the page's ends, in either direction. Chrome on a Windows
+   touchpad bounces the page when you scroll past an edge: past the top, the
+   sticky app bar travels with it while the fixed left rail does not, so the
+   bar peels off the screen; sideways, the whole page slides off the rail.
+   Horizontal also stops the two-finger swipe from going Back a page, which
+   would otherwise drop unsaved edits (Manage prep) without asking. Scrolling
+   inside panels and wide tables is unaffected. */
+html, body { overscroll-behavior: none; }
 
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
