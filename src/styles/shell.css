@@ -13,8 +13,8 @@
 
 :root {
   --nav-w: 214px;
-  --nav-bg: #16304a;          /* a shade under --midnight so the bar reads as separate */
-  --nav-bg-active: #0f2438;
+  --nav-bg: #16304a; --nav-bg: color-mix(in srgb, var(--midnight) 80%, black);          /* a shade under --midnight so the bar reads as separate */
+  --nav-bg-active: #0f2438; --nav-bg-active: color-mix(in srgb, var(--midnight-hover) 78%, black);
   --nav-fg: #c3d2e0;
   --nav-fg-dim: #7f97ad;
   --topbar-h: 61px;
@@ -51,7 +51,7 @@
   height: 30px;
   border-radius: 7px;
   background: var(--gold);
-  color: #12283d;
+  color: #12283d; color: color-mix(in srgb, var(--midnight-hover) 87%, black);
   font-size: 0.78rem;
   font-weight: 800;
   display: grid;
@@ -147,7 +147,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
 }
-.topbar--shell .topbar-user-avatar { background: var(--gold); color: #12283d; }
+.topbar--shell .topbar-user-avatar { background: var(--gold); color: #12283d; color: color-mix(in srgb, var(--midnight-hover) 87%, black); }
 .topbar-user-text { display: flex; flex-direction: column; line-height: 1.15; }
 .topbar--shell .topbar-user-name { color: #fff; font-size: 0.82rem; font-weight: 600; }
 .topbar-user-role { color: var(--nav-fg-dim); font-size: 0.65rem; }

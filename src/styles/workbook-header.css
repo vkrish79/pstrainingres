@@ -7,13 +7,13 @@
   flex-wrap: wrap;
   margin-bottom: 1rem;
   padding: 1.1rem 1.4rem;
-  border: 1px solid #e8dec6;
+  border: 1px solid #e8dec6; border: 1px solid color-mix(in srgb, var(--gold) 34%, white);
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbf7ee 100%);
+  background: linear-gradient(180deg, var(--card) 0%, #fbf7ee 100%);
   box-shadow: 0 1px 3px rgba(15, 22, 38, 0.05);
 }
 .wbh-ring { width: 64px; height: 64px; flex: 0 0 auto; }
-.wbh-ring-track { fill: none; stroke: #ece7dc; stroke-width: 4; }
+.wbh-ring-track { fill: none; stroke: #ece7dc; stroke: color-mix(in srgb, var(--gold-dark) 18%, white); stroke-width: 4; }
 .wbh-ring-fill {
   fill: none;
   stroke: var(--gold);
@@ -40,7 +40,7 @@
   font-size: 0.88rem;
   color: var(--muted);
 }
-.wbh-facts span + span::before { content: '·'; margin: 0 0.45rem; color: #c3b89f; }
+.wbh-facts span + span::before { content: '·'; margin: 0 0.45rem; color: #c3b89f; color: color-mix(in srgb, var(--gold-dark) 51%, white); }
 .wbh-count { font-variant-numeric: tabular-nums; color: var(--text); }
 
 .wbh-go { display: grid; gap: 0.3rem; justify-items: end; margin-left: auto; }
@@ -67,7 +67,7 @@
   max-width: 34rem;
   padding: 0.5rem 0.6rem 0.5rem 0.85rem;
   background: #fff4e0;
-  border: 1px solid #b5985a;
+  border: 1px solid var(--gold);
   border-radius: 10px;
   font-size: 0.88rem;
   line-height: 1.35;

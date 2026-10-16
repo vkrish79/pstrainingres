@@ -308,7 +308,7 @@
 .plive-thanks { justify-content: center; align-items: center; text-align: center; }
 .plive-thanks .plive-back,
 .plive-thanks .plive-back:hover {
-  background: #fff; color: var(--midnight, #1f2a44); border: none; border-radius: 999px;
+  background: var(--card); color: var(--midnight, #1f2a44); border: none; border-radius: 999px;
   padding: 0.6rem 1.4rem; font: inherit; font-weight: 600; cursor: pointer;
 }
 .plive-thanks .plive-back:hover { background: #eef2f7; }

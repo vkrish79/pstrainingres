@@ -17,7 +17,7 @@
   margin-left: auto; font-size: 0.75rem; font-weight: 700;
   padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap;
 }
-.answer-key-count.none { background: #f0f3f7; color: var(--muted); }
+.answer-key-count.none { background: #f0f3f7; background: color-mix(in srgb, var(--midnight) 6%, white); color: var(--muted); }
 .answer-key-count.partial { background: #fff4e0; color: #8a5a00; }
 .answer-key-count.full { background: #e8f5ec; color: #2a7a3d; }
 
@@ -44,7 +44,7 @@
   padding: 0.6rem 0; border-top: 1px solid var(--border);
 }
 .answer-key-row:first-of-type { border-top: none; }
-.answer-key-row.has-key { background: #fcfbf7; }
+.answer-key-row.has-key { background: #fcfbf7; background: color-mix(in srgb, var(--bg) 60%, white); }
 .answer-key-q { display: flex; align-items: baseline; gap: 0.5rem; }
 .answer-key-q-label {
   font-size: 0.9rem; color: var(--text);
@@ -87,7 +87,7 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
-  background: #f0efec;
+  background: #f0efec; background: color-mix(in srgb, var(--bg) 97%, black);
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
 }
@@ -160,7 +160,7 @@
   border-radius: 8px;
   padding: 0.7rem 0.9rem;
   margin-bottom: 0.6rem;
-  background: #fdfcfa;
+  background: #fdfcfa; background: color-mix(in srgb, var(--border) 11%, white);
 }
 .organise-group-head {
   display: flex;
@@ -201,12 +201,12 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
-  background: #f0efec;
+  background: #f0efec; background: color-mix(in srgb, var(--bg) 97%, black);
   border-radius: 999px;
   padding: 0.08rem 0.4rem;
 }
 .organise-note {
-  background: #f7f6f3;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.7rem 1rem;
@@ -265,7 +265,7 @@
 }
 .draft-bar.dirty {
   border-color: var(--gold, #b5985a);
-  background: #fdfaf3;
+  background: #fdfaf3; background: color-mix(in srgb, var(--gold) 6%, white);
 }
 .draft-bar-status {
   font-weight: 700;
@@ -285,7 +285,7 @@
 
 .answer-key-unsaved {
   border-left: 3px solid var(--gold, #b5985a);
-  background: #fdfaf3;
+  background: #fdfaf3; background: color-mix(in srgb, var(--gold) 6%, white);
   padding: 0.5rem 0.8rem;
   border-radius: 0 6px 6px 0;
 }

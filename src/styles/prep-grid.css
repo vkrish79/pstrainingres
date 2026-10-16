@@ -13,11 +13,11 @@
 .pg-seg-pool  { background: linear-gradient(180deg, #86efac, #4ade80); }
 .pg-seg-alloc { background: linear-gradient(180deg, #fed7aa, #fb923c); }
 /* spent = withdrawn by hand only; class-spent kits are never loaded. Grey, not red. */
-.pg-seg-spent { background: linear-gradient(180deg, #dfe3e8, #b8c0ca); }
+.pg-seg-spent { background: linear-gradient(180deg, #dfe3e8, #b8c0ca); background: linear-gradient(180deg, color-mix(in srgb, var(--midnight) 14%, white), color-mix(in srgb, var(--midnight) 32%, white)); }
 
 .pg-legend {
   display: flex; gap: 1.1rem; align-items: center;
-  font-size: 0.8rem; color: #475569; margin-bottom: 0.7rem;
+  font-size: 0.8rem; color: #475569; color: color-mix(in srgb, var(--midnight-hover) 80%, white); margin-bottom: 0.7rem;
 }
 .pg-legend-total { margin-left: auto; color: #94a3b8; }
 .pg-sw {
@@ -32,7 +32,7 @@
 
 /* ── the grid card ── */
 .pg-scroll {
-  overflow-x: auto; background: #fff;
+  overflow-x: auto; background: var(--card);
   border: 1px solid #e6ebf1; border-radius: 12px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 28px -16px rgba(15, 23, 42, 0.22);
 }
@@ -50,8 +50,8 @@
 /* sticky header */
 .pg-table thead th {
   position: sticky; top: 0; z-index: 2;
-  background: linear-gradient(180deg, #f9fbfd, #eef2f6);
-  color: #475569; font-weight: 600;
+  background: linear-gradient(180deg, #f9fbfd, #eef2f6); background: linear-gradient(180deg, color-mix(in srgb, var(--muted) 3%, white), #eef2f6);
+  color: #475569; color: color-mix(in srgb, var(--midnight-hover) 80%, white); font-weight: 600;
   font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;
   box-shadow: inset 0 -1px 0 #e2e8f0;
 }
@@ -68,7 +68,7 @@
 /* sticky first column (row label), lifted with an edge shadow */
 .pg-rowhead {
   position: sticky; left: 0; z-index: 1;
-  background: linear-gradient(180deg, #ffffff, #fafcff);
+  background: linear-gradient(180deg, var(--card), #fafcff);
   font-weight: 600; color: #0f172a; max-width: 200px;
   box-shadow: 7px 0 8px -7px rgba(15, 23, 42, 0.18);
 }
@@ -77,7 +77,7 @@ thead .pg-rowhead { z-index: 3; }
 .pg-mark-btn {
   margin-left: 0.5rem; font-size: 0.62rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.03em;
-  color: #64748b; background: #fff; border: 1px solid #d7dee7;
+  color: #64748b; color: color-mix(in srgb, var(--midnight) 69%, var(--bg)); background: var(--card); border: 1px solid #d7dee7;
   border-radius: 5px; padding: 1px 6px; cursor: pointer;
   opacity: 0.5; transition: opacity 0.12s, border-color 0.12s, color 0.12s;
 }
@@ -95,15 +95,15 @@ thead .pg-rowhead { z-index: 3; }
 
 /* gentle row emphasis on hover */
 .pg-table tbody tr:hover td.pg-cell { filter: brightness(0.975) saturate(1.08); }
-.pg-table tbody tr:hover .pg-rowhead { background: linear-gradient(180deg, #f8fafc, #eef4fb); }
+.pg-table tbody tr:hover .pg-rowhead { background: linear-gradient(180deg, #f8fafc, #eef4fb); background: linear-gradient(180deg, color-mix(in srgb, var(--text) 2%, white), #eef4fb); }
 
 /* ── session prep grid (SessionPrepGrid) — click a heading to replace a column ── */
-.pg-edit-hint { font-size: 0.8rem; color: #64748b; margin: 0 0 0.6rem; }
+.pg-edit-hint { font-size: 0.8rem; color: #64748b; color: color-mix(in srgb, var(--midnight) 69%, var(--bg)); margin: 0 0 0.6rem; }
 .pg-col-th { padding: 0; }
 .pg-col-replace {
   width: 100%; text-align: left; background: none; border: none; cursor: pointer;
   font: inherit; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.03em; color: #475569; padding: 7px 11px;
+  letter-spacing: 0.03em; color: #475569; color: color-mix(in srgb, var(--midnight-hover) 80%, white); padding: 7px 11px;
 }
 .pg-col-replace:hover { color: #0f172a; background: #eef4fb; }
 .pg-col-icon { color: #2563eb; opacity: 0; }
@@ -137,7 +137,7 @@ thead .pg-rowhead { z-index: 3; }
 .pg-divider-label {
   position: sticky; left: 0;
   display: inline-block; padding: 4px 11px;
-  font-size: 0.66rem; font-weight: 700; color: #475569;
+  font-size: 0.66rem; font-weight: 700; color: #475569; color: color-mix(in srgb, var(--midnight-hover) 80%, white);
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
@@ -172,7 +172,7 @@ thead .pg-rowhead { z-index: 3; }
 /* ── grid toolbar: bulk edit sits beside restock, where the trainer already is ── */
 .pg-tools { display: flex; align-items: flex-start; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
 .pg-bulk-btn {
-  border: 1px solid var(--gold); background: #fdfaf3; color: var(--gold-dark);
+  border: 1px solid var(--gold); background: #fdfaf3; background: color-mix(in srgb, var(--gold) 6%, white); color: var(--gold-dark);
   font: inherit; font-size: 0.78rem; font-weight: 600;
   padding: 5px 11px; border-radius: 6px; cursor: pointer;
 }
@@ -190,7 +190,7 @@ thead .pg-rowhead { z-index: 3; }
 .pg-sheet .pg-readonly { cursor: not-allowed; }
 
 /* ── session prep sheet (SessionPrepGrid) ── */
-.sps-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.75rem; color: #64748b; margin: 0 0 0.6rem; }
+.sps-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.75rem; color: #64748b; color: color-mix(in srgb, var(--midnight) 69%, var(--bg)); margin: 0 0 0.6rem; }
 .sps-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
 .sps-sw { width: 13px; height: 13px; border-radius: 3px; border: 1px solid #e5e2dc; display: inline-block; }
 .sps-sw-alloc { background: linear-gradient(180deg, #fff7ed 0%, #ffe7cc 100%); }
@@ -201,7 +201,7 @@ thead .pg-rowhead { z-index: 3; }
 /* The save bar stays in reach on a long class list. */
 .sps-foot {
   position: sticky; bottom: 0; z-index: 4;
-  background: var(--card, #fff); padding: 0.6rem 0; border-top: 1px solid #e5e2dc;
+  background: var(--card, #fff); padding: 0.6rem 0; border-top: 1px solid var(--border);
 }
 /* A cleared cell, until saved: plain enough to read, so a removal is never missed. */
 .sps-removed { color: #b42318; font-weight: 700; font-style: italic; }

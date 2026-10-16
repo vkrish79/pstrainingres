@@ -11,6 +11,7 @@ import {
   assessmentStats, sessionAvgPct, sessionPassRate, monthLabel,
 } from '../../lib/analyticsMetrics.js';
 import AnalyticsDotPlot from './AnalyticsDotPlot.jsx';
+import { paletteColour } from '../../lib/brandPalette.js';
 
 const COLS = [
   { k: 'people', l: 'People' },
@@ -26,10 +27,11 @@ function mix(a, b, t) {
   const A = hex(a); const B = hex(b);
   return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`;
 }
-// Magnitude: pale sand → midnight.
+// Magnitude: pale sand → the main colour (Settings → Branding).
 function seq(v) {
   const t = Math.max(0, Math.min(1, v / 100));
-  return { background: mix('#f4efe6', '#1e3c5a', Math.pow(t, 1.35)), color: t > 0.62 ? '#fff' : '#1e3c5a' };
+  const midnight = paletteColour('midnight', '#1e3c5a');
+  return { background: mix('#f4efe6', midnight, Math.pow(t, 1.35)), color: t > 0.62 ? '#fff' : midnight };
 }
 // A count of people who struggled, scaled by how much of the class it is.
 function countCell(n, of) {

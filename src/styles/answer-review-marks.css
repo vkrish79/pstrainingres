@@ -1,7 +1,7 @@
 /* A participant's marks after the trainer has gone over an exercise. Right
    answers stay quiet; a different answer gets one line and one button. */
 
-.rv-banner { border-color: #b5985a; }
+.rv-banner { border-color: var(--gold); }
 
 .rv-section-tag {
   margin-left: 0.6rem;
@@ -11,11 +11,11 @@
   letter-spacing: 0.02em;
   padding: 2px 9px;
   border-radius: 999px;
-  background: #efeae0;
-  color: #6c5a33;
+  background: #efeae0; background: color-mix(in srgb, var(--gold) 19%, white);
+  color: #6c5a33; color: color-mix(in srgb, var(--gold-dark) 78%, black);
   white-space: nowrap;
 }
-.rv-section-tag.is-live { background: #f7ecd6; color: #8b7342; }
+.rv-section-tag.is-live { background: #f7ecd6; color: var(--gold-dark); }
 
 .rv-mark.rv-right {
   float: right;
@@ -37,13 +37,13 @@ td.rv-cell-diff { background: #fbf5ea; }
   margin-top: 5px;
   font-size: 0.78rem;
   line-height: 1.35;
-  color: #4b5a6a;
+  color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border));
 }
-.rv-answer { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color: #172433; }
-.rv-note { color: #8b7342; font-weight: 600; }
+.rv-answer { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color: #172433; color: color-mix(in srgb, var(--midnight-hover) 55%, var(--text)); }
+.rv-note { color: var(--gold-dark); font-weight: 600; }
 .rv-apply {
-  border: 1px solid #b5985a;
-  background: #b5985a;
+  border: 1px solid var(--gold);
+  background: var(--gold);
   color: #fff;
   border-radius: 999px;
   padding: 2px 10px;
@@ -52,13 +52,13 @@ td.rv-cell-diff { background: #fbf5ea; }
   cursor: pointer;
   white-space: nowrap;
 }
-.rv-apply:hover { background: #8b7342; border-color: #8b7342; }
+.rv-apply:hover { background: var(--gold-dark); border-color: var(--gold-dark); }
 
 .wb-mixed-slot { display: inline-flex; align-items: center; gap: 4px; }
 .rv-chip {
-  border: 1px solid #b5985a;
+  border: 1px solid var(--gold);
   background: #fbf5ea;
-  color: #8b7342;
+  color: var(--gold-dark);
   border-radius: 999px;
   padding: 0 7px;
   font-size: 0.72rem;

@@ -1,7 +1,7 @@
 /* Global search: TopBar trigger + ⌘K overlay. */
 .topbar-search-btn {
   display: inline-flex; align-items: center; gap: 0.4rem;
-  background: #f0f3f7;
+  background: #f0f3f7; background: color-mix(in srgb, var(--midnight) 6%, white);
   color: var(--muted);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -55,7 +55,7 @@
 }
 /* Doubled class beats the global `button:hover:not(:disabled)` (navy fill),
    which would otherwise make the dark row text unreadable. */
-.search-row.search-row:hover { background: #f0f3f7; color: var(--text); }
+.search-row.search-row:hover { background: #f0f3f7; background: color-mix(in srgb, var(--midnight) 6%, white); color: var(--text); }
 .search-row-title { font-size: 0.95rem; }
 .search-row-sub { font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -65,7 +65,7 @@
    the same highlight, so there is only ever one. Restates its background in
    its own rule: the global button:hover would paint it midnight. */
 .search-row.is-active,
-.search-row.is-active:hover:where(:not(:disabled)) { background: #f3efe5; color: var(--text); }
+.search-row.is-active:hover:where(:not(:disabled)) { background: #f3efe5; background: color-mix(in srgb, var(--gold) 16%, white); color: var(--text); }
 .search-row.is-active .search-row-title { color: var(--midnight); }
 
 .search-failed { color: #c62828; }

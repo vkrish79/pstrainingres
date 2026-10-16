@@ -34,34 +34,34 @@
       margin-bottom: 4mm;
       vertical-align: bottom;
       padding-bottom: 2.5mm;
-      border-bottom: 0.6pt solid #b5985a;
+      border-bottom: 0.6pt solid var(--gold);
     }
-    @top-center { content: ""; margin-bottom: 4mm; vertical-align: bottom; padding-bottom: 2.5mm; border-bottom: 0.6pt solid #b5985a; }
+    @top-center { content: ""; margin-bottom: 4mm; vertical-align: bottom; padding-bottom: 2.5mm; border-bottom: 0.6pt solid var(--gold); }
     @top-right {
       margin-bottom: 4mm;
       vertical-align: bottom;
       padding-bottom: 2.5mm;
-      border-bottom: 0.6pt solid #b5985a;
+      border-bottom: 0.6pt solid var(--gold);
       font: 600 7.5pt 'Plus Jakarta Sans', sans-serif;
       letter-spacing: 0.02em;
-      color: #1e3c5a;
+      color: var(--midnight);
     }
     @bottom-left {
       margin-top: 4mm;
       vertical-align: top;
       padding-top: 2.5mm;
-      border-top: 0.6pt solid #b5985a;
+      border-top: 0.6pt solid var(--gold);
       font: 500 7.5pt 'Plus Jakarta Sans', sans-serif;
-      color: #6b6b6b;
+      color: #6b6b6b; color: color-mix(in srgb, var(--card) 42%, black);
     }
-    @bottom-center { content: ""; margin-top: 4mm; vertical-align: top; padding-top: 2.5mm; border-top: 0.6pt solid #b5985a; }
+    @bottom-center { content: ""; margin-top: 4mm; vertical-align: top; padding-top: 2.5mm; border-top: 0.6pt solid var(--gold); }
     @bottom-right {
       margin-top: 4mm;
       vertical-align: top;
       padding-top: 2.5mm;
-      border-top: 0.6pt solid #b5985a;
+      border-top: 0.6pt solid var(--gold);
       font: 700 7.5pt 'Plus Jakarta Sans', sans-serif;
-      color: #1e3c5a;
+      color: var(--midnight);
     }
   }
 
@@ -97,8 +97,8 @@
   .print-only { display: block !important; }
 
   html, body, .page, .page.workbook {
-    background: #fff !important;
-    color: #1a1a1a !important;
+    background: var(--card) !important;
+    color: var(--text) !important;
   }
   body { font-size: 9.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .page { padding: 0 !important; margin: 0 !important; max-width: none !important; }
@@ -126,9 +126,9 @@
     align-items: center;
     gap: 9mm;
     padding: 11mm 20mm;
-    border-bottom: 2mm solid #b5985a;
+    border-bottom: 2mm solid var(--gold);
     color: #fff;
-    background: #1e3c5a;
+    background: var(--midnight);
   }
   /* Two quarter circles in tones of the band's own blue, bottom right. Real
      boxes rather than hard-stop radial gradients, which some PDF renderers
@@ -164,27 +164,27 @@
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #8b7342;
+    color: var(--gold-dark);
   }
-  .wbp-cover-for strong { display: block; margin-top: 1.5mm; font-size: 22pt; line-height: 1.15; font-weight: 700; color: #1e3c5a; }
+  .wbp-cover-for strong { display: block; margin-top: 1.5mm; font-size: 22pt; line-height: 1.15; font-weight: 700; color: var(--midnight); }
 
   .wbp-cover-facts {
     margin: 8mm 0 0;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    border-top: 0.6pt solid #e2dccf;
-    border-bottom: 0.6pt solid #e2dccf;
+    border-top: 0.6pt solid #e2dccf; border-top: 0.6pt solid color-mix(in srgb, var(--qasr) 54%, white);
+    border-bottom: 0.6pt solid #e2dccf; border-bottom: 0.6pt solid color-mix(in srgb, var(--qasr) 54%, white);
   }
-  .wbp-cover-facts div { padding: 3.5mm 4mm; border-left: 0.6pt solid #e2dccf; }
+  .wbp-cover-facts div { padding: 3.5mm 4mm; border-left: 0.6pt solid #e2dccf; border-left: 0.6pt solid color-mix(in srgb, var(--qasr) 54%, white); }
   .wbp-cover-facts div:first-child { padding-left: 0; border-left: 0; }
   .wbp-cover-facts dt {
     font-size: 7pt;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #8a8a8a;
+    color: var(--muted);
   }
-  .wbp-cover-facts dd { margin: 1.2mm 0 0; font-size: 10pt; line-height: 1.3; font-weight: 600; color: #1a1a1a; }
+  .wbp-cover-facts dd { margin: 1.2mm 0 0; font-size: 10pt; line-height: 1.3; font-weight: 600; color: var(--text); }
 
   .wbp-cover-stats {
     margin: 8mm 0 0;
@@ -195,13 +195,13 @@
   .wbp-cover-stat {
     flex: 1 1 0;
     padding: 4mm 5mm;
-    background: #f7f3ea;
-    border-top: 1.2pt solid #b5985a;
+    background: #f7f3ea; background: color-mix(in srgb, var(--gold) 12%, white);
+    border-top: 1.2pt solid var(--gold);
   }
-  .wbp-cover-stat b { display: block; font-size: 20pt; line-height: 1.1; font-weight: 700; color: #1e3c5a; }
-  .wbp-cover-stat span { display: block; margin-top: 1mm; font-size: 8pt; color: #6b6b6b; }
-  .wbp-cover-meter { flex: 1 0 100%; height: 1.6mm; background: #ebe4d4; }
-  .wbp-cover-meter i { display: block; height: 100%; background: #b5985a; }
+  .wbp-cover-stat b { display: block; font-size: 20pt; line-height: 1.1; font-weight: 700; color: var(--midnight); }
+  .wbp-cover-stat span { display: block; margin-top: 1mm; font-size: 8pt; color: #6b6b6b; color: color-mix(in srgb, var(--card) 42%, black); }
+  .wbp-cover-meter { flex: 1 0 100%; height: 1.6mm; background: #ebe4d4; background: color-mix(in srgb, var(--gold) 26%, white); }
+  .wbp-cover-meter i { display: block; height: 100%; background: var(--gold); }
 
   .wbp-contents { margin: 9mm 0 0; }
   .wbp-contents-cap {
@@ -209,7 +209,7 @@
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #8b7342;
+    color: var(--gold-dark);
     margin-bottom: 2.5mm;
   }
   .wbp-contents ol { list-style: none; margin: 0; padding: 0; counter-reset: wbp-ch; columns: 2; column-gap: 10mm; }
@@ -220,26 +220,26 @@
     align-items: baseline;
     gap: 3mm;
     padding: 1.5mm 0;
-    border-bottom: 0.5pt solid #eee8dc;
+    border-bottom: 0.5pt solid #eee8dc; border-bottom: 0.5pt solid color-mix(in srgb, var(--gold) 21%, white);
     font-size: 9pt;
   }
   .wbp-contents li::before {
     content: counter(wbp-ch, decimal-leading-zero);
     font-weight: 700;
     font-size: 8pt;
-    color: #b5985a;
+    color: var(--gold);
     min-width: 5mm;
   }
-  .wbp-contents-title { flex: 1; font-weight: 600; color: #1a1a1a; }
-  .wbp-contents-n { font-size: 7.5pt; color: #8a8a8a; white-space: nowrap; }
+  .wbp-contents-title { flex: 1; font-weight: 600; color: var(--text); }
+  .wbp-contents-n { font-size: 7.5pt; color: var(--muted); white-space: nowrap; }
   .wbp-cover-foot {
     margin-top: auto;
     padding-top: 3mm;
-    border-top: 0.6pt solid #e2dccf;
+    border-top: 0.6pt solid #e2dccf; border-top: 0.6pt solid color-mix(in srgb, var(--qasr) 54%, white);
     display: flex;
     justify-content: space-between;
     font-size: 7.5pt;
-    color: #8a8a8a;
+    color: var(--muted);
   }
 
   /* ── sections: no cards, just typeset flow ──────────────────────────── */
@@ -267,9 +267,9 @@
     font-size: 19pt;
     line-height: 1.2;
     font-weight: 700;
-    color: #1e3c5a;
+    color: var(--midnight);
     padding-bottom: 3mm !important;
-    border-bottom: 2pt solid #b5985a !important;
+    border-bottom: 2pt solid var(--gold) !important;
   }
   .workbook .wb-section-group-title::before {
     content: 'Chapter ' counter(wbp-ch);
@@ -279,9 +279,9 @@
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #8b7342;
+    color: var(--gold-dark);
   }
-  .workbook .wb-section-group .wb-prose { font-size: 9.5pt; color: #444; }
+  .workbook .wb-section-group .wb-prose { font-size: 9.5pt; color: #444; color: color-mix(in srgb, var(--muted) 49%, black); }
 
   /* An exercise heading never sits alone at the foot of a page. */
   .workbook .wb-section h2 {
@@ -291,11 +291,11 @@
     gap: 3mm;
     margin: 0 0 3.5mm;
     padding: 0 0 2mm;
-    border-bottom: 1pt solid #b5985a;
+    border-bottom: 1pt solid var(--gold);
     font-size: 13pt;
-    color: #1e3c5a;
+    color: var(--midnight);
   }
-  .workbook .wb-section-done { font-size: 10pt; color: #8b7342; margin-left: 0; }
+  .workbook .wb-section-done { font-size: 10pt; color: var(--gold-dark); margin-left: 0; }
   .workbook .rv-section-tag {
     margin-left: auto;
     padding: 0;
@@ -304,11 +304,11 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #8b7342;
+    color: var(--gold-dark);
   }
 
   /* ── reading text ───────────────────────────────────────────────────── */
-  .workbook .wb-prose { margin: 2.5mm 0; font-size: 9.5pt; line-height: 1.5; color: #1a1a1a; }
+  .workbook .wb-prose { margin: 2.5mm 0; font-size: 9.5pt; line-height: 1.5; color: var(--text); }
   .workbook .wb-prose p { margin: 1.2mm 0; orphans: 2; widows: 2; }
   .workbook .wb-prose h3, .workbook .wb-prose h4 { break-after: avoid; }
   .workbook .wb-prose ol, .workbook .wb-prose ul { margin: 1.5mm 0; padding-left: 6mm; }
@@ -318,7 +318,7 @@
   .workbook .wb-prose ol:only-child {
     break-after: avoid;
     margin-top: 4mm;
-    color: #1e3c5a;
+    color: var(--midnight);
   }
   /* The Word importer brings each numbered item in as its own one-item list,
      so every one reads "1.". Those items are sub-headings; print them as such
@@ -329,8 +329,8 @@
   .workbook .wb-prose pre {
     margin: 2mm 0;
     padding: 2.5mm 3.5mm;
-    border-left: 2pt solid #d8d2c4;
-    background: #faf8f4;
+    border-left: 2pt solid #d8d2c4; border-left: 2pt solid color-mix(in srgb, var(--gold-dark) 32%, white);
+    background: var(--bg);
     font-size: 7.5pt;
     line-height: 1.45;
     white-space: pre-wrap;
@@ -350,22 +350,22 @@
 
   /* ── tables ─────────────────────────────────────────────────────────── */
   .workbook .wb-table-wrap { margin: 2.5mm 0; overflow: visible; }
-  .workbook .wb-table-caption { font-size: 9pt; color: #1e3c5a; break-after: avoid; }
+  .workbook .wb-table-caption { font-size: 9pt; color: var(--midnight); break-after: avoid; }
   .workbook .wb-table { font-size: 8.5pt; line-height: 1.35; border-collapse: collapse; }
   .workbook .wb-table thead { display: table-header-group; }
   .workbook .wb-table tr { break-inside: avoid; }
   .workbook .wb-table th,
   .workbook .wb-table td {
-    border: 0.5pt solid #cfd5dd;
+    border: 0.5pt solid #cfd5dd; border: 0.5pt solid color-mix(in srgb, var(--midnight) 21%, white);
     padding: 1.4mm 2.2mm;
     vertical-align: top;
   }
   .workbook .wb-table th {
-    background: #eef1f5;
-    color: #1e3c5a;
+    background: #eef1f5; background: color-mix(in srgb, var(--midnight) 7%, white);
+    color: var(--midnight);
     font-weight: 700;
   }
-  .workbook .wb-cell-static { color: #1a1a1a; }
+  .workbook .wb-cell-static { color: var(--text); }
 
   /* ── answers: ink on a rule, not text in a widget ───────────────────── */
   .workbook .wb-cell-input { padding: 1.2mm 2.2mm; background: #fdfaf2; }
@@ -377,14 +377,14 @@
     appearance: none;
     -webkit-appearance: none;
     border: 0;
-    border-bottom: 0.75pt solid #b9ae95;
+    border-bottom: 0.75pt solid #b9ae95; border-bottom: 0.75pt solid color-mix(in srgb, var(--qasr) 91%, black);
     border-radius: 0;
     background: transparent;
     padding: 0.4mm 0.5mm;
     min-height: 5.2mm;
     font-size: 9pt;
     font-weight: 600;
-    color: #1e3c5a;
+    color: var(--midnight);
     resize: none;
     box-shadow: none;
   }
@@ -394,9 +394,9 @@
        are a background, so with background graphics off only the bottom
        border is left — still a place to write, never a blank void. */
     border: 0;
-    border-bottom: 0.75pt solid #b9ae95;
+    border-bottom: 0.75pt solid #b9ae95; border-bottom: 0.75pt solid color-mix(in srgb, var(--qasr) 91%, black);
     line-height: 6mm;
-    background-image: repeating-linear-gradient(transparent 0, transparent calc(6mm - 0.75pt), #b9ae95 calc(6mm - 0.75pt), #b9ae95 6mm);
+    background-image: repeating-linear-gradient(transparent 0, transparent calc(6mm - 0.75pt), #b9ae95 calc(6mm - 0.75pt), #b9ae95 6mm); background-image: repeating-linear-gradient(transparent 0, transparent calc(6mm - 0.75pt), color-mix(in srgb, var(--qasr) 91%, black) calc(6mm - 0.75pt), color-mix(in srgb, var(--qasr) 91%, black) 6mm);
     min-height: 18mm;
     height: auto;
     field-sizing: content;
@@ -406,13 +406,13 @@
   .workbook td.rv-cell-diff { background: #fbf3e2; }
 
   .workbook .wb-field { margin: 2.5mm 0; break-inside: avoid; }
-  .workbook .wb-label { font-size: 8.5pt; font-weight: 600; color: #444; margin-bottom: 1mm; }
+  .workbook .wb-label { font-size: 8.5pt; font-weight: 600; color: #444; color: color-mix(in srgb, var(--muted) 49%, black); margin-bottom: 1mm; }
 
   /* Choices: every option shown, the chosen one filled in. */
   .workbook .wb-fieldset {
     break-inside: avoid;
     border: 0;
-    border-left: 2pt solid #e5e2dc;
+    border-left: 2pt solid var(--border);
     border-radius: 0;
     padding: 0.5mm 0 0.5mm 3.5mm;
   }
@@ -421,7 +421,7 @@
     margin-bottom: 1.2mm;
     font-size: 8.5pt;
     font-weight: 600;
-    color: #444;
+    color: #444; color: color-mix(in srgb, var(--muted) 49%, black);
   }
   .workbook .wb-choice { display: inline-flex; margin-right: 7mm; padding: 0.6mm 0; font-size: 9pt; gap: 1.8mm; }
   .workbook .wb-choice input {
@@ -430,8 +430,8 @@
     width: 3.4mm;
     height: 3.4mm;
     margin: 0;
-    border: 0.75pt solid #8a8a8a;
-    background: #fff;
+    border: 0.75pt solid var(--muted);
+    background: var(--card);
     flex: none;
     position: relative;
     top: 0.5mm;
@@ -441,9 +441,9 @@
   /* The chosen mark is drawn with BORDER, not background: Chrome's print
      dialog has "Background graphics" off by default, and a background-drawn
      dot would vanish — leaving no way to tell which option was picked. */
-  .workbook .wb-choice input:checked { border: 1.1mm solid #1e3c5a; }
+  .workbook .wb-choice input:checked { border: 1.1mm solid var(--midnight); }
   .workbook .wb-choice input[type=checkbox]:checked { border-width: 1.7mm; }
-  .workbook .wb-choice input:checked + span { font-weight: 700; color: #1e3c5a; }
+  .workbook .wb-choice input:checked + span { font-weight: 700; color: var(--midnight); }
 
   /* ── marks from going over answers with the class ───────────────────── */
   /* The tick sits at the end of the answer's rule, not on a line of its own
@@ -459,15 +459,15 @@
   .workbook td.wb-cell-input:has(> .rv-mark.rv-right) input { padding-right: 4mm; }
   .workbook .rv-mark.rv-right { color: #2f7a52; font-size: 8.5pt; }
   .workbook .rv-field-right { font-size: 7.5pt; margin-top: 0.8mm; }
-  .workbook .rv-hint { margin-top: 0.8mm; font-size: 7pt; line-height: 1.3; color: #6c5a33; gap: 0.5mm; }
-  .workbook .rv-answer { color: #6c5a33; font-size: 7.5pt; }
+  .workbook .rv-hint { margin-top: 0.8mm; font-size: 7pt; line-height: 1.3; color: #6c5a33; color: color-mix(in srgb, var(--gold-dark) 78%, black); gap: 0.5mm; }
+  .workbook .rv-answer { color: #6c5a33; color: color-mix(in srgb, var(--gold-dark) 78%, black); font-size: 7.5pt; }
   .workbook .rv-chip {
     display: inline !important;
     border: 0;
     padding: 0;
     background: none;
     font-size: 7.5pt;
-    color: #6c5a33;
+    color: #6c5a33; color: color-mix(in srgb, var(--gold-dark) 78%, black);
   }
 
   /* ── the participant's own notes ─────────────────────────────────────── */
@@ -475,18 +475,18 @@
     break-inside: avoid;
     margin-top: 3mm;
     padding: 2mm 3.5mm;
-    border-left: 2pt solid #b5985a;
+    border-left: 2pt solid var(--gold);
     background: #fbf7ee;
   }
   .participant-note-label {
     font-size: 7pt;
     font-weight: 700;
-    color: #8b7342;
+    color: var(--gold-dark);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-bottom: 1mm;
   }
-  .participant-note-print { font-size: 9pt; color: #1a1a1a; }
+  .participant-note-print { font-size: 9pt; color: var(--text); }
   .participant-note-print p { margin: 0 0 1mm; }
   .participant-note-print ul { margin: 0 0 1mm 5mm; padding: 0; }
   .participant-note-print strong { font-weight: 700; }

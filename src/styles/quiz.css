@@ -676,7 +676,7 @@
   margin: 0;
   font-size: 0.8rem;
   line-height: 1.5;
-  color: #6c7a88;
+  color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white);
   background: var(--soft2, #f7f5f0);
   border: 1px solid var(--border, #e5e2dc);
   border-radius: 9px;

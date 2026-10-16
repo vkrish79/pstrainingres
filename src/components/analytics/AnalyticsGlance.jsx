@@ -32,7 +32,7 @@ function ScoreSpread({ pcts, passMark }) {
               {v > 0 && (
                 <path
                   d={`M${x} ${T + ih}V${T + ih - h + 3}q0 -3 3 -3h${bw - 8}q3 0 3 3V${T + ih}Z`}
-                  fill="#1e3c5a"
+                  style={{ fill: 'var(--midnight)' }}
                 />
               )}
               <rect
@@ -46,11 +46,11 @@ function ScoreSpread({ pcts, passMark }) {
           <>
             <line
               x1={L + (passMark / 100) * iw} x2={L + (passMark / 100) * iw} y1={T - 4} y2={T + ih}
-              stroke="#b5985a" strokeWidth="2" strokeDasharray="4 3"
+              style={{ stroke: 'var(--gold)' }} strokeWidth="2" strokeDasharray="4 3"
             />
             <text
               className="an-ax" x={L + (passMark / 100) * iw + (passMark > 60 ? -5 : 5)} y={T - 8}
-              textAnchor={passMark > 60 ? 'end' : 'start'} style={{ fill: '#8b7342', fontWeight: 700 }}
+              textAnchor={passMark > 60 ? 'end' : 'start'} style={{ fill: 'var(--gold-dark)', fontWeight: 700 }}
             >
               pass mark {passMark}%
             </text>

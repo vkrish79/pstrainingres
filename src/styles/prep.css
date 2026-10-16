@@ -217,7 +217,7 @@
   padding: 0.75rem 0.95rem 0.7rem;
 }
 .prep-drawer--track-page .prep-drawer-head-bar {
-  display: block; height: 6px; border-radius: 4px; background: #ece7dc; overflow: hidden;
+  display: block; height: 6px; border-radius: 4px; background: #ece7dc; background: color-mix(in srgb, var(--gold-dark) 18%, white); overflow: hidden;
 }
 .prep-drawer-head-bar > i {
   display: block; height: 100%; border-radius: 4px; background: var(--gold);
@@ -368,7 +368,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 .prep-tiles-legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.76rem; color: var(--muted); margin: 0.75rem 0 0.4rem; }
 .prep-tiles-legend i {
   position: relative; display: inline-block; width: 12px; height: 12px; margin-right: 0.35rem;
-  vertical-align: -1px; border-radius: 3px; border: 1px solid var(--border); background: #fff;
+  vertical-align: -1px; border-radius: 3px; border: 1px solid var(--border); background: var(--card);
 }
 .prep-tiles-legend i.is-on { background: var(--gold); border-color: var(--gold-dark); }
 .prep-tiles-legend i.has-kits::after {
@@ -380,7 +380,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 .prep-tiles-row {
   display: grid; grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
   gap: 0.75rem; align-items: center;
-  padding: 0.3rem 0; border-bottom: 1px solid #f2f0eb;
+  padding: 0.3rem 0; border-bottom: 1px solid #f2f0eb; border-bottom: 1px solid color-mix(in srgb, var(--gold-dark) 10%, white);
 }
 .prep-tiles-row:last-child { border-bottom: none; }
 .prep-tiles-rows.no-topics .prep-tiles-row { grid-template-columns: minmax(0, 1fr); }
@@ -396,7 +396,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
   display: inline-flex; align-items: center; justify-content: center;
   height: 34px; min-width: 3.4rem; max-width: 14rem; padding: 0 0.75rem;
   font: inherit; font-size: 0.8rem; font-weight: 700;
-  background: #fff; color: #555;
+  background: var(--card); color: #555; color: color-mix(in srgb, var(--text) 74%, white);
   border: 1px solid var(--border); border-radius: 6px;
   white-space: nowrap; overflow: visible; text-overflow: ellipsis;
   cursor: pointer; transition: background 0.12s, border-color 0.12s;
@@ -406,7 +406,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 .prep-panel .prep-tile[aria-pressed="true"]:hover:where(:not(:disabled)) {
   background: var(--gold); border-color: var(--gold-dark); color: var(--midnight);
 }
-.prep-panel .prep-tile[aria-pressed="true"]:hover:where(:not(:disabled)) { background: #a88b4f; }
+.prep-panel .prep-tile[aria-pressed="true"]:hover:where(:not(:disabled)) { background: #a88b4f; background: color-mix(in srgb, var(--gold) 64%, var(--gold-dark)); }
 /* Disabled while a save is in flight, and permanently for a borrowed column.
    Not faded: a picked tile should still read as picked. */
 .prep-panel .prep-tile:disabled { opacity: 1; cursor: default; }
@@ -432,7 +432,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 /* "with Ex 3" on a general-prep chip: a select dressed as a pill. */
 .prep-panel .prep-gen-with {
   font: inherit; font-size: 0.72rem; font-weight: 600;
-  color: var(--midnight); background: #fff;
+  color: var(--midnight); background: var(--card);
   border: 1px solid rgba(30, 60, 90, 0.2); border-radius: 999px;
   padding: 0.05rem 0.4rem; cursor: pointer; max-width: 12rem;
 }
@@ -477,7 +477,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 .prep-panel .prep-gen-x:hover:where(:not(:disabled)) { background: rgba(30, 60, 90, 0.25); }
 .prep-panel .prep-gen-add,
 .prep-panel .prep-gen-add:hover:where(:not(:disabled)) {
-  background: #fff; color: var(--muted); border: 1px dashed #bdb7aa; border-radius: 999px;
+  background: var(--card); color: var(--muted); border: 1px dashed #bdb7aa; border-radius: 999px;
   padding: 0.25rem 0.8rem; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
 }
 .prep-panel .prep-gen-add:hover:where(:not(:disabled)) { background: #f5efe0; border-color: var(--gold); color: var(--text); }

@@ -64,7 +64,7 @@ input, select, textarea { font-family: inherit; }
 }
 .skel-bone {
   display: block;
-  background: linear-gradient(90deg, #eceae5 25%, #e0ddd6 50%, #eceae5 75%);
+  background: linear-gradient(90deg, #eceae5 25%, #e0ddd6 50%, #eceae5 75%); background: linear-gradient(90deg, color-mix(in srgb, var(--border) 73%, white) 25%, color-mix(in srgb, var(--border) 97%, black) 50%, color-mix(in srgb, var(--border) 73%, white) 75%);
   background-size: 400px 100%;
   animation: skel-shimmer 1.5s ease-in-out infinite;
   border-radius: 4px;
@@ -72,7 +72,7 @@ input, select, textarea { font-family: inherit; }
 /* A shimmer that never stops is exactly the kind of motion this setting
    exists to switch off; the shapes stay, and still say what is coming. */
 @media (prefers-reduced-motion: reduce) {
-  .skel-bone { animation: none; background: #e6e3dd; }
+  .skel-bone { animation: none; background: var(--border); }
 }
 
 .skel-page { padding: 0.5rem 0 0; }
@@ -124,13 +124,13 @@ input, select, textarea { font-family: inherit; }
   white-space: nowrap;
 }
 .save-status.is-idle { padding: 0; border: 0; }
-.save-status.is-saving { color: var(--muted); background: #f1efea; border-color: var(--border); }
+.save-status.is-saving { color: var(--muted); background: #f1efea; background: color-mix(in srgb, var(--gold-dark) 11%, white); border-color: var(--border); }
 .save-status.is-saved { color: #2e7d32; background: #e8f5e9; border-color: #b9dfbb; }
 .save-status.is-failed { color: #c62828; background: #fdecea; border-color: #f5c2bf; white-space: normal; }
 /* Two classes deep on purpose: the chip sits inside .page-hero-actions, whose
    `button` rule (0,1,1) would otherwise paint it gold. */
 .save-status .save-status-action {
-  background: #fff; color: #c62828; border: 1px solid #f5c2bf;
+  background: var(--card); color: #c62828; border: 1px solid #f5c2bf;
   padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
 }
 /* Restated: the global and hero button:hover rules would fill it otherwise. */
@@ -147,7 +147,7 @@ input, select, textarea { font-family: inherit; }
   position: sticky;
   top: 0;
   z-index: 50;
-  background: #fff;
+  background: var(--card);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 6px rgba(30, 60, 90, 0.04);
 }
@@ -481,7 +481,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 0.95rem;
-  background: #fafaf8;
+  background: #fafaf8; background: color-mix(in srgb, var(--bg) 65%, white);
   color: var(--text);
   font-weight: 400;
   letter-spacing: normal;
@@ -492,7 +492,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.15);
-  background: #fff;
+  background: var(--card);
 }
 .auth-card button[type="submit"] {
   width: 100%;
@@ -609,7 +609,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .save-failed-bar {
   flex: 1 0 100%; order: 99;
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem;
-  background: #fffafa; color: var(--text);
+  background: #fffafa; background: color-mix(in srgb, var(--border) 9%, white); color: var(--text);
   border: 1px solid #f5c2bf; border-radius: 10px;
   padding: 0.55rem 0.85rem; text-align: left;
 }

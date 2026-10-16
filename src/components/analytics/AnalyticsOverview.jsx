@@ -10,11 +10,13 @@ import {
 } from 'recharts';
 import { monthlyRows, groupSessions, GROUPINGS, monthLabel } from '../../lib/analyticsMetrics.js';
 import { Ring, Spark } from './marks.jsx';
+import { paletteColour } from '../../lib/brandPalette.js';
 
-const MIDNIGHT = '#1e3c5a';
-const GOLD = '#b5985a';
 
 function TrendCard({ title, sub, data, dataKey, domain, unit }) {
+  // Read when drawn, so a Branding change reaches the charts.
+  const MIDNIGHT = paletteColour('midnight', '#1e3c5a');
+  const GOLD = paletteColour('gold', '#b5985a');
   const empty = data.every(d => d[dataKey] == null);
   return (
     <div className="an-trend">

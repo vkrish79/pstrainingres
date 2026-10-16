@@ -39,7 +39,7 @@
 .tblw-legend { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-left: auto; font-size: 0.75rem; color: var(--muted); }
 .tblw-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
 .tblw-sw { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1px solid var(--border); }
-.tblw-sw--text { background: #fff; }
+.tblw-sw--text { background: var(--card); }
 .tblw-sw--input { background: #e7f3e9; border-color: #b9dcbf; }
 .tblw-sw--mixed { background: #f1f7ec; border-color: #cfe3c4; }
 .tblw-close,

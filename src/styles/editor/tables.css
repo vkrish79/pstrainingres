@@ -7,7 +7,7 @@
   flex-wrap: wrap;
   margin: 0.85rem 0;
   padding: 0.6rem 0.85rem;
-  background: #f6f8fb;
+  background: #f6f8fb; background: color-mix(in srgb, var(--midnight) 3%, white);
   border-radius: 6px;
   font-size: 0.9rem;
   color: var(--muted);
@@ -22,7 +22,7 @@
   max-height: 22rem;
   overflow: auto;
   padding: 0.5rem 0.85rem;
-  background: #fbfcfe;
+  background: #fbfcfe; background: color-mix(in srgb, var(--text) 1%, white);
   border: 1px solid var(--border);
   border-radius: 6px;
 }
@@ -60,7 +60,7 @@
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fbfcfe;
+  background: #fbfcfe; background: color-mix(in srgb, var(--text) 1%, white);
 }
 .table-form-grid {
   border-collapse: collapse;
@@ -73,7 +73,7 @@
 .table-form-grid td.row-trash { width: 10.5rem; }
 .row-trash-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
 .tw-grip {
-  align-self: flex-start; border: 1px solid var(--border); background: #faf8f4; color: var(--midnight);
+  align-self: flex-start; border: 1px solid var(--border); background: var(--bg); color: var(--midnight);
   border-radius: 5px; padding: 0 6px; font-size: 0.68rem; font-weight: 700; line-height: 18px;
 }
 .tw-grip:hover { background: #f6efe0; color: var(--midnight); }
@@ -82,10 +82,10 @@
   border: 1px solid var(--border);
   padding: 0.4rem;
   vertical-align: top;
-  background: #fff;
+  background: var(--card);
   min-width: 130px;
 }
-.table-form-grid thead th { background: #f6f8fb; }
+.table-form-grid thead th { background: #f6f8fb; background: color-mix(in srgb, var(--midnight) 3%, white); }
 .cell-stack { display: flex; flex-direction: column; gap: 0.3rem; }
 .form-input.compact, .form-textarea.compact {
   font-size: 0.8rem;
@@ -101,7 +101,7 @@ button.ghost.compact, button.danger.compact {
 
 .cheatsheet { padding-left: 1.1rem; line-height: 1.7; font-size: 0.9rem; }
 .cheatsheet code {
-  background: #f0f3f7;
+  background: #f0f3f7; background: color-mix(in srgb, var(--midnight) 6%, white);
   padding: 0.05rem 0.35rem;
   border-radius: 3px;
   font-size: 0.85rem;
@@ -117,7 +117,7 @@ button.ghost.compact, button.danger.compact {
 .block-form {
   border-top: 1px solid var(--border);
   padding: 0.85rem 1rem 1rem;
-  background: #fff;
+  background: var(--card);
   border-radius: 0 0 6px 6px;
 }
 .form-label {
@@ -134,7 +134,7 @@ button.ghost.compact, button.danger.compact {
   border-radius: 5px;
   font-size: 0.95rem;
   font-family: inherit;
-  background: #fff;
+  background: var(--card);
 }
 .form-input.large { font-size: 1.05rem; padding: 0.6rem 0.85rem; }
 .form-input:focus, .form-textarea:focus {
@@ -145,7 +145,7 @@ button.ghost.compact, button.danger.compact {
 .form-textarea { resize: vertical; min-height: 5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
 
 .hint { color: var(--muted); font-size: 0.8rem; margin: 0.4rem 0 0; }
-.hint code { background: #f0f3f7; padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+.hint code { background: #f0f3f7; background: color-mix(in srgb, var(--midnight) 6%, white); padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
 
 .form-actions { display: flex; gap: 0.5rem; margin-top: 0.85rem; }
 

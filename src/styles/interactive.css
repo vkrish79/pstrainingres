@@ -223,7 +223,7 @@
 .inline-key {
   margin-top: 0.8rem;
   padding: 0.7rem 0.8rem;
-  background: #faf8f4;
+  background: var(--bg);
   border: 1px solid var(--border);
   border-left: 3px solid var(--gold);
   border-radius: 8px;
@@ -288,7 +288,7 @@
 .ak-paper-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .ak-chip {
   font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 99px;
-  background: #f3f1ec; color: #4a5260; border: 1px solid var(--border); white-space: nowrap;
+  background: #f3f1ec; background: color-mix(in srgb, var(--gold-dark) 10%, white); color: #4a5260; border: 1px solid var(--border); white-space: nowrap;
 }
 .ak-chip.warn { background: #f7ecd6; color: #8a5a00; border-color: transparent; white-space: normal; }
 .ak-q-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
@@ -305,4 +305,4 @@
   margin: 0 0 0.45rem; font-size: 0.8rem; padding: 0.3rem 0.75rem;
   background: var(--midnight); color: #fff; border: 1px solid var(--midnight); border-radius: 6px; cursor: pointer;
 }
-.ak-use-order:hover { background: #16304a; color: #fff; }
+.ak-use-order:hover { background: #16304a; background: color-mix(in srgb, var(--midnight) 80%, black); color: #fff; }

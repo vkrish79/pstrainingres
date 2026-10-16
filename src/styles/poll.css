@@ -241,7 +241,7 @@
   color: var(--midnight);
 }
 .poll-past-reask:hover:where(:not(:disabled)) {
-  background: #f3f0ea;
+  background: #f3f0ea; background: color-mix(in srgb, var(--gold-dark) 11%, white);
   border-color: var(--qasr);
   color: var(--midnight);
 }
@@ -259,7 +259,7 @@
   color: var(--midnight);
   white-space: nowrap;
 }
-.poll-door-btn:hover:where(:not(:disabled)) { background: #f3f0ea; border-color: var(--qasr); color: var(--midnight); }
+.poll-door-btn:hover:where(:not(:disabled)) { background: #f3f0ea; background: color-mix(in srgb, var(--gold-dark) 11%, white); border-color: var(--qasr); color: var(--midnight); }
 .poll-door-btn:disabled { color: var(--muted); }
 
 /* ── Picking one from the library, in the modal ──────────────────────────── */
@@ -273,8 +273,8 @@
   border-radius: 9px;
   cursor: pointer;
 }
-.poll-pick:hover:not(.is-unfinished) { border-color: var(--qasr); background: #faf8f4; }
-.poll-pick.is-on { border-color: var(--midnight); background: #f4f1ea; }
+.poll-pick:hover:not(.is-unfinished) { border-color: var(--qasr); background: var(--bg); }
+.poll-pick.is-on { border-color: var(--midnight); background: #f4f1ea; background: color-mix(in srgb, var(--gold) 13%, white); }
 /* Present but not choosable, so nobody wonders where it went. */
 .poll-pick.is-unfinished { opacity: 0.65; cursor: default; }
 .poll-pick input { margin-top: 0.2rem; flex: 0 0 auto; }

@@ -90,7 +90,7 @@
   gap: 1rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  background: #fafbfd;
+  background: #fafbfd; background: color-mix(in srgb, var(--muted) 3%, white);
   flex-shrink: 0;
 }
 .session-drawer-head h2 {
@@ -133,7 +133,7 @@
   gap: 0.6rem;
   padding: 0.85rem 1.25rem;
   border-top: 1px solid var(--border);
-  background: #fafbfd;
+  background: #fafbfd; background: color-mix(in srgb, var(--muted) 3%, white);
   flex-shrink: 0;
 }
 .session-drawer-confirm {

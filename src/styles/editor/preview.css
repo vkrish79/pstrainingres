@@ -17,27 +17,27 @@
   top: 1rem;
   max-height: calc(100vh - 2rem);
   overflow: auto;
-  border: 1px solid #e3e3e3;
+  border: 1px solid #e3e3e3; border: 1px solid color-mix(in srgb, var(--muted) 24%, white);
   border-radius: 8px;
-  background: #fafafa;
+  background: #fafafa; background: color-mix(in srgb, var(--text) 2%, white);
 }
 .preview-pane-head {
   position: sticky; top: 0; z-index: 2;
-  background: #f0f0f0;
-  border-bottom: 1px solid #e3e3e3;
+  background: #f0f0f0; background: color-mix(in srgb, var(--muted) 13%, white);
+  border-bottom: 1px solid #e3e3e3; border-bottom: 1px solid color-mix(in srgb, var(--muted) 24%, white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   padding: 0.55rem 0.9rem;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #555;
+  color: #555; color: color-mix(in srgb, var(--text) 74%, white);
   display: flex; justify-content: space-between; align-items: center;
 }
 .preview-pane-hint {
   font-size: 0.7rem;
   font-weight: 400;
-  color: #888;
+  color: var(--muted);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -99,7 +99,7 @@
 .preview-workbook-title {
   font-size: 1.2rem;
   margin: 0 0 0.75rem;
-  color: #222;
+  color: #222; color: color-mix(in srgb, var(--text) 96%, white);
 }
 
 @media (max-width: 900px) {

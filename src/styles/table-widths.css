@@ -9,10 +9,10 @@
 .tw-bar.quiet { font-size: 0.75rem; }
 .tw-stepper {
   display: inline-flex; align-items: center; border: 1px solid var(--border);
-  border-radius: 8px; overflow: hidden; background: #fff;
+  border-radius: 8px; overflow: hidden; background: var(--card);
 }
 .tw-stepper button {
-  border: 0; border-radius: 0; background: #fff; color: var(--midnight);
+  border: 0; border-radius: 0; background: var(--card); color: var(--midnight);
   padding: 0.28rem 0.65rem; font-size: 0.78rem; font-weight: 700;
 }
 /* index.css fills every hovered button with midnight — restate it here. */
@@ -23,10 +23,10 @@
   font-variant-numeric: tabular-nums; border-inline: 1px solid var(--border);
 }
 .tw-mini {
-  border: 1px solid var(--border); background: #fff; color: var(--midnight);
+  border: 1px solid var(--border); background: var(--card); color: var(--midnight);
   border-radius: 6px; padding: 0.12rem 0.45rem; font-size: 0.7rem; font-weight: 700; white-space: nowrap;
 }
-.tw-mini:hover { background: #f3f1ec; color: var(--midnight); }
+.tw-mini:hover { background: #f3f1ec; background: color-mix(in srgb, var(--gold-dark) 10%, white); color: var(--midnight); }
 
 .tw-rowfit { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
 .tw-chip { border-radius: 999px; padding: 1px 7px; font-size: 0.68rem; font-weight: 800; white-space: nowrap; }
@@ -52,12 +52,12 @@ table td.tw-status, table th.tw-status {
 /* the floating control beside the selected cell */
 .tw-float {
   position: fixed; z-index: 60; display: flex; align-items: center; gap: 0.45rem;
-  background: #fff; border: 1px solid #d8d2c4; border-radius: 10px; padding: 0.3rem 0.4rem 0.3rem 0.35rem;
+  background: var(--card); border: 1px solid #d8d2c4; border: 1px solid color-mix(in srgb, var(--gold-dark) 32%, white); border-radius: 10px; padding: 0.3rem 0.4rem 0.3rem 0.35rem;
   box-shadow: 0 8px 22px rgba(30, 60, 90, 0.18); font-size: 0.76rem; color: var(--muted); white-space: nowrap;
 }
 .tw-float::after {
-  content: ""; position: absolute; left: 14px; bottom: -6px; width: 10px; height: 10px; background: #fff;
-  border-right: 1px solid #d8d2c4; border-bottom: 1px solid #d8d2c4; transform: rotate(45deg);
+  content: ""; position: absolute; left: 14px; bottom: -6px; width: 10px; height: 10px; background: var(--card);
+  border-right: 1px solid #d8d2c4; border-right: 1px solid color-mix(in srgb, var(--gold-dark) 32%, white); border-bottom: 1px solid #d8d2c4; border-bottom: 1px solid color-mix(in srgb, var(--gold-dark) 32%, white); transform: rotate(45deg);
 }
 .tw-float.below::after { bottom: auto; top: -6px; transform: rotate(225deg); }
 .tw-float .tw-stepper button { padding: 0.2rem 0.6rem; }
@@ -66,14 +66,14 @@ table td.tw-status, table th.tw-status {
 .tw-float-x {
   border: 0; background: transparent; color: var(--muted); padding: 0 0.3rem; font-size: 0.85rem; line-height: 1;
 }
-.tw-float-x:hover { background: #f3f1ec; color: var(--text); border-radius: 5px; }
+.tw-float-x:hover { background: #f3f1ec; background: color-mix(in srgb, var(--gold-dark) 10%, white); color: var(--text); border-radius: 5px; }
 
 /* cells */
 table td.tw-sel, table th.tw-sel { outline: 2px solid var(--gold); outline-offset: -2px; }
 table td.tw-past, table th.tw-past { background: #f9e7e3 !important; }
 .tw-pick {
   position: absolute; top: 2px; right: 2px; z-index: 1;
-  border: 1px solid var(--border); background: #fff; color: var(--midnight);
+  border: 1px solid var(--border); background: var(--card); color: var(--midnight);
   border-radius: 5px; padding: 0 4px; font-size: 0.64rem; font-weight: 800; line-height: 16px;
   opacity: 0; transition: opacity 0.1s;
 }

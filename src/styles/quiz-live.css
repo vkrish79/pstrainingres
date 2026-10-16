@@ -236,9 +236,9 @@
   background: rgba(255, 255, 255, 0.12);
   opacity: 0.85;
 }
-.qlive-place.p1 { background: linear-gradient(180deg, #d6b774, #977a3e); color: #16304d; opacity: 1; }
-.qlive-place.p2 { background: linear-gradient(180deg, #ced7e1, #8493a3); color: #16304d; opacity: 1; }
-.qlive-place.p3 { background: linear-gradient(180deg, #c78858, #8b5732); color: #16304d; opacity: 1; }
+.qlive-place.p1 { background: linear-gradient(180deg, #d6b774, #977a3e); color: #16304d; color: color-mix(in srgb, var(--midnight-hover) 69%, var(--midnight)); opacity: 1; }
+.qlive-place.p2 { background: linear-gradient(180deg, #ced7e1, #8493a3); background: linear-gradient(180deg, #ced7e1, color-mix(in srgb, var(--midnight) 55%, white)); color: #16304d; color: color-mix(in srgb, var(--midnight-hover) 69%, var(--midnight)); opacity: 1; }
+.qlive-place.p3 { background: linear-gradient(180deg, #c78858, #8b5732); color: #16304d; color: color-mix(in srgb, var(--midnight-hover) 69%, var(--midnight)); opacity: 1; }
 
 .qlive-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
 
@@ -378,7 +378,7 @@
 .qlive-go {
   align-self: center;
   background: var(--gold, #b5985a);
-  color: #16304d;
+  color: #16304d; color: color-mix(in srgb, var(--midnight-hover) 69%, var(--midnight));
   border: none;
   border-radius: 10px;
   padding: 0.7rem 1.5rem;
@@ -542,7 +542,7 @@
 .qlive-music-pick select:disabled { opacity: 0.45; cursor: default; }
 /* The list itself is drawn by the OS, so its options need a readable ground of
    their own — inheriting the transparent background gives white-on-white. */
-.qlive-music-pick option { background: #16304d; color: #fff; }
+.qlive-music-pick option { background: #16304d; background: color-mix(in srgb, var(--midnight-hover) 69%, var(--midnight)); color: #fff; }
 /* A track downloading, or the note when it could not load. */
 .qlive-music-note { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
 .qlive-music-note.is-failed { color: #f0b37a; }
@@ -573,7 +573,7 @@
 /* White ground and a quiet border: a QR needs its own light field to scan
    against, and the projector's ground is midnight. */
 .qlive-qr {
-  background: #fff;
+  background: var(--card);
   padding: 0.6rem;
   border-radius: 12px;
   width: clamp(9rem, 18vw, 15rem);
@@ -653,7 +653,7 @@
 .qlive-stake-btn.is-on {
   background: #f2c14e;
   border-color: #f2c14e;
-  color: #1b2a3a;
+  color: #1b2a3a; color: color-mix(in srgb, var(--midnight) 48%, var(--text));
 }
 @media (prefers-reduced-motion: reduce) {
   .qlive-stake-btn { transition: none; }
@@ -913,7 +913,7 @@
   border-radius: 50%;
   pointer-events: none;
   border: 2px solid rgba(0, 0, 0, 0.55);
-  background: #fff;
+  background: var(--card);
 }
 .qpin-dot.is-right { background: #7ee0a4; }
 .qpin-dot.is-wrong { background: #ffc2a1; }
@@ -946,8 +946,8 @@
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
   border-radius: 50%;
-  background: #fff;
-  border: 2px solid #16304d;
+  background: var(--card);
+  border: 2px solid #16304d; border: 2px solid color-mix(in srgb, var(--midnight-hover) 69%, var(--midnight));
   pointer-events: none;
 }
 
@@ -1322,8 +1322,8 @@
   stroke-linejoin: round;
 }
 .qlive-pick.is-ticked { outline: 3px solid #fff; outline-offset: 2px; }
-.qlive-pick.is-ticked .qlive-tick { background: #fff; border-color: #fff; }
-.qlive-pick.is-ticked .qlive-tick svg { stroke: #16304d; }
+.qlive-pick.is-ticked .qlive-tick { background: var(--card); border-color: #fff; }
+.qlive-pick.is-ticked .qlive-tick svg { stroke: #16304d; stroke: color-mix(in srgb, var(--midnight-hover) 69%, var(--midnight)); }
 
 .qlive-answer-full > .qlive-submit-row {
   order: 4;
@@ -1339,7 +1339,7 @@
   font-size: 1.05rem;
   font-weight: 800;
   background: #f2c14e;
-  color: #1b2a3a;
+  color: #1b2a3a; color: color-mix(in srgb, var(--midnight) 48%, var(--text));
   cursor: pointer;
 }
 /* Restated: the global button:hover fill would turn it navy. */

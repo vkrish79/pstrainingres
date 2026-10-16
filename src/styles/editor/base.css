@@ -59,7 +59,7 @@
 .block-row {
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fbfcfe;
+  background: #fbfcfe; background: color-mix(in srgb, var(--text) 1%, white);
 }
 .block-row-head {
   display: flex;
@@ -78,7 +78,7 @@
   color: #fff;
   white-space: nowrap;
 }
-.tag-prose { background: #6b7380; }
+.tag-prose { background: #6b7380; background: color-mix(in srgb, var(--midnight-hover) 60%, var(--border)); }
 .tag-field { background: var(--gold); }
 .tag-table { background: #8a5fb8; }
 

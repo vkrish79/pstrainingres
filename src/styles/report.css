@@ -87,7 +87,7 @@
   font-size: 0.85rem;
 }
 /* index.css fills every button midnight on hover; restate the light look. */
-.report-names-reset:hover { background: #f3efe5; color: var(--text, #1a1a1a); }
+.report-names-reset:hover { background: #f3efe5; background: color-mix(in srgb, var(--gold) 16%, white); color: var(--text, #1a1a1a); }
 .report-names-table .report-names-pick { width: 2rem; text-align: center; }
 .report-names-pick input { width: 1rem; height: 1rem; cursor: pointer; accent-color: var(--ld-midnight); }
 .report-names-table tr.is-out .report-names-app { text-decoration: line-through; }
@@ -124,7 +124,7 @@
   padding: 0.35rem 0.9rem;
 }
 /* index.css fills every button midnight on hover; restate the light look. */
-.report-names-foot button:hover:not(:disabled) { background: #f3efe5; color: var(--text, #1a1a1a); }
+.report-names-foot button:hover:not(:disabled) { background: #f3efe5; background: color-mix(in srgb, var(--gold) 16%, white); color: var(--text, #1a1a1a); }
 .report-names-pasted {
   margin-top: 0.6rem;
   padding: 0.5rem 0.8rem;
@@ -150,12 +150,12 @@
 /* ── The document ─────────────────────────────────────────────────────── */
 
 .report-page {
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border, #e5e2dc);
   border-radius: 10px;
   padding: 1.75rem 2rem;
   margin-bottom: 1.25rem;
-  color: #111;
+  color: #111; color: color-mix(in srgb, var(--text) 64%, black);
 }
 
 .ld-report { font-size: 0.9rem; }
@@ -226,7 +226,7 @@
 }
 .ld-meta th {
   background: var(--ld-qasr);
-  color: #2b2415;
+  color: #2b2415; color: color-mix(in srgb, var(--gold) 23%, black);
   font-weight: 700;
   width: 26%;
 }
@@ -270,7 +270,7 @@
      border of the whole sheet. */
 }
 /* Banding makes a 16-row roster readable across a printed page. */
-.ld-table tbody tr:nth-child(even) { background: #f7f5f0; }
+.ld-table tbody tr:nth-child(even) { background: #f7f5f0; background: color-mix(in srgb, var(--gold) 9%, white); }
 
 .ld-table .col-sr { width: 6%; text-align: center; }
 .ld-table .col-staff { width: 16%; }
@@ -290,7 +290,7 @@
 .ld-feedback .ld-feedback-label {
   width: 22%;
   background: var(--ld-qasr);
-  color: #2b2415;
+  color: #2b2415; color: color-mix(in srgb, var(--gold) 23%, black);
   font-weight: 700;
   vertical-align: top;
 }
@@ -298,12 +298,12 @@
 .ld-error-list li { margin-bottom: 0.55rem; }
 .ld-error-list li:last-child { margin-bottom: 0; }
 .ld-error-q { font-weight: 700; color: var(--ld-midnight); }
-.ld-error-title { color: #333; }
+.ld-error-title { color: #333; color: color-mix(in srgb, var(--text) 89%, white); }
 .ld-error-comment {
   margin-top: 0.15rem;
   padding-left: 0.6rem;
   border-left: 2px solid var(--ld-gold);
-  color: #333;
+  color: #333; color: color-mix(in srgb, var(--text) 89%, white);
 }
 /* Where a question was marked against a scorecard, its reasons were written
    criterion by criterion. They print as one block under the question — in
@@ -319,7 +319,7 @@
   display: flex;
   gap: 0.45rem;
   align-items: baseline;
-  color: #333;
+  color: #333; color: color-mix(in srgb, var(--text) 89%, white);
   padding: 0.05rem 0;
 }
 .ld-crit-what { min-width: 0; }
@@ -342,7 +342,7 @@
   padding-top: 0.5rem;
   border-top: 1px solid var(--ld-rule);
   font-size: 0.72rem;
-  color: #555;
+  color: #555; color: color-mix(in srgb, var(--text) 74%, white);
   line-height: 1.45;
 }
 
@@ -375,7 +375,7 @@
   body.has-sidenav .topbar:not(.topbar--shell) { margin-left: 0 !important; }
 
   body, .page, .page.dashboard {
-    background: #fff !important;
+    background: var(--card) !important;
     color: #000 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -420,7 +420,7 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .ld-table thead th { border: 1px solid #16293c !important; }
+  .ld-table thead th { border: 1px solid #16293c !important; border: 1px solid color-mix(in srgb, var(--midnight) 65%, black) !important; }
 
   .ld-masthead, .ld-title, .ld-heading, .ld-error-q, .result-pass, .result-fail {
     -webkit-print-color-adjust: exact;

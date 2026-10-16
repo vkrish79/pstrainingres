@@ -101,7 +101,7 @@
 }
 /* A native <option> list is drawn by the OS on its own ground, so white-on-
    transparent would be white-on-white in the open dropdown. */
-.qreh-jump select option { color: #1a1a1a; background: #fff; }
+.qreh-jump select option { color: var(--text); background: var(--card); }
 
 .qreh-btn {
   font: inherit;
@@ -172,7 +172,7 @@
   padding: 0.8rem 0.75rem 1rem;
   border-radius: 26px;
   background: var(--midnight, #16304d);
-  box-shadow: 0 0 0 8px #10202f, 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 8px #10202f, 0 12px 28px rgba(0, 0, 0, 0.35); box-shadow: 0 0 0 8px color-mix(in srgb, var(--midnight) 51%, black), 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 .qreh-notch {
   width: 3.6rem;

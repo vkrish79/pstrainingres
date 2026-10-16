@@ -52,7 +52,7 @@
   justify-content: space-between;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  background: #fafbfd;
+  background: #fafbfd; background: color-mix(in srgb, var(--muted) 3%, white);
 }
 .notes-drawer-head h2 {
   margin: 0;
@@ -73,7 +73,7 @@
   padding: 0.5rem 1.25rem;
   font-size: 0.8rem;
   color: var(--muted);
-  background: #fcfdfe;
+  background: #fcfdfe; background: color-mix(in srgb, var(--text) 1%, white);
   border-bottom: 1px solid var(--border);
 }
 .notes-drawer-hint code {
@@ -109,7 +109,7 @@
   border-left: 3px solid transparent;
 }
 .notes-card.current .notes-card-head { border-left-color: var(--gold); background: #fffaf0; }
-.notes-card-head.notes-card-head:hover { background: #f6f8fb; color: var(--text); }
+.notes-card-head.notes-card-head:hover { background: #f6f8fb; background: color-mix(in srgb, var(--midnight) 3%, white); color: var(--text); }
 .notes-card-chevron {
   font-size: 0.8rem;
   color: var(--muted);
@@ -143,7 +143,7 @@
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 5px;
-  background: #fff;
+  background: var(--card);
   resize: vertical;
   min-height: 90px;
 }
@@ -183,12 +183,12 @@
 .notes-tool {
   min-width: 2rem; padding: 0.2rem 0.5rem; font-size: 0.9rem; line-height: 1;
   border: 1px solid var(--border); border-radius: 4px;
-  background: #fff; color: var(--text); cursor: pointer;
+  background: var(--card); color: var(--text); cursor: pointer;
 }
 .notes-tool:hover:not(:disabled) { background: var(--border); color: var(--text); }
 .notes-card-editor {
   min-height: 6.5rem; padding: 0.5rem 0.6rem;
-  border: 1px solid var(--border); border-radius: 6px; background: #fff;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--card);
   font-size: 0.95rem; line-height: 1.5; outline: none; overflow-wrap: anywhere;
 }
 .notes-card-editor:focus { border-color: var(--gold); }

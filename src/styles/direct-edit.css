@@ -15,9 +15,9 @@
 /* Kept as typed: trailing spaces before an answer box, line breaks in a cell. */
 .de-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .de-text:hover,
-.de-rich:hover { outline-color: #d9cfb5; background: #fdfaf2; }
+.de-rich:hover { outline-color: #d9cfb5; outline-color: color-mix(in srgb, var(--gold) 29%, var(--border)); background: #fdfaf2; }
 .de-text:focus,
-.de-rich:focus { outline: 2px solid var(--gold); background: #fff; }
+.de-rich:focus { outline: 2px solid var(--gold); background: var(--card); }
 .de-text:empty::before,
 .de-rich:empty::before { content: attr(data-placeholder); color: var(--muted); font-style: italic; }
 .de-rich { display: block; padding: 0.15rem 0.3rem; margin: 0 -0.3rem; min-height: 1.5em; }
@@ -35,9 +35,9 @@
   height: 1.7rem;
   vertical-align: middle;
   margin: 0 0.15rem;
-  border: 1px solid #d9d6cf;
+  border: 1px solid #d9d6cf; border: 1px solid color-mix(in srgb, var(--border) 94%, black);
   border-radius: 4px;
-  background: #fff;
+  background: var(--card);
   cursor: not-allowed;
 }
 .de-box--wide { display: block; width: 100%; margin: 0; }

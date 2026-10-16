@@ -112,7 +112,7 @@ body:has(.page.workbook) .topbar:not(.topbar--shell) .topbar-inner { max-width: 
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.95rem;
-  background: #fff;
+  background: var(--card);
   font-family: inherit;
 }
 .wb-input:focus, .wb-textarea:focus {
@@ -133,7 +133,7 @@ body:has(.page.workbook) .topbar:not(.topbar--shell) .topbar-inner { max-width: 
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
-  background: #fff;
+  background: var(--card);
 }
 .wb-table th, .wb-table td {
   border: 1px solid var(--border);
@@ -141,7 +141,7 @@ body:has(.page.workbook) .topbar:not(.topbar--shell) .topbar-inner { max-width: 
   text-align: left;
   vertical-align: middle;
 }
-.wb-table th { background: #f0f3f7; font-weight: 600; }
+.wb-table th { background: #f0f3f7; background: color-mix(in srgb, var(--midnight) 6%, white); font-weight: 600; }
 /* Laid out on Word's grid: each column asks for an equal share (the <col>
    widths), so a cell's width follows its column count; a column still grows
    to its longest word. Wrapping only between words keeps labels whole. */
@@ -155,7 +155,7 @@ body:has(.page.workbook) .topbar:not(.topbar--shell) .topbar-inner { max-width: 
   border-radius: 4px;
   font-size: 0.9rem;
   font-family: inherit;
-  background: #fff;
+  background: var(--card);
 }
 .wb-cell-input input:focus, .wb-cell-input textarea:focus {
   outline: 2px solid var(--gold);
@@ -182,7 +182,7 @@ input.wb-mixed-box:focus {
   outline: 2px solid var(--gold);
   outline-offset: -1px;
   border-color: var(--gold);
-  background: #fff;
+  background: var(--card);
 }
 .wb-readonly.wb-mixed-box { display: inline-block; min-width: 4rem; vertical-align: middle; }
 
@@ -328,8 +328,8 @@ input.wb-mixed-box:focus {
 /* Hero: lift the flat compact card into a soft banner with a warm gradient,
    gold-tinted edge, and gentle elevation. */
 .workbook .page-hero.compact {
-  background: linear-gradient(180deg, #ffffff 0%, #fbf7ee 100%);
-  border-color: #e8dec6;
+  background: linear-gradient(180deg, var(--card) 0%, #fbf7ee 100%);
+  border-color: #e8dec6; border-color: color-mix(in srgb, var(--gold) 34%, white);
   box-shadow: 0 1px 3px rgba(15, 22, 38, 0.05);
   padding: 1.4rem 1.65rem;
 }
@@ -347,7 +347,7 @@ input.wb-mixed-box:focus {
   background: rgba(253, 249, 241, 0.82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid #e3dccb;
+  border: 1px solid #e3dccb; border: 1px solid color-mix(in srgb, var(--qasr) 56%, white);
   border-radius: 12px;
   padding: 0.45rem 0.6rem;
   box-shadow: 0 2px 12px rgba(15, 22, 38, 0.06);
@@ -358,7 +358,7 @@ input.wb-mixed-box:focus {
   font-weight: 500;
   padding: 0.4rem 0.9rem;
 }
-.participant-actions-bar .ghost:hover:not(:disabled) { background: #f1ebdc; }
+.participant-actions-bar .ghost:hover:not(:disabled) { background: #f1ebdc; background: color-mix(in srgb, var(--gold) 20%, white); }
 /* Save indicator sits at the left edge; the reading group's margin-left:auto
    pushes everything else right. */
 .participant-actions-bar .wb-save-indicator { white-space: nowrap; }
@@ -366,12 +366,12 @@ input.wb-mixed-box:focus {
 /* Exercise cards: a hint of elevation so each reads as its own surface, and a
    clear "this is the one you're filling" emphasis on focus. */
 .workbook .wb-section {
-  border-color: #e6e9ef;
+  border-color: #e6e9ef; border-color: color-mix(in srgb, var(--midnight) 11%, white);
   box-shadow: 0 1px 3px rgba(15, 22, 38, 0.04);
   transition: box-shadow 0.18s ease, border-color 0.18s ease;
 }
 .workbook .wb-section:focus-within {
-  border-color: #d9cfb4;
+  border-color: #d9cfb4; border-color: color-mix(in srgb, var(--gold) 43%, var(--bg));
   box-shadow: 0 3px 14px rgba(15, 22, 38, 0.07);
 }
 /* Keep the tinted group banners as-is (their own gradient shouldn't get a card shadow). */
@@ -463,7 +463,7 @@ input.wb-mixed-box:focus {
   padding: 0.7rem 0.9rem;
   border: 1px dashed var(--border);
   border-radius: 8px;
-  background: #f7f6f3;
+  background: var(--bg);
   color: var(--muted);
   font-size: 0.9rem;
 }
@@ -473,19 +473,19 @@ input.wb-mixed-box:focus {
    is up it steps back to an outline, since the banner below now carries it. */
 .participant-actions-bar .help-hand {
   border-radius: 999px;
-  border: 1px solid #b5985a;
-  background: #b5985a;
+  border: 1px solid var(--gold);
+  background: var(--gold);
   color: #14212e;
   font-size: 0.85rem;
   font-weight: 700;
   padding: 0.42rem 1rem;
   white-space: nowrap;
 }
-.participant-actions-bar .help-hand:hover:not(:disabled) { background: #a3874c; border-color: #a3874c; }
+.participant-actions-bar .help-hand:hover:not(:disabled) { background: #a3874c; background: color-mix(in srgb, var(--gold) 52%, var(--gold-dark)); border-color: #a3874c; border-color: color-mix(in srgb, var(--gold) 52%, var(--gold-dark)); }
 .participant-actions-bar .help-hand.is-up,
 .participant-actions-bar .help-hand.is-up:hover:not(:disabled) {
-  background: #fff;
-  border-color: #b5985a;
+  background: var(--card);
+  border-color: var(--gold);
   color: #6f5626;
   font-weight: 600;
 }
@@ -494,9 +494,9 @@ input.wb-mixed-box:focus {
 .pab-group {
   display: inline-flex;
   margin-left: auto;
-  border: 1px solid #ddd3bd;
+  border: 1px solid #ddd3bd; border: 1px solid color-mix(in srgb, var(--gold) 37%, var(--bg));
   border-radius: 999px;
-  background: #fff;
+  background: var(--card);
   overflow: hidden;
 }
 .pab-group .pab-seg {
@@ -512,7 +512,7 @@ input.wb-mixed-box:focus {
   padding: 0.4rem 0.85rem;
   white-space: nowrap;
 }
-.pab-group .pab-seg + .pab-seg { border-left: 1px solid #ece4d2; }
+.pab-group .pab-seg + .pab-seg { border-left: 1px solid #ece4d2; border-left: 1px solid color-mix(in srgb, var(--gold) 27%, white); }
 .pab-group .pab-seg:hover { background: #f7f1e4; }
 .pab-group .pab-seg:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 /* Lit while its drawer is open, so the button says what the drawer is doing and
@@ -524,7 +524,7 @@ input.wb-mixed-box:focus {
   min-width: 1.25rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: #efe7d4;
+  background: #efe7d4; background: color-mix(in srgb, var(--gold) 25%, white);
   color: #6f5626;
   font-size: 0.72rem;
   font-weight: 700;
@@ -544,11 +544,11 @@ input.wb-mixed-box:focus {
   white-space: nowrap;
 }
 button.pab-chip { cursor: pointer; }
-.pab-chip.is-locked { background: #f1ede5; color: #6c7a88; font-weight: 500; }
+.pab-chip.is-locked { background: #f1ede5; background: color-mix(in srgb, var(--gold-dark) 13%, white); color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); font-weight: 500; }
 .pab-chip.is-open { background: #e5f0fa; border-color: #bcd4ea; color: var(--midnight); }
 .pab-chip.is-open:hover { background: #d9e8f6; }
 .pab-chip.is-soon { background: #fdf0dc; border-color: #eccb91; color: #7a4b00; }
-.pab-chip.is-closed { background: #f1ede5; color: #6c7a88; }
+.pab-chip.is-closed { background: #f1ede5; background: color-mix(in srgb, var(--gold-dark) 13%, white); color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
 .pab-chip-time { font-variant-numeric: tabular-nums; }
 
 .participant-actions-bar .pab-more .kebab-btn { border-radius: 999px; }
@@ -556,7 +556,7 @@ button.pab-chip { cursor: pointer; }
   margin: 0.6rem 0 0;
   padding: 0.6rem 0.9rem;
   border-radius: 10px;
-  background: #f6f1e4;
+  background: #f6f1e4; background: color-mix(in srgb, var(--gold) 15%, white);
   border: 1px solid #e3d6b3;
   color: #5c4c28;
   font-size: 0.9rem;
@@ -565,10 +565,10 @@ button.pab-chip { cursor: pointer; }
 
 /* ── Class controls as one pill group (UX rec #5) ─────────────────────── */
 .presenter-bar { border-radius: 12px; }
-.presenter-bar-label { letter-spacing: 0.12em; color: #7d8a97; }
+.presenter-bar-label { letter-spacing: 0.12em; color: #7d8a97; color: color-mix(in srgb, var(--midnight-hover) 56%, white); }
 .presenter-bar-group {
   display: inline-flex;
-  background: #f1ede5;
+  background: #f1ede5; background: color-mix(in srgb, var(--gold-dark) 13%, white);
   border-radius: 9px;
   padding: 3px;
   gap: 2px;
@@ -578,12 +578,12 @@ button.pab-chip { cursor: pointer; }
   border: 0;
   border-radius: 7px;
   font-weight: 600;
-  color: #4b5a6a;
+  color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border));
   padding: 0.35rem 0.8rem;
 }
-.presenter-bar .presenter-bar-group .ghost:hover:not(:disabled) { background: #fff; color: var(--midnight); }
+.presenter-bar .presenter-bar-group .ghost:hover:not(:disabled) { background: var(--card); color: var(--midnight); }
 .presenter-bar .presenter-bar-group .ghost.active,
-.presenter-bar .presenter-bar-group .ghost.active:hover { background: #fff; color: var(--midnight); box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14); }
+.presenter-bar .presenter-bar-group .ghost.active:hover { background: var(--card); color: var(--midnight); box-shadow: 0 1px 2px rgba(30, 60, 90, 0.14); }
 .presenter-bar .presenter-bar-group .ghost:disabled { background: transparent; opacity: 0.5; }
 
 /* ── Pictures from a Word import (workbook-images bucket) ─────────────────
@@ -644,7 +644,7 @@ button.pab-chip { cursor: pointer; }
    the global button:hover in index.css would otherwise fill them navy. */
 .conf-strip {
   margin-top: 1rem; padding: 0.85rem 1rem; display: grid; gap: 0.6rem;
-  background: #fff; border: 1px solid var(--gold); border-radius: 12px;
+  background: var(--card); border: 1px solid var(--gold); border-radius: 12px;
 }
 .conf-strip.is-done {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
@@ -655,25 +655,25 @@ button.pab-chip { cursor: pointer; }
 .conf-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .conf-choice {
   display: grid; justify-items: center; gap: 0.15rem; padding: 0.6rem 0.4rem;
-  background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
   font-weight: 600; font-size: 0.88rem; cursor: pointer;
 }
-.conf-choice:hover { background: #fbf8f1; color: var(--text); border-color: var(--gold); }
-.conf-choice.is-on { background: #fbf8f1; border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+.conf-choice:hover { background: #fbf8f1; background: color-mix(in srgb, var(--gold) 7%, white); color: var(--text); border-color: var(--gold); }
+.conf-choice.is-on { background: #fbf8f1; background: color-mix(in srgb, var(--gold) 7%, white); border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
 .conf-glyph { font-size: 1.35rem; line-height: 1; }
 .conf-note { width: 100%; }
 .conf-hint { margin: 0; font-size: 0.8rem; color: var(--gold-dark); font-weight: 600; }
 .conf-error { margin: 0; }
 .conf-change {
   margin-left: auto; padding: 0.25rem 0.75rem; font-size: 0.8rem;
-  background: #fff; color: var(--midnight); border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card); color: var(--midnight); border: 1px solid var(--border); border-radius: 999px;
 }
-.conf-change:hover { background: #fff; color: var(--midnight); border-color: var(--midnight); }
+.conf-change:hover { background: var(--card); color: var(--midnight); border-color: var(--midnight); }
 
 /* ── End-of-day pulse (A4) ─────────────────────────────────────────── */
 .pulse-card {
   margin: 0 0 1rem; padding: 0.9rem 1rem; display: grid; gap: 0.7rem;
-  background: #fff; border: 1px solid var(--gold); border-radius: 12px;
+  background: var(--card); border: 1px solid var(--gold); border-radius: 12px;
 }
 .pulse-card.is-folded, .pulse-card.is-sent {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
@@ -687,16 +687,16 @@ button.pab-chip { cursor: pointer; }
 .pulse-scale { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
 .pulse-chip {
   min-width: 2.4rem; padding: 0.4rem 0.8rem; font-size: 0.85rem;
-  background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 999px;
 }
-.pulse-chip:hover { background: #fbf8f1; color: var(--text); border-color: var(--gold); }
+.pulse-chip:hover { background: #fbf8f1; background: color-mix(in srgb, var(--gold) 7%, white); color: var(--text); border-color: var(--gold); }
 .pulse-chip.is-on, .pulse-chip.is-on:hover { background: var(--midnight); color: #fff; border-color: var(--midnight); }
 .pulse-word { max-width: 18rem; }
 .pulse-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .pulse-later, .pulse-open {
-  background: #fff; color: var(--midnight); border: 1px solid var(--border); padding: 0.45rem 0.9rem; font-size: 0.85rem;
+  background: var(--card); color: var(--midnight); border: 1px solid var(--border); padding: 0.45rem 0.9rem; font-size: 0.85rem;
 }
-.pulse-later:hover, .pulse-open:hover { background: #fff; color: var(--midnight); border-color: var(--midnight); }
+.pulse-later:hover, .pulse-open:hover { background: var(--card); color: var(--midnight); border-color: var(--midnight); }
 .pulse-open { margin-left: auto; padding: 0.3rem 0.8rem; }
 .pulse-send { padding: 0.45rem 1.1rem; font-size: 0.85rem; }
 
@@ -707,4 +707,4 @@ button.pab-chip { cursor: pointer; }
   padding: 2rem; margin-top: 1rem; text-align: center;
 }
 .wb-no-workbook h2 { margin: 0 0 0.4rem; font-size: 1.15rem; color: var(--midnight); }
-.wb-no-workbook p { margin: 0; color: #6f7b88; }
+.wb-no-workbook p { margin: 0; color: #6f7b88; color: color-mix(in srgb, var(--midnight-hover) 61%, var(--bg)); }

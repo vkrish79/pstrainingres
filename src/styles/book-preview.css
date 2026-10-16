@@ -50,7 +50,7 @@
   /* The desk the book sits on. A gradient rather than a flat fill: at the sizes
      this modal runs at there is more desk than book, and a single grey reads as
      an empty dialog rather than a surface something is lying on. */
-  background: radial-gradient(120% 90% at 50% 0%, #f3f0ea 0%, #e6e1d7 62%, #ddd7cb 100%);
+  background: radial-gradient(120% 90% at 50% 0%, #f3f0ea 0%, #e6e1d7 62%, #ddd7cb 100%); background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--gold-dark) 11%, white) 0%, color-mix(in srgb, var(--gold-dark) 21%, white) 62%, color-mix(in srgb, var(--gold-dark) 28%, white) 100%);
   display: flex;
   justify-content: center;
   /* `safe` is load-bearing once zoom can push the spread wider than the desk.
@@ -110,7 +110,7 @@
   border-radius: 0 3px 3px 0;
   box-shadow: 2px 2px 10px rgba(0,0,0,0.13), inset 14px 0 18px -14px rgba(0,0,0,0.22);
 }
-.bk-page.is-blank { background: #f4f2ee; box-shadow: none; }
+.bk-page.is-blank { background: #f4f2ee; background: color-mix(in srgb, var(--gold-dark) 9%, white); box-shadow: none; }
 
 /* --bk-page-fit is 1 on almost every page. It drops below 1 only where a single
    item is taller than a whole page and cannot be split — scaling it down loses
@@ -267,8 +267,8 @@
 .bk-rail {
   width: 236px;
   flex: none;
-  background: #e7e3db;
-  border-right: 1px solid #d6d1c6;
+  background: var(--border);
+  border-right: 1px solid #d6d1c6; border-right: 1px solid color-mix(in srgb, var(--gold-dark) 14%, var(--border));
   padding: 0.75rem 0;
   /* Twenty-four entries do not fit 599px of desk. The rail scrolls rather than
      folding the exercises away, because the exercise is the thing a trainer is
@@ -303,8 +303,8 @@
   cursor: pointer;
   box-shadow: inset 3px 0 0 transparent;
 }
-.bk-toc li.sub .bk-toc-b { padding-left: 1.65rem; font-size: 0.72rem; color: #6f7b88; }
-.bk-toc-b:hover { background: #efece6; }
+.bk-toc li.sub .bk-toc-b { padding-left: 1.65rem; font-size: 0.72rem; color: #6f7b88; color: color-mix(in srgb, var(--midnight-hover) 61%, var(--bg)); }
+.bk-toc-b:hover { background: #efece6; background: color-mix(in srgb, var(--gold-dark) 13%, white); }
 .bk-toc-b.ctx { color: var(--midnight); }
 .bk-toc-b.on {
   background: var(--card);
@@ -325,7 +325,7 @@
   bottom: 6px;
   width: 12px;
   border-radius: 2px;
-  background: repeating-linear-gradient(90deg, #fdfcfa 0 1px, #e3ded2 1px 2px);
+  background: repeating-linear-gradient(90deg, #fdfcfa 0 1px, #e3ded2 1px 2px); background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--border) 11%, white) 0 1px, color-mix(in srgb, var(--qasr) 51%, white) 1px 2px);
   pointer-events: none;
 }
 .bk-edge.is-l { left: -12px; box-shadow: -2px 3px 9px rgba(0,0,0,0.14); }
@@ -358,7 +358,7 @@
   display: flex;
   flex-direction: column;
   background: var(--card);
-  border: 1px solid #d8d4cc;
+  border: 1px solid #d8d4cc; border: 1px solid color-mix(in srgb, var(--border) 83%, var(--muted));
   border-radius: 10px;
   box-shadow: 0 8px 26px rgba(20, 25, 35, 0.18);
   padding: 0.7rem;
@@ -393,8 +393,8 @@
   border-radius: 6px;
   cursor: pointer;
 }
-.bk-find-hit:hover { background: #f6f2e9; }
-.bk-find-hit.on { background: #f6f2e9; box-shadow: inset 0 0 0 1px var(--gold); }
+.bk-find-hit:hover { background: #f6f2e9; background: color-mix(in srgb, var(--gold) 13%, white); }
+.bk-find-hit.on { background: #f6f2e9; background: color-mix(in srgb, var(--gold) 13%, white); box-shadow: inset 0 0 0 1px var(--gold); }
 .bk-find-hit b { color: var(--midnight); font-variant-numeric: tabular-nums; flex: none; }
 .bk-find-hit em { font-style: normal; background: rgba(181, 152, 90, 0.34); border-radius: 2px; padding: 0 2px; }
 /* Clear of the rail when there is one. The sibling combinator does the asking:
@@ -420,13 +420,13 @@
   width: 30px;
   height: 21px;
   padding: 0;
-  border: 1px solid #d8d4cc;
+  border: 1px solid #d8d4cc; border: 1px solid color-mix(in srgb, var(--border) 83%, var(--muted));
   border-radius: 2px;
   background: var(--card);
   cursor: pointer;
 }
 .bk-sp:hover { border-color: var(--gold); }
-.bk-sp.ch { background: #f6f2e9; }
+.bk-sp.ch { background: #f6f2e9; background: color-mix(in srgb, var(--gold) 13%, white); }
 .bk-sp.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(181, 152, 90, 0.32); }
 .bk-sp-pg {
   flex: 1;
@@ -436,10 +436,10 @@
   margin: 2px 1px;
   overflow: hidden;
 }
-.bk-sp-pg:first-child { border-right: 1px solid #eae7e0; }
-.bk-sp-m { display: block; background: #ddd9d1; border-radius: 1px; min-height: 1px; }
+.bk-sp-pg:first-child { border-right: 1px solid #eae7e0; border-right: 1px solid color-mix(in srgb, var(--gold-dark) 17%, white); }
+.bk-sp-m { display: block; background: #ddd9d1; background: color-mix(in srgb, var(--border) 96%, black); border-radius: 1px; min-height: 1px; }
 .bk-sp-m.k-chapter { background: var(--gold); }
-.bk-sp-m.k-heading { background: #9aa6b2; }
+.bk-sp-m.k-heading { background: #9aa6b2; background: color-mix(in srgb, var(--midnight) 46%, white); }
 
 /* ── Zoom ────────────────────────────────────────────────────────────────── */
 .bk-zoom { display: flex; align-items: center; flex: none; }
@@ -457,7 +457,7 @@
 .bk-zoom button:last-child { border-radius: 0 7px 7px 0; }
 .bk-zoom button + button { border-left: 0; }
 .bk-zoom button:hover:not(:disabled) { border-color: var(--gold); }
-.bk-zoom button:disabled { color: #c9c6c0; cursor: default; }
+.bk-zoom button:disabled { color: #c9c6c0; color: color-mix(in srgb, var(--border) 87%, black); cursor: default; }
 .bk-zoom-v { min-width: 3.2rem; font-size: 0.74rem; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 1100px) {

@@ -31,7 +31,7 @@
   display: block;
   height: 6px;
   border-radius: 4px;
-  background: #ece7dc;
+  background: #ece7dc; background: color-mix(in srgb, var(--gold-dark) 18%, white);
   overflow: hidden;
 }
 .wb-rail-bar > i {
@@ -72,7 +72,7 @@
 .workbook .wb-rail .exresp-sidebar-item.wb-rail-all { padding: 0.45rem 0.95rem; }
 .workbook .wb-rail .exresp-sidebar-item.wb-rail-all .exresp-sidebar-title { font-size: 0.82rem; }
 
-.wb-rail-group { border-top: 1px solid #f0ebe0; }
+.wb-rail-group { border-top: 1px solid #f0ebe0; border-top: 1px solid color-mix(in srgb, var(--gold) 19%, white); }
 .workbook .wb-rail .wb-rail-group-head {
   display: grid;
   grid-template-columns: 0.8rem minmax(0, 1fr) auto;
@@ -148,8 +148,8 @@
   border: 2px solid var(--gold);
   background: conic-gradient(var(--gold) var(--p, 0%), transparent 0);
 }
-.wb-rail-tick.is-none { border: 2px solid #d9d2c4; }
-.wb-rail-tick.is-read { width: 0.4rem; height: 0.4rem; margin-left: 0.3rem; background: #d9d2c4; }
+.wb-rail-tick.is-none { border: 2px solid #d9d2c4; border: 2px solid color-mix(in srgb, var(--gold-dark) 32%, white); }
+.wb-rail-tick.is-read { width: 0.4rem; height: 0.4rem; margin-left: 0.3rem; background: #d9d2c4; background: color-mix(in srgb, var(--gold-dark) 32%, white); }
 
 .wb-rail-spot {
   display: inline-block;
@@ -170,7 +170,7 @@
   gap: 0.2rem 0.8rem;
   margin-top: 0.3rem;
   padding: 0.6rem 0.95rem 0.2rem;
-  border-top: 1px solid #f0ebe0;
+  border-top: 1px solid #f0ebe0; border-top: 1px solid color-mix(in srgb, var(--gold) 19%, white);
 }
 .workbook .wb-rail .wb-rail-pages button {
   border: 0;
@@ -178,7 +178,7 @@
   padding: 0.1rem 0;
   color: var(--muted);
   font-size: 0.76rem;
-  text-decoration: underline dotted #c8c0ae;
+  text-decoration: underline dotted #c8c0ae; text-decoration: underline dotted color-mix(in srgb, var(--gold-dark) 30%, var(--border));
   text-underline-offset: 3px;
   cursor: pointer;
 }

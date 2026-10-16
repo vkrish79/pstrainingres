@@ -57,7 +57,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.55rem 0.75rem;
-  background: #fff;
+  background: var(--card);
 }
 .phr-group li.is-off { opacity: 0.55; }
 .phr-group label { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; color: var(--muted); cursor: pointer; }
@@ -71,7 +71,7 @@
   line-height: 1.6;
 }
 .phr-before { color: var(--text); overflow-wrap: anywhere; }
-.phr-before mark { background: #eceff3; color: #6b7684; font-style: italic; padding: 0 0.15rem; border-radius: 3px; }
+.phr-before mark { background: #eceff3; background: color-mix(in srgb, var(--midnight) 8%, white); color: #6b7684; color: color-mix(in srgb, var(--midnight-hover) 59%, var(--border)); font-style: italic; padding: 0 0.15rem; border-radius: 3px; }
 .phr-arrow { color: var(--muted); }
 .phr-after { color: var(--text); overflow-wrap: anywhere; }
 .phr-box {
