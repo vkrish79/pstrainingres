@@ -70,17 +70,20 @@ export function useSessionPrep(sessionId) {
   // Rebuilt per session; caches the section/template lookups, not the payload.
   const writeBack = useMemo(() => createPrepWriteBack(sessionId), [sessionId]);
 
-  const saveOne = useCallback(async ({ participantId, sectionId, content }) => {
+  // `reload: false` skips the reload after the write — for a caller saving many
+  // cells in a row, which reloads once at the end instead of once per cell.
+  const saveOne = useCallback(async ({ participantId, sectionId, content }, { reload = true } = {}) => {
     if (!content || !content.trim()) {
       // Treat empty as delete.
-      await supabase
+      const { error } = await supabase
         .from('participant_prep')
         .delete()
         .eq('session_id', sessionId)
         .eq('participant_id', participantId)
         .eq('section_id', sectionId);
+      if (error) return { error };
       const cleared = await writeBack.write({ participantId, sectionId, content: '' });
-      await refresh();
+      if (reload) await refresh();
       return cleared.warning ? { poolWarning: cleared.warning } : {};
     }
     const { error } = await supabase
@@ -91,7 +94,7 @@ export function useSessionPrep(sessionId) {
       );
     if (error) return { error };
     const back = await writeBack.write({ participantId, sectionId, content });
-    await refresh();
+    if (reload) await refresh();
     return back.warning ? { poolWarning: back.warning } : {};
   }, [sessionId, refresh, writeBack]);
 
