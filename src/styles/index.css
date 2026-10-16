@@ -28,6 +28,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* No rubber-band at the page's ends. Chrome on a Windows touchpad bounces the
+   page when you scroll past the top, and the sticky app bar travels with it
+   while the fixed left rail does not — so the bar visibly peels down off the
+   top of the screen. Scrolling inside panels is unaffected. */
+html, body { overscroll-behavior-y: none; }
+
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
