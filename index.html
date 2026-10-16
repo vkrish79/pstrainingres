@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>pstrainingres</title>
+    <!-- Settings → Branding: apply the colours this browser last saw (or is
+         trying in this tab) before the app loads, so the old palette never
+         flashes. Keys must match src/lib/branding.js. -->
+    <script>
+      (function () {
+        try {
+          var raw = sessionStorage.getItem('brand-try-v1') || localStorage.getItem('brand-palette-v1');
+          if (!raw) return;
+          var p = JSON.parse(raw), root = document.documentElement;
+          ['midnight', 'midnight-hover', 'gold', 'gold-dark', 'qasr', 'bg', 'card', 'text', 'muted', 'border'].forEach(function (k) {
+            if (/^#[0-9a-f]{6}$/i.test(p[k])) root.style.setProperty('--' + k, p[k]);
+          });
+        } catch (e) { /* storage blocked: the defaults in index.css stand */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

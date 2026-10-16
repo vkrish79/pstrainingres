@@ -297,3 +297,18 @@ body.has-sidenav .page {
     clip: rect(0 0 0 0); white-space: nowrap;
   }
 }
+
+/* Settings → Branding: "you're trying new colours", on every page of this tab. */
+.brand-try-banner {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 400;
+  display: flex; align-items: center; gap: 0.9rem;
+  background: var(--midnight); color: #fff; border: 2px solid var(--gold);
+  border-radius: 10px; padding: 0.55rem 0.7rem 0.55rem 1rem; font-size: 0.85rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); max-width: calc(100vw - 32px);
+}
+.brand-try-banner button {
+  font: inherit; font-weight: 700; font-size: 0.82rem;
+  background: var(--card); color: var(--midnight); border: 0; border-radius: 7px; padding: 0.35rem 0.8rem; cursor: pointer;
+}
+/* index.css fills every button midnight on hover; restate the light look. */
+.brand-try-banner button:hover { background: var(--bg); color: var(--midnight); }

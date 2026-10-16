@@ -1,0 +1,77 @@
+/* Settings → Branding (BrandingSettings.jsx). The preview sets the draft
+   palette as custom properties on .brand-preview, so everything inside it
+   reads the draft while the rest of the page keeps the published colours. */
+
+.branding .brand-grid { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 1.25rem; margin-top: 1rem; }
+@media (max-width: 1080px) { .branding .brand-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.brand-group + .brand-group { margin-top: 1rem; }
+.brand-group h3 { margin: 0 0 0.3rem; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.brand-row {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) 6.2rem; gap: 0.7rem; align-items: center;
+  padding: 0.4rem 0.3rem; border-radius: 8px;
+}
+.brand-row:hover { background: var(--bg); }
+.brand-row.is-changed { box-shadow: inset 3px 0 0 var(--gold); }
+.brand-row.is-locked { opacity: 0.6; }
+.brand-swatch { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); position: relative; overflow: hidden; }
+.brand-swatch input[type="color"] { position: absolute; inset: -8px; width: 52px; height: 52px; border: 0; padding: 0; background: none; cursor: pointer; }
+.brand-swatch input[type="color"]:disabled { cursor: default; }
+.brand-name { font-weight: 700; font-size: 0.86rem; color: var(--text); cursor: pointer; }
+.brand-name span { display: block; font-weight: 400; font-size: 0.76rem; color: var(--muted); }
+.brand-code { font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; padding: 0.3rem 0.45rem; }
+.brand-code.is-bad { border-color: #c62828; }
+.brand-code-fixed { font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; color: var(--muted); }
+.brand-auto { display: flex; gap: 0.4rem; align-items: center; font-size: 0.78rem; color: var(--muted); padding: 0 0.3rem 0.2rem 3.4rem; }
+.brand-fixed-note { margin: 0 0 0.3rem; font-size: 0.78rem; color: var(--muted); }
+
+.brand-label { display: block; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+
+/* Preview: drawn from the draft palette only */
+.brand-preview { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; display: grid; gap: 0.7rem; align-content: start; min-width: 0; color: var(--text); }
+.bp-shell { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); }
+.bp-nav { background: var(--midnight); color: #fff; display: flex; gap: 0.9rem; align-items: center; padding: 0.55rem 0.8rem; font-size: 0.8rem; flex-wrap: wrap; }
+.bp-nav span { opacity: 0.75; padding-bottom: 2px; }
+.bp-nav span.on { opacity: 1; font-weight: 700; border-bottom: 2px solid var(--gold); }
+.bp-body { padding: 0.75rem; display: grid; gap: 0.6rem; }
+.bp-row { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+.bp-btn { font-size: 0.78rem; font-weight: 700; border-radius: 7px; padding: 0.35rem 0.75rem; border: 1px solid var(--midnight); background: var(--midnight); color: #fff; }
+.bp-btn.is-hover { background: var(--midnight-hover); border-color: var(--midnight-hover); }
+.bp-btn.is-ghost { background: var(--card); color: var(--midnight); border-color: var(--border); }
+.bp-chip { font-size: 0.72rem; font-weight: 700; border-radius: 999px; padding: 0.1rem 0.55rem; border: 1px solid var(--qasr); background: color-mix(in srgb, var(--qasr) 25%, var(--card)); color: var(--gold-dark); }
+.bp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; }
+.bp-gauge, .bp-tile { background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 0.45rem 0.6rem; display: grid; gap: 1px; min-width: 0; }
+.bp-gauge span { font-size: 0.6rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.bp-gauge b { font-size: 1.05rem; color: var(--midnight); }
+.bp-gauge small, .bp-tile small { font-size: 0.7rem; color: var(--muted); font-weight: 500; }
+.bp-tile { box-shadow: inset 3px 0 0 #2f8f5f; }
+.bp-tile b { color: var(--midnight); font-size: 0.82rem; }
+.bp-report { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.7rem; display: grid; gap: 0.35rem; color: #1a1a1a; }
+.bp-mast { border-bottom: 2px solid var(--gold); padding-bottom: 0.25rem; }
+.bp-mast b { color: var(--midnight); font-size: 0.9rem; }
+.bp-report table { border-collapse: collapse; width: 100%; font-size: 0.72rem; }
+.bp-report th, .bp-report td { border: 1px solid #c9c4b8; padding: 0.2rem 0.4rem; text-align: left; }
+.bp-report th { background: var(--qasr); }
+.bp-report thead th { background: var(--midnight); color: #fff; }
+.bp-quiet { margin: 0; font-size: 0.76rem; color: var(--muted); }
+
+.brand-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
+.brand-checks li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 0.55rem; align-items: center; font-size: 0.8rem; padding: 0.25rem 0.35rem; border-radius: 6px; }
+.brand-checks li small { display: block; font-size: 0.72rem; color: var(--muted); }
+.brand-checks li.is-failing { background: #fdf3f1; }
+.brand-aa { width: 30px; height: 22px; border-radius: 5px; display: grid; place-items: center; font-weight: 800; font-size: 0.75rem; border: 1px solid var(--border); }
+.brand-ratio { font-family: ui-monospace, Consolas, monospace; font-size: 0.72rem; padding: 0.05rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+.brand-ratio.is-pass { color: #23704a; background: #e3f2e8; }
+.brand-ratio.is-fail { color: #a33a28; background: #f6e1dc; }
+
+.brand-bar, .brand-confirm { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+.brand-confirm { margin-top: 0.6rem; padding: 0.7rem 0.9rem; border: 1px solid var(--gold); border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, var(--card)); font-size: 0.85rem; }
+.brand-status { font-size: 0.85rem; color: var(--muted); }
+.brand-status strong { color: var(--text); }
+.brand-status.is-err, .brand-status.is-err strong { color: #a33a28; }
+
+.brand-history { margin-top: 1rem; padding-top: 0.7rem; border-top: 1px dashed var(--border); display: grid; gap: 0.35rem; font-size: 0.82rem; }
+.brand-hist-row { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center; }
+.brand-dots { display: inline-flex; gap: 2px; }
+.brand-dots i { width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--border); display: inline-block; }
+.brand-inuse { font-size: 0.72rem; font-weight: 700; color: #23704a; background: #e3f2e8; border-radius: 999px; padding: 0.05rem 0.5rem; }

@@ -4,6 +4,7 @@ import CitiesSettings from '../components/settings/CitiesSettings.jsx';
 import VendorsSettings from '../components/settings/VendorsSettings.jsx';
 import StaffSettings from '../components/settings/StaffSettings.jsx';
 import RetentionSettings from '../components/settings/RetentionSettings.jsx';
+import BrandingSettings from '../components/settings/BrandingSettings.jsx';
 import TopBar from '../components/TopBar.jsx';
 import '../styles/dashboard.css';
 import '../styles/editor.css';
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'vendors', label: 'Vendors', render: () => <VendorsSettings /> },
   { id: 'staff', label: 'Staff', render: () => <StaffSettings /> },
   { id: 'retention', label: 'Data retention', render: () => <RetentionSettings /> },
+  { id: 'branding', label: 'Branding', render: () => <BrandingSettings /> },
 ];
 
 export default function SettingsPage() {
