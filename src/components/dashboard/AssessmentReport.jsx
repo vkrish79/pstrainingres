@@ -5,6 +5,7 @@ import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
 import { useSessionCriteria } from '../../hooks/useSessionCriteria.js';
 import { useAssessmentPassMark, resultOf } from '../../hooks/useAssessmentPassMark.js';
 import { buildCohortReport } from '../../lib/assessmentReport.js';
+import { byFullName } from '../../lib/byName.js';
 import '../../styles/report.css';
 
 // The L&D Training Report, in the two shapes the business already uses:
@@ -714,9 +715,7 @@ function pad(label) {
 
 // Numeric-aware, so trainee2 sorts before trainee10. Paste fills rows in this
 // order, so it has to be the order a trainer's own list is in.
-function byName(a, b) {
-  return (a.full_name || '').localeCompare(b.full_name || '', undefined, { numeric: true, sensitivity: 'base' });
-}
+const byName = byFullName;
 
 function formatRange(a, b) {
   if (!a && !b) return '';

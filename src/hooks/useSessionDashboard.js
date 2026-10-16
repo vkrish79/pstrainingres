@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { byFullName } from '../lib/byName.js';
 
 // Enrolment rows -> the participant list every view reads. The deactivation
 // fields ride along on the participant so the roster, the close check and the
@@ -24,7 +25,7 @@ function toParticipants(rows) {
       // "I've finished" on the assessment (P1). Undefined until the SQL is applied.
       assessment_finished_at: sp.assessment_finished_at ?? null,
     }))
-    .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    .sort(byFullName);
 }
 
 // Fetches a session's participants + workbook structure + all answers,

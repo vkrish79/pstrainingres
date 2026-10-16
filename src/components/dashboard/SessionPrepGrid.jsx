@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fillDown, clearRange, rangeToTsv, selectionRect } from '../prep/kitRows.js';
 import { useBusyOverlay } from '../../contexts/BusyOverlayContext.jsx';
+import { byFullName } from '../../lib/byName.js';
 import '../../styles/prep-grid.css';
 
 // Session-scoped prep sheet: rows = participants, columns = prep exercises,
@@ -34,7 +35,7 @@ export default function SessionPrepGrid({
   // Numeric-aware, so Trainee2 comes before Trainee10. A paste fills rows in
   // this order, and it is the order a trainer's own spreadsheet is in.
   const people = useMemo(
-    () => [...participants].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', undefined, { numeric: true, sensitivity: 'base' })),
+    () => [...participants].sort(byFullName),
     [participants],
   );
 

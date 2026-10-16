@@ -10,6 +10,7 @@ import { useSessionPrepLayout } from '../../hooks/useSessionPrepLayout.js';
 import { itemsForExercise, splitGeneralPrep } from '../../lib/prepAttach.js';
 import { useSessionFeatures } from '../../hooks/useSessionFeatures.js';
 import { offNames } from '../../lib/sessionFeatures.js';
+import { byFullName } from '../../lib/byName.js';
 
 // Read-only summary view rendered when sessions.closed_at is set. Driven
 // entirely by sessions.closed_summary (the snapshot saved at close time)
@@ -190,7 +191,7 @@ export default function ClosedSessionView({ snapshot, liveAssessmentId = null, o
         }
         return true;
       })
-      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      .sort(byFullName);
   }, [participants, query, filterMode, notesByParticipant]);
 
   function downloadJson() {
@@ -530,7 +531,7 @@ function ClosedAssessmentResults({ assessment, participants, onOpenReport }) {
   const rows = (assessment.results || [])
     .map(r => ({ ...r, participant: byId.get(r.participant_id) }))
     .filter(r => r.participant)
-    .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || ''));
+    .sort((a, b) => byFullName(a.participant, b.participant));
 
   const active = rows.filter(r => r.participant.status !== 'deactivated');
   const scored = active.filter(r => r.sat && r.possible > 0 && r.unmarked === 0 && r.pct != null);

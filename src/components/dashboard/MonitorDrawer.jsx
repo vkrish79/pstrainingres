@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Block from '../blocks/Block.jsx';
 import { isFillableBlock, expectedInputs, filledInputs } from '../../lib/blockHelpers.js';
 import { useReviewPeopleMarks } from '../../hooks/useAnswerReview.js';
+import { byFullName } from '../../lib/byName.js';
 
 // Right push-in drawer for the trainer's Workbook tab: a live monitor of the
 // cohort on the currently-SELECTED exercise. Driven by the sidebar selection
@@ -56,7 +57,7 @@ export default function MonitorDrawer({
     return { p, answered, status, here: hereIds.has(p.id) };
   });
   // Online-on-this-exercise first, then alphabetical.
-  rows.sort((a, b) => (Number(b.here) - Number(a.here)) || (a.p.full_name || '').localeCompare(b.p.full_name || ''));
+  rows.sort((a, b) => (Number(b.here) - Number(a.here)) || byFullName(a.p, b.p));
   const doneCount = rows.filter(r => r.status === 'done').length;
 
   function toggle(pid) {

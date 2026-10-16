@@ -9,6 +9,7 @@ import { questionTally } from '../../lib/questionTally.js';
 import ParticipantTile from './exerciseResponses/ParticipantTile.jsx';
 import ParticipantFocus from './exerciseResponses/ParticipantFocus.jsx';
 import BlockAnswer from './exerciseResponses/BlockAnswer.jsx';
+import { byFullName } from '../../lib/byName.js';
 
 // Layout: sidebar nav (one row per exercise, with cohort progress) → tile grid
 // of participant responses on the right. Toolbar above the grid lets the
@@ -266,7 +267,7 @@ export default function ExerciseResponses({
   });
 
   const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === 'name') return (a.participant.full_name || '').localeCompare(b.participant.full_name || '');
+    if (sortBy === 'name') return byFullName(a.participant, b.participant);
     if (sortBy === 'progress_desc') return b.answered - a.answered;
     if (sortBy === 'progress_asc') return a.answered - b.answered;
     if (sortBy === 'recent') return b.lastTs - a.lastTs;
@@ -477,7 +478,7 @@ export default function ExerciseResponses({
       {marking && (markPid || markPart) && (() => {
         // Everyone, by name — marking covers the class whatever the tile filter.
         const people = [...participants]
-          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', undefined, { numeric: true }))
+          .sort(byFullName)
           .map(p => ({ id: p.id, name: p.full_name || '(unnamed)' }));
         const nameOf = id => people.find(p => p.id === id)?.name || '';
         const questionsAll = sectionsWithFillable.map(sec => {

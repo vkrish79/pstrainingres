@@ -27,6 +27,7 @@ import { earnedFor, manualResultFor, pointsFor, scoreBlocks, isInactiveBlock } f
 import { buildQuestions } from './assessmentStructure.js';
 import { labelOf, isFillableBlock } from './blockHelpers.js';
 import { areasOfError } from './markingCriteria.js';
+import { byFullName } from './byName.js';
 
 // The sentinel domain the enrolment function synthesizes usernames into —
 // `${username}@${join_code}.pstrainingres.local`. It is not a real address and
@@ -173,7 +174,7 @@ export function buildCohortReport({
     // Numeric-aware so trainee2 comes before trainee10: participants are
     // enrolled under numbered pseudonyms, and the report's print-names paste
     // fills rows in this order.
-    .sort((a, b) => (a.participant.full_name || '').localeCompare(b.participant.full_name || '', undefined, { numeric: true, sensitivity: 'base' }));
+    .sort((a, b) => byFullName(a.participant, b.participant));
 
   // Which questions the cohort as a whole struggled with. The trainer's own
   // use for this is deciding what to go over in the debrief, so it is ordered
