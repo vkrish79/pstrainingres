@@ -132,3 +132,68 @@ export function confidenceByExercise(rows, activeIds) {
   }
   return out;
 }
+
+// The cockpit's "How it went" card, from the same rows. Exercises are taken in
+// workbook order, and only those somebody has tapped; dropouts are left out.
+//   recent     — the last `last` tapped exercises, newest first, each with
+//                counts, recap, notes and who said what
+//   struggling — said Lost on two or more of the last three tapped exercises:
+//                one bad exercise is the exercise, two is the person
+//   latestLost — said Lost on the newest tapped exercise, not already above
+//   silent     — still in the class, never tapped at all
+//   sections   [{id, title, order_index}], people [{id, full_name}] (active only)
+export function confidenceSummary(rows, sections, people, { last = 4 } = {}) {
+  const activeIds = new Set(people.map(p => p.id));
+  const nameOf = Object.fromEntries(people.map(p => [p.id, p.full_name || '(unnamed)']));
+  const byEx = confidenceByExercise(rows, activeIds);
+  const who = {};
+  const tapped = new Set();
+  for (const r of rows) {
+    if (!activeIds.has(r.participant_id)) continue;
+    tapped.add(r.participant_id);
+    ((who[r.section_id] ||= { lost: [], unsure: [], got: [] })[r.level] ||= []).push({ id: r.participant_id, name: nameOf[r.participant_id] });
+  }
+  const done = [...sections]
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+    .filter(s => byEx[s.id]?.total);
+  if (!done.length) return null;
+  const recent = done.slice(-last).reverse().map(s => ({ section: s, ...byEx[s.id], who: who[s.id] }));
+  const last3 = done.slice(-3);
+  const lostTimes = {};
+  for (const s of last3) for (const p of who[s.id]?.lost || []) lostTimes[p.id] = (lostTimes[p.id] || 0) + 1;
+  const struggling = Object.entries(lostTimes).filter(([, n]) => n >= 2).map(([id]) => ({ id, name: nameOf[id] }));
+  const strugglingIds = new Set(struggling.map(p => p.id));
+  const latestLost = (recent[0].who?.lost || []).filter(p => !strugglingIds.has(p.id));
+  const silent = people.filter(p => !tapped.has(p.id)).map(p => ({ id: p.id, name: nameOf[p.id] }));
+  return { recent, struggling, latestLost, silent };
+}
+
+// Each person's taps across the session, by level: the counts on their tile.
+//   -> { [participantId]: { got, unsure, lost } }
+export function tapCounts(rows) {
+  const out = {};
+  for (const r of rows) {
+    const c = (out[r.participant_id] ||= { got: 0, unsure: 0, lost: 0 });
+    if (r.level in c) c[r.level] += 1;
+  }
+  return out;
+}
+
+// Each person's newest tap, if it was Lost or Not sure and made today: the
+// ring on that count on their tile. Today only, so a Lost from yesterday does not sit on the
+// tile all of this morning after they have moved on without tapping again.
+//   -> { [participantId]: { level, sectionId } }
+export function worriedToday(rows, now = new Date()) {
+  const newest = {};
+  for (const r of rows) {
+    const cur = newest[r.participant_id];
+    if (!cur || r.updated_at > cur.updated_at) newest[r.participant_id] = r;
+  }
+  const out = {};
+  for (const [pid, r] of Object.entries(newest)) {
+    if (r.level === 'got') continue;
+    if (new Date(r.updated_at).toDateString() !== now.toDateString()) continue;
+    out[pid] = { level: r.level, sectionId: r.section_id };
+  }
+  return out;
+}

@@ -6,7 +6,8 @@ import { useSessionDashboard } from '../hooks/useSessionDashboard.js';
 import { useSessionCursor } from '../hooks/useSessionCursor.js';
 import { useHelpRequests } from '../hooks/useHelpRequests.js';
 import { supabase } from '../lib/supabase.js';
-import { useExerciseConfidence, confidenceByExercise } from '../hooks/useExerciseConfidence.js';
+import { useExerciseConfidence, confidenceByExercise, confidenceSummary, worriedToday, tapCounts } from '../hooks/useExerciseConfidence.js';
+import ConfidenceCard from '../components/dashboard/ConfidenceCard.jsx';
 import { useStuckRadar } from '../hooks/useStuckRadar.js';
 import { writeSpotlight } from '../hooks/useSessionFocus.js';
 import { useDayPulse } from '../hooks/useDayPulse.js';
@@ -552,6 +553,11 @@ export default function SessionDashboardPage() {
   // disagree with the numbers above it.
   const behindIds = new Set(cockpit.behind.map(x => x.id));
   const quietIds = new Set(cockpit.quiet.map(x => x.id));
+  // Got it / Not sure / Lost counts on every tile; a ring on the count that
+  // matches anyone's newest tap today when that tap was Lost or Not sure.
+  const tapsOn = on.confidence && !noWorkbook;
+  const taps = tapsOn ? tapCounts(confidence.rows) : {};
+  const worried = tapsOn ? worriedToday(confidence.rows) : {};
   function roomPerson(p) {
     const { answered, total, lastTs } = progressFor(p.id);
     const presence = presenceFor(p.id, lastTs);
@@ -563,8 +569,14 @@ export default function SessionDashboardPage() {
     return {
       p, id: p.id, name: p.full_name || '(unnamed)', answered, total, presence, dropped, tone,
       lastActive: lastActiveTs({ lastTs, movedTs: cursors[p.id]?.moved_at }),
-      hand: dropped ? null : (help.byParticipant[p.id] || null),
+      // Off with the class's Raise hand switch, like the hands bar: the tile,
+      // the Selected card and Needs you all read this one field.
+      hand: dropped || !on.hand ? null : (help.byParticipant[p.id] || null),
       noPrep: !dropped && prepEnabled && !hasPrep(p.id),
+      taps: tapsOn ? (taps[p.id] || { got: 0, unsure: 0, lost: 0 }) : null,
+      worried: worried[p.id]
+        ? { level: worried[p.id].level, title: sections.find(s => s.id === worried[p.id].sectionId)?.title || '' }
+        : null,
     };
   }
   const roomPeople = participants.map(roomPerson);
@@ -581,6 +593,10 @@ export default function SessionDashboardPage() {
       sectionTitle: sections.find(s => s.id === r.section_id)?.title || 'an exercise',
       note: r.note,
     }));
+  // The rail's "How it went" card: the class's own read on the last few exercises.
+  const confSummary = on.confidence && !noWorkbook
+    ? confidenceSummary(confidence.rows, sections, participants.filter(p => !p.deactivated_at), { last: Infinity })
+    : null;
 
   // Four ways to show the Room. By exercise used to be a tab of its own; it is
   // the same class read one exercise at a time, so it lives with the others.
@@ -631,7 +647,6 @@ export default function SessionDashboardPage() {
   // Open someone's Amadeus from anywhere (their card, a raised hand).
   function openAmadeus(pid) {
     setView('participants');
-    if (roomView === 'exercise') setRoomView('tiles');
     setSelectedParticipantId(pid);
     setAnswersOpen(false);
     setAmxOpen(true);
@@ -779,7 +794,7 @@ export default function SessionDashboardPage() {
         <HelpedToasts pending={help.pendingHelped} participants={participants} onUndo={help.undoResolve} />
 
 
-        {view === 'participants' && roomView !== 'exercise' && (
+        {view === 'participants' && (
           <div className={`cockpit-room${reading ? ' is-reading' : ''}`}>
           <div className="dashboard-layout">
             {/* While someone's answers are open the class steps aside: a column
@@ -898,6 +913,28 @@ export default function SessionDashboardPage() {
                   participantActions={participantActions}
                 />
               )}
+              {/* One exercise at a time, in the same card as the other views
+                  so changing view only swaps what is under the header. */}
+              {participants.length > 0 && roomView === 'exercise' && (
+                <ExerciseResponses
+                  key={exerciseJump ? `jump-${exerciseJump.n}` : 'exercise'}
+                  sessionId={id}
+                  initialSectionId={exerciseJump?.sectionId || null}
+                  initialParticipantId={exerciseJump?.participantId || null}
+                  sections={sections}
+                  blocks={blocks}
+                  participants={participants}
+                  answers={answers}
+                  notes={notes}
+                  participantNotes={participantNotes}
+                  prepBy={prepBy}
+                  standaloneBy={standaloneBy}
+                  prepLayout={prepLayout}
+                  liveBySection={liveBySection}
+                  onSaveNote={saveNote}
+                  onDeleteNote={deleteNote}
+                />
+              )}
             </div>
             )}
 
@@ -959,6 +996,14 @@ export default function SessionDashboardPage() {
               stuckGroups={radar.groups}
               lost={on.confidence ? lostRecently : []}
               onSpotlight={on.spotlight ? (g => writeSpotlight(id, authSession?.user.id, { id: g.sectionId, title: g.title })) : undefined}
+              confidenceCard={confSummary && (
+                <ConfidenceCard
+                  summary={confSummary}
+                  onPick={(pid) => { setAnswersOpen(false); setAmxOpen(false); setSelectedParticipantId(pid); }}
+                  onOpenBoard={() => setRoomView('heat')}
+                  onSpotlight={on.spotlight ? (g => writeSpotlight(id, authSession?.user.id, { id: g.sectionId, title: g.title })) : undefined}
+                />
+              )}
               pulseCard={paperOnly || !on.pulse || session?.closed_at ? null : (
                 <DayPulseCockpit pulse={pulse} startsAt={session?.starts_at} endsAt={session?.ends_at} active={activeIds.size} />
               )}
@@ -970,32 +1015,6 @@ export default function SessionDashboardPage() {
           </div>
         )}
 
-        {view === 'participants' && roomView === 'exercise' && (
-          <>
-          <div className="room-exercise-bar">
-            <h2 className="section-title" style={{ margin: 0 }}>By exercise</h2>
-            {roomSwitch}
-          </div>
-          <ExerciseResponses
-            key={exerciseJump ? `jump-${exerciseJump.n}` : 'exercise'}
-            sessionId={id}
-            initialSectionId={exerciseJump?.sectionId || null}
-            initialParticipantId={exerciseJump?.participantId || null}
-            sections={sections}
-            blocks={blocks}
-            participants={participants}
-            answers={answers}
-            notes={notes}
-            participantNotes={participantNotes}
-            prepBy={prepBy}
-            standaloneBy={standaloneBy}
-            prepLayout={prepLayout}
-            liveBySection={liveBySection}
-            onSaveNote={saveNote}
-            onDeleteNote={deleteNote}
-          />
-          </>
-        )}
 
         {view === 'practice' && (
           <TrainerPracticeView

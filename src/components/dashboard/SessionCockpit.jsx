@@ -131,11 +131,40 @@ export function RoomTiles({ people, selectedId, onPick, amx }) {
               {x.answered}/{x.total} · {x.dropped ? 'dropped out' : ago(x.lastActive)}
               {x.noPrep && <span className="no-prep-tag">No prep</span>}
             </span>
+            {/* How they said the exercises went, counted over the session.
+                The count matching their newest tap today is ringed when that
+                tap was Lost or Not sure: the one to act on now. */}
+            {x.taps && !x.dropped && <TapCounts taps={x.taps} worried={x.worried} />}
             {amx && !x.dropped && <span className="room-tile-amx">{amx(x)}</span>}
           </button>
         </li>
       ))}
     </ul>
+  );
+}
+
+const TAP_KINDS = [
+  { id: 'got', glyph: '👍', label: 'Got it' },
+  { id: 'unsure', glyph: '🤔', label: 'Not sure' },
+  { id: 'lost', glyph: '😕', label: 'Lost' },
+];
+function TapCounts({ taps, worried }) {
+  const none = !taps.got && !taps.unsure && !taps.lost;
+  const tip = none ? 'No confidence taps yet'
+    : TAP_KINDS.map(k => `${k.label} on ${taps[k.id]}`).join(' · ')
+      + (worried ? ` · newest today: ${worried.level === 'lost' ? 'Lost' : 'Not sure'}${worried.title ? ` on ${worried.title}` : ''}` : '');
+  return (
+    <span className={`room-tile-taps${none ? ' is-none' : ''}`} data-tip={tip} aria-label={tip}>
+      {TAP_KINDS.map(k => (
+        <span
+          key={k.id}
+          className={`room-tile-tap is-${k.id}${taps[k.id] ? '' : ' is-zero'}${worried?.level === k.id ? ' is-now' : ''}`}
+          aria-hidden="true"
+        >
+          {k.glyph} {taps[k.id]}
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -218,7 +247,7 @@ const OFFLINE_FOLD = 3;
 //   quiet, offline.
 export function CockpitRail({
   stats, selectedCard, hands = [], materialsCount, onOpenMaterials, onPick, paperOnly = false,
-  stuck = [], stuckGroups = [], lost = [], onSpotlight, pulseCard = null,
+  stuck = [], stuckGroups = [], lost = [], onSpotlight, pulseCard = null, confidenceCard = null,
 }) {
   const { behind, quiet, offline, pace } = stats;
   const [showOffline, setShowOffline] = useState(false);
@@ -293,6 +322,10 @@ export function CockpitRail({
           </ul>
         )}
       </section>
+
+      {/* How the class says the exercises went: under Needs you, because it
+          is the same question asked by the class itself. */}
+      {confidenceCard}
 
       {pulseCard}
 

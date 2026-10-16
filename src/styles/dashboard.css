@@ -3010,14 +3010,6 @@
 }
 
 /* ── By exercise folded into Room; tabs in the header row ─────────────── */
-.room-exercise-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin: 0 0 0.9rem;
-}
 /* The tabs sit between the title and the controls when the header is wide
    enough for all three, and drop to a line of their own when it is not.
    Measured on a real class: title 492px + tabs ~410px + controls 350px + gaps
@@ -3926,3 +3918,56 @@
 
 /* Closed report: the features this class had switched off (Session features). */
 .closed-not-used { margin: 0 0 1rem; font-size: 0.85rem; color: #6f7b88; }
+
+/* ── How it went (ConfidenceCard), in the cockpit rail ── */
+.conf-card-rows { list-style: none; margin: 0; padding: 0; }
+.conf-card-row {
+  display: grid; grid-template-columns: 3.6rem minmax(0, 1fr) auto; gap: 0.5rem; align-items: center;
+  padding: 0.28rem 0; font-size: 0.82rem;
+}
+.conf-card-row + .conf-card-row { border-top: 1px solid #f0ece4; }
+.conf-card-ex { color: var(--midnight); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conf-card-bar { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: #e7e3db; }
+.conf-card-bar i { display: block; height: 100%; }
+.conf-card-bar .is-got { background: #2f8f5f; }
+.conf-card-bar .is-unsure { background: #c98a1c; }
+.conf-card-bar .is-lost { background: #c2503c; }
+.conf-card-n { font-size: 0.74rem; color: #7d8a97; font-variant-numeric: tabular-nums; white-space: nowrap; display: inline-flex; gap: 0.3rem; align-items: center; }
+.conf-card-flag {
+  font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: #a33a28; background: #f6e1dc; border-radius: 4px; padding: 0.05rem 0.35rem;
+}
+.conf-card-line { margin: 0.45rem 0 0; font-size: 0.8rem; line-height: 1.45; color: #3c4a58; }
+.conf-card-line.is-bad { color: #a33a28; }
+.conf-card-line.is-muted { color: #7d8a97; }
+/* (0,2,0): names are buttons, and the global button rules (and their hover)
+   would otherwise paint them as filled midnight buttons. */
+.cockpit-rail .conf-card-person {
+  display: inline; background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; font-weight: 700; color: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: transparent;
+}
+.cockpit-rail .conf-card-person:hover { background: none; color: inherit; text-decoration-color: currentColor; }
+.conf-card-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+
+/* Show all: the whole day, scrolling inside the card rather than pushing the
+   rest of the rail off the screen. */
+.conf-card-rows.is-all { max-height: 15rem; overflow-y: auto; overscroll-behavior: contain; padding-right: 0.25rem; }
+.cockpit-rail .conf-card-more {
+  display: inline-block; margin-top: 0.3rem; background: none; border: 0; padding: 0;
+  font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--gold-dark); cursor: pointer;
+}
+.cockpit-rail .conf-card-more:hover { background: none; color: var(--midnight); text-decoration: underline; }
+
+/* Got it / Not sure / Lost counts on a tile, across the session. */
+.room-tile-taps { grid-column: 1 / -1; display: flex; gap: 0.3rem; margin-top: 0.35rem; }
+.room-tile-tap {
+  font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding: 0.05rem 0.45rem; border-radius: 999px; white-space: nowrap; line-height: 1.5;
+}
+.room-tile-tap.is-got { color: #23704a; background: #e3f2e8; }
+.room-tile-tap.is-unsure { color: #8a5a00; background: #fbefd5; }
+.room-tile-tap.is-lost { color: #a33a28; background: #f6e1dc; }
+.room-tile-tap.is-zero { color: #9aa4ae; background: #f1efea; font-weight: 600; }
+/* Their newest tap today, when it was Lost or Not sure. */
+.room-tile-tap.is-now { box-shadow: 0 0 0 1.5px currentColor; }
+.room-tile-taps.is-none { opacity: 0.75; }
