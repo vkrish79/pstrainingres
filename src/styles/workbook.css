@@ -194,11 +194,11 @@ input.wb-mixed-box:focus {
   background: #eef2f8;
 }
 .wb-save-indicator.saving { color: var(--gold-dark); }
-.wb-save-indicator.saved { color: #2a7a3d; background: #e8f5ec; }
-.wb-save-indicator.error { color: var(--danger); background: #fbecec; }
+.wb-save-indicator.saved { color: var(--good-text); background: var(--good-bg); }
+.wb-save-indicator.error { color: var(--danger); background: var(--problem-bg); }
 
 .wb-block { position: relative; transition: background 1.5s ease-out; border-radius: 6px; }
-.wb-block-updated { background: #fff7d6; }
+.wb-block-updated { background: var(--look-bg); }
 .wb-update-badge {
   position: absolute;
   top: -8px;
@@ -219,21 +219,21 @@ input.wb-mixed-box:focus {
 .practice-banner {
   margin: 0.5rem 0 1rem;
   padding: 0.7rem 1rem;
-  background: #fff8e1;
+  background: var(--look-bg);
   border: 1px solid #f0d97a;
   border-radius: 6px;
   font-size: 0.9rem;
-  color: #5c4500;
+  color: var(--look-text);
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
 }
-.practice-banner strong { color: #3d2e00; }
+.practice-banner strong { color: var(--look-text); }
 .practice-banner-actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 /* Active state for Spotlight / Monitor toggle buttons in the practice banner. */
-.practice-banner-actions .ghost.active { background: #fff4e0; border-color: #f0d9af; color: #8a5a00; }
+.practice-banner-actions .ghost.active { background: var(--look-bg); border-color: var(--look-border); color: var(--look-text); }
 
 /* ===== Trainer spotlight ===== */
 /* Marker on the focused exercise in the My-copy sidebar. */
@@ -255,7 +255,7 @@ input.wb-mixed-box:focus {
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--muted); margin-right: 0.15rem;
 }
-.presenter-bar .ghost.active { background: #fff4e0; border-color: #f0d9af; color: #8a5a00; }
+.presenter-bar .ghost.active { background: var(--look-bg); border-color: var(--look-border); color: var(--look-text); }
 /* Trainer's own Prep, set off on the right of the toolbar (own-copy tool, not
    a cohort control). */
 .presenter-bar-right {
@@ -289,23 +289,23 @@ input.wb-mixed-box:focus {
 /* Trainer-side chip showing what's currently spotlighted (in My copy). */
 .spotlight-chip {
   display: inline-flex; align-items: center; gap: 0.3rem;
-  background: #fff4e0; border: 1px solid #f0d9af; border-radius: 999px;
-  padding: 0.18rem 0.3rem 0.18rem 0.6rem; font-size: 0.8rem; font-weight: 600; color: #8a5a00;
+  background: var(--look-bg); border: 1px solid var(--look-border); border-radius: 999px;
+  padding: 0.18rem 0.3rem 0.18rem 0.6rem; font-size: 0.8rem; font-weight: 600; color: var(--look-text);
 }
 .spotlight-chip-clear {
-  background: transparent; border: none; cursor: pointer; color: #8a5a00;
+  background: transparent; border: none; cursor: pointer; color: var(--look-text);
   font-size: 0.95rem; line-height: 1; padding: 0 0.2rem;
 }
-.spotlight-chip-clear.spotlight-chip-clear:hover { background: transparent; color: #6f4800; }
+.spotlight-chip-clear.spotlight-chip-clear:hover { background: transparent; color: var(--look-text); }
 
 /* Participant-side soft banner pointing to the spotlighted exercise. */
 .spotlight-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  background: #fff4e0; border: 1px solid #f0d9af; border-radius: 8px;
+  background: var(--look-bg); border: 1px solid var(--look-border); border-radius: 8px;
   padding: 0.6rem 0.9rem; margin-bottom: 0.85rem;
-  font-size: 0.92rem; color: #8a5a00;
+  font-size: 0.92rem; color: var(--look-text);
 }
-.spotlight-banner-text strong { color: #6f4800; }
+.spotlight-banner-text strong { color: var(--look-text); }
 .spotlight-banner-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
 .spotlight-jump.spotlight-jump {
   background: var(--gold, #c8a04f); color: #fff; border: none; cursor: pointer;
@@ -313,10 +313,10 @@ input.wb-mixed-box:focus {
 }
 .spotlight-jump.spotlight-jump:hover { background: var(--gold-dark, #b08a3e); }
 .spotlight-dismiss {
-  background: transparent; border: none; cursor: pointer; color: #8a5a00;
+  background: transparent; border: none; cursor: pointer; color: var(--look-text);
   font-size: 1.15rem; line-height: 1; padding: 0 0.3rem;
 }
-.spotlight-dismiss.spotlight-dismiss:hover { background: #f3e2c4; }
+.spotlight-dismiss.spotlight-dismiss:hover { background: var(--look-border); }
 @media print { .spotlight-banner { display: none !important; } }
 
 /* ============================================================
@@ -328,7 +328,7 @@ input.wb-mixed-box:focus {
 /* Hero: lift the flat compact card into a soft banner with a warm gradient,
    gold-tinted edge, and gentle elevation. */
 .workbook .page-hero.compact {
-  background: linear-gradient(180deg, var(--card) 0%, #fbf7ee 100%);
+  background: linear-gradient(180deg, var(--card) 0%, var(--look-bg) 100%);
   border-color: #e8dec6; border-color: color-mix(in srgb, var(--gold) 34%, white);
   box-shadow: 0 1px 3px rgba(15, 22, 38, 0.05);
   padding: 1.4rem 1.65rem;
@@ -379,8 +379,8 @@ input.wb-mixed-box:focus {
 
 /* Sidebar: warm gold tint on the active/hovered exercise to match the accent,
    and a slightly bolder progress track. */
-.workbook .exresp-sidebar-item.exresp-sidebar-item:hover { background: #faf5ea; }
-.workbook .exresp-sidebar-item.exresp-sidebar-item.active { background: #fdf6e3; }
+.workbook .exresp-sidebar-item.exresp-sidebar-item:hover { background: var(--look-bg); }
+.workbook .exresp-sidebar-item.exresp-sidebar-item.active { background: var(--look-bg); }
 .workbook .exresp-sidebar-bar { height: 6px; }
 
 /* ── finishing an exercise ───────────────────────────────────────────────────
@@ -547,7 +547,7 @@ button.pab-chip { cursor: pointer; }
 .pab-chip.is-locked { background: #f1ede5; background: color-mix(in srgb, var(--gold-dark) 13%, white); color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); font-weight: 500; }
 .pab-chip.is-open { background: #e5f0fa; border-color: #bcd4ea; color: var(--midnight); }
 .pab-chip.is-open:hover { background: #d9e8f6; }
-.pab-chip.is-soon { background: #fdf0dc; border-color: #eccb91; color: #7a4b00; }
+.pab-chip.is-soon { background: var(--look-bg); border-color: var(--look-border); color: var(--look-text); }
 .pab-chip.is-closed { background: #f1ede5; background: color-mix(in srgb, var(--gold-dark) 13%, white); color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
 .pab-chip-time { font-variant-numeric: tabular-nums; }
 
@@ -561,7 +561,7 @@ button.pab-chip { cursor: pointer; }
   color: #5c4c28;
   font-size: 0.9rem;
 }
-.help-banner.is-coming { background: #fdf6e6; border-color: #eedcae; }
+.help-banner.is-coming { background: var(--look-bg); border-color: var(--look-border); }
 
 /* ── Class controls as one pill group (UX rec #5) ─────────────────────── */
 .presenter-bar { border-radius: 12px; }
@@ -679,7 +679,7 @@ button.pab-chip { cursor: pointer; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
   padding: 0.55rem 0.9rem; font-size: 0.9rem; background: var(--bg); border-color: var(--border);
 }
-.pulse-card.is-sent { color: #2e7d32; }
+.pulse-card.is-sent { color: var(--good-text); }
 .pulse-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; align-items: baseline; }
 .pulse-private, .pulse-ends, .pulse-optional { font-size: 0.8rem; color: var(--muted); font-weight: 400; }
 .pulse-q { display: grid; gap: 0.35rem; }

@@ -26,7 +26,7 @@
 .sc-band-mid { display: grid; gap: 0.45rem; min-width: 0; }
 .sc-band .ak-paper-stack { height: 28px; }
 .sc-chip-link { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; font-family: inherit; }
-.sc-chip-link:hover { background: #f1dfbc; color: #8a5a00; }
+.sc-chip-link:hover { background: var(--look-border); color: var(--look-text); }
 .sc-pass { display: grid; gap: 0.15rem; justify-items: end; text-align: right; }
 .sc-pass label { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
 .sc-pass-box { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700; color: var(--midnight); }
@@ -49,7 +49,7 @@
 .sc-rq b { color: var(--midnight); font-size: 0.86rem; }
 .sc-rq-sum { font-weight: 800; color: var(--midnight); font-size: 0.86rem; }
 .sc-rq small { grid-column: 1 / -1; font-size: 0.72rem; color: var(--muted); }
-.sc-rq small.is-warn { color: #a65c00; font-weight: 700; }
+.sc-rq small.is-warn { color: var(--look-text); font-weight: 700; }
 .sc-rail-foot {
   display: flex; justify-content: space-between; margin: 0.4rem 0.9rem 0; padding-top: 0.5rem;
   border-top: 1px solid var(--border); font-weight: 800; color: var(--midnight); font-size: 0.85rem;
@@ -81,10 +81,10 @@
 .sc-pa b { color: var(--midnight); }
 .sc-marks { width: 4.4rem; text-align: center; font-weight: 800; padding: 0.2rem 0.3rem; }
 .sc-marks.is-derived { border-style: dashed; color: var(--muted); background: transparent; }
-.sc-part.is-warn td { background: #fff4e0; }
-.sc-part.is-warn .sc-pa { color: #a65c00; }
-.sc-part.is-open td { background: #fbf6ea; }
-.sc-part-open td { background: #fbf6ea; padding-top: 0.2rem; padding-bottom: 0.8rem; }
+.sc-part.is-warn td { background: var(--look-bg); }
+.sc-part.is-warn .sc-pa { color: var(--look-text); }
+.sc-part.is-open td { background: var(--look-bg); }
+.sc-part-open td { background: var(--look-bg); padding-top: 0.2rem; padding-bottom: 0.8rem; }
 .sc-link {
   border: 0; background: none; padding: 0; font: inherit; font-weight: 700; cursor: pointer;
   color: var(--midnight); text-decoration: underline; text-underline-offset: 2px;

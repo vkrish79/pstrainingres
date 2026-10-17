@@ -44,8 +44,8 @@
  * support, which is the whole reason the handset kept its shapes. The wall
  * carries the written label as well, so nothing rests on colour alone. */
 .plive-opt-0 { --plive-c: #1f6fb2; background: var(--plive-c); }
-.plive-opt-1 { --plive-c: #b1512f; background: var(--plive-c); }
-.plive-opt-2 { --plive-c: #2f7d52; background: var(--plive-c); }
+.plive-opt-1 { --plive-c: var(--problem); background: var(--plive-c); }
+.plive-opt-2 { --plive-c: var(--good-text); background: var(--plive-c); }
 .plive-opt-3 { --plive-c: #6a4b9c; background: var(--plive-c); }
 .plive-opt-4 { --plive-c: #bd3a72; background: var(--plive-c); }
 .plive-opt-5 { --plive-c: #8a8f1e; background: var(--plive-c); }

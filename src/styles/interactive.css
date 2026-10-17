@@ -7,14 +7,14 @@
 .fillblank-input {
   border: none;
   border-bottom: 2px solid var(--gold);
-  background: #fffdf6;
+  background: var(--look-bg);
   padding: 0.1rem 0.4rem;
   font: inherit;
   margin: 0 0.2rem;
   min-width: 4rem;
   border-radius: 4px 4px 0 0;
 }
-.fillblank-input:focus { outline: none; background: #fff6dc; }
+.fillblank-input:focus { outline: none; background: var(--look-bg); }
 .fillblank-slot {
   display: inline-block;
   min-width: 4rem;
@@ -53,7 +53,7 @@
   min-height: 90px; background: var(--card); transition: border-color 0.15s, background 0.15s;
 }
 .cardsort-bucket-label { font-weight: 700; color: var(--midnight); margin-bottom: 0.45rem; font-size: 0.9rem; }
-.cardsort-tray.droppable, .cardsort-bucket.droppable { border-color: var(--gold); background: #fffdf3; cursor: pointer; }
+.cardsort-tray.droppable, .cardsort-bucket.droppable { border-color: var(--gold); background: var(--look-bg); cursor: pointer; }
 .cardsort-cards { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: flex-start; }
 .sort-card {
   display: inline-block; padding: 0.35rem 0.65rem; border-radius: 999px;
@@ -153,7 +153,7 @@
 .option-correct input { cursor: pointer; }
 .option-row.is-correct .form-input {
   border-color: var(--success);
-  background: #f2f9f3;
+  background: var(--good-bg);
   font-weight: 600;
 }
 
@@ -190,7 +190,7 @@
 .fillblank-slot.answer {
   color: var(--text);
   font-weight: 600;
-  background: #f2f9f3;
+  background: var(--good-bg);
   border-color: var(--success);
 }
 /* The pick is a bare span in this state (the select is gone), so it needs the
@@ -198,7 +198,7 @@
 .matchpairs-pick.answer {
   color: var(--text);
   font-weight: 600;
-  background: #f2f9f3;
+  background: var(--good-bg);
   border: 1px solid var(--success);
   border-radius: 6px;
   padding: 0.3rem 0.5rem;
@@ -212,9 +212,9 @@
   background: transparent;
   border-color: var(--border);
 }
-.reorder-list.answer .reorder-item { background: #f2f9f3; border-color: var(--success); }
+.reorder-list.answer .reorder-item { background: var(--good-bg); border-color: var(--success); }
 .reorder-list.answer .reorder-rank { background: var(--success); color: #fff; }
-.cardsort-buckets.answer .cardsort-bucket { border-color: var(--success); background: #f6fbf7; }
+.cardsort-buckets.answer .cardsort-bucket { border-color: var(--success); background: var(--good-bg); }
 
 /* ══ MARKING THE CORRECT ANSWER, ON THE QUESTION ═══════════════════════════
    The four interactive types used to send the author to a separate Answer key
@@ -246,9 +246,9 @@
   letter-spacing: 0;
   font-size: 0.72rem;
   font-weight: 600;
-  color: #8a6410;
-  background: #fdf1dc;
-  border: 1px solid #efdcb4;
+  color: var(--look-text);
+  background: var(--look-bg);
+  border: 1px solid var(--look-border);
   border-radius: 999px;
   padding: 0.05rem 0.45rem;
 }
@@ -290,7 +290,7 @@
   font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 99px;
   background: #f3f1ec; background: color-mix(in srgb, var(--gold-dark) 10%, white); color: #4a5260; border: 1px solid var(--border); white-space: nowrap;
 }
-.ak-chip.warn { background: #f7ecd6; color: #8a5a00; border-color: transparent; white-space: normal; }
+.ak-chip.warn { background: var(--look-bg); color: var(--look-text); border-color: transparent; white-space: normal; }
 .ak-q-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
 .ak-q-parts { font-size: 0.72rem; font-weight: 600; }
 .ak-q-sum { margin-left: auto; font-weight: 800; color: var(--midnight); }
@@ -298,7 +298,7 @@
 .ak-unkeyed {
   display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
   margin: 0.35rem 0; padding: 0.45rem 0.65rem; border-radius: 6px;
-  background: #f7ecd6; color: #8a5a00; font-size: 0.8rem;
+  background: var(--look-bg); color: var(--look-text); font-size: 0.8rem;
 }
 .ak-unkeyed .ghost { font-size: 0.75rem; padding: 0.15rem 0.55rem; }
 .ak-use-order {

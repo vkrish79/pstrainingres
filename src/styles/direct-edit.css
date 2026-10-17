@@ -15,7 +15,7 @@
 /* Kept as typed: trailing spaces before an answer box, line breaks in a cell. */
 .de-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .de-text:hover,
-.de-rich:hover { outline-color: #d9cfb5; outline-color: color-mix(in srgb, var(--gold) 29%, var(--border)); background: #fdfaf2; }
+.de-rich:hover { outline-color: #d9cfb5; outline-color: color-mix(in srgb, var(--gold) 29%, var(--border)); background: var(--look-bg); }
 .de-text:focus,
 .de-rich:focus { outline: 2px solid var(--gold); background: var(--card); }
 .de-text:empty::before,
@@ -88,7 +88,7 @@
 .de-toast button:hover:where(:not(:disabled)) {
   border: 0;
   background: none;
-  color: #f0d48f;
+  color: var(--look-border);
   font-size: 0.82rem;
   font-weight: 700;
   padding: 0.15rem 0.35rem;

@@ -16,8 +16,8 @@
   border: 1px solid transparent;
 }
 .program-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
-.program-status.is-published { background: #e3f1e9; border-color: #cfe6d9; color: #2f7a52; }
-.program-status.is-published::before { background: #2f8f5f; }
+.program-status.is-published { background: var(--good-bg); border-color: var(--good-border); color: var(--good-text); }
+.program-status.is-published::before { background: var(--good); }
 .program-status.is-draft { background: transparent; border-color: var(--border); color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
 .program-status.is-draft::before { box-shadow: inset 0 0 0 1.5px #9aa4ae; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--midnight-hover) 43%, white); }
 
@@ -57,13 +57,13 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
-  background: #fbecec;
-  border: 1px solid #f0caca;
+  background: var(--problem-bg);
+  border: 1px solid var(--problem-border);
   border-radius: 10px;
   padding: 0.6rem 0.9rem;
   margin: 0 0 0.9rem;
   font-size: 0.87rem;
-  color: #7a2e25;
+  color: var(--problem-text);
 }
 .program-confirm > span { flex: 1 1 20rem; }
 .program-confirm button { padding: 0.35rem 0.8rem; font-size: 0.84rem; }
@@ -130,15 +130,15 @@
   font-size: 0.74rem;
   color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white);
 }
-.program-tile-foot strong { color: #2f7a52; font-weight: 700; }
+.program-tile-foot strong { color: var(--good-text); font-weight: 700; }
 
 /* A piece a class gets: ✓ has it, – doesn't (fine), ! doesn't (a problem). */
 .piece { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.76rem; color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); white-space: nowrap; }
 .piece::before { font-weight: 800; width: 0.7rem; text-align: center; }
-.piece.is-yes::before { content: "✓"; color: #2f8f5f; }
+.piece.is-yes::before { content: "✓"; color: var(--good-text); }
 .piece.is-no { color: #9aa4ae; color: color-mix(in srgb, var(--midnight-hover) 43%, white); }
 .piece.is-no::before { content: "–"; }
-.piece.is-no-bad { color: #a8412f; }
+.piece.is-no-bad { color: var(--problem); }
 .piece.is-no-bad::before { content: "!"; }
 
 /* ── Tables ───────────────────────────────────────────────────────────── */
@@ -160,19 +160,19 @@
 .programs-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .programs-table tbody tr { cursor: default; }
 .programs-list-table tbody tr { cursor: pointer; }
-.programs-table tr.is-selected td { background: #fbf7ee; }
+.programs-table tr.is-selected td { background: var(--look-bg); }
 .programs-table .program-swatch { margin-right: 0.45rem; vertical-align: 1px; }
 /* Not a link any more — the row opens the details. The underline on hover
    went with the anchor; it promised a navigation this no longer does. */
 .program-name-link { font-weight: 600; color: var(--midnight); }
-.programs-running { color: #2f7a52; font-weight: 600; }
+.programs-running { color: var(--good-text); font-weight: 600; }
 .program-class-name { font-weight: 600; color: var(--midnight); }
 .program-class-state { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; font-weight: 600; white-space: nowrap; color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); }
 .program-class-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #9aa4ae; background: color-mix(in srgb, var(--midnight-hover) 43%, white); }
-.program-class-state.is-running { color: #2f7a52; }
-.program-class-state.is-running::before { background: #2f8f5f; }
-.program-class-state.is-ended { color: #94661a; }
-.program-class-state.is-ended::before { background: #c98a1c; }
+.program-class-state.is-running { color: var(--good-text); }
+.program-class-state.is-running::before { background: var(--good); }
+.program-class-state.is-ended { color: var(--look-text); }
+.program-class-state.is-ended::before { background: var(--look); }
 .program-class-state.is-upcoming::before { background: var(--gold); }
 .program-class-state.is-closed { color: #9aa4ae; color: color-mix(in srgb, var(--midnight-hover) 43%, white); }
 .program-row-action { text-align: right; }
@@ -207,7 +207,7 @@
 .program-slot.is-empty { border-style: dashed; background: #fcfbf8; background: color-mix(in srgb, var(--border) 16%, white); grid-template-columns: auto minmax(0, 1fr); }
 .program-slot.is-empty.is-required { border-color: #dcc9a3; background: #fdfaf3; background: color-mix(in srgb, var(--gold) 6%, white); }
 .program-slot.is-empty .program-slot-icon { background: #f1ede5; background: color-mix(in srgb, var(--gold-dark) 13%, white); color: #7d8a97; color: color-mix(in srgb, var(--midnight-hover) 56%, white); }
-.program-slot.is-required .program-slot-icon { background: #f6ecd6; color: var(--gold-dark); }
+.program-slot.is-required .program-slot-icon { background: var(--look-bg); color: var(--gold-dark); }
 .program-slot-picker { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.55rem; flex-wrap: wrap; }
 .program-slot-picker .form-input { flex: 1 1 12rem; min-width: 0; margin: 0; padding: 0.35rem 0.5rem; font-size: 0.84rem; }
 .program-slot-none { font-size: 0.8rem; color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); margin: 0.5rem 0 0; }
@@ -221,7 +221,7 @@
   gap: 0.35rem 0.5rem;
   margin-top: 0.45rem;
   font-size: 0.8rem;
-  color: #a8412f;
+  color: var(--problem);
   font-weight: 600;
 }
 .program-inline-confirm > span { flex: 1 1 14rem; }
@@ -242,7 +242,7 @@
   font-size: 0.58rem;
   font-weight: 800;
   color: #fff;
-  background: #b8574a;
+  background: var(--problem);
   border-radius: 3px;
   padding: 0.15rem 0.25rem;
   margin-top: 0.15rem;
@@ -252,13 +252,13 @@
 .program-mat-sub { display: block; font-size: 0.74rem; color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
 .programs-page .program-tidy {
   background: transparent;
-  color: #94661a;
+  color: var(--look-text);
   padding: 0;
   font-size: inherit;
   font-weight: 600;
   text-decoration: underline;
 }
-.programs-page .program-tidy:hover { background: transparent; color: #6f4c10; }
+.programs-page .program-tidy:hover { background: transparent; color: var(--look-text); }
 .program-rename { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
 .program-rename .form-input { flex: 1 1 12rem; margin: 0; padding: 0.3rem 0.5rem; font-size: 0.85rem; }
 
@@ -288,11 +288,11 @@
    What is left below still serves the program editor's rail. */
 .cockpit-rail .program-alert-static { cursor: default; }
 .cockpit-rail .program-alert-static:hover { background: transparent; }
-.cockpit-dot.tone-ok { background: #2f8f5f; }
+.cockpit-dot.tone-ok { background: var(--good); }
 
 .program-details-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .program-save-state { font-size: 0.74rem; font-weight: 600; color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
-.program-save-state.is-saved { color: #2f7a52; }
+.program-save-state.is-saved { color: var(--good-text); }
 .program-save-state.is-error { color: var(--danger); }
 .program-field { display: block; font-size: 0.74rem; font-weight: 600; color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); margin: 0.55rem 0 0.2rem; }
 .program-details .form-input { width: 100%; margin: 0; padding: 0.4rem 0.55rem; font-size: 0.86rem; }

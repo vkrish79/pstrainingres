@@ -74,9 +74,9 @@
 .prep-upload-btn { cursor: pointer; display: inline-flex; align-items: center; }
 .prep-upload-btn input { display: none; }
 
-.prep-notice { color: #2e7d4f; font-size: 0.9rem; margin: 0.5rem 0; }
-.prep-warn { color: #9a6a00; font-size: 0.85rem; margin: 0.4rem 0; }
-.prep-pending { color: #9a6a00; font-size: 0.85rem; }
+.prep-notice { color: var(--good-text); font-size: 0.9rem; margin: 0.5rem 0; }
+.prep-warn { color: var(--look-text); font-size: 0.85rem; margin: 0.4rem 0; }
+.prep-pending { color: var(--look-text); font-size: 0.85rem; }
 
 /* Upload preview */
 .prep-preview {
@@ -223,7 +223,7 @@
   display: block; height: 100%; border-radius: 4px; background: var(--gold);
   transition: width 0.3s ease;
 }
-.prep-drawer-head-bar.is-done > i { background: #2f8a4c; }
+.prep-drawer-head-bar.is-done > i { background: var(--good); }
 .prep-drawer-head .icon-btn {
   position: absolute; top: 0.45rem; right: 0.55rem;
   background: transparent; color: var(--text); font-size: 1rem; line-height: 1;
@@ -330,7 +330,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 }
 .prep-extract-row .form-label { display: flex; flex-direction: column; gap: 0.25rem; margin: 0; font-size: 0.85rem; }
 .prep-extract-row .form-input.compact { width: 7rem; }
-.prep-warn { color: #9a6a00; font-size: 0.9rem; margin: 0.4rem 0 0; }
+.prep-warn { color: var(--look-text); font-size: 0.9rem; margin: 0.4rem 0 0; }
 
 /* ── prep awaiting a value: listed, but visibly not yet assigned ── */
 .prep-modal-item--pending { opacity: 0.78; }
@@ -410,7 +410,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 /* Disabled while a save is in flight, and permanently for a borrowed column.
    Not faded: a picked tile should still read as picked. */
 .prep-panel .prep-tile:disabled { opacity: 1; cursor: default; }
-.prep-panel .prep-tile.is-asking { outline: 2px solid #d08a1c; outline-offset: 1px; }
+.prep-panel .prep-tile.is-asking { outline: 2px solid var(--look); outline-offset: 1px; }
 /* Kits already carry this one: a dot in the corner. */
 .prep-tile-kits {
   position: absolute; right: -4px; top: -4px;
@@ -448,7 +448,7 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
 /* Asked before removing a column kits still carry. */
 .prep-tiles-confirm {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem;
-  background: #fff4e0; color: #7a4a00; border-radius: 8px;
+  background: var(--look-bg); color: var(--look-text); border-radius: 8px;
   padding: 0.55rem 0.75rem; margin-top: 0.7rem; font-size: 0.84rem;
 }
 .prep-tiles-confirm-actions { display: inline-flex; gap: 0.4rem; flex-shrink: 0; }
@@ -465,8 +465,8 @@ body.has-sidenav .prep-drawer { --prep-right: 1.5rem; }
   border-radius: 999px; padding: 0.2rem 0.3rem 0.2rem 0.75rem;
   font-size: 0.8rem; font-weight: 700;
 }
-.prep-gen-chip.is-gone { background: #fff4e0; border-color: #e0b56a; }
-.prep-gen-chip.is-asking { outline: 2px solid #d08a1c; outline-offset: 1px; }
+.prep-gen-chip.is-gone { background: var(--look-bg); border-color: #e0b56a; }
+.prep-gen-chip.is-asking { outline: 2px solid var(--look); outline-offset: 1px; }
 .prep-panel .prep-gen-x,
 .prep-panel .prep-gen-x:hover:where(:not(:disabled)) {
   display: inline-flex; align-items: center; justify-content: center;

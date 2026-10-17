@@ -33,10 +33,10 @@
 .sf-item.is-na .sf-name { color: #a9b1ba; color: color-mix(in srgb, var(--midnight-hover) 37%, white); }
 .sf-pill { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #f6efe0; color: var(--gold-dark); }
 .sf-pill.is-grey { background: none; border: 1px solid #e3ded3; border: 1px solid color-mix(in srgb, var(--gold-dark) 23%, white); color: #6f7b88; color: color-mix(in srgb, var(--midnight-hover) 61%, var(--bg)); }
-.sf-pill.is-kept { background: none; border: 1px solid #2f7a52; color: #2f7a52; }
+.sf-pill.is-kept { background: none; border: 1px solid var(--good); color: var(--good-text); }
 .sf-warn {
   margin: 0; font-size: 0.8rem; line-height: 1.45; padding: 0.45rem 0.65rem;
-  border-left: 3px solid #c28b2c; background: #f6efe0; border-radius: 0 6px 6px 0;
+  border-left: 3px solid var(--look); background: #f6efe0; border-radius: 0 6px 6px 0;
 }
 .sf-summary { margin: 0; font-size: 0.8rem; line-height: 1.5; background: #f6efe0; border-radius: 8px; padding: 0.55rem 0.7rem; }
 .sf-summary strong { color: var(--midnight); }

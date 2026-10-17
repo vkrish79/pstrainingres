@@ -98,9 +98,9 @@
 .an-legend .an-dot { position: static; width: 10px; height: 10px; transform: none; }
 
 .an-pill { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; white-space: nowrap; }
-.an-pill.pass { background: #e5f1ea; color: #2f7d52; }
-.an-pill.fail { background: #f8e3de; color: #c2503c; }
-.an-pill.absent, .an-pill.incomplete { background: #fbefdc; color: #b8741a; }
+.an-pill.pass { background: var(--good-bg); color: var(--good-text); }
+.an-pill.fail { background: var(--problem-bg); color: var(--problem); }
+.an-pill.absent, .an-pill.incomplete { background: var(--look-bg); color: var(--look); }
 .an-pill.noresult { background: var(--an-soft); color: var(--an-ink2); }
 .an-pill.live { background: #e4ecf4; color: var(--midnight); }
 
@@ -123,7 +123,7 @@
 .an-dot-none { position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: 0.72rem; color: var(--an-muted); }
 .an-dot-res { font-size: 0.74rem; color: var(--an-ink2); text-align: right; }
 .an-dot-res b { font-size: 0.8rem; color: var(--text); }
-.an-dot-res span { display: block; font-size: 0.68rem; color: #b8741a; }
+.an-dot-res span { display: block; font-size: 0.68rem; color: var(--look); }
 .an-showall { margin-top: 0.6rem; border: 1px solid var(--border); background: var(--card); border-radius: 7px; padding: 0.35rem 0.75rem; font: inherit; font-size: 0.76rem; font-weight: 600; color: var(--midnight); cursor: pointer; }
 .an-showall:hover { border-color: var(--midnight); }
 
@@ -203,5 +203,5 @@
 .an-feedback-score { display: grid; grid-template-columns: minmax(80px, 160px) auto; gap: 0.5rem; align-items: center; }
 .an-feedback .pulse-bar { height: 8px; background: #eceae5; background: color-mix(in srgb, var(--border) 73%, white); border-radius: 999px; overflow: hidden; }
 .an-feedback .pulse-bar i { display: block; height: 100%; }
-.an-feedback .pulse-bar.ok i { background: #2f7a52; } .an-feedback .pulse-bar.mid i { background: #c28b2c; } .an-feedback .pulse-bar.poor i { background: #c2503c; }
+.an-feedback .pulse-bar.ok i { background: var(--good); } .an-feedback .pulse-bar.mid i { background: var(--look); } .an-feedback .pulse-bar.poor i { background: var(--problem); }
 .an-feedback-empty { padding: 1rem 0; }

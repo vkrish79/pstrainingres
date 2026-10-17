@@ -68,8 +68,8 @@
   letter-spacing: 0.04em;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  background: #fdf0d5;
-  color: #7a5314;
+  background: var(--look-bg);
+  color: var(--look-text);
 }
 
 .poll-card-answers {
@@ -120,7 +120,7 @@
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
-  background: #2f7d52;
+  background: var(--good);
   margin-right: 0.5rem;
   animation: poll-pulse 1.8s ease-in-out infinite;
 }

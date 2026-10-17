@@ -159,8 +159,8 @@ button.ghost.compact, button.danger.compact {
   border-radius: 999px;
   font-weight: 500;
 }
-.status-pill.warn { background: #fff7d6; color: #856404; }
-.status-pill.ok { background: #e8f5ec; color: #2a7a3d; }
+.status-pill.warn { background: var(--look-bg); color: var(--look-text); }
+.status-pill.ok { background: var(--good-bg); color: var(--good-text); }
 
 /* Session dashboard add/remove participant */
 .participants-header {

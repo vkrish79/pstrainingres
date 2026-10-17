@@ -14,12 +14,23 @@
 // Keep KEYS and the cache keys in step with index.html's inline script.
 import { supabase } from './supabase.js';
 
-export const KEYS = ['midnight', 'midnight-hover', 'gold', 'gold-dark', 'qasr', 'bg', 'card', 'text', 'muted', 'border'];
+export const BRAND_KEYS = ['midnight', 'midnight-hover', 'gold', 'gold-dark', 'qasr', 'bg', 'card', 'text', 'muted', 'border'];
+
+// Status families. The admin picks the family colour; its text, background
+// and border shades are worked out from it (statusShades) and published with
+// it, so pages and the early script in index.html just apply stored values.
+export const FAMILIES = ['good', 'look', 'problem'];
+const ROLES = ['', '-text', '-bg', '-border'];
+export const STATUS_KEYS = FAMILIES.flatMap(f => ROLES.map(r => f + r));
+export const KEYS = [...BRAND_KEYS, ...STATUS_KEYS];
 
 // Today's palette (index.css). "Reset to the default colours" publishes this.
 export const DEFAULTS = {
   midnight: '#1e3c5a', 'midnight-hover': '#162d45', gold: '#b5985a', 'gold-dark': '#8b7342', qasr: '#c9bea6',
   bg: '#f8f7f4', card: '#ffffff', text: '#1a1a1a', muted: '#8a8a8a', border: '#e5e2dc',
+  good: '#2f8f5f', 'good-text': '#287a51', 'good-bg': '#e9f3ee', 'good-border': '#c2ded0',
+  look: '#c98a1c', 'look-text': '#7e5612', 'look-bg': '#f9f2e6', 'look-border': '#edd7b2',
+  problem: '#c2503c', 'problem-text': '#89382a', 'problem-bg': '#f5e1de', 'problem-border': '#edcbc5',
 };
 
 export const CACHE_KEY = 'brand-palette-v1';   // localStorage: last published
@@ -129,4 +140,69 @@ export function readability(p) {
     const ratio = contrast(v(c.fg), v(c.bg));
     return { ...c, ratio, pass: ratio >= (c.min || 4.5), fgHex: v(c.fg), bgHex: v(c.bg) };
   });
+}
+
+// ── status families ──
+// How far each shade sits from the family colour. Fitted to the shades the
+// app used before they were editable, so the defaults look as they did.
+const STATUS_RATIOS = {
+  good: { text: 0.11, bg: 0.105, border: 0.295 },
+  look: { text: 0.375, bg: 0.11, border: 0.34 },
+  problem: { text: 0.295, bg: 0.17, border: 0.295 },
+};
+// Where each family must stay on the colour wheel to keep its meaning.
+export const STATUS_BANDS = { good: [85, 175], look: [22, 58], problem: [340, 18] };
+export const STATUS_NAMES = { good: 'Good', look: 'Needs a look', problem: 'Problem' };
+const KIND = { good: 'a green', look: 'an amber', problem: 'a red' };
+
+const tint = (h, p) => toHex(rgb(h).map(v => v * p + 255 * (1 - p)));
+
+// The family colour plus its three shades. Text is darkened a step at a
+// time until it reads at 4.5:1 on its own background and on white.
+export function statusShades(family, main) {
+  const r = STATUS_RATIOS[family];
+  const bg = tint(main, r.bg), border = tint(main, r.border);
+  let x = r.text, text = darker(main, x);
+  while ((contrast(text, bg) < 4.6 || contrast(text, '#ffffff') < 4.6) && x < 0.9) { x += 0.02; text = darker(main, x); }
+  return { [family]: main, [`${family}-text`]: text, [`${family}-bg`]: bg, [`${family}-border`]: border, deepened: x > r.text + 0.001 };
+}
+
+function hueOf(h) {
+  const [r, g, b] = rgb(h).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (!d) return 0;
+  const H = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (H * 60 + 360) % 360;
+}
+const inBand = (fam, h) => { const [a, b] = STATUS_BANDS[fam]; return a <= b ? h >= a && h <= b : h >= a || h <= b; };
+export const hueOfColour = hueOf;
+
+// Red-green colour blindness (deuteranopia), simple sRGB approximation.
+export function asColourBlind(h) {
+  const [r, g, b] = rgb(h);
+  return toHex([0.625 * r + 0.375 * g, 0.7 * r + 0.3 * g, 0.3 * g + 0.7 * b]);
+}
+const distance = (a, b) => Math.hypot(...rgb(a).map((v, i) => v - rgb(b)[i]));
+
+// The rules for one family, as [kind, message]: 'ok', 'bad' (blocks
+// Publish) or 'warn' (shown, does not block).
+export function statusRules(family, p) {
+  const main = p[family];
+  const s = statusShades(family, main);
+  const out = [];
+  out.push(inBand(family, hueOf(main))
+    ? ['ok', `Still ${KIND[family]}`]
+    : ['bad', `No longer looks like ${KIND[family]}. Pick one inside the outlined band.`]);
+  const c = Math.min(contrast(s[`${family}-text`], s[`${family}-bg`]), contrast(s[`${family}-text`], '#ffffff'));
+  out.push(c >= 4.5
+    ? ['ok', `Its text is readable (${c.toFixed(1)} : 1)${s.deepened ? ', darkened a little to get there' : ''}`]
+    : ['bad', `Its text can't be made readable (${c.toFixed(1)} : 1). Pick a deeper colour.`]);
+  if (family === 'look' && distance(main, p.gold) < 45) out.push(['warn', "Close to the gold accent: a warning could read as a highlight."]);
+  if (family !== 'look') {
+    const other = family === 'good' ? 'problem' : 'good';
+    if (distance(asColourBlind(main), asColourBlind(p[other])) < 60) {
+      out.push(['warn', `To someone with red-green colour blindness this looks like ${STATUS_NAMES[other].toLowerCase()}. Make one lighter or darker.`]);
+    }
+  }
+  return out;
 }

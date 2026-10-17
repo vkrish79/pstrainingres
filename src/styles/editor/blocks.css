@@ -117,7 +117,7 @@
 .block-menu-item:hover:not(:disabled) { background: var(--bg); color: var(--text); }
 .block-menu-item:disabled { opacity: 0.4; }
 .block-menu-item.is-danger { color: var(--danger); }
-.block-menu-item.is-danger:hover:not(:disabled) { background: #fdf0ef; color: var(--danger); }
+.block-menu-item.is-danger:hover:not(:disabled) { background: var(--problem-bg); color: var(--danger); }
 .block-menu-glyph { width: 1.1rem; text-align: center; color: var(--muted); }
 .block-menu-item.is-danger .block-menu-glyph { color: var(--danger); }
 .block-menu-sep { height: 1px; background: var(--border); margin: 0.3rem 0.2rem; }
@@ -161,8 +161,8 @@ button.primary .btn-glyph { color: var(--gold); }
   margin: -0.35rem 0 0.85rem;
   padding: 0.55rem 0.85rem;
   border-radius: 6px;
-  background: #fff7e6;
-  color: #7a5200;
+  background: var(--look-bg);
+  color: var(--look-text);
   font-size: 0.85rem;
   line-height: 1.45;
 }

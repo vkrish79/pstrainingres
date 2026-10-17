@@ -6,6 +6,7 @@ import { isSuperAdmin } from '../../lib/roles.js';
 import {
   KEYS, DEFAULTS, cleanPalette, isHex, darker, readability, fetchPublished,
   startTrying, stopTrying, tryingPalette, adoptPublished,
+  FAMILIES, STATUS_KEYS, STATUS_NAMES, STATUS_BANDS, statusShades, statusRules, asColourBlind, hueOfColour,
 } from '../../lib/branding.js';
 import { SkeletonTable } from '../Skeleton.jsx';
 import '../../styles/branding.css';
@@ -17,10 +18,11 @@ import '../../styles/branding.css';
 // edits a draft, checks people can still read it, and publishes it (always as
 // a new row, so earlier versions stay loadable).
 //
-// STATUS COLOURS ARE NOT HERE ON PURPOSE. Good / needs a look / problem are
-// spread over many hand-picked shades, only one or two of which are the
-// palette colour, so a picker for them would change almost nothing. They are
-// shown, fixed, with that reason.
+// STATUS COLOURS: one picker per family (good, needs a look, problem). The
+// family's text, background and border shades are worked out from it
+// (statusShades) and published with it. Rules: it must stay its colour (a
+// red stays a red) and its text must be readable — both block Publish; good
+// vs problem for colour-blind viewers and amber vs the gold accent only warn.
 
 const GROUPS = [
   {
@@ -50,11 +52,13 @@ const isAutoHover = p => p['midnight-hover'] === darker(p.midnight)
   || (p.midnight === DEFAULTS.midnight && p['midnight-hover'] === DEFAULTS['midnight-hover']);
 
 const NAMES = Object.fromEntries(GROUPS.flatMap(g => g.items.map(i => [i[0], i[1]])));
-const STATUS = [
-  ['#4CAF50', 'Good', 'Saved, Pass, Got it, Working'],
-  ['#FFA726', 'Needs a look', 'Not sure, Quiet, part-marked'],
-  ['#EF5350', 'Problem', 'Lost, Behind pace, Fail, errors'],
-];
+const STATUS_USES = {
+  good: 'Saved, Pass, Got it, Working',
+  look: 'Not sure, Quiet, part-marked, warnings',
+  problem: 'Lost, Behind pace, Fail, errors',
+};
+for (const f of FAMILIES) NAMES[f] = STATUS_NAMES[f];
+const ROLE_LABELS = [['', 'Edges, dots'], ['-text', 'Text'], ['-bg', 'Background'], ['-border', 'Border']];
 
 export default function BrandingSettings() {
   const { profile } = useAuth();
@@ -73,6 +77,7 @@ export default function BrandingSettings() {
   const [error, setError] = useState('');
   const [trying, setTrying] = useState(() => !!tryingPalette());
   const [typed, setTyped] = useState({}); // half-typed codes, so a bad one can be shown as bad
+  const [colourBlind, setColourBlind] = useState(false); // preview only
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -102,14 +107,22 @@ export default function BrandingSettings() {
   }, []);
 
   const checks = useMemo(() => readability(draft), [draft]);
-  const failing = checks.filter(c => !c.pass);
-  const changed = KEYS.filter(k => draft[k] !== published[k]);
+  const rulesBy = useMemo(() => Object.fromEntries(FAMILIES.map(f => [f, statusRules(f, draft)])), [draft]);
+  const statusBad = FAMILIES.flatMap(f => rulesBy[f].filter(r => r[0] === 'bad'));
+  const failing = [...checks.filter(c => !c.pass), ...statusBad];
+  // Named colours only: a family's worked-out shades travel with it.
+  const changed = KEYS.filter(k => NAMES[k] && draft[k] !== published[k]);
 
   function setColour(k, v) {
     setNotice(''); setError(''); setConfirming(false);
     setDraft(prev => {
       const next = { ...prev, [k]: v.toLowerCase() };
       if (k === 'midnight' && autoHover) next['midnight-hover'] = darker(next.midnight);
+      if (FAMILIES.includes(k)) {
+        const { deepened, ...shades } = statusShades(k, next[k]);
+        void deepened;
+        Object.assign(next, shades);
+      }
       return next;
     });
   }
@@ -131,6 +144,13 @@ export default function BrandingSettings() {
     if (e) { setError(e.message); return; }
     // Read it back: a refusal can come back as a 200 with nothing written.
     const back = await fetchPublished();
+    // A database without the status-colour update stores the brand colours
+    // and drops the rest; say so rather than "didn't save".
+    if (back.row && data && back.row.id === data.id && !STATUS_KEYS.every(k => k in (back.row.palette || {}))) {
+      setError('The brand colours were published, but this database needs the status-colours update before the status colours can be. Ask for the branding SQL to be run.');
+      await load();
+      return;
+    }
     const landed = back.row && data && back.row.id === data.id
       && KEYS.every(k => cleanPalette(back.row.palette)[k] === palette[k]);
     if (!landed) { setError("The colours didn't save. Nothing changed for anyone. Try again, or reload the page."); return; }
@@ -159,7 +179,7 @@ export default function BrandingSettings() {
     );
   }
 
-  const previewVars = Object.fromEntries(KEYS.map(k => [`--${k}`, draft[k]]));
+  const previewVars = Object.fromEntries(KEYS.map(k => [`--${k}`, colourBlind ? asColourBlind(draft[k]) : draft[k]]));
   const lockedHover = autoHover;
 
   return (
@@ -225,21 +245,67 @@ export default function BrandingSettings() {
           <div className="brand-group">
             <h3>Status</h3>
             <p className="brand-fixed-note">
-              Fixed. Red, amber and green mean the same thing on every screen, and each is drawn in several shades
-              chosen by hand, so they aren't changed here.
+              Colours that mean something on every screen. Pick one per family; its shades follow. A green must stay
+              a green, an amber an amber, a red a red.
             </p>
-            {STATUS.map(([hex, name, used]) => (
-              <div className="brand-row is-locked" key={name}>
-                <span className="brand-swatch" style={{ background: hex }} />
-                <span className="brand-name">{name}<span>{used}</span></span>
-                <span className="brand-code-fixed">{hex.toLowerCase()}</span>
-              </div>
-            ))}
+            {FAMILIES.map(f => {
+              const k = f;
+              const locked = !canEdit;
+              const code = typed[k] ?? draft[k];
+              const bad = typed[k] !== undefined && !isHex(typed[k].trim().startsWith('#') ? typed[k].trim() : `#${typed[k].trim()}`);
+              const [a, b] = STATUS_BANDS[f];
+              const hue = hueOfColour(draft[k]);
+              return (
+                <div className={`brand-status-fam${draft[k] !== published[k] ? ' is-changed' : ''}`} key={f}>
+                  <div className={`brand-row${locked ? ' is-locked' : ''}`}>
+                    <span className="brand-swatch" style={{ background: draft[k] }}>
+                      <input
+                        type="color" id={`brand-${k}`} value={draft[k]} disabled={locked} aria-label={STATUS_NAMES[f]}
+                        onChange={e => { setTyped(t => ({ ...t, [k]: undefined })); setColour(k, e.target.value); }}
+                      />
+                    </span>
+                    <label htmlFor={`brand-${k}`} className="brand-name">{STATUS_NAMES[f]}<span>{STATUS_USES[f]}</span></label>
+                    <input
+                      className={`form-input brand-code${bad ? ' is-bad' : ''}`} value={code} disabled={locked}
+                      spellCheck={false} autoComplete="off" aria-label={`${STATUS_NAMES[f]} colour code`}
+                      onChange={e => typeCode(k, e.target.value)} onBlur={() => setTyped(t => ({ ...t, [k]: undefined }))}
+                    />
+                  </div>
+                  <div className="brand-hue" aria-hidden="true">
+                    {a <= b
+                      ? <span className="brand-hue-band" style={{ left: `${a / 3.6}%`, width: `${(b - a) / 3.6}%` }} />
+                      : <><span className="brand-hue-band" style={{ left: `${a / 3.6}%`, right: 0 }} /><span className="brand-hue-band" style={{ left: 0, width: `${b / 3.6}%` }} /></>}
+                    <span className="brand-hue-dot" style={{ left: `calc(${hue / 3.6}% - 2px)` }} />
+                  </div>
+                  <div className="brand-roles">
+                    {ROLE_LABELS.map(([r, label]) => (
+                      <span className="brand-role" key={r}>
+                        <i style={{ background: draft[f + r] }} />
+                        <span>{label}<em>{draft[f + r]}</em></span>
+                      </span>
+                    ))}
+                  </div>
+                  <ul className="brand-rules">
+                    {rulesBy[f].map(([kind, msg]) => (
+                      <li key={msg} className={`is-${kind}`}>
+                        <span aria-hidden="true">{kind === 'ok' ? '✓' : kind === 'bad' ? '✗' : '!'}</span>{msg}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         <div className="brand-preview" style={previewVars} aria-label="Preview">
-          <span className="brand-label">Preview</span>
+          <div className="brand-preview-head">
+            <span className="brand-label">Preview</span>
+            <label className="brand-cb">
+              <input type="checkbox" checked={colourBlind} onChange={e => setColourBlind(e.target.checked)} />
+              As someone with red-green colour blindness sees it
+            </label>
+          </div>
           <div className="bp-shell">
             <div className="bp-nav"><b>Sessions</b><span className="on">Room</span><span>Workbook</span><span>Assessment</span></div>
             <div className="bp-body">
@@ -267,6 +333,19 @@ export default function BrandingSettings() {
                   <tbody><tr><td>1</td><td>Trainee1</td><td>81%</td></tr></tbody>
                 </table>
               </div>
+              <div className="bp-row">
+                <span className="bp-status is-good">✓ Saved · just now</span>
+                <span className="bp-status is-look">2 need a look</span>
+                <span className="bp-status is-problem">Couldn't save · Retry</span>
+              </div>
+              <div className="bp-tiles">
+                <div className="bp-tile is-good"><b>Trainee14</b><small>Working</small><span className="bp-tap is-good">👍 9</span></div>
+                <div className="bp-tile is-look"><b>Trainee5</b><small>Quiet 12 min</small><span className="bp-tap is-look">🤔 1</span></div>
+                <div className="bp-tile is-problem"><b>Trainee6</b><small>Behind pace</small><span className="bp-tap is-problem is-now">😕 2</span></div>
+              </div>
+              <div className="bp-box is-look">✋ 3 questions still to mark by hand. Scores below are interim.</div>
+              <div className="bp-box is-problem">Couldn't load your workbooks. Nothing was changed.</div>
+              <div className="bp-results"><span>Trainee1 · 81%</span><b className="is-good">PASS</b><span>Trainee11 · 14%</span><b className="is-problem">FAIL</b></div>
               <p className="bp-quiet">Quiet text looks like this · 2 h ago</p>
             </div>
           </div>
@@ -292,7 +371,7 @@ export default function BrandingSettings() {
           <div className="brand-bar">
             <span className={`brand-status${failing.length ? ' is-err' : ''}`} role="status">
               {notice ? notice
-                : failing.length ? <><strong>{failing.length} pair{failing.length === 1 ? ' is' : 's are'} too hard to read.</strong> Fix {failing.length === 1 ? 'it' : 'them'} to publish.</>
+                : failing.length ? <><strong>{failing.length} check{failing.length === 1 ? '' : 's'} failing.</strong> Fix {failing.length === 1 ? 'it' : 'them'} to publish (marked ✗ above).</>
                   : changed.length ? <><strong>{changed.length} colour{changed.length === 1 ? '' : 's'} changed:</strong> {changed.map(k => NAMES[k]).join(', ')}.</>
                     : 'No changes.'}
             </span>

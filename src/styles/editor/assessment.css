@@ -18,15 +18,15 @@
   padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap;
 }
 .answer-key-count.none { background: #f0f3f7; background: color-mix(in srgb, var(--midnight) 6%, white); color: var(--muted); }
-.answer-key-count.partial { background: #fff4e0; color: #8a5a00; }
-.answer-key-count.full { background: #e8f5ec; color: #2a7a3d; }
+.answer-key-count.partial { background: var(--look-bg); color: var(--look-text); }
+.answer-key-count.full { background: var(--good-bg); color: var(--good-text); }
 
 .answer-key-error {
   margin: 0 1.25rem 1rem;
   padding: 0.6rem 0.85rem;
-  background: #fdecec;
-  border: 1px solid #e0b4b4;
-  color: #a12a2a;
+  background: var(--problem-bg);
+  border: 1px solid var(--problem-border);
+  color: var(--problem-text);
   border-radius: 8px;
   font-size: 0.85rem;
 }
@@ -55,7 +55,7 @@
   background: transparent; border: none; cursor: pointer;
   color: var(--muted); font-size: 0.75rem; text-decoration: underline; padding: 0;
 }
-.answer-key-clear:hover { color: #a13a3a; }
+.answer-key-clear:hover { color: var(--problem); }
 .answer-key-checks { display: flex; flex-direction: column; gap: 0.3rem; }
 .answer-key-check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; cursor: pointer; }
 .answer-key-cells { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -218,8 +218,8 @@
 /* Full database error from a failed regroup — shown in the panel rather than
    left in DevTools, because .message alone is often the least useful field. */
 .organise-error-detail {
-  border: 1px solid #e0b4b4;
-  background: #fdf6f6;
+  border: 1px solid var(--problem-border);
+  background: var(--problem-bg);
   border-radius: 8px;
   padding: 0.75rem 0.9rem;
   margin: 0.5rem 0 0.9rem;
@@ -227,7 +227,7 @@
 }
 .organise-error-head {
   font-weight: 700;
-  color: #a83838;
+  color: var(--problem);
   margin-bottom: 0.4rem;
 }
 .organise-error-detail table { border-collapse: collapse; width: 100%; }
@@ -315,7 +315,7 @@
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--gold-dark, #8a5a00);
-  background: #faf3e4;
+  background: var(--look-bg);
   border-radius: 999px;
   padding: 0.15rem 0.5rem;
   white-space: nowrap;
@@ -338,8 +338,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #8c3327;
-  background: #fbeae7;
+  color: var(--problem-text);
+  background: var(--problem-bg);
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
   white-space: nowrap;
@@ -355,7 +355,7 @@
 .withdraw-state { display: inline-flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
 .withdraw-badge {
   font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-  color: #8c3327; background: #fbeae7; border-radius: 999px; padding: 0.12rem 0.5rem;
+  color: var(--problem-text); background: var(--problem-bg); border-radius: 999px; padding: 0.12rem 0.5rem;
 }
 .withdraw-reason {
   font-size: 0.78rem; font-style: italic; color: var(--muted);
@@ -367,16 +367,16 @@
 .withdraw-ask {
   width: 100%;
   border: 1px solid var(--border);
-  border-left: 3px solid #8c3327;
+  border-left: 3px solid var(--problem);
   border-radius: 8px;
   padding: 0.7rem 0.9rem;
   margin: 0.4rem 0;
-  background: #fdf7f6;
+  background: var(--problem-bg);
 }
 .withdraw-label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem; }
 .withdraw-required {
   font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-  color: #8c3327; background: #fbeae7; border-radius: 999px; padding: 0.05rem 0.4rem;
+  color: var(--problem-text); background: var(--problem-bg); border-radius: 999px; padding: 0.05rem 0.4rem;
 }
 .withdraw-ask-row { display: flex; gap: 0.5rem; align-items: center; }
 .withdraw-ask-row .form-input { flex: 1; }

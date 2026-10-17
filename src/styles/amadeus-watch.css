@@ -63,9 +63,9 @@
   align-items: center;
   gap: 0.4rem;
   border-radius: 999px;
-  border: 1px solid #f0c4bf;
-  background: #fff6f5;
-  color: #8f2a1f;
+  border: 1px solid var(--problem-border);
+  background: var(--problem-bg);
+  color: var(--problem-text);
   font-weight: 600;
   font-size: 0.85rem;
   padding: 0.2rem 0.3rem 0.2rem 0.7rem;
@@ -101,7 +101,7 @@
 }
 .amx-ask { background: #eef3f8; border: 1px solid #c9d6e3; color: var(--midnight); }
 .amx-ask-actions { display: flex; gap: 0.5rem; align-items: center; }
-.amx-warn { background: #fff3e0; border: 1px solid #ffd59e; color: #7a4a00; }
+.amx-warn { background: var(--look-bg); border: 1px solid var(--look-border); color: var(--look-text); }
 .amx-note { background: #f6f3ec; background: color-mix(in srgb, var(--gold) 11%, white); border: 1px solid #e3dccb; border: 1px solid color-mix(in srgb, var(--qasr) 56%, white); color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); }
 .amx-diag {
   position: fixed;
@@ -133,7 +133,7 @@
 .amx-thumb.is-hand { height: 70px; width: 124px; flex: none; }
 .amx-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
 .amx-thumb.is-none { display: grid; place-items: center; font-size: 0.72rem; color: #8a96a3; color: color-mix(in srgb, var(--midnight-hover) 50%, white); text-align: center; padding: 0 0.4rem; }
-.amx-thumb.is-off b, .amx-sq-img.is-empty b { display: block; color: #b0473a; font-weight: 600; }
+.amx-thumb.is-off b, .amx-sq-img.is-empty b { display: block; color: var(--problem); font-weight: 600; }
 .amx-thumb-how { display: block; font-size: 0.68rem; color: #8a96a3; color: color-mix(in srgb, var(--midnight-hover) 50%, white); }
 .amx-sq-img.is-empty > span { text-align: center; }
 .amx-thumb.is-paused img { filter: grayscale(1) blur(2px); opacity: 0.5; }
@@ -152,7 +152,7 @@
 .amx-room { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .amx-room-count { font-size: 0.82rem; color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); white-space: nowrap; }
 .amx-room-count b { color: var(--midnight); }
-.amx-room-missing { font-size: 0.82rem; color: #b0473a; max-width: 26rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.amx-room-missing { font-size: 0.82rem; color: var(--problem); max-width: 26rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .amx-room-pics { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); cursor: pointer; }
 
 /* ── trainer: Selected card + hands ── */
@@ -164,7 +164,7 @@
 .hands-bar-watch:hover:not(:disabled) { background: transparent; }
 
 /* ── trainer: the watch view ── */
-.amx-live { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; color: #c62828; display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.amx-live { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; color: var(--problem); display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
 .amx-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #e53935; }
 .amx-live.is-wait { color: #7d8a97; color: color-mix(in srgb, var(--midnight-hover) 56%, white); }
 .amx-live.is-wait::before { background: #b5bcc4; background: color-mix(in srgb, var(--midnight-hover) 32%, white); }
@@ -188,7 +188,7 @@
 .amx-wall-sizes button[aria-pressed="true"]:hover:not(:disabled) { background: var(--midnight); color: #ffffff; }
 .amx-wall-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--sq), 100%), 1fr)); gap: 0.6rem; }
 .amx-sq { background: var(--card); border: 1px solid #e2e5ea; border: 1px solid color-mix(in srgb, var(--midnight) 13%, white); border-radius: 8px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; min-width: 0; }
-.amx-sq.has-hand { border: 2px solid #c2503c; }
+.amx-sq.has-hand { border: 2px solid var(--problem); }
 .amx-sq.is-off { opacity: 0.8; }
 .amx-sq-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; padding: 0.35rem 0.55rem; font-size: 0.8rem; min-width: 0; }
 .amx-sq-head b { color: var(--midnight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

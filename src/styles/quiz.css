@@ -155,8 +155,8 @@
 }
 .quiz-opt-badge .quiz-shape { width: 68%; height: 68%; fill: #fff; display: block; }
 .quiz-opt-badge.s0 { background: #1f6fb2; }
-.quiz-opt-badge.s1 { background: #b1512f; }
-.quiz-opt-badge.s2 { background: #2f7d52; }
+.quiz-opt-badge.s1 { background: var(--problem); }
+.quiz-opt-badge.s2 { background: var(--good); }
 .quiz-opt-badge.s3 { background: #6a4b9c; }
 
 /* The wager tag is amber, not the blue every other kind tag uses: it is not
@@ -166,7 +166,7 @@
 .quiz-kind-wager {
   background: rgba(180, 130, 20, 0.16);
   border-color: rgba(180, 130, 20, 0.55);
-  color: #8a6410;
+  color: var(--look-text);
 }
 
 /* One line, and it no longer stretches the width of the card: a control
@@ -488,9 +488,9 @@
 /* Same trap, same fix: without a background of its own the cross fills
    midnight and its red mark disappears into it. */
 .quiz-media-x:hover {
-  background: #fdecea;
-  border-color: #b3261e;
-  color: #b3261e;
+  background: var(--problem-bg);
+  border-color: var(--problem);
+  color: var(--problem);
 }
 
 /* Says which copy is open. A notice, not an error — editing the library master
@@ -507,9 +507,9 @@
   flex-wrap: wrap;
   padding: 0.75rem 1rem;
   border-radius: 10px;
-  background: #fdf0d5;
+  background: var(--look-bg);
   border: 1px solid #e8d3a4;
-  color: #5c4410;
+  color: var(--look-text);
 }
 .quiz-live-tools { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .quiz-live-dot {
@@ -517,7 +517,7 @@
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
-  background: #b4761a;
+  background: var(--look);
   margin-right: 0.5rem;
   animation: quiz-live-pulse 1.8s ease-in-out infinite;
 }
@@ -582,7 +582,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2e7d4f;
+  background: var(--good);
   flex: 0 0 auto;
 }
 .quiz-live-title { font-weight: 600; }

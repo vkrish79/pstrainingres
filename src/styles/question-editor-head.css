@@ -15,10 +15,10 @@
 /* "● Unsaved question changes · Save · Discard" */
 .qe-draft {
   display: inline-flex; align-items: center; gap: 0.4rem;
-  background: #fff7e8; border: 1px solid #f3d29a; border-radius: 999px;
+  background: var(--look-bg); border: 1px solid var(--look-border); border-radius: 999px;
   padding: 0.2rem 0.3rem 0.2rem 0.7rem;
 }
-.qe-draft-text { font-size: 0.78rem; font-weight: 700; color: #a65c00; white-space: nowrap; }
+.qe-draft-text { font-size: 0.78rem; font-weight: 700; color: var(--look-text); white-space: nowrap; }
 .qe-draft .qe-draft-save {
   padding: 0.25rem 0.8rem; font-size: 0.78rem; border-radius: 999px;
 }
@@ -36,20 +36,20 @@
   padding: 0.3rem 0.8rem; font-size: 0.8rem; font-weight: 600;
 }
 .qe-setup .qe-chip:hover:where(:not(:disabled)) { background: var(--bg); color: var(--text); border-color: var(--gold); }
-.qe-setup .qe-chip.is-ok { background: #e8f5e9; border-color: #b9dfbb; color: #2e7d32; }
-.qe-setup .qe-chip.is-ok:hover:where(:not(:disabled)) { background: #dcefdd; color: #2e7d32; }
-.qe-setup .qe-chip.is-warn { background: #fff3e0; border-color: #ffd59e; color: #a65c00; }
-.qe-setup .qe-chip.is-warn:hover:where(:not(:disabled)) { background: #ffe9c7; color: #a65c00; }
-.qe-setup .qe-chip.is-bad { background: #fdecea; border-color: #f5c2bf; color: #c62828; }
-.qe-setup .qe-chip.is-bad:hover:where(:not(:disabled)) { background: #fbdcd9; color: #c62828; }
+.qe-setup .qe-chip.is-ok { background: var(--good-bg); border-color: var(--good-border); color: var(--good-text); }
+.qe-setup .qe-chip.is-ok:hover:where(:not(:disabled)) { background: var(--good-bg); color: var(--good-text); }
+.qe-setup .qe-chip.is-warn { background: var(--look-bg); border-color: var(--look-border); color: var(--look-text); }
+.qe-setup .qe-chip.is-warn:hover:where(:not(:disabled)) { background: var(--look-bg); color: var(--look-text); }
+.qe-setup .qe-chip.is-bad { background: var(--problem-bg); border-color: var(--problem-border); color: var(--problem); }
+.qe-setup .qe-chip.is-bad:hover:where(:not(:disabled)) { background: var(--problem-bg); color: var(--problem); }
 
 /* A failed staged save, as a sentence. */
 .qe-save-error {
-  background: #fffafa; background: color-mix(in srgb, var(--border) 9%, white); border: 1px solid #f5c2bf; border-radius: 10px;
+  background: #fffafa; background: color-mix(in srgb, var(--border) 9%, white); border: 1px solid var(--problem-border); border-radius: 10px;
   padding: 0.75rem 1rem; margin: 0 0 1rem; display: grid; gap: 0.35rem;
 }
 .qe-save-error p { margin: 0; }
-.qe-save-error-head { font-weight: 600; color: #c62828; font-size: 0.9rem; }
+.qe-save-error-head { font-weight: 600; color: var(--problem); font-size: 0.9rem; }
 .qe-save-error-detail { color: var(--muted); font-size: 0.78rem; word-break: break-word; }
 .qe-save-error-actions { display: flex; gap: 0.5rem; }
 .qe-save-error-actions button { padding: 0.3rem 0.8rem; font-size: 0.8rem; }

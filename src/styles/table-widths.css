@@ -30,8 +30,8 @@
 
 .tw-rowfit { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
 .tw-chip { border-radius: 999px; padding: 1px 7px; font-size: 0.68rem; font-weight: 800; white-space: nowrap; }
-.tw-chip.wide { background: #f9e7e3; color: #c2503c; }
-.tw-chip.short { background: #fdf3e1; color: #b7791f; }
+.tw-chip.wide { background: var(--problem-bg); color: var(--problem); }
+.tw-chip.short { background: var(--look-bg); color: var(--look); }
 
 /* the row-fit column: no grid lines, just the chip */
 .tw-status-col, table td.tw-status, table th.tw-status { width: 10.5rem; }
@@ -46,7 +46,7 @@ table td.tw-status, table th.tw-status {
   border-bottom: 2px solid transparent !important;
 }
 .tw-ruler td.hit { color: var(--gold-dark); font-weight: 800; border-bottom-color: var(--gold) !important; }
-.tw-ruler td.out { color: #c2503c; }
+.tw-ruler td.out { color: var(--problem); }
 .tw-ruler td.edge { box-shadow: inset -2px 0 0 rgba(30, 60, 90, 0.45); }
 
 /* the floating control beside the selected cell */
@@ -70,7 +70,7 @@ table td.tw-status, table th.tw-status {
 
 /* cells */
 table td.tw-sel, table th.tw-sel { outline: 2px solid var(--gold); outline-offset: -2px; }
-table td.tw-past, table th.tw-past { background: #f9e7e3 !important; }
+table td.tw-past, table th.tw-past { background: var(--problem-bg) !important; }
 .tw-pick {
   position: absolute; top: 2px; right: 2px; z-index: 1;
   border: 1px solid var(--border); background: var(--card); color: var(--midnight);

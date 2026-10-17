@@ -124,11 +124,11 @@
   letter-spacing: 0.05em;
   white-space: nowrap;
 }
-.session-pill.live { background: #eef5f0; color: #1d6b41; }
+.session-pill.live { background: var(--good-bg); color: var(--good-text); }
 .session-pill.closed { background: var(--bg); color: var(--muted); }
 /* A session with no dates is not an error, but it is something to go and fix —
    it cannot appear on the calendar until it has them. */
-.session-pill.undated { background: #faf3e4; color: var(--gold-dark); }
+.session-pill.undated { background: var(--look-bg); color: var(--gold-dark); }
 
 /* ── Calendar ────────────────────────────────────────────────────────── */
 
@@ -199,7 +199,7 @@
 /* A GOLD DISC, not a hairline at the top of the cell. The old 2px inset rule
    was easy to miss on a busy row and impossible to see at all on a row whose
    bars started at the top. */
-.session-cal-day.today { background: #fdfaf2; }
+.session-cal-day.today { background: var(--look-bg); }
 .session-cal-day.today .session-cal-daynum {
   display: inline-grid;
   place-items: center;
@@ -642,25 +642,25 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: #fdf6e6;
-  border: 1px solid #ecd9ae;
+  background: var(--look-bg);
+  border: 1px solid var(--look-border);
   border-radius: 10px;
   padding: 0.6rem 0.9rem;
   margin: 0 0 0.9rem;
 }
-.leftopen-dot { width: 9px; height: 9px; border-radius: 50%; background: #c98a1c; flex: 0 0 auto; }
+.leftopen-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--look); flex: 0 0 auto; }
 .leftopen-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.05rem; }
-.leftopen-text strong { color: #7a5410; font-size: 0.92rem; }
-.leftopen-text span { font-size: 0.82rem; color: #7a5f1a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leftopen-text strong { color: var(--look-text); font-size: 0.92rem; }
+.leftopen-text span { font-size: 0.82rem; color: var(--look-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .leftopen-banner .leftopen-toggle {
   background: var(--card);
-  color: #7a5410;
+  color: var(--look-text);
   border: 1px solid #e3cf9f;
   padding: 0.35rem 0.8rem;
   font-size: 0.84rem;
   white-space: nowrap;
 }
-.leftopen-banner .leftopen-toggle:hover:where(:not(:disabled)) { background: #f7e6c4; }
+.leftopen-banner .leftopen-toggle:hover:where(:not(:disabled)) { background: var(--look-border); }
 
 /* ══ THE SESSIONS COCKPIT ══════════════════════════════════════════════════
    The hero, the tab counts and the gauge strip that replaced two amber
@@ -725,8 +725,8 @@
 /* The relative half of the date cell. Amber when a class is waiting to be
    closed, green while it is in the room, plain grey for everything else —
    which is most rows, and is what keeps the other two visible. */
-.session-list-sub.is-late { color: #a2740f; font-weight: 600; }
-.session-list-sub.is-running { color: #2f8f5f; font-weight: 600; }
+.session-list-sub.is-late { color: var(--look-text); font-weight: 600; }
+.session-list-sub.is-running { color: var(--good-text); font-weight: 600; }
 
 /* ══ THE FILTERS POPOVER ═══════════════════════════════════════════════════
    Program, program type, city and vendor moved off the row and behind a
@@ -855,8 +855,8 @@
   font-weight: 700;
   letter-spacing: 0.02em;
 }
-.session-card-state.is-late { background: #fdf1dc; color: #8a6410; border: 1px solid #efdcb4; }
-.session-card-state.is-running { background: #e6f4ec; color: #1f6f48; border: 1px solid #c4e4d2; }
+.session-card-state.is-late { background: var(--look-bg); color: var(--look-text); border: 1px solid var(--look-border); }
+.session-card-state.is-running { background: var(--good-bg); color: var(--good-text); border: 1px solid var(--good-border); }
 
 /* THE SLACK LIVES HERE. Everything below sits on the same line across the row
    however deep the title above it ran. */
@@ -870,8 +870,8 @@
   color: #4b5a6a; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border));
 }
 .session-card-rel { font-size: 0.74rem; color: var(--muted); }
-.session-card-rel.is-late { color: #a2740f; font-weight: 600; }
-.session-card-rel.is-running { color: #2f8f5f; font-weight: 600; }
+.session-card-rel.is-late { color: var(--look-text); font-weight: 600; }
+.session-card-rel.is-running { color: var(--good-text); font-weight: 600; }
 .session-card-nodates { color: var(--muted); font-style: italic; }
 
 .session-card-foot {

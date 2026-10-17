@@ -86,7 +86,7 @@
   display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
   margin: -0.4rem 0 1rem;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #f0caca; border-radius: 8px; background: #fdf3f3;
+  border: 1px solid var(--problem-border); border-radius: 8px; background: var(--problem-bg);
 }
 .wbe-confirm button { font-size: 0.8rem; padding: 0.3rem 0.7rem; }
 .wbe-prep-slot { scroll-margin-top: 1rem; }

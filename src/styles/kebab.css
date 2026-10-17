@@ -64,7 +64,7 @@
 .kebab-menu .kebab-item:hover:not(:disabled) { background: var(--bg); color: var(--text); }
 .kebab-menu .kebab-item:disabled { opacity: 0.4; background: transparent; }
 .kebab-menu .kebab-item.danger { color: var(--danger); background: transparent; }
-.kebab-menu .kebab-item.danger:hover:not(:disabled) { background: #fdf0ef; color: var(--danger); }
+.kebab-menu .kebab-item.danger:hover:not(:disabled) { background: var(--problem-bg); color: var(--danger); }
 
 .kebab-menu .kebab-glyph { width: 1.1rem; text-align: center; color: var(--muted); }
 .kebab-menu .kebab-item.danger .kebab-glyph { color: var(--danger); }

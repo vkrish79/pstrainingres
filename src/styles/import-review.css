@@ -10,12 +10,12 @@
 .ir-upload-main { display: grid; gap: 0.75rem; justify-items: center; }
 .ir-drop {
   width: 100%; box-sizing: border-box;
-  border: 2px dashed #cfc6b2; border: 2px dashed color-mix(in srgb, var(--gold-dark) 41%, white); border-radius: 14px; background: #fffdf8;
+  border: 2px dashed #cfc6b2; border: 2px dashed color-mix(in srgb, var(--gold-dark) 41%, white); border-radius: 14px; background: var(--look-bg);
   padding: 3rem 1.75rem; text-align: center;
   display: grid; gap: 0.6rem; justify-items: center; cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.ir-drop:hover, .ir-drop:focus-visible, .ir-drop.over { border-color: var(--gold); background: #fbf6ea; outline: none; }
+.ir-drop:hover, .ir-drop:focus-visible, .ir-drop.over { border-color: var(--gold); background: var(--look-bg); outline: none; }
 .ir-drop.busy { cursor: progress; opacity: 0.75; }
 .ir-drop-doc {
   width: 54px; height: 66px; border-radius: 6px; background: #2b579a; color: #fff;
@@ -57,8 +57,8 @@
 .ir-title:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
 .ir-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .ir-chip { font-size: 0.76rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #f1efe9; background: color-mix(in srgb, var(--gold-dark) 11%, white); color: #4f4a42; color: color-mix(in srgb, var(--qasr) 39%, black); }
-.ir-chip.ok { background: #e7f3ea; color: #2f8a4a; }
-.ir-chip.warn { background: #fdf3e1; color: #b7791f; }
+.ir-chip.ok { background: var(--good-bg); color: var(--good-text); }
+.ir-chip.warn { background: var(--look-bg); color: var(--look); }
 .ir-head-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
 .ir-note { font-size: 0.75rem; color: var(--muted); }
 .ir-head-extra { flex: 1 0 100%; border-top: 1px solid var(--border); padding-top: 0.55rem; font-size: 0.85rem; }
@@ -90,9 +90,9 @@
 .ir-rail-item.group { margin-top: 0.45rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--midnight); font-weight: 800; }
 .ir-rail-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ir-rail-n { font-size: 0.72rem; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ir-rail-n em { font-style: normal; color: #b7791f; }
-.ir-dot { width: 7px; height: 7px; border-radius: 50%; background: #2f8a4a; flex: 0 0 auto; display: inline-block; }
-.ir-dot.w { background: #d69e2e; }
+.ir-rail-n em { font-style: normal; color: var(--look); }
+.ir-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); flex: 0 0 auto; display: inline-block; }
+.ir-dot.w { background: var(--look); }
 .ir-dot.z { background: #d4cfc4; background: color-mix(in srgb, var(--gold-dark) 17%, var(--border)); }
 .ir-rail-legend { display: grid; gap: 0.3rem; font-size: 0.72rem; color: var(--muted); padding: 0.6rem 0.5rem 0.2rem; border-top: 1px solid var(--border); margin-top: 0.5rem; }
 .ir-rail-legend .ir-dot { margin-right: 0.3rem; }
@@ -105,7 +105,7 @@
 .ir-doc-rule { height: 2px; background: var(--gold); opacity: 0.7; margin-bottom: 0.9rem; }
 .ir-blk { position: relative; padding: 0.3rem 0.6rem; margin: 0 -0.6rem 0.35rem; border-radius: 8px; }
 .ir-blk:hover, .ir-blk.focus { background: var(--bg); }
-.ir-blk.sugq { outline: 1.5px dashed #d69e2e; outline-offset: -2px; background: #fffaf0; }
+.ir-blk.sugq { outline: 1.5px dashed var(--look); outline-offset: -2px; background: var(--look-bg); }
 .ir-blk .wb-prose > :first-child { margin-top: 0; }
 .ir-blk .wb-prose > :last-child { margin-bottom: 0; }
 .ir-blk .wb-prose img { max-width: 100%; }
@@ -115,7 +115,7 @@
   font-size: 0.7rem; font-weight: 800; display: grid; place-items: center;
 }
 .ir-what:hover, .ir-blk.focus .ir-what { background: #f4eddc; border-color: var(--gold); color: var(--gold-dark); }
-.ir-what.w { border-color: #d69e2e; color: #b7791f; background: #fdf3e1; }
+.ir-what.w { border-color: var(--look); color: var(--look); background: var(--look-bg); }
 .ir-what.static { cursor: default; opacity: 0.6; }
 .ir-field .wb-block { margin: 0; }
 .ir-pnr-tag { font-size: 0.72rem; font-weight: 800; color: var(--gold-dark); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.3rem; }
@@ -140,8 +140,8 @@
 .ir-table-wrap { margin: 0.3rem 0 0.4rem; }
 .ir-table-bar {
   display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-  font-size: 0.78rem; font-weight: 700; color: #b7791f;
-  background: #fdf3e1; border: 1px solid #ecdcb8; border-bottom: 0; border-radius: 8px 8px 0 0; padding: 0.35rem 0.6rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--look);
+  background: var(--look-bg); border: 1px solid #ecdcb8; border-bottom: 0; border-radius: 8px 8px 0 0; padding: 0.35rem 0.6rem;
 }
 .ir-table-bar span { margin-right: auto; }
 .ir-table td { vertical-align: middle; }
@@ -159,8 +159,8 @@
 }
 .ir-box:hover { background: #e8f0f9; border-color: var(--midnight); }
 .ir-box.long { min-height: 50px; }
-.ir-box.sug { border: 1.5px dashed #d69e2e; background: #fdf3e1; }
-.ir-box.sug:hover { background: #fbe7c0; border-color: #b7791f; }
+.ir-box.sug { border: 1.5px dashed var(--look); background: var(--look-bg); }
+.ir-box.sug:hover { background: var(--look-border); border-color: var(--look); }
 .ir-box.empty { border: 1px dashed transparent; background: transparent; }
 .ir-box.empty:hover { border-color: #b9c6d4; background: #f7f9fc; background: color-mix(in srgb, var(--card) 97%, var(--midnight)); }
 .ir-legend .ir-box.empty { border-color: #d4cfc4; border-color: color-mix(in srgb, var(--gold-dark) 17%, var(--border)); }
@@ -178,16 +178,16 @@
 .ir-issues h3, .ir-legend h3 { margin: 0; font-size: 0.9rem; color: var(--text); }
 .ir-issues-sep { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 800; padding-top: 0.2rem; }
 .ir-quiet { margin: 0; font-size: 0.82rem; color: var(--muted); }
-.ir-issue { border: 1px solid #ecdcb8; background: #fffaf0; border-radius: 10px; padding: 0.6rem 0.7rem; display: grid; gap: 0.4rem; font-size: 0.82rem; }
+.ir-issue { border: 1px solid #ecdcb8; background: var(--look-bg); border-radius: 10px; padding: 0.6rem 0.7rem; display: grid; gap: 0.4rem; font-size: 0.82rem; }
 .ir-issue-where {
-  justify-self: start; background: transparent; padding: 0; color: #b7791f;
+  justify-self: start; background: transparent; padding: 0; color: var(--look);
   font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; text-align: left;
 }
 .ir-issue-where:hover { background: transparent; text-decoration: underline; }
 .ir-issue-q { font-weight: 600; line-height: 1.4; }
 .ir-issue-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-.ir-issue.done { border-color: #cfe5d5; background: #e7f3ea; }
-.ir-issue.done .ir-issue-where { color: #2f8a4a; }
+.ir-issue.done { border-color: var(--good-border); background: var(--good-bg); }
+.ir-issue.done .ir-issue-where { color: var(--good-text); }
 .ir-legend { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; display: grid; gap: 0.45rem; font-size: 0.78rem; }
 .ir-lg { display: grid; grid-template-columns: 54px 1fr; gap: 0.5rem; align-items: center; }
 .ir-lg .ir-box { cursor: default; }
@@ -200,11 +200,11 @@
 
 /* An import that failed: said beside Create, where the trainer is looking. */
 .ir-error {
-  font-size: 0.78rem; font-weight: 600; color: #c62828;
-  background: #fdecea; border: 1px solid #f5c2bf; border-radius: 8px;
+  font-size: 0.78rem; font-weight: 600; color: var(--problem);
+  background: var(--problem-bg); border: 1px solid var(--problem-border); border-radius: 8px;
   padding: 0.3rem 0.6rem; max-width: 34rem;
 }
 /* Discard asks first: the review's fixes are lost with it. */
 .ir-confirm { font-size: 0.8rem; font-weight: 600; color: var(--text); }
-.ir-btn-danger { background: #c62828; color: #fff; border: 1px solid #c62828; }
-.ir-btn-danger:hover:where(:not(:disabled)) { background: #a61f1f; }
+.ir-btn-danger { background: var(--problem); color: #fff; border: 1px solid var(--problem); }
+.ir-btn-danger:hover:where(:not(:disabled)) { background: var(--problem); }

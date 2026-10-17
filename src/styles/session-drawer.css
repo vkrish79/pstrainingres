@@ -143,11 +143,11 @@
   color: var(--midnight);
 }
 .session-drawer-foot .danger {
-  background: #b3261e;
-  border-color: #b3261e;
+  background: var(--problem);
+  border-color: var(--problem);
   color: #fff;
 }
-.session-drawer-foot .danger:hover { background: #8f1d17; border-color: #8f1d17; }
+.session-drawer-foot .danger:hover { background: var(--problem); border-color: var(--problem); }
 
 @media print {
   .session-drawer,

@@ -419,7 +419,7 @@
   border: 1px solid #c9974a;
   border-left-width: 3px;
   border-radius: 4px;
-  background: #fdf6e9;
+  background: var(--look-bg);
 }
 .eh-conflict p { margin: 0 0 0.4rem; font-size: 0.76rem; line-height: 1.45; }
 

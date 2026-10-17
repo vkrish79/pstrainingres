@@ -12,9 +12,27 @@
   --text: #1a1a1a;
   --muted: #8a8a8a;
   --border: #e5e2dc;
-  --danger: #EF5350;
-  --success: #4CAF50;
-  --warning: #FFA726;
+  --danger: var(--problem);
+  --success: var(--good);
+  --warning: var(--look);
+
+  /* Status families (Settings → Branding). Each is one colour plus three
+     shades worked out from it: text (darkened until it reads at 4.5:1),
+     a pale background and a border. These are the worked-out defaults;
+     a published palette overrides all twelve. Keep in step with
+     DEFAULTS in src/lib/branding.js. */
+  --good: #2f8f5f;
+  --good-text: #287a51;
+  --good-bg: #e9f3ee;
+  --good-border: #c2ded0;
+  --look: #c98a1c;
+  --look-text: #7e5612;
+  --look-bg: #f9f2e6;
+  --look-border: #edd7b2;
+  --problem: #c2503c;
+  --problem-text: #89382a;
+  --problem-bg: #f5e1de;
+  --problem-border: #edcbc5;
 
   /* alias old --accent var so untouched rules continue to work */
   --accent: var(--midnight);
@@ -105,12 +123,12 @@ input, select, textarea { font-family: inherit; }
 /* LoadFailed.jsx — reading the page's data failed. A card with the danger
    colour on its edge only: it is a problem to fix, not an alarm. */
 .load-failed {
-  background: var(--card); border: 1px solid #f5c2bf; border-radius: var(--radius-lg);
+  background: var(--card); border: 1px solid var(--problem-border); border-radius: var(--radius-lg);
   padding: 1rem 1.15rem; display: grid; gap: 0.35rem; justify-items: start;
   max-width: 560px;
 }
 .load-failed p { margin: 0; }
-.load-failed-title { font-weight: 700; color: #c62828; }
+.load-failed-title { font-weight: 700; color: var(--problem); }
 .load-failed-body { color: var(--text); font-size: 0.9rem; }
 .load-failed-detail { color: var(--muted); font-size: 0.78rem; word-break: break-word; }
 .load-failed-retry { margin-top: 0.45rem; padding: 0.45rem 1rem; font-size: 0.85rem; }
@@ -125,16 +143,16 @@ input, select, textarea { font-family: inherit; }
 }
 .save-status.is-idle { padding: 0; border: 0; }
 .save-status.is-saving { color: var(--muted); background: #f1efea; background: color-mix(in srgb, var(--gold-dark) 11%, white); border-color: var(--border); }
-.save-status.is-saved { color: #2e7d32; background: #e8f5e9; border-color: #b9dfbb; }
-.save-status.is-failed { color: #c62828; background: #fdecea; border-color: #f5c2bf; white-space: normal; }
+.save-status.is-saved { color: var(--good-text); background: var(--good-bg); border-color: var(--good-border); }
+.save-status.is-failed { color: var(--problem); background: var(--problem-bg); border-color: var(--problem-border); white-space: normal; }
 /* Two classes deep on purpose: the chip sits inside .page-hero-actions, whose
    `button` rule (0,1,1) would otherwise paint it gold. */
 .save-status .save-status-action {
-  background: var(--card); color: #c62828; border: 1px solid #f5c2bf;
+  background: var(--card); color: var(--problem); border: 1px solid var(--problem-border);
   padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
 }
 /* Restated: the global and hero button:hover rules would fill it otherwise. */
-.save-status .save-status-action:hover { background: #fbe0de; }
+.save-status .save-status-action:hover { background: var(--problem-bg); }
 
 /* Announced once, to a screen reader, instead of a wall of decorative boxes. */
 .sr-only {
@@ -610,10 +628,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   flex: 1 0 100%; order: 99;
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem;
   background: #fffafa; background: color-mix(in srgb, var(--border) 9%, white); color: var(--text);
-  border: 1px solid #f5c2bf; border-radius: 10px;
+  border: 1px solid var(--problem-border); border-radius: 10px;
   padding: 0.55rem 0.85rem; text-align: left;
 }
-.save-failed-bar .sfb-head { font-weight: 700; color: #c62828; font-size: 0.9rem; }
+.save-failed-bar .sfb-head { font-weight: 700; color: var(--problem); font-size: 0.9rem; }
 .save-failed-bar .sfb-why { font-size: 0.85rem; color: var(--text); flex: 1 1 18rem; }
 .save-failed-bar .sfb-retry {
   margin-left: auto; padding: 0.4rem 0.95rem; font-size: 0.82rem;
@@ -621,10 +639,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .save-failed-bar .sfb-retry:hover { background: var(--midnight-hover); }
 /* Waiting to send (kept on this laptop) reads amber, not red: nothing is lost. */
-.save-failed-bar.is-waiting { background: #fffaf2; border-color: #ffd59e; }
-.save-failed-bar.is-waiting .sfb-head { color: #a65c00; }
-.save-failed-bar.is-sent { background: #f2f9f4; border-color: #b9dfbb; }
-.save-failed-bar.is-sent .sfb-head { color: #2e7d32; }
+.save-failed-bar.is-waiting { background: var(--look-bg); border-color: var(--look-border); }
+.save-failed-bar.is-waiting .sfb-head { color: var(--look-text); }
+.save-failed-bar.is-sent { background: var(--good-bg); border-color: var(--good-border); }
+.save-failed-bar.is-sent .sfb-head { color: var(--good-text); }
 
 /* ChangePasswordPage — the password rules, ticked as they are met. */
 .auth-card .auth-checks {
@@ -632,7 +650,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   display: flex; flex-wrap: wrap; gap: 0.3rem 1rem;
   font-size: 0.8rem; color: var(--muted);
 }
-.auth-card .auth-checks .is-met { color: #2e7d4f; font-weight: 600; }
-.auth-saved { border-left-color: #2e7d4f; font-weight: 600; }
+.auth-card .auth-checks .is-met { color: var(--good-text); font-weight: 600; }
+.auth-saved { border-left-color: var(--good); font-weight: 600; }
 /* JoinSessionLoginPage — "Trainer? Staff sign in", quietly. */
 .auth-meta-quiet { color: var(--muted); font-size: 0.8rem; margin-top: 0.9rem; }

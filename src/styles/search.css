@@ -68,7 +68,7 @@
 .search-row.is-active:hover:where(:not(:disabled)) { background: #f3efe5; background: color-mix(in srgb, var(--gold) 16%, white); color: var(--text); }
 .search-row.is-active .search-row-title { color: var(--midnight); }
 
-.search-failed { color: #c62828; }
+.search-failed { color: var(--problem); }
 
 .search-keys {
   border-top: 1px solid var(--border); padding: 0.5rem 0.9rem;

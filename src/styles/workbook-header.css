@@ -9,7 +9,7 @@
   padding: 1.1rem 1.4rem;
   border: 1px solid #e8dec6; border: 1px solid color-mix(in srgb, var(--gold) 34%, white);
   border-radius: 12px;
-  background: linear-gradient(180deg, var(--card) 0%, #fbf7ee 100%);
+  background: linear-gradient(180deg, var(--card) 0%, var(--look-bg) 100%);
   box-shadow: 0 1px 3px rgba(15, 22, 38, 0.05);
 }
 .wbh-ring { width: 64px; height: 64px; flex: 0 0 auto; }
@@ -21,7 +21,7 @@
   stroke-linecap: round;
   transition: stroke-dashoffset 0.5s ease;
 }
-.wbh-ring-fill.is-done { stroke: #2f8a4c; }
+.wbh-ring-fill.is-done { stroke: var(--good); }
 .wbh-ring-text { font-size: 9px; font-weight: 700; fill: var(--midnight); font-variant-numeric: tabular-nums; }
 
 .wbh-text { flex: 1 1 18rem; min-width: 0; }
@@ -66,14 +66,14 @@
   gap: 0.75rem;
   max-width: 34rem;
   padding: 0.5rem 0.6rem 0.5rem 0.85rem;
-  background: #fff4e0;
+  background: var(--look-bg);
   border: 1px solid var(--gold);
   border-radius: 10px;
   font-size: 0.88rem;
   line-height: 1.35;
-  color: #6f4800;
+  color: var(--look-text);
 }
-.wbh-live-text strong { color: #6f4800; }
+.wbh-live-text strong { color: var(--look-text); }
 .wbh-live .spotlight-jump { flex-shrink: 0; white-space: nowrap; }
 /* Beside the exercise rail, Continue duplicated the rail's "Next unanswered"
    — same place, same words — and the rail's is the one still in reach once
@@ -84,12 +84,12 @@
 @media (min-width: 801px) {
   .wbh-continue { display: none; }
 }
-.wbh-done { font-size: 0.9rem; font-weight: 600; color: #2f8a4c; }
+.wbh-done { font-size: 0.9rem; font-weight: 600; color: var(--good-text); }
 
 /* The block Continue landed on — a brief gold wash so the eye finds it. */
 .wb-block.wb-block--resume { animation: wbh-landed 1.8s ease-out; border-radius: 8px; }
 @keyframes wbh-landed {
-  0%, 30% { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.55); background: #fdf8ec; }
+  0%, 30% { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0.55); background: var(--look-bg); }
   100% { box-shadow: 0 0 0 3px rgba(181, 152, 90, 0); background: transparent; }
 }
 @media (prefers-reduced-motion: reduce) {

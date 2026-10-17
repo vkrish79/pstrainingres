@@ -41,7 +41,7 @@
   background: var(--gold);
   transition: width 0.3s ease;
 }
-.wb-rail-bar.is-done > i { background: #2f8a4c; }
+.wb-rail-bar.is-done > i { background: var(--good); }
 .wb-rail-bar.is-thin { height: 4px; }
 
 .workbook .wb-rail .wb-rail-next {
@@ -129,8 +129,8 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.wb-rail-count.is-part { color: #94661a; }
-.wb-rail-count.is-done { color: #2f7a52; }
+.wb-rail-count.is-part { color: var(--look-text); }
+.wb-rail-count.is-done { color: var(--good-text); }
 
 .wb-rail-tick {
   width: 1rem;
@@ -143,7 +143,7 @@
   color: #fff;
   box-sizing: border-box;
 }
-.wb-rail-tick.is-done { background: #2f8a4c; }
+.wb-rail-tick.is-done { background: var(--good); }
 .wb-rail-tick.is-part {
   border: 2px solid var(--gold);
   background: conic-gradient(var(--gold) var(--p, 0%), transparent 0);

@@ -6,10 +6,10 @@
   flex-wrap: wrap;
   margin: 0 0 1rem;
   padding: 0.65rem 0.9rem;
-  border: 1px solid #f0d9a8;
+  border: 1px solid var(--look-border);
   border-radius: 8px;
-  background: #fff8ea;
-  color: #6b4a00;
+  background: var(--look-bg);
+  color: var(--look-text);
   font-size: 0.9rem;
 }
 .phr-banner-icon {
@@ -18,12 +18,12 @@
   width: 1.8rem;
   height: 1.8rem;
   border-radius: 6px;
-  background: #fbe7bd;
+  background: var(--look-border);
   font-weight: 700;
 }
 .phr-banner-text { flex: 1 1 18rem; line-height: 1.45; }
 .phr-banner-btn {
-  background: #8a5a00;
+  background: var(--look);
   color: #fff;
   border: 0;
   border-radius: 6px;
@@ -31,7 +31,7 @@
   font-weight: 600;
   cursor: pointer;
 }
-.phr-banner-btn:hover { background: #6f4800; }
+.phr-banner-btn:hover { background: var(--look); }
 
 .modal-card.phr-card { max-width: 860px; }
 .phr-sub { margin: 0.15rem 0 0; font-size: 0.85rem; color: var(--muted); }
@@ -39,8 +39,8 @@
   margin: 0 0 1rem;
   padding: 0.6rem 0.8rem;
   border-radius: 6px;
-  background: #fff4e5;
-  color: #7a4b00;
+  background: var(--look-bg);
+  color: var(--look-text);
   font-size: 0.85rem;
   line-height: 1.45;
 }

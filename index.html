@@ -6,15 +6,16 @@
     <title>pstrainingres</title>
     <!-- Settings → Branding: apply the colours this browser last saw (or is
          trying in this tab) before the app loads, so the old palette never
-         flashes. Keys must match src/lib/branding.js. -->
+         flashes. Storage keys must match src/lib/branding.js; every stored
+         colour is applied, so new palette keys need no change here. -->
     <script>
       (function () {
         try {
           var raw = sessionStorage.getItem('brand-try-v1') || localStorage.getItem('brand-palette-v1');
           if (!raw) return;
           var p = JSON.parse(raw), root = document.documentElement;
-          ['midnight', 'midnight-hover', 'gold', 'gold-dark', 'qasr', 'bg', 'card', 'text', 'muted', 'border'].forEach(function (k) {
-            if (/^#[0-9a-f]{6}$/i.test(p[k])) root.style.setProperty('--' + k, p[k]);
+          Object.keys(p).forEach(function (k) {
+            if (/^[a-z]+(-[a-z]+)*$/.test(k) && /^#[0-9a-f]{6}$/i.test(p[k])) root.style.setProperty('--' + k, p[k]);
           });
         } catch (e) { /* storage blocked: the defaults in index.css stand */ }
       })();

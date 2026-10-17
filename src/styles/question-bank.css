@@ -37,8 +37,8 @@
   color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white);
 }
 .qb-strip-facts b { color: var(--midnight); font-weight: 600; }
-.qb-bad { color: #a5342a; }
-.qb-bad b { color: #a5342a; }
+.qb-bad { color: var(--problem); }
+.qb-bad b { color: var(--problem); }
 
 .qb-open {
   font-size: 0.8rem;
@@ -189,8 +189,8 @@
   font-weight: 700;
   white-space: nowrap;
 }
-.qb-pill.is-bad { color: #a5342a; background: #fbeeec; }
-.qb-pill.is-hand { color: #8a5a00; background: #fdf4e0; }
+.qb-pill.is-bad { color: var(--problem); background: var(--problem-bg); }
+.qb-pill.is-hand { color: var(--look-text); background: var(--look-bg); }
 .qb-used { font-size: 0.7rem; color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
 .qb-used b { color: var(--midnight); font-weight: 600; }
 
@@ -209,8 +209,8 @@
   border-radius: 7px;
   padding: 0.4rem 0.55rem;
 }
-.qb-hand-note { color: #8a5a00; background: #fdf4e0; border: 1px solid #efdcb4; }
-.qb-unkeyed-note { color: #a5342a; background: #fbeeec; border: 1px solid #f0cfc9; }
+.qb-hand-note { color: var(--look-text); background: var(--look-bg); border: 1px solid var(--look-border); }
+.qb-unkeyed-note { color: var(--problem); background: var(--problem-bg); border: 1px solid var(--problem-border); }
 
 .qb-row-acts {
   display: flex;
@@ -256,7 +256,7 @@
 .qb-seg button.is-on:hover { background: var(--card); color: var(--midnight); }
 
 /* How a question has worked in real classes (A2). */
-.qb-stat { font-size: 0.76rem; color: #2f7a52; background: #e3f1e9; border-radius: 999px; padding: 0.05rem 0.5rem; white-space: nowrap; }
+.qb-stat { font-size: 0.76rem; color: var(--good-text); background: var(--good-bg); border-radius: 999px; padding: 0.05rem 0.5rem; white-space: nowrap; }
 .qb-stat.is-thin { color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); background: #f1eee7; background: color-mix(in srgb, var(--gold-dark) 12%, white); }
 .qb-stat-panel { margin-top: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); display: grid; gap: 0.35rem; font-size: 0.86rem; }
 .qb-stat-figs { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; }
@@ -267,10 +267,10 @@
 .qb-match { margin-left: 0.5rem; font-size: 0.72rem; font-weight: 700; color: var(--gold-dark); background: #f5efe2; border-radius: 999px; padding: 0.05rem 0.45rem; vertical-align: middle; }
 .qb-similar { margin: 0.6rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; font-size: 0.82rem; }
 .qb-similar-h { color: #6c7a88; color: color-mix(in srgb, var(--midnight-hover) 63%, white); font-weight: 600; }
-.qb-similar-q { padding: 0.15rem 0.6rem; font-size: 0.8rem; font-weight: 600; background: #fff3e0; color: #a65c00; border: 1px solid #ffd59e; border-radius: 999px; }
-.qb-similar-q:hover { background: #ffe8c2; color: #a65c00; }
+.qb-similar-q { padding: 0.15rem 0.6rem; font-size: 0.8rem; font-weight: 600; background: var(--look-bg); color: var(--look-text); border: 1px solid var(--look-border); border-radius: 999px; }
+.qb-similar-q:hover { background: var(--look-bg); color: var(--look-text); }
 .qb-similar-n { font-weight: 400; margin-left: 0.2rem; }
 .q-similar { margin: 0.4rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; font-size: 0.8rem; }
-.q-similar-h { color: #a65c00; font-weight: 700; }
-.q-similar-q { padding: 0.1rem 0.55rem; background: #fff3e0; border: 1px solid #ffd59e; border-radius: 999px; color: #a65c00; font-weight: 600; }
+.q-similar-h { color: var(--look-text); font-weight: 700; }
+.q-similar-q { padding: 0.1rem 0.55rem; background: var(--look-bg); border: 1px solid var(--look-border); border-radius: 999px; color: var(--look-text); font-weight: 600; }
 .q-similar-n { font-weight: 400; }

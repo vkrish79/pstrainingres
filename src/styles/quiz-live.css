@@ -24,7 +24,7 @@
 }
 .qlive-step { font-weight: 600; letter-spacing: 0.02em; opacity: 0.85; }
 .qlive-bar-tools { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
-.qlive-err { color: #ffb4b4; font-size: 0.85rem; }
+.qlive-err { color: var(--problem-border); font-size: 0.85rem; }
 .qlive .ghost {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -366,12 +366,12 @@
 
 /* The metal lives on the rim and the numeral. The disc itself is dark, so
    that the medal is visible against the metal plinth it stands on. */
-.qmedal.m1 .qmedal-rim { stroke: #f2d488; }
-.qmedal.m1 .qmedal-num { fill: #f2d488; }
+.qmedal.m1 .qmedal-rim { stroke: var(--look-border); }
+.qmedal.m1 .qmedal-num { fill: var(--look-border); }
 .qmedal.m2 .qmedal-rim { stroke: #e6eef7; }
 .qmedal.m2 .qmedal-num { fill: #e6eef7; }
-.qmedal.m3 .qmedal-rim { stroke: #f2bd8e; }
-.qmedal.m3 .qmedal-num { fill: #f2bd8e; }
+.qmedal.m3 .qmedal-rim { stroke: var(--look-border); }
+.qmedal.m3 .qmedal-num { fill: var(--look-border); }
 
 .qlive-rank { font-size: 1.2rem; margin: 0; opacity: 0.9; }
 
@@ -481,11 +481,11 @@
 .qflame-inner { opacity: 0.92; }
 
 .qflame.t-lit  .qflame-outer { fill: #f0a63e; }
-.qflame.t-lit  .qflame-inner { fill: #ffe1a0; }
+.qflame.t-lit  .qflame-inner { fill: var(--look-border); }
 .qflame.t-lit  .qflame-n     { color: #f0a63e; }
 
 .qflame.t-warm .qflame-outer { fill: #f2792f; }
-.qflame.t-warm .qflame-inner { fill: #ffce7a; }
+.qflame.t-warm .qflame-inner { fill: var(--look-border); }
 .qflame.t-warm .qflame-n     { color: #f9a05c; }
 .qflame.t-warm .qflame-svg   { filter: drop-shadow(0 0 6px rgba(242, 121, 47, 0.55)); }
 
@@ -515,7 +515,7 @@
 }
 /* A lost wager. Red against the green of everyone who gained, because the
    whole point of showing it is that the eye finds it first. */
-.qlive-gain.is-loss { color: #ff9a8b; }
+.qlive-gain.is-loss { color: var(--problem-border); }
 
 @media (prefers-reduced-motion: reduce) {
   .qlive-row { animation: none; }
@@ -1052,7 +1052,7 @@
   opacity: 0.4;
 }
 .qlive-guest-x:hover,
-.qlive-guest-x:focus-visible { opacity: 1; border-color: #ffb4b4; color: #ffb4b4; }
+.qlive-guest-x:focus-visible { opacity: 1; border-color: var(--problem-border); color: var(--problem-border); }
 
 .qlive-lobby-go { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .qlive-lobby-note { opacity: 0.6; font-size: 0.95rem; }
@@ -1373,9 +1373,9 @@
   width: 2.4rem; height: 2.4rem; border-radius: 8px; border: 2px solid transparent;
   font: inherit; font-weight: 700; color: #fff; cursor: pointer; padding: 0;
 }
-.qlive-strip .qlive-strip-q.is-right { background: #2f8a4c; }
-.qlive-strip .qlive-strip-q.is-part  { background: #b7791f; }
-.qlive-strip .qlive-strip-q.is-wrong { background: #b1452f; }
+.qlive-strip .qlive-strip-q.is-right { background: var(--good); }
+.qlive-strip .qlive-strip-q.is-part  { background: var(--look); }
+.qlive-strip .qlive-strip-q.is-wrong { background: var(--problem); }
 .qlive-strip .qlive-strip-q.is-none  { background: rgba(255, 255, 255, 0.16); color: rgba(255, 255, 255, 0.85); }
 .qlive-strip .qlive-strip-q.is-open  { border-color: #fff; }
 .qlive-recap-q {

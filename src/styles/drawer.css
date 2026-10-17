@@ -108,7 +108,7 @@
   text-align: left;
   border-left: 3px solid transparent;
 }
-.notes-card.current .notes-card-head { border-left-color: var(--gold); background: #fffaf0; }
+.notes-card.current .notes-card-head { border-left-color: var(--gold); background: var(--look-bg); }
 .notes-card-head.notes-card-head:hover { background: #f6f8fb; background: color-mix(in srgb, var(--midnight) 3%, white); color: var(--text); }
 .notes-card-chevron {
   font-size: 0.8rem;
