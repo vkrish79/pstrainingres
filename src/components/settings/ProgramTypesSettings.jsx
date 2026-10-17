@@ -1,124 +1,133 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { SkeletonTable } from '../Skeleton.jsx';
+import KebabMenu from '../KebabMenu.jsx';
 import { useProgramTypes } from '../../hooks/useProgramTypes.js';
-import { SettingsCard, OrderButtons, RowActions, NameEditor } from './SettingsCard.jsx';
+import { useSettingsUsage } from '../../hooks/useSettingsUsage.js';
+import {
+  SettingsFrame, Glance, FilterChips, SearchBox, SettingsList, ListRow, ListEmpty,
+  Grip, SlideOver, Field, useSettingsToast, useDragReorder, plural,
+} from './SettingsFrame.jsx';
 
 // Settings → Program types. The list a program is created against and that
-// Analytics groups by. Lifted out of SettingsPage so it sits alongside Cities
-// and Data retention as one tab among equals.
-export default function ProgramTypesSettings() {
-  const { loading, error, types, createType, renameType, setActive, moveType } =
-    useProgramTypes({ includeInactive: true });
+// Analytics groups by. Deactivating a type hides it from the picker while
+// keeping it on the programs and sessions that already use it; there is no
+// delete, as before.
+const COLS = '30px minmax(0, 1.6fr) minmax(0, 2fr) 96px 40px';
 
-  const [adding, setAdding] = useState(false);
+export default function ProgramTypesSettings() {
+  const { loading, error, types, createType, renameType, setActive, moveType } = useProgramTypes({ includeInactive: true });
+  const { usage } = useSettingsUsage();
+  const toast = useSettingsToast();
+  const [filter, setFilter] = useState('all');
+  const [q, setQ] = useState('');
+  const [panel, setPanel] = useState(null); // { mode: 'add' } | { mode: 'edit', type }
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState('');
-
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState('');
+  const [panelError, setPanelError] = useState('');
   const [rowError, setRowError] = useState('');
+  const drag = useDragReorder(types, moveType, setRowError);
 
-  async function handleCreate(e) {
-    e.preventDefault();
-    setFormError('');
+  const progs = id => usage?.programsByType[id] || 0;
+  const sess = id => usage?.sessionsByType[id] || 0;
+  const shown = useMemo(() => types.filter(t =>
+    (filter === 'all' || (filter === 'on' ? t.is_active : !t.is_active))
+    && t.name.toLowerCase().includes(q.trim().toLowerCase())), [types, filter, q]);
+  const unused = usage ? types.filter(t => !progs(t.id)) : [];
+
+  function open(mode, type) { setPanel({ mode, type }); setName(type?.name || ''); setPanelError(''); }
+  async function save() {
+    if (!name.trim()) { setPanelError('Name is required.'); return; }
     setBusy(true);
-    const { error: err } = await createType(name);
+    const { error: err } = panel.mode === 'add' ? await createType(name) : await renameType(panel.type.id, name);
     setBusy(false);
-    if (err) { setFormError(err.message); return; }
-    setName('');
-    setAdding(false);
+    if (err) { setPanelError(err.message); return; }
+    toast.show(panel.mode === 'add' ? `Added ${name.trim()}` : `Renamed to ${name.trim()}`);
+    setPanel(null);
   }
-
-  function startEdit(t) { setEditingId(t.id); setEditingName(t.name); setRowError(''); }
-  function cancelEdit() { setEditingId(null); setEditingName(''); setRowError(''); }
-  async function saveEdit(id) {
+  async function toggle(t) {
     setRowError('');
-    const { error: err } = await renameType(id, editingName);
+    const { error: err } = await setActive(t.id, !t.is_active);
     if (err) { setRowError(err.message); return; }
-    cancelEdit();
-  }
-  async function rowAction(fn) {
-    setRowError('');
-    const { error: err } = await fn();
-    if (err) setRowError(err.message);
+    toast.show(`${t.is_active ? 'Deactivated' : 'Activated'} ${t.name}`, async () => {
+      const { error: e2 } = await setActive(t.id, t.is_active);
+      if (e2) setRowError(e2.message);
+    });
   }
 
   return (
-    <SettingsCard
+    <SettingsFrame
       title="Program types"
-      note="Chosen when a program is created, and grouped by in Analytics. Deactivating a type hides it from the picker while keeping it on the programs and sessions that already use it."
+      note="Chosen when a program is created and grouped by in Analytics. Drag to set the order the picker shows. Deactivating a type hides it from the picker while keeping it on the programs and sessions that already use it."
       addLabel="+ Add type"
-      addOpen={adding}
-      onToggleAdd={() => { setAdding(a => !a); setFormError(''); }}
-      addForm={(
-        <form onSubmit={handleCreate} className="settings-add-form">
-          <label className="form-label" htmlFor="new-type">Name</label>
-          <div className="settings-add-row">
-            <input
-              id="new-type"
-              className="form-input"
-              required
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. New joiner"
-              maxLength={60}
-              autoFocus
-            />
-            <button type="submit" disabled={busy || !name.trim()}>{busy ? 'Adding…' : 'Add type'}</button>
-          </div>
-          {formError && <p className="error">{formError}</p>}
-        </form>
+      onAdd={() => open('add')}
+      glance={!loading && !error && (
+        <>
+          <Glance label="Types" value={types.length} hint={`${types.filter(t => t.is_active).length} active`} />
+          <Glance label="In use" value={usage ? types.length - unused.length : '–'} hint={usage ? `by ${plural(Object.values(usage.programsByType).reduce((a, b) => a + b, 0), 'program')}` : ''} />
+          <Glance label="Not used yet" value={usage ? unused.length : '–'} hint={unused.map(t => t.name).join(', ')} />
+        </>
+      )}
+      toolbar={(
+        <>
+          <FilterChips
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { id: 'all', label: 'All', count: types.length },
+              { id: 'on', label: 'Active', count: types.filter(t => t.is_active).length },
+              { id: 'off', label: 'Inactive', count: types.filter(t => !t.is_active).length },
+            ]}
+          />
+          <SearchBox value={q} onChange={setQ} placeholder="Find a type…" />
+        </>
       )}
     >
-      {loading && <SkeletonTable rows={4} label="Loading…" />}
+      {loading && <SkeletonTable rows={4} label="Loading program types…" />}
       {error && <p className="error">{error}</p>}
-      {!loading && !error && types.length === 0 && (
-        <p className="muted">No program types yet. Add the first one above.</p>
+      {!loading && !error && (
+        <SettingsList columns={COLS} head={['', 'Name', 'Used by', 'Status', '']}>
+          {shown.length === 0 && <ListEmpty>{types.length ? 'Nothing matches.' : 'No program types yet. Add the first one.'}</ListEmpty>}
+          {shown.map(t => (
+            <ListRow key={t.id} off={!t.is_active} {...drag.rowProps(t)}>
+              <Grip label={`Move ${t.name}`} onKeyMove={dir => moveType(t.id, dir).then(r => r?.error && setRowError(r.error.message))} {...drag.gripProps(t)} />
+              <span className="stl-name">{t.name}</span>
+              <span className={`stl-uses${usage && !progs(t.id) ? ' is-none' : ''}`}>
+                {!usage ? '–' : progs(t.id) ? <><b>{plural(progs(t.id), 'program')}</b> · {plural(sess(t.id), 'session')}</> : 'Not used yet'}
+              </span>
+              <span className={`stl-pill ${t.is_active ? 'is-on' : 'is-off'}`}>{t.is_active ? 'Active' : 'Inactive'}</span>
+              <span className="stl-actions">
+                <KebabMenu
+                  label={`Actions for ${t.name}`}
+                  items={[
+                    { label: 'Rename…', glyph: '✎', onClick: () => open('edit', t) },
+                    { separator: true },
+                    t.is_active
+                      ? { label: 'Deactivate', glyph: '⊘', onClick: () => toggle(t) }
+                      : { label: 'Activate', glyph: '↺', onClick: () => toggle(t) },
+                  ]}
+                />
+              </span>
+            </ListRow>
+          ))}
+        </SettingsList>
       )}
-      {!loading && types.length > 0 && (
-        <table className="settings-table">
-          <thead>
-            <tr>
-              <th className="st-order">Order</th>
-              <th>Name</th>
-              <th className="st-status">Status</th>
-              <th className="st-actions" />
-            </tr>
-          </thead>
-          <tbody>
-            {types.map((t, i) => (
-              <tr key={t.id} className={t.is_active ? '' : 'st-inactive'}>
-                <td className="st-order">
-                  <OrderButtons index={i} count={types.length} onMove={dir => rowAction(() => moveType(t.id, dir))} />
-                </td>
-                <td>
-                  {editingId === t.id ? (
-                    <NameEditor
-                      value={editingName}
-                      onChange={setEditingName}
-                      onSave={() => saveEdit(t.id)}
-                      onCancel={cancelEdit}
-                    />
-                  ) : t.name}
-                </td>
-                <td className="st-status">{t.is_active ? 'Active' : 'Inactive'}</td>
-                <td className="st-actions">
-                  {editingId !== t.id && (
-                    <RowActions
-                      label={`Actions for ${t.name}`}
-                      isActive={t.is_active}
-                      onEdit={() => startEdit(t)}
-                      onToggleActive={() => rowAction(() => setActive(t.id, !t.is_active))}
-                    />
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {rowError && <p className="error">{rowError}</p>}
+      {panel && (
+        <SlideOver
+          title={panel.mode === 'add' ? 'Add a program type' : `Rename ${panel.type.name}`}
+          sub={panel.mode === 'add' ? 'It appears in the program picker straight away.' : 'Programs and sessions that use it show the new name.'}
+          onClose={() => setPanel(null)}
+          onSubmit={save}
+          submitLabel={panel.mode === 'add' ? 'Add type' : 'Save'}
+          busy={busy}
+          error={panelError}
+        >
+          <Field id="st-type-name" label="Name" help="Shown in the program picker and on reports.">
+            <input id="st-type-name" className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. New joiner" maxLength={60} autoComplete="off" required />
+          </Field>
+        </SlideOver>
       )}
-      {rowError && <p className="error" style={{ marginTop: '0.75rem' }}>{rowError}</p>}
-    </SettingsCard>
+      {toast.node}
+    </SettingsFrame>
   );
 }

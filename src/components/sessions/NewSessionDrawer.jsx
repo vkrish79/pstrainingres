@@ -295,7 +295,10 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
       if (endsAt < startsAt) return 'End date cannot be before start date.';
       return null;
     }
-    if (cities.length === 0 && cityCode && !/^[A-Z]{3}$/.test(cityCode)) {
+    // Every field is required. A session without a city drops out of the
+    // city breakdown in Analytics and the report's City line prints blank.
+    if (!cityCode) return 'Pick the city or venue for this session.';
+    if (cities.length === 0 && !/^[A-Z]{3}$/.test(cityCode)) {
       return 'City code must be three uppercase letters (e.g. AUH).';
     }
     // Dates are required. A session without them cannot appear on the
@@ -679,15 +682,16 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
 
             {!isResit && (
             <>
-            <label className="form-label" htmlFor="ns-city">City / venue (optional)</label>
+            <label className="form-label" htmlFor="ns-city">City / venue</label>
             {cities.length > 0 ? (
               <select
                 id="ns-city"
                 className="form-input"
                 value={cityCode}
                 onChange={e => setCityCode(e.target.value)}
+                required
               >
-                <option value="">— None —</option>
+                <option value="" disabled>Select…</option>
                 {cities.map(c => (
                   <option key={c.id} value={c.code}>{c.name} ({c.code})</option>
                 ))}
@@ -699,6 +703,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
                 value={cityCode}
                 onChange={e => setCityCode(e.target.value.toUpperCase().slice(0, 3))}
                 maxLength={3}
+                required
                 placeholder="AUH"
               />
             )}
@@ -744,7 +749,7 @@ export default function NewSessionDrawer({ open, onClose, initialProgramId = nul
               <button
                 type="submit"
                 form="new-session-form"
-                disabled={busy || !programId || !name.trim() || !startsAt || !endsAt}
+                disabled={busy || !programId || !name.trim() || !startsAt || !endsAt || (!isResit && !cityCode)}
               >
                 {busy ? 'Creating…' : 'Create session'}
               </button>

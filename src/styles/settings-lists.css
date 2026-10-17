@@ -1,0 +1,119 @@
+/* Settings lists (SettingsFrame.jsx): Program types, Cities & venues,
+   Vendors, Staff.
+
+   SPACING — three steps, nothing else:
+     --stl-block  between the page's blocks: heading, glance, toolbar, list
+     --stl-inline between controls side by side: chips, search, buttons
+     --stl-field  between fields in the slide-over
+   plus --stl-tight inside a field (label → input → help). Every gap below
+   uses one of these, so the tabs and the panel space alike. */
+.stl {
+  --stl-block: 14px;
+  --stl-inline: 8px;
+  --stl-field: 12px;
+  --stl-tight: 4px;
+  --stl-pad: 14px;
+  display: grid;
+  gap: var(--stl-block);
+  margin-top: var(--stl-block);
+}
+
+.stl-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--stl-inline) var(--stl-block); }
+.stl-head-text { min-width: 0; display: grid; gap: var(--stl-tight); }
+.stl-head h2 { margin: 0; font-size: 1.25rem; color: var(--midnight); }
+.stl-head p { margin: 0; max-width: 74ch; font-size: 0.86rem; line-height: 1.45; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+
+.stl-glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--stl-inline); }
+.stl-g { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px var(--stl-pad); display: grid; gap: 2px; min-width: 0; }
+.stl-g.is-alert { box-shadow: inset 3px 0 0 var(--look); }
+.stl-g-k { font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+.stl-g-v { font-size: 1.4rem; font-weight: 800; color: var(--midnight); line-height: 1.15; font-variant-numeric: tabular-nums; }
+.stl-g-h { font-size: 0.76rem; color: color-mix(in srgb, var(--midnight-hover) 63%, white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stl-g-h a { color: var(--look-text); font-weight: 700; }
+
+.stl-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--stl-inline); }
+.stl-chips { display: inline-flex; gap: 3px; background: color-mix(in srgb, var(--gold-dark) 13%, white); border-radius: 9px; padding: 3px; }
+/* (0,2,0): the global button rules would otherwise paint these midnight. */
+.stl-chips button { font: inherit; font-size: 0.8rem; font-weight: 600; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); background: none; border: 0; border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+.stl-chips button:hover { background: var(--card); color: var(--midnight); }
+.stl-chips button[aria-pressed="true"] { background: var(--midnight); color: #fff; }
+.stl-chips b { font-variant-numeric: tabular-nums; margin-left: 4px; }
+.stl .stl-search { flex: 0 1 260px; min-width: 160px; width: auto; margin: 0; }
+.stl .stl-toolbar select.form-input { width: auto; min-width: 11rem; margin: 0; }
+.stl-spacer { flex: 1; }
+
+/* List: header and rows share one grid. */
+.stl-list { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.stl-row { display: grid; grid-template-columns: var(--stl-cols); gap: var(--stl-block); align-items: center; padding: 10px var(--stl-pad); min-height: 52px; }
+.stl-row + .stl-row, .stl-group + .stl-row { border-top: 1px solid color-mix(in srgb, var(--border) 50%, white); }
+.stl-row:not(.stl-lhead):hover { background: color-mix(in srgb, var(--bg) 60%, white); }
+.stl-row.is-off .stl-name, .stl-row.is-off .stl-uses { color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+.stl-row[data-drop="true"] { box-shadow: inset 0 3px 0 var(--gold); }
+.stl-row[data-dragging="true"] { opacity: 0.45; }
+.stl-lhead { min-height: 0; padding-top: 8px; padding-bottom: 8px; background: color-mix(in srgb, var(--bg) 60%, white); border-bottom: 1px solid var(--border);
+  font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+.stl-group { padding: 8px var(--stl-pad) 6px; background: color-mix(in srgb, var(--bg) 60%, white); border-top: 1px solid var(--border);
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+.stl-list > .stl-group:nth-child(2) { border-top: 0; }
+.stl-empty { padding: 26px var(--stl-pad); text-align: center; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+
+.stl-name { font-weight: 700; color: var(--midnight); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stl-name small { display: block; font-weight: 500; font-size: 0.76rem; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+.stl-name small.is-hint { color: var(--look-text); font-weight: 600; }
+.stl-code { justify-self: start; font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; background: color-mix(in srgb, var(--gold-dark) 13%, white); color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); border-radius: 5px; padding: 1px 6px; }
+.stl-uses { font-size: 0.82rem; color: color-mix(in srgb, var(--midnight-hover) 75%, var(--border)); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stl-uses b { color: var(--text); }
+.stl-uses.is-none { color: color-mix(in srgb, var(--midnight-hover) 43%, white); }
+.stl-pill { justify-self: start; font-size: 0.72rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.stl-pill.is-on { color: var(--good-text); background: var(--good-bg); }
+.stl-pill.is-off { color: color-mix(in srgb, var(--midnight-hover) 63%, white); background: color-mix(in srgb, var(--gold-dark) 13%, white); }
+.stl-pill.is-wait { color: var(--look-text); background: var(--look-bg); }
+.stl-pill.is-role { color: var(--gold-dark); background: color-mix(in srgb, var(--qasr) 30%, white); }
+.stl-actions { justify-self: end; }
+.stl .stl-grip { font: inherit; font-size: 1rem; width: 26px; height: 30px; border: 0; background: none; color: color-mix(in srgb, var(--qasr) 70%, var(--muted)); cursor: grab; border-radius: 6px; padding: 0; }
+.stl .stl-grip:hover, .stl .stl-grip:focus-visible { background: color-mix(in srgb, var(--gold-dark) 13%, white); color: var(--midnight); }
+
+/* Ask in the row */
+.stl-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--stl-inline) var(--stl-block); padding: 10px var(--stl-pad); background: var(--problem-bg); border-top: 1px solid var(--problem-border); }
+.stl-confirm-text { flex: 1 1 320px; font-size: 0.86rem; color: var(--problem-text); line-height: 1.45; }
+.stl-confirm-actions { display: flex; gap: var(--stl-inline); }
+.stl .stl-danger { background: var(--problem); border-color: var(--problem); color: #fff; }
+.stl .stl-danger:hover:not(:disabled) { background: var(--problem-text); border-color: var(--problem-text); }
+
+/* Credentials panel (Staff) */
+.stl-creds { background: var(--good-bg); border: 1px solid var(--good-border); border-radius: 12px; padding: 12px var(--stl-pad); display: grid; gap: var(--stl-inline); font-size: 0.88rem; }
+.stl-creds-row { display: flex; flex-wrap: wrap; gap: var(--stl-inline); align-items: center; }
+.stl-creds code { font-family: ui-monospace, Consolas, monospace; background: var(--card); border: 1px solid var(--good-border); border-radius: 6px; padding: 3px 8px; }
+.stl-creds .ghost { justify-self: start; }
+.stl-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--stl-inline); background: var(--look-bg); border: 1px solid var(--look-border); color: var(--look-text); border-radius: 10px; padding: 9px var(--stl-pad); font-size: 0.86rem; }
+.stl .error { margin: 0; }
+
+/* Slide-over */
+.stl-scrim { position: fixed; inset: 0; background: rgba(22, 45, 69, 0.28); z-index: 300; }
+.stl-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--card); border-left: 1px solid var(--border);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.12); z-index: 301; display: grid; grid-template-rows: auto 1fr auto; }
+.stl-drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--stl-block); padding: 18px 20px var(--stl-block); border-bottom: 1px solid var(--border); }
+.stl-drawer-head h3 { margin: 0; font-size: 1.1rem; color: var(--midnight); }
+.stl-drawer-head p { margin: var(--stl-tight) 0 0; font-size: 0.82rem; color: color-mix(in srgb, var(--midnight-hover) 63%, white); }
+.stl-drawer .stl-x { font: inherit; font-size: 1.3rem; line-height: 1; background: none; border: 0; padding: 2px 6px; color: color-mix(in srgb, var(--midnight-hover) 63%, white); cursor: pointer; }
+.stl-drawer .stl-x:hover { background: none; color: var(--midnight); }
+.stl-drawer-body { padding: 18px 20px; display: grid; gap: var(--stl-field); align-content: start; overflow: auto; }
+.stl-drawer-foot { display: flex; justify-content: flex-end; gap: var(--stl-inline); padding: var(--stl-block) 20px; border-top: 1px solid var(--border); }
+.stl-field { display: grid; gap: var(--stl-tight); }
+.stl-field > label, .stl-field > .stl-label { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.stl-req { color: var(--problem-text); }
+.stl-field .form-input { margin: 0; }
+.stl-field .form-input.is-bad { border-color: var(--problem); }
+.stl-help { font-size: 0.76rem; color: color-mix(in srgb, var(--midnight-hover) 63%, white); line-height: 1.4; }
+.stl-err { font-size: 0.76rem; font-weight: 600; color: var(--problem-text); }
+.stl-inline { display: flex; gap: var(--stl-inline); align-items: center; }
+.stl-inline .form-input { flex: 1; }
+.stl-radios { display: flex; flex-wrap: wrap; gap: var(--stl-inline) var(--stl-block); padding-top: 2px; }
+.stl-radios label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 500; }
+.stl-mono { font-family: ui-monospace, Consolas, monospace; }
+
+/* Toast */
+.stl-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 400; display: flex; align-items: center; gap: var(--stl-block);
+  background: var(--midnight); color: #fff; border-radius: 10px; padding: 9px var(--stl-pad); font-size: 0.86rem; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); max-width: calc(100vw - 32px); }
+.stl-toast button { font: inherit; font-weight: 700; background: none; border: 0; padding: 0; color: color-mix(in srgb, var(--gold) 55%, white); text-decoration: underline; cursor: pointer; }
+.stl-toast button:hover { background: none; color: #fff; }

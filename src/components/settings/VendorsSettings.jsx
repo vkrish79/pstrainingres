@@ -1,177 +1,132 @@
-import { Fragment, useState } from 'react';
-import { SkeletonTable } from '../Skeleton.jsx';
+import { Fragment, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useVendors, VENDOR_CODE_PATTERN } from '../../hooks/useVendors.js';
-import { SettingsCard, NameEditor } from './SettingsCard.jsx';
+import { SkeletonTable } from '../Skeleton.jsx';
 import KebabMenu from '../KebabMenu.jsx';
-import ConfirmRow from './ConfirmRow.jsx';
+import { useVendors, VENDOR_CODE_PATTERN } from '../../hooks/useVendors.js';
+import {
+  SettingsFrame, Glance, FilterChips, SearchBox, SettingsList, ListRow, ListEmpty,
+  RowConfirm, SlideOver, Field, useSettingsToast, plural,
+} from './SettingsFrame.jsx';
 
-// Settings → Vendors. Was its own page in the rail; the same managed-list
-// shape as Program types and Cities, so it belongs with them.
-//
-// Vendors have no order and no active flag: they are deleted, and only when
-// nothing points at them — hence Delete rather than Deactivate.
+// Settings → Vendors. Vendors have no order and no active flag: they are
+// deleted, and only when nothing points at them. The guard runs first, so a
+// vendor with staff or sessions is told why and never offered Delete.
+const COLS = '90px minmax(0, 1.6fr) minmax(0, 1.6fr) 120px 40px';
+
 export default function VendorsSettings() {
   const { loading, error, vendors, createVendor, renameVendor, deleteVendor } = useVendors();
-
-  const [adding, setAdding] = useState(false);
+  const toast = useSettingsToast();
+  const [filter, setFilter] = useState('all');
+  const [q, setQ] = useState('');
+  const [panel, setPanel] = useState(null);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState('');
-
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState('');
+  const [panelError, setPanelError] = useState('');
   const [rowError, setRowError] = useState('');
-
-  const codeValid = !code || VENDOR_CODE_PATTERN.test(code.trim().toUpperCase());
-
-  async function handleCreate(e) {
-    e.preventDefault();
-    setFormError('');
-    setBusy(true);
-    const { error: err } = await createVendor({ code: code.trim().toUpperCase(), name });
-    setBusy(false);
-    if (err) { setFormError(err.message); return; }
-    setCode(''); setName('');
-    setAdding(false);
-  }
-
-  function startEdit(v) { setEditingId(v.id); setEditingName(v.name); setRowError(''); }
-  function cancelEdit() { setEditingId(null); setEditingName(''); setRowError(''); }
-  async function saveEdit(id) {
-    setRowError('');
-    const { error: err } = await renameVendor(id, editingName);
-    if (err) { setRowError(err.message); return; }
-    cancelEdit();
-  }
-
-  // Refused rather than cascaded: deleting a vendor that still has trainers or
-  // sessions would orphan them.
-  // The vendor being asked about in its row (ConfirmRow), or null.
   const [confirmingId, setConfirmingId] = useState(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
 
-  // The guard runs FIRST: a vendor that still has staff or sessions is refused
-  // with the reason, and is never offered a Delete button to press.
+  const shown = useMemo(() => vendors.filter(v =>
+    (filter === 'all' || (filter === 'busy' ? v.session_count > 0 : v.session_count === 0))
+    && `${v.code} ${v.name}`.toLowerCase().includes(q.trim().toLowerCase())), [vendors, filter, q]);
+  const codeOk = VENDOR_CODE_PATTERN.test(code.trim().toUpperCase());
+
+  function open(mode, vendor) { setPanel({ mode, vendor }); setCode(vendor?.code || ''); setName(vendor?.name || ''); setPanelError(''); }
+  async function save() {
+    if (panel.mode === 'add' && !codeOk) { setPanelError('Code must be 2–12 capitals, digits or underscores.'); return; }
+    if (!name.trim()) { setPanelError('Name is required.'); return; }
+    setBusy(true);
+    const { error: err } = panel.mode === 'add'
+      ? await createVendor({ code: code.trim().toUpperCase(), name })
+      : await renameVendor(panel.vendor.id, name);
+    setBusy(false);
+    if (err) { setPanelError(err.message); return; }
+    toast.show(panel.mode === 'add' ? `Added ${name.trim()}` : `Saved ${name.trim()}`);
+    setPanel(null);
+  }
   function askDelete(v) {
     setRowError('');
     if (v.trainer_count > 0 || v.session_count > 0) {
       const parts = [];
-      if (v.trainer_count > 0) parts.push(`${v.trainer_count} trainer${v.trainer_count === 1 ? '' : 's'}`);
-      if (v.session_count > 0) parts.push(`${v.session_count} session${v.session_count === 1 ? '' : 's'}`);
+      if (v.trainer_count > 0) parts.push(plural(v.trainer_count, 'trainer'));
+      if (v.session_count > 0) parts.push(plural(v.session_count, 'session'));
       setRowError(`${v.name} has ${parts.join(' and ')}. Reassign or remove them before deleting this vendor.`);
       return;
     }
     setConfirmingId(v.id);
   }
-
   async function handleDelete(v) {
-    setRowError('');
     setConfirmBusy(true);
     const { error: err } = await deleteVendor(v.id);
     setConfirmBusy(false);
     setConfirmingId(null);
-    if (err) setRowError(err.message);
+    if (err) setRowError(err.message); else toast.show(`Deleted ${v.name}`);
   }
 
+  const trainers = vendors.reduce((n, v) => n + (v.trainer_count || 0), 0);
+  const sessions = vendors.reduce((n, v) => n + (v.session_count || 0), 0);
   return (
-    <SettingsCard
-      title={`Vendors (${vendors.length})`}
-      note="Training providers that deliver sessions. A vendor's code is locked after creation; a vendor can only be deleted once no staff or sessions belong to it."
+    <SettingsFrame
+      title="Vendors"
+      note="Training providers that deliver sessions. The code is locked after creation; a vendor can be deleted only when no staff or sessions belong to it."
       addLabel="+ Add vendor"
-      addOpen={adding}
-      onToggleAdd={() => { setAdding(a => !a); setFormError(''); }}
-      addForm={(
-        <form onSubmit={handleCreate} className="settings-add-form">
-          <div className="settings-add-row">
-            <label className="form-label" htmlFor="new-vendor-code">Code</label>
-            <input
-              id="new-vendor-code"
-              className="form-input st-mono st-code-input"
-              required
-              value={code}
-              onChange={e => setCode(e.target.value.toUpperCase())}
-              placeholder="ETIHAD"
-              maxLength={12}
-              autoFocus
-            />
-            <label className="form-label" htmlFor="new-vendor-name">Name</label>
-            <input
-              id="new-vendor-name"
-              className="form-input"
-              required
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Etihad Airways"
-            />
-            <button type="submit" disabled={busy || !code || !name || !codeValid}>
-              {busy ? 'Creating…' : 'Create vendor'}
-            </button>
-          </div>
-          <p className="hint">2–12 characters: uppercase letters, digits, underscores. Locked after creation.</p>
-          {code && !codeValid && <p className="error">Use 2–12 chars, A–Z / 0–9 / _ only.</p>}
-          {formError && <p className="error">{formError}</p>}
-        </form>
+      onAdd={() => open('add')}
+      glance={!loading && !error && (
+        <>
+          <Glance label="Vendors" value={vendors.length} hint={`${vendors.filter(v => v.session_count > 0).length} with sessions`} />
+          <Glance label="Trainers" value={trainers} hint="across all vendors" />
+          <Glance label="Sessions" value={sessions} hint="delivered by vendors" />
+        </>
+      )}
+      toolbar={(
+        <>
+          <FilterChips
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { id: 'all', label: 'All', count: vendors.length },
+              { id: 'busy', label: 'With sessions', count: vendors.filter(v => v.session_count > 0).length },
+              { id: 'idle', label: 'No sessions yet', count: vendors.filter(v => !v.session_count).length },
+            ]}
+          />
+          <SearchBox value={q} onChange={setQ} placeholder="Find a vendor…" />
+        </>
       )}
     >
-      {loading && <SkeletonTable rows={4} label="Loading…" />}
+      {loading && <SkeletonTable rows={3} label="Loading vendors…" />}
       {error && <p className="error">{error}</p>}
-      {!loading && !error && vendors.length === 0 && (
-        <p className="muted">No vendors yet. Add the first one above.</p>
-      )}
-      {!loading && vendors.length > 0 && (
-        <table className="settings-table">
-          <thead>
-            <tr>
-              <th className="st-code">Code</th>
-              <th>Name</th>
-              <th className="st-num">Trainers</th>
-              <th className="st-num">Sessions</th>
-              <th className="st-status">Created</th>
-              <th className="st-actions" />
-            </tr>
-          </thead>
-          <tbody>
-            {vendors.map(v => (
-              <Fragment key={v.id}>
-              <tr>
-                <td className="st-code st-mono">{v.code}</td>
-                <td>
-                  {editingId === v.id ? (
-                    <NameEditor
-                      value={editingName}
-                      onChange={setEditingName}
-                      onSave={() => saveEdit(v.id)}
-                      onCancel={cancelEdit}
-                    />
-                  ) : v.name}
-                </td>
-                <td className="st-num">{v.trainer_count}</td>
-                {/* The count is also the way in to this vendor's sessions —
-                    otherwise that page is reachable only through search. */}
-                <td className="st-num">
+      {!loading && !error && (
+        <SettingsList columns={COLS} head={['Code', 'Name', 'People and sessions', 'Since', '']}>
+          {shown.length === 0 && <ListEmpty>{vendors.length ? 'Nothing matches.' : 'No vendors yet. Add the first one.'}</ListEmpty>}
+          {shown.map(v => (
+            <Fragment key={v.id}>
+              <ListRow>
+                <span className="stl-code">{v.code}</span>
+                <span className="stl-name">{v.name}</span>
+                <span className="stl-uses">
+                  <b>{plural(v.trainer_count || 0, 'trainer')}</b>
+                  {' · '}
                   {v.session_count > 0
-                    ? <Link to={`/trainer/vendors/${v.id}/sessions`}>{v.session_count}</Link>
-                    : v.session_count}
-                </td>
-                <td className="st-status">{new Date(v.created_at).toLocaleDateString()}</td>
-                <td className="st-actions">
-                  {editingId !== v.id && (
-                    <KebabMenu
-                      label={`Actions for ${v.name}`}
-                      items={[
-                        { label: 'Rename…', glyph: '✎', onClick: () => startEdit(v) },
-                        { separator: true },
-                        { label: 'Delete vendor…', glyph: '✕', danger: true, onClick: () => askDelete(v) },
-                      ]}
-                    />
-                  )}
-                </td>
-              </tr>
+                    ? <Link to={`/trainer/vendors/${v.id}/sessions`}>{plural(v.session_count, 'session')}</Link>
+                    : 'no sessions yet'}
+                </span>
+                <span className="stl-uses is-none">
+                  {new Date(v.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                <span className="stl-actions">
+                  <KebabMenu
+                    label={`Actions for ${v.name}`}
+                    items={[
+                      { label: 'Rename…', glyph: '✎', onClick: () => open('edit', v) },
+                      { separator: true },
+                      { label: 'Delete vendor…', glyph: '✕', danger: true, onClick: () => askDelete(v) },
+                    ]}
+                  />
+                </span>
+              </ListRow>
               {confirmingId === v.id && (
-                <ConfirmRow
-                  colSpan={6}
+                <RowConfirm
                   message={`Delete the vendor "${v.name}" (${v.code})? This cannot be undone.`}
                   confirmLabel="Delete vendor"
                   onConfirm={() => handleDelete(v)}
@@ -179,12 +134,36 @@ export default function VendorsSettings() {
                   busy={confirmBusy}
                 />
               )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+            </Fragment>
+          ))}
+        </SettingsList>
       )}
-      {rowError && <p className="error" style={{ marginTop: '0.75rem' }}>{rowError}</p>}
-    </SettingsCard>
+      {rowError && <p className="error">{rowError}</p>}
+      {panel && (
+        <SlideOver
+          title={panel.mode === 'add' ? 'Add a vendor' : `Rename ${panel.vendor.name}`}
+          sub={panel.mode === 'add' ? 'Add its trainers next, on the Staff tab.' : 'Its code stays the same.'}
+          onClose={() => setPanel(null)}
+          onSubmit={save}
+          submitLabel={panel.mode === 'add' ? 'Add vendor' : 'Save'}
+          busy={busy}
+          error={panelError}
+        >
+          <Field
+            id="st-vendor-code"
+            label="Code"
+            help={panel.mode === 'add' ? '2–12 capitals, digits or underscores. Locked after creation.' : 'Locked after creation.'}
+            error={panel.mode === 'add' && code && !codeOk ? 'Use 2–12 of A–Z, 0–9 or _.' : ''}
+          >
+            <input id="st-vendor-code" className={`form-input stl-mono${panel.mode === 'add' && code && !codeOk ? ' is-bad' : ''}`} value={code}
+              onChange={e => setCode(e.target.value.toUpperCase().slice(0, 12))} disabled={panel.mode !== 'add'} placeholder="ETIHAD" autoComplete="off" required />
+          </Field>
+          <Field id="st-vendor-name" label="Name">
+            <input id="st-vendor-name" className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Etihad Airways" autoComplete="off" required />
+          </Field>
+        </SlideOver>
+      )}
+      {toast.node}
+    </SettingsFrame>
   );
 }
