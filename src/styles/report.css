@@ -400,6 +400,15 @@
   }
   .report-page:last-child { page-break-after: auto; break-after: auto; }
 
+  /* The comments box and footnote sit at the foot of the sheet, where the
+     source form has them, however few rows the table has. The sheet is a
+     column at least one page tall and the foot takes the slack above it.
+     A4 is 297mm less the report's 18mm top and bottom margins = 261mm; a few
+     mm short of that so rounding never pushes the foot onto a blank page.
+     A sheet longer than a page simply ends with the foot. */
+  .ld-report { display: flex; flex-direction: column; min-height: 255mm; }
+  .ld-foot { margin-top: auto; break-inside: avoid; page-break-inside: avoid; }
+
   /* A table split across a page boundary loses its header, so repeat it and
      keep each row whole. */
   .ld-table { page-break-inside: auto; }

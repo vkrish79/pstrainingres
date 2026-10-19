@@ -308,8 +308,11 @@ function GroupReport({ session, reports, passMark, ids, header }) {
         </tbody>
       </table>
 
-      <FacilitatorComments />
-      <ReportFootnote />
+      {/* Kept together and, on paper, pinned to the foot of the sheet. */}
+      <div className="ld-foot">
+        <FacilitatorComments />
+        <ReportFootnote />
+      </div>
     </section>
   );
 }
@@ -412,8 +415,11 @@ function IndividualReport({ session, report, passMark, ids, header }) {
         </tbody>
       </table>
 
-      <FacilitatorComments />
-      <ReportFootnote />
+      {/* Kept together and, on paper, pinned to the foot of the sheet. */}
+      <div className="ld-foot">
+        <FacilitatorComments />
+        <ReportFootnote />
+      </div>
     </section>
   );
 }
