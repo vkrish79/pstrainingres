@@ -280,8 +280,6 @@
 /* A long name wraps inside its cell instead of stretching the table. */
 .ld-table th, .ld-table td { overflow-wrap: break-word; }
 
-.ld-blank-row td { height: 1.55rem; color: var(--muted, #8a8a8a); }
-.ld-blank-row .col-sr { color: var(--muted, #8a8a8a); font-weight: 400; }
 
 .result-pass { color: var(--good-text); font-weight: 700; }
 .result-fail { color: var(--problem); font-weight: 700; }

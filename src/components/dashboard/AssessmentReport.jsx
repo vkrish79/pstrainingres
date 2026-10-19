@@ -250,11 +250,9 @@ export function AssessmentReportView({
 
 // ── L&D Training Report (GRP) ───────────────────────────────────────────────
 function GroupReport({ session, reports, passMark, ids, header }) {
-  // The source document rules 16 rows whether or not they are used, so the
-  // sheet looks the same however many people sat the paper.
-  const MIN_ROWS = 16;
+  // One row per person on this printout. The source document rules 16 rows
+  // whatever the class size; the unused ones are left off.
   const rows = reports;
-  const blanks = Math.max(0, MIN_ROWS - rows.length);
 
   return (
     <section className="report-page ld-report">
@@ -307,14 +305,6 @@ function GroupReport({ session, reports, passMark, ids, header }) {
               </tr>
             );
           })}
-          {/* Ruled but empty, so the printed sheet matches the source form. */}
-          {Array.from({ length: blanks }, (_, i) => (
-            <tr key={`blank-${i}`} className="ld-blank-row">
-              <td className="col-sr">{rows.length + i + 1}</td>
-              <td className="col-staff" /><td /><td className="col-role" />
-              <td className="col-score" /><td className="col-result" />
-            </tr>
-          ))}
         </tbody>
       </table>
 
