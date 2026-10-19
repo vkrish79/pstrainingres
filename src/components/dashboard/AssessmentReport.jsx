@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SkeletonTable } from '../Skeleton.jsx';
 import { useSessionAssessmentResponses } from '../../hooks/useSessionAssessmentResponses.js';
 import { useAssessmentMarks } from '../../hooks/useAssessmentMarks.js';
@@ -71,10 +71,37 @@ export default function AssessmentReport({ sessionId, assessmentId, participants
 // gone (a session slimmed by the retention job). The group sheet needs only
 // scores, so it still prints; the individual sheet, which lists areas of
 // error, is not offered because there is nothing left to list.
+// The report's printed page, set only while the report is on screen.
+//
+// print.css (loaded app-wide) gives every printed page the participant
+// workbook's running header and footer: margin boxes with a hairline gold
+// rule. On the L&D report they printed as two empty gold rules, top and
+// bottom of every sheet. A page rule added here, last in the document, wins
+// over print.css's and switches those boxes off; it is removed again when the
+// report goes, so the workbook print keeps its header and footer.
+const REPORT_PAGE_CSS = `@media print { @page {
+  /* The margins the report has always printed with (print.css). Empty
+     strings rather than none, as print.css does for the cover, so Chrome's
+     own date/URL header cannot fill the boxes. */
+  size: A4 portrait; margin: 18mm 15mm;
+  @top-left { content: ""; border: 0; } @top-center { content: ""; border: 0; } @top-right { content: ""; border: 0; }
+  @bottom-left { content: ""; border: 0; } @bottom-center { content: ""; border: 0; } @bottom-right { content: ""; border: 0; }
+} }`;
+function useReportPage() {
+  useEffect(() => {
+    const el = document.createElement('style');
+    el.setAttribute('data-report-page', '');
+    el.textContent = REPORT_PAGE_CSS;
+    document.head.appendChild(el);
+    return () => el.remove();
+  }, []);
+}
+
 export function AssessmentReportView({
   session, participants, sections, blocks, answers, answerKey, answerPoints, answerModes, marks, guidance = null,
   passMark, loading, error, notice, recorded = null, recordedNote = null, closed = false,
 }) {
+  useReportPage();
   const [scope, setScope] = useState('cohort'); // 'cohort' | 'individual'
   // Participants left OFF this printout, keyed by id. Everyone is in until
   // ticked out, so a fresh tab prints the whole class as it always did.

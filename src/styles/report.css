@@ -442,4 +442,10 @@
   a[href]::after { content: none !important; }
 }
 
-@page { size: A4 portrait; margin: 14mm 12mm; }
+/* The report's page (A4, its margins, and NO running header or footer) is
+   set by AssessmentReportView while it is on screen, not here: print.css
+   gives every page the workbook's running header and footer, each with a
+   hairline gold rule, and an @page written here would be global too, so it
+   would either lose to print.css (the empty gold rules on the report) or
+   leak onto the workbook print. A named page cannot do it either: Chrome
+   ignores `page:` on elements inside the cockpit's flex/grid layout. */
