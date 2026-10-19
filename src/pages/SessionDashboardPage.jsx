@@ -305,7 +305,7 @@ export default function SessionDashboardPage() {
   const { totalFillable, progressFor, presenceFor, onlineCount, liveBySection, isOnline } =
     useRoomPresence({ participants, cursors, answers, blocks, sections });
   // Who's stuck, quietly (D2). Above the early returns: it is a hook.
-  const radar = useStuckRadar({ sessionId: id, cursors, participants, isOnline, enabled: !noWorkbook });
+  const radar = useStuckRadar({ cursors, participants, isOnline, answers, blocks, enabled: !noWorkbook });
 
   async function doDelete(pid) {
     setBusy(true);

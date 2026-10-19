@@ -336,8 +336,17 @@ export default function ParticipantWorkbookPage() {
   // Scroll-spy: which section sits in the viewport's active band. Feeds the
   // trainer's live "On now" column. In single-section mode there's nothing to
   // spy — the selected section is, by definition, the current one.
+  //
+  // Keyed on the exercises being ON SCREEN, not on loading alone. A quiz, a
+  // poll, or the features wait (the early returns below) unmounts them; when
+  // they come back they are new nodes, and an observer attached to the old ones
+  // never fires again. The cursor then froze on its seed, sections[0], for the
+  // rest of the day — five people in one class read as "on" an empty chapter
+  // heading for 5 hours while they answered Exercises 1–3 under it.
+  const exercisesShown = !loading && !error && featuresReady && on.workbook
+    && !(quizRunId && on.quiz) && !(activePoll && on.polls) && !(pollThanks && on.polls);
   useEffect(() => {
-    if (loading) return undefined;
+    if (!exercisesShown) return undefined;
     if (selectedSectionId !== ALL_KEY) {
       setCurrentSectionId(selectedSectionId);
       return undefined;
@@ -363,7 +372,7 @@ export default function ParticipantWorkbookPage() {
     // Seed a value before the first scroll event fires.
     setCurrentSectionId(prev => prev || sections[0]?.id || null);
     return () => observer.disconnect();
-  }, [loading, selectedSectionId, sections]);
+  }, [exercisesShown, selectedSectionId, sections]);
 
 
   // Above the loading gate: once a quiz is running it IS the screen, and a

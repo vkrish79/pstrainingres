@@ -241,7 +241,7 @@ export function CockpitGauges({ stats, total, dropouts, assessment, onOpenAssess
 const OFFLINE_FOLD = 3;
 
 // stuck / stuckGroups — useStuckRadar (D2): on one exercise far longer than the
-//   class usually takes. lost — said "Lost" on an exercise recently (the
+//   class usually goes between saved answers there. lost — said "Lost" on an exercise recently (the
 //   confidence tap). onSpotlight(group) — spotlight an exercise several people
 //   are stuck on. A person appears once: hand first, then stuck, lost, behind,
 //   quiet, offline.
@@ -267,7 +267,7 @@ export function CockpitRail({
         ? `${x.hand.acknowledged_by_name || 'Someone'} is on the way · ${ago(x.hand.raised_at)}`
         : `Asked for help ${ago(x.hand.raised_at)}${x.hand.section_title ? ` · ${x.hand.section_title}` : ''}`,
     })),
-    ...stuckShown.map(p => ({ tone: 'stuck', p, why: `On ${p.sectionTitle} for ${p.minutes} min · most took ${p.usualMinutes}` })),
+    ...stuckShown.map(p => ({ tone: 'stuck', p, why: `No answer on ${p.sectionTitle} for ${p.minutes} min · class saves one every ${p.usualMinutes}` })),
     ...lostShown.map(p => ({ tone: 'lost', p, why: `Said lost on ${p.sectionTitle}${p.note ? ` · “${p.note}”` : ''}` })),
     ...once(behind).map(p => ({ tone: 'bad', p, why: `${pace - p.answered} behind class pace` })),
     ...once(quiet).map(p => ({ tone: 'warn', p, why: p.lastActive ? `No answer or move for ${ago(p.lastActive).replace(' ago', '')}` : 'Online, nothing answered yet' })),
