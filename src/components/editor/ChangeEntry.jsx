@@ -32,6 +32,20 @@ export function formatWhen(iso) {
 
 // A group's identity, matching the key the RPCs use. NULLs are meaningful
 // (an edit whose block could not be mapped), so they are kept, not defaulted.
+// A withdrawal (or a restore) changes config.inactive, which is not wording, so
+// the diff is empty. Say what it was, with the trainer's reason, instead of the
+// generic "changed outside the editable text".
+function withdrawalNote(r) {
+  const was = r.before_config?.inactive === true;
+  const now = r.after_config?.inactive === true;
+  if (!was && now) {
+    const reason = (r.after_config?.inactive_reason || '').trim();
+    return `Withdrawn from this class${reason ? `. Reason: “${reason}”` : ''}. Nothing to adopt into the master.`;
+  }
+  if (was && !now) return 'Withdrawn, then put back for this class. Nothing to adopt into the master.';
+  return null;
+}
+
 export function keyOf(r) {
   return `${r.master_block_id || '-'}|${r.session_id || '-'}|${r.actor_id || '-'}`;
 }
@@ -154,7 +168,11 @@ export default function ChangeEntry({
       {lineError && <p className="error eh-line-error">{lineError}</p>}
 
       {diffs.length === 0 ? (
-        <p className="muted eh-nodiff">Changed outside the editable text.</p>
+        withdrawalNote(r) ? (
+          <p className="eh-nodiff eh-withdrawal">{withdrawalNote(r)}</p>
+        ) : (
+          <p className="muted eh-nodiff">Changed outside the editable text.</p>
+        )
       ) : (
         <ul className="eh-diffs">
           {diffs.map(d => {

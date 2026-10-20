@@ -6,6 +6,9 @@ import Block from '../blocks/Block.jsx';
 import WithdrawQuestion from '../WithdrawQuestion.jsx';
 import { buildQuestions } from '../../lib/assessmentStructure.js';
 import { isWithdrawn, withdrawalOf, setQuestionWithdrawn } from '../../lib/questionWithdrawal.js';
+import { EditableBlock } from '../editor/ContentEditor.jsx';
+import { EditToastProvider } from '../editor/DirectEdit.jsx';
+import { INTERACTIVE_BLOCK_TYPES } from '../../lib/interactiveBlocks.js';
 
 // The session's copy of the assessment, as the trainer sees it — and can WORK.
 //
@@ -24,7 +27,12 @@ import { isWithdrawn, withdrawalOf, setQuestionWithdrawn } from '../../lib/quest
 // session trainer their first write on assessment_blocks — config only, with a
 // trigger refusing anything structural, and every change logged so it appears
 // in Session changes.
-export default function TrainerAssessmentPreview({ assessmentId }) {
+//
+// "✎ Edit wording" turns the paper into the workbook copy's direct editor
+// (EditableBlock), on the same write. Wording only: option text, cards and
+// answer boxes stay locked, because marking compares answers against them.
+// Allowed even while the paper is open — each save is live, as on a workbook.
+export default function TrainerAssessmentPreview({ assessmentId, paperOpen = false, closed = false }) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,6 +45,18 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
   // cohort's results.
   const [demo, setDemo] = useState({});
   const [rowError, setRowError] = useState({});
+  const [editing, setEditing] = useState(false);
+
+  // One block's wording. update() answers 200 with no rows when RLS refuses,
+  // so an empty reply is a refusal, not a save.
+  const saveConfig = useCallback(async (blockId, config) => {
+    const { data, error: e } = await supabase
+      .from('assessment_blocks').update({ config }).eq('id', blockId).select();
+    if (e) return { error: e };
+    if (!data?.length) return { error: new Error('this copy cannot be changed from your login') };
+    setBlocks(prev => prev.map(b => (b.id === blockId ? data[0] : b)));
+    return { data: data[0] };
+  }, []);
 
   const load = useCallback(async () => {
     if (!assessmentId) { setLoading(false); return; }
@@ -149,15 +169,39 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
   ).length;
 
   return (
-    <div className="trainer-assessment-preview">
-      <header className="trainer-assessment-preview-head">
-        <h2 style={{ margin: 0 }}>{assessment.title}</h2>
-        {assessment.description && <p className="muted" style={{ marginTop: '0.25rem' }}>{assessment.description}</p>}
-        <p className="muted" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-          This session's copy. You can withdraw a question from this cohort — it stays in the
-          master for every other session, and what you withdraw is recorded in Session changes.
-        </p>
+    <EditToastProvider>
+    <div className={`trainer-assessment-preview${editing ? ' is-editing' : ''}`}>
+      <header className="trainer-assessment-preview-head tap-head-row">
+        <div className="tap-head-text">
+          <h2 style={{ margin: 0 }}>{assessment.title}</h2>
+          {assessment.description && <p className="muted" style={{ marginTop: '0.25rem' }}>{assessment.description}</p>}
+          <p className="muted" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+            This session's copy. You can withdraw a question from this cohort or fix its wording — the
+            master keeps its own for every other session, and what you change is recorded in Session changes.
+          </p>
+        </div>
+        {!closed && (
+          <button
+            type="button"
+            className={`ghost ${editing ? 'active' : ''}`}
+            onClick={() => setEditing(v => !v)}
+            data-tip={editing ? 'Finish editing and go back to the demo paper' : 'Fix the wording of this class’s paper in place — each save shows to participants straight away'}
+          >
+            {editing ? '✓ Done editing' : '✎ Edit wording'}
+          </button>
+        )}
       </header>
+      {editing && (
+        <div className="tap-edit-banner" role="status">
+          <span>
+            <strong>Editing this class's copy.</strong> Click any wording and type; it saves when you click away.
+            Answer options, cards and answer boxes are locked, because marking compares answers against them.
+          </span>
+          {paperOpen && (
+            <span className="tap-edit-live">The paper is open. Anyone answering sees each save straight away.</span>
+          )}
+        </div>
+      )}
 
       {/* The same two-column shape as the workbook's exercise list, using its
           classes rather than a second set that drifts from them. */}
@@ -246,7 +290,7 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
               {q.heading}
               {q.partCount > 1 && <span className="question-parts-count">{q.partCount} parts</span>}
               <span className="question-withdraw-slot">
-                {qBlocks.length > 0 && (
+                {qBlocks.length > 0 && !editing && (
                   <WithdrawQuestion
                     withdrawn={withdrawn}
                     withdrawal={withdrawalOf(qBlocks)}
@@ -263,14 +307,18 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
                 {partLabelByBlockId[b.id] && (
                   <div className="wb-part-label">{partLabelByBlockId[b.id]}</div>
                 )}
-                {/* A withdrawn question is out of the paper, so it cannot be
-                    demonstrated either — it stays visible but inert. */}
-                <Block
-                  block={b}
-                  value={demo[b.id]}
-                  onChange={v => setDemo(prev => ({ ...prev, [b.id]: v }))}
-                  readOnly={withdrawn}
-                />
+                {editing && EDITABLE_TYPES.has(b.block_type) ? (
+                  <EditableBlock block={b} lockOptions onSave={config => saveConfig(b.id, config)} />
+                ) : (
+                  /* A withdrawn question is out of the paper, so it cannot be
+                     demonstrated either — it stays visible but inert. */
+                  <Block
+                    block={b}
+                    value={demo[b.id]}
+                    onChange={v => setDemo(prev => ({ ...prev, [b.id]: v }))}
+                    readOnly={withdrawn || editing}
+                  />
+                )}
               </div>
             ))}
           </section>
@@ -279,5 +327,9 @@ export default function TrainerAssessmentPreview({ assessmentId }) {
         </div>
       </div>
     </div>
+    </EditToastProvider>
   );
 }
+
+// What EditableBlock knows how to edit; anything else is shown as it is.
+const EDITABLE_TYPES = new Set(['prose', 'field', 'table', ...INTERACTIVE_BLOCK_TYPES]);

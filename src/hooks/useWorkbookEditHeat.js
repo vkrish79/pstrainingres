@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 // How often the field has reworded each part of a master workbook, and how
@@ -95,8 +95,13 @@ export function useAllChanges(enabled = true, limit = 500, kind = 'workbook') {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
+  // Switching Workbooks → Assessments starts a second read while the first is
+  // still out. The workbook read is the slow one, so its reply landed LAST and
+  // put workbook rows under the Assessments tab. Only the newest read may land.
+  const seq = useRef(0);
 
   const load = useCallback(async () => {
+    const mine = ++seq.current;
     if (!enabled) { setRows([]); setLoading(false); return; }
     setLoading(true);
     const isAssessment = kind === 'assessment';
@@ -104,6 +109,7 @@ export function useAllChanges(enabled = true, limit = 500, kind = 'workbook') {
       isAssessment ? 'assessment_changes_all' : 'workbook_changes_all',
       { p_limit: limit },
     );
+    if (mine !== seq.current) return;
     // A missing RPC means the migration has not been applied yet. Say so
     // plainly rather than showing an empty page that looks like "no changes".
     if (e) {

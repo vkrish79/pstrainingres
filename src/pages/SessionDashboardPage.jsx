@@ -104,15 +104,22 @@ export default function SessionDashboardPage() {
 
 
   // A marking link (?mark= / ?mpart=, see ExerciseResponses) opens straight
-  // onto the Assessment tab, where the marking screen lives.
+  // onto the Assessment tab, where the marking screen lives. So does
+  // ?tab=assessment&sub=preview — where the assessment editor sends a class's
+  // copy, since wording is edited there, not in the master editor.
   const [view, setView] = useState(() => {
     try {
       const sp = new URLSearchParams(window.location.search);
-      if (sp.has('mark') || sp.has('mpart')) return 'assessment';
+      if (sp.has('mark') || sp.has('mpart') || sp.get('tab') === 'assessment') return 'assessment';
     } catch { /* no window */ }
     return 'participants';
   }); // 'participants' | 'exercise' | 'practice' | 'assessment' | 'quiz' | 'poll'
-  const [assessmentSubView, setAssessmentSubView] = useState('responses'); // 'responses' | 'preview'
+  const [assessmentSubView, setAssessmentSubView] = useState(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get('sub') === 'preview') return 'preview';
+    } catch { /* no window */ }
+    return 'responses';
+  }); // 'responses' | 'preview'
   const [selectedParticipantId, setSelectedParticipantId] = useState(null);
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);

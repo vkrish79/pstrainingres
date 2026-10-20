@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBusyOverlay } from '../contexts/BusyOverlayContext.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useAssessmentEditor } from '../hooks/useAssessmentEditor.js';
+import { supabase } from '../lib/supabase.js';
 import { useAssessmentDraft, isDraftId } from '../hooks/useAssessmentDraft.js';
 import { useAssessmentAnswerKeys } from '../hooks/useAssessmentAnswerKeys.js';
 import ContentEditorScaffold from '../components/editor/ContentEditorScaffold.jsx';
@@ -16,6 +17,7 @@ import AssessmentPrepPanel from '../components/editor/AssessmentPrepPanel.jsx';
 import AssessmentAnswerKeyPanel from '../components/editor/AssessmentAnswerKeyPanel.jsx';
 import QuestionNav from '../components/editor/QuestionNav.jsx';
 import EditHeatModal from '../components/editor/EditHeatModal.jsx';
+import WorkbookChangesModal from '../components/editor/WorkbookChangesModal.jsx';
 import { useAssessmentEditHeat } from '../hooks/useWorkbookEditHeat.js';
 import { isSuperTrainerOrAbove } from '../lib/roles.js';
 import OrganiseQuestionsPanel from '../components/editor/OrganiseQuestionsPanel.jsx';
@@ -49,6 +51,23 @@ export default function AssessmentEditorPage() {
     deleteAssessment, reload, saves,
   } = useAssessmentEditor(id);
 
+  // A class's own copy is not edited here. This page is the master editor —
+  // add, delete, move, answer keys — and on a copy a cohort may be sitting,
+  // those would change a live paper under them. Send it to its session's
+  // Assessment → Preview, where wording is edited and options stay locked.
+  const isClassCopy = assessment?.is_template === false;
+  useEffect(() => {
+    if (!isClassCopy) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('sessions').select('id').eq('assessment_id', id).limit(1);
+      if (cancelled) return;
+      const sid = data?.[0]?.id;
+      navigate(sid ? `/trainer/sessions/${sid}?tab=assessment&sub=preview` : '/trainer/assessments', { replace: true });
+    })();
+    return () => { cancelled = true; };
+  }, [isClassCopy, id, navigate]);
+
   // Structural edits stage here until Save. Content, title/description and
   // answer keys still write immediately — see hooks/useAssessmentDraft.js for
   // why that line is drawn where it is.
@@ -66,6 +85,7 @@ export default function AssessmentEditorPage() {
   const [withdrawBusy, setWithdrawBusy] = useState(null);
   const [withdrawErr, setWithdrawErr] = useState({});
   const [heatFocus, setHeatFocus] = useState(null); // { sectionId, sectionTitle, blockId, blockLabel }
+  const [showAllChanges, setShowAllChanges] = useState(false);
   // Questions or Scorecard. The Scorecard is a screen of its own — it outgrew
   // the setup slide-over — and the link remembers which one you were on.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -117,7 +137,7 @@ export default function AssessmentEditorPage() {
   // somewhere to put the first block without a separate "add question" step.
   const ensuredSectionRef = useRef(false);
   useEffect(() => {
-    if (loading || error || !assessment) return;
+    if (loading || error || !assessment || isClassCopy) return;
     // Read the SAVED sections, never the draft's.
     //
     // The draft re-seeds itself in an effect, so on the render where loading
@@ -187,7 +207,7 @@ export default function AssessmentEditorPage() {
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  if (loading) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading assessment…" /></>;
+  if (loading || isClassCopy) return <><TopBar /><SkeletonPage body="lines" rows={6} label="Loading assessment…" /></>;
   if (error) return <><TopBar /><main className="page"><p className="error">{error}</p></main></>;
 
   const { questions: qList } = buildQuestions(sections, blocks);
@@ -291,11 +311,7 @@ export default function AssessmentEditorPage() {
             <button
               type="button"
               className="wbe-chip wbe-heat"
-              onClick={() => setHeatFocus({
-                sectionId: [...heatBySection.keys()][0],
-                sectionTitle: 'Session changes',
-                blockId: null,
-              })}
+              onClick={() => setShowAllChanges(true)}
               data-tip="Questions the field has reworded or withdrawn in their own copies"
             >
               <span className={`heat-dot heat-l${openSections > 0 ? 3 : 0}`} aria-hidden />
@@ -520,6 +536,19 @@ export default function AssessmentEditorPage() {
           </div>
         </div>
       </main>
+      {/* Every question's changes at once, from the header chip — the same
+          modal the workbook editor uses. It used to open only the first
+          question with changes, under the title "Session changes". */}
+      {showAllChanges && (
+        <WorkbookChangesModal
+          kind="assessment"
+          workbookId={id}
+          workbookTitle={assessment?.title || 'Untitled assessment'}
+          onClose={() => setShowAllChanges(false)}
+          onResolved={async () => { await refreshHeat(); await reload(); }}
+          onJumpToSection={jumpToQuestion}
+        />
+      )}
       {heatFocus && (
         <EditHeatModal
           kind="assessment"

@@ -6,6 +6,8 @@ import { ImageCell } from '../blocks/WbImage.jsx';
 import RichProseEditor from './RichProseEditor.jsx';
 import { EditToastProvider, InlineProse, InlineText } from './DirectEdit.jsx';
 import { canEditAsText } from '../../lib/proseHtml.js';
+import { isInteractiveBlock } from '../../lib/interactiveBlocks.js';
+import Block from '../blocks/Block.jsx';
 
 // Content-only editor for SESSION-level workbook edits (is_template=false).
 // Renders the workbook like the participant view, and the *authored* text —
@@ -41,14 +43,37 @@ export default function ContentEditor({ sections, blocks, onSaveBlock }) {
 }
 
 // Per-block inline content editor. onSave receives the full new config object.
-// Exported so the trainer copy (TrainerPracticeView) can drop it into its own
-// layout behind an Edit toggle, sharing one editing UI with the editor page.
-export function EditableBlock({ block, onSave }) {
+// Exported so the trainer copy (TrainerPracticeView) and a class's assessment
+// copy (TrainerAssessmentPreview) can drop it into their own layout behind an
+// Edit toggle, sharing one editing UI with the editor page.
+//
+// lockOptions: an assessment marks a choice by comparing the option's TEXT with
+// the answer key (assessmentScoring.js), and trainers cannot edit keys. So in an
+// assessment copy option wording is shown, locked, never typed into.
+export function EditableBlock({ block, onSave, lockOptions = false }) {
   const save = useQueuedConfigSave(block, onSave);
   if (block.block_type === 'prose') return <ProseEdit block={block} save={save} />;
-  if (block.block_type === 'field') return <FieldEdit block={block} save={save} />;
+  if (block.block_type === 'field') return <FieldEdit block={block} save={save} lockOptions={lockOptions} />;
   if (block.block_type === 'table') return <TableEdit block={block} save={save} />;
+  if (isInteractiveBlock(block)) return <InteractiveEdit block={block} save={save} />;
   return null;
+}
+
+// Fill-blank, card sort, match, reorder: the instruction above the cards is
+// wording and is typed into; the cards, blanks and pairs are what the answer
+// key is built from, so they are drawn read-only.
+function InteractiveEdit({ block, save }) {
+  const cfg = block.config || {};
+  return (
+    <div className="wb-field">
+      <div className="wb-label">
+        <InlineText value={cfg.prompt || ''} onSave={v => save(c => ({ ...c, prompt: v }))} placeholder="(instruction)" label="Instruction" />
+      </div>
+      <div className="ce-locked-interactive" data-tip={LOCKED_CARDS_TIP}>
+        <Block block={{ ...block, config: { ...cfg, prompt: '' } }} value={undefined} onChange={() => {}} readOnly />
+      </div>
+    </div>
+  );
 }
 
 // Every save sends the WHOLE config, so two saves in one block must not each
@@ -131,7 +156,7 @@ function ProsePanelEdit({ block, save }) {
   );
 }
 
-function FieldEdit({ block, save }) {
+function FieldEdit({ block, save, lockOptions }) {
   const cfg = block.config || {};
   const { label, input_type, options } = cfg;
   const saveLabel = v => save(c => ({ ...c, label: v }));
@@ -155,7 +180,9 @@ function FieldEdit({ block, save }) {
         {(options || []).map((opt, i) => (
           <div key={i} className="wb-choice ce-choice">
             <input type={input_type === 'choice' ? 'radio' : 'checkbox'} disabled className="ce-locked-control" />
-            <span><InlineText value={opt} onSave={v => saveOpt(i, v)} placeholder="(option)" label="Option" /></span>
+            {lockOptions
+              ? <span className="ce-locked-option" data-tip={LOCKED_OPTION_TIP}>{opt}</span>
+              : <span><InlineText value={opt} onSave={v => saveOpt(i, v)} placeholder="(option)" label="Option" /></span>}
           </div>
         ))}
       </fieldset>
@@ -241,3 +268,5 @@ function TableEdit({ block, save }) {
 }
 
 const LOCKED_TIP = 'Answer box — fixed in a class copy. Change it on the master.';
+const LOCKED_OPTION_TIP = 'Answer option — locked. Answers are marked by matching this exact text against the answer key.';
+const LOCKED_CARDS_TIP = 'Cards and blanks — locked. The answer key is built from them; change them on the master.';

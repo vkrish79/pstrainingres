@@ -99,7 +99,11 @@ export default function SessionAssessmentTab({
         />
       )}
       {assessmentSubView === 'preview' && (
-        <TrainerAssessmentPreview assessmentId={session?.assessment_id} />
+        <TrainerAssessmentPreview
+          assessmentId={session?.assessment_id}
+          paperOpen={!!session?.assessment_unlocked_at}
+          closed={!!session?.closed_at}
+        />
       )}
       {assessmentSubView === 'report' && (
         <AssessmentReport

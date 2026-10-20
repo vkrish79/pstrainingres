@@ -269,7 +269,7 @@ export default function ChangeLogPage() {
                 <span className="eh-pill cl-open-pill">{wb.openCount} open</span>
               )}
               {wb.id && (
-                <Link className="cl-open-link" to={`/trainer/workbooks/${wb.id}`}>
+                <Link className="cl-open-link" to={`/trainer/${isAssessment ? 'assessments' : 'workbooks'}/${wb.id}`}>
                   Open the master →
                 </Link>
               )}

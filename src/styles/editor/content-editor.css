@@ -49,6 +49,12 @@
   cursor: not-allowed;
 }
 .ce-locked-control { cursor: not-allowed; }
+/* Assessment copy: option wording and interactive cards are shown, not typed
+   into — marking is built from them. */
+.ce-locked-option { cursor: not-allowed; }
+.ce-locked-option::after { content: "🔒"; font-size: 0.7rem; margin-left: 0.4rem; opacity: 0.5; }
+.ce-locked-interactive { cursor: not-allowed; opacity: 0.85; }
+.ce-locked-interactive * { pointer-events: none; }
 .ce-choice { display: flex; align-items: center; gap: 0.5rem; margin: 0.3rem 0; }
 
 /* Inline checkbox + label row (e.g. "Make available to vendors"). */

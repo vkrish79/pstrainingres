@@ -1272,6 +1272,17 @@
 }
 .tap-nav-foot-note { margin: 0; font-size: 0.75rem; color: var(--muted); }
 
+/* ✎ Edit wording on the assessment Preview — the class's copy, typed into. */
+.tap-head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.tap-head-text { min-width: 0; flex: 1 1 24rem; }
+.tap-edit-banner {
+  display: grid; gap: 0.25rem; margin: 0 0 1rem; padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-md); background: var(--look-bg); border: 1px solid var(--look-border);
+  color: var(--look-text); font-size: 0.86rem;
+}
+.tap-edit-banner strong { color: var(--text); }
+.tap-edit-live { font-weight: 600; }
+
 /* Smooth-scrolled questions must not land under the sticky app bar. */
 .trainer-assessment-preview .wb-question { scroll-margin-top: 84px; }
 
